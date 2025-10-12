@@ -23,17 +23,14 @@ LISBON_INSTALLATIONS = ["Lisbon_1", "Lisbon_2", "Lisbon_3", "Lisbon_4"]
 
 # Installation to Excel sheet mapping
 INSTALLATION_MAPPING = {
-    'Lisbon_1': ['84071567'],
-    'Lisbon_2': ['84071569'],
-    'Lisbon_3': ['84071570'],
-    'Lisbon_4': ['62032213']
+    "Lisbon_1": ["84071567"],
+    "Lisbon_2": ["84071569"],
+    "Lisbon_3": ["84071570"],
+    "Lisbon_4": ["62032213"],
 }
 
 # Lisbon coordinates for weather API
-LISBON_COORDINATES = {
-    "latitude": 38.7223,
-    "longitude": -9.1393
-}
+LISBON_COORDINATES = {"latitude": 38.7223, "longitude": -9.1393}
 
 # Weather API settings
 WEATHER_API_TIMEOUT = 30  # seconds
@@ -41,20 +38,9 @@ WEATHER_API_RETRY_ATTEMPTS = 3
 
 # Machine Learning settings
 ML_MODELS = {
-    'random_forest': {
-        'n_estimators': 100,
-        'random_state': 42,
-        'max_depth': None
-    },
-    'gradient_boost': {
-        'n_estimators': 100,
-        'random_state': 42,
-        'learning_rate': 0.1
-    },
-    'linear': {
-        'fit_intercept': True,
-        'normalize': False
-    }
+    "random_forest": {"n_estimators": 100, "random_state": 42, "max_depth": None},
+    "gradient_boost": {"n_estimators": 100, "random_state": 42, "learning_rate": 0.1},
+    "linear": {"fit_intercept": True, "normalize": False},
 }
 
 # Model training settings
@@ -64,11 +50,11 @@ RANDOM_STATE = 42
 
 # Ranking system configuration
 RANKING_THRESHOLDS = {
-    1: (0.0, 0.2),    # Poor
-    2: (0.2, 0.4),    # Fair
-    3: (0.4, 0.6),    # Good
-    4: (0.6, 0.8),    # Very Good
-    5: (0.8, float('inf'))  # Excellent
+    1: (0.0, 0.2),  # Poor
+    2: (0.2, 0.4),  # Fair
+    3: (0.4, 0.6),  # Good
+    4: (0.6, 0.8),  # Very Good
+    5: (0.8, float("inf")),  # Excellent
 }
 
 RANKING_COLORS = {
@@ -76,7 +62,7 @@ RANKING_COLORS = {
     2: "#FF8C00",  # Orange
     3: "#FFD700",  # Gold
     4: "#32CD32",  # Green
-    5: "#00AA00"   # Dark Green
+    5: "#00AA00",  # Dark Green
 }
 
 RANKING_DESCRIPTIONS = {
@@ -84,7 +70,7 @@ RANKING_DESCRIPTIONS = {
     2: "Fair (0.2-0.4 kWh/kWp)",
     3: "Good (0.4-0.6 kWh/kWp)",
     4: "Very Good (0.6-0.8 kWh/kWp)",
-    5: "Excellent (≥0.8 kWh/kWp)"
+    5: "Excellent (≥0.8 kWh/kWp)",
 }
 
 # GUI settings
@@ -98,25 +84,21 @@ MAX_FORECAST_DAYS = 14
 
 # Weather features for correlation analysis
 WEATHER_FEATURES = [
-    'temperature_2m (°C)',
-    'relative_humidity_2m (%)', 
-    'dew_point_2m (°C)',
-    'apparent_temperature (°C)',
-    'cloud_cover (%)',
-    'wind_speed_10m (km/h)',
-    'shortwave_radiation (W/m²)'
+    "temperature_2m (°C)",
+    "relative_humidity_2m (%)",
+    "dew_point_2m (°C)",
+    "apparent_temperature (°C)",
+    "cloud_cover (%)",
+    "wind_speed_10m (km/h)",
+    "shortwave_radiation (W/m²)",
 ]
 
 # Energy production features
-ENERGY_FEATURES = [
-    'Produced Energy (kWh)',
-    'Specific Energy (kWh/kWp)',
-    'Ranking'
-]
+ENERGY_FEATURES = ["Produced Energy (kWh)", "Specific Energy (kWh/kWp)", "Ranking"]
 
 # Logging configuration
 LOGGING_LEVEL = "INFO"
-LOGGING_FORMAT = '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+LOGGING_FORMAT = "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
 
 # Application metadata
 APP_NAME = "FilantropiaSolar"
@@ -131,8 +113,8 @@ EXCEL_ENGINE = "openpyxl"
 
 # Seasonal definitions
 SEASONS = {
-    'Winter': [12, 1, 2],
-    'Spring': [3, 4, 5],
-    'Summer': [6, 7, 8],
-    'Autumn': [9, 10, 11]
+    "Winter": [12, 1, 2],
+    "Spring": [3, 4, 5],
+    "Summer": [6, 7, 8],
+    "Autumn": [9, 10, 11],
 }

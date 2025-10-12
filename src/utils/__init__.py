@@ -8,14 +8,14 @@ from .energy_ranking import (
     get_ranking_color,
     calculate_average_ranking,
     get_optimal_hours,
-    generate_ranking_summary
+    generate_ranking_summary,
 )
 
 __all__ = [
-    'calculate_specific_energy_ranking',
-    'get_ranking_description', 
-    'get_ranking_color',
-    'calculate_average_ranking',
-    'get_optimal_hours',
-    'generate_ranking_summary'
+    "calculate_specific_energy_ranking",
+    "get_ranking_description",
+    "get_ranking_color",
+    "calculate_average_ranking",
+    "get_optimal_hours",
+    "generate_ranking_summary",
 ]
