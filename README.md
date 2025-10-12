@@ -429,7 +429,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 For support, questions, or feature requests:
 - **GitHub Issues**: Create an issue on the repository
-- **Email**: [support@filantropia-solar.com](mailto:support@filantropia-solar.com)
+- **Email**: [support@wera.global](mailto:support@wera.global)
 - **Documentation**: Check the `docs/` directory for detailed guides
 
 ## 🙏 Acknowledgments
