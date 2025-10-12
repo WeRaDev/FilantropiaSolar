@@ -1,0 +1,112 @@
+name: Minimal CI/CD Pipeline
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+# Cancel previous runs when new commits are pushed
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  PYTHON_VERSION: "3.11"
+
+jobs:
+  # ============================================
+  # Basic Code Quality Checks (Fast & Reliable)
+  # ============================================
+  quality:
+    name: Code Quality
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: ${{ env.PYTHON_VERSION }}
+        
+    - name: Cache pip dependencies
+      uses: actions/cache@v4
+      with:
+        path: ~/.cache/pip
+        key: ${{ runner.os }}-pip-minimal-${{ hashFiles('requirements-minimal.txt') }}
+        restore-keys: |
+          ${{ runner.os }}-pip-minimal-
+          
+    - name: Install minimal dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install ruff mypy
+        
+    - name: Run Ruff linting (critical errors only)
+      run: |
+        ruff check --output-format=github --select=E9,F63,F7,F82 .
+        
+    - name: Run Ruff formatting check
+      run: |
+        ruff format --check --diff .
+
+  # ============================================
+  # Documentation Build (Fast Check)
+  # ============================================
+  docs:
+    name: Documentation
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: ${{ env.PYTHON_VERSION }}
+        
+    - name: Install documentation dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install mkdocs mkdocs-material
+        
+    - name: Build documentation
+      run: |
+        mkdocs build --strict
+
+  # ============================================
+  # Basic Tests (Essential Only)
+  # ============================================
+  test:
+    name: Basic Tests
+    needs: quality
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: ${{ env.PYTHON_VERSION }}
+        
+    - name: Install test dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install pytest
+        pip install pandas numpy scikit-learn matplotlib requests openpyxl
+        
+    - name: Create test data directory
+      run: |
+        mkdir -p tests/fixtures
+        
+    - name: Run basic import tests
+      run: |
+        pytest tests/unit/test_imports.py -v
