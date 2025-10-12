@@ -1,0 +1,420 @@
+# ==========================================
+# FilantropiaSolar - Comprehensive .gitignore
+# ==========================================
+
+# ==========================================
+# Python
+# ==========================================
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+
+# Distribution / packaging
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# PyInstaller
+*.manifest
+*.spec
+
+# Installer logs
+pip-log.txt
+pip-delete-this-directory.txt
+
+# Unit test / coverage reports
+htmlcov/
+.tox/
+.nox/
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+*.py,cover
+.hypothesis/
+.pytest_cache/
+cover/
+
+# Translations
+*.mo
+*.pot
+
+# Django stuff (if applicable in future)
+*.log
+local_settings.py
+db.sqlite3
+db.sqlite3-journal
+
+# Flask stuff (if applicable in future)
+instance/
+.webassets-cache
+
+# Scrapy stuff (if applicable in future)
+.scrapy
+
+# Sphinx documentation
+docs/_build/
+
+# PyBuilder
+.pybuilder/
+target/
+
+# Jupyter Notebook
+.ipynb_checkpoints
+
+# IPython
+profile_default/
+ipython_config.py
+
+# pyenv
+.python-version
+
+# pipenv
+Pipfile.lock
+
+# poetry
+poetry.lock
+
+# pdm
+.pdm.toml
+.pdm-python
+
+# PEP 582
+__pypackages__/
+
+# Celery stuff (if applicable in future)
+celerybeat-schedule
+celerybeat.pid
+
+# SageMath parsed files
+*.sage.py
+
+# Environments
+.env
+.env.*
+.venv
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+
+# Spyder project settings
+.spyderproject
+.spyproject
+
+# Rope project settings
+.ropeproject
+
+# mkdocs documentation
+site/
+
+# mypy
+.mypy_cache/
+.dmypy.json
+dmypy.json
+
+# Pyre type checker
+.pyre/
+
+# pytype static type analyzer
+.pytype/
+
+# Cython debug symbols
+cython_debug/
+
+# ==========================================
+# IDE and Editors
+# ==========================================
+
+# PyCharm
+.idea/
+*.iws
+*.iml
+*.ipr
+
+# VSCode
+.vscode/
+.history/
+*.vsix
+
+# Sublime Text
+*.sublime-project
+*.sublime-workspace
+
+# Vim
+*.swp
+*.swo
+*~
+.netrwhist
+
+# Emacs
+*~
+\#*\#
+/.emacs.desktop
+/.emacs.desktop.lock
+*.elc
+auto-save-list
+tramp
+.\#*
+
+# Atom
+.atom/
+
+# Eclipse
+.metadata
+bin/
+tmp/
+*.tmp
+*.bak
+*.swp
+*~.nib
+local.properties
+.settings/
+.loadpath
+.recommenders
+
+# ==========================================
+# Operating Systems
+# ==========================================
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+Icon
+._*
+.DocumentRevisions-V100
+.fseventsd
+.Spotlight-V100
+.TemporaryItems
+.Trashes
+.VolumeIcon.icns
+.com.apple.timemachine.donotpresent
+.AppleDB
+.AppleDesktop
+Network Trash Folder
+Temporary Items
+.apdisk
+
+# Windows
+Thumbs.db
+Thumbs.db:encryptable
+ehthumbs.db
+ehthumbs_vista.db
+*.stackdump
+[Dd]esktop.ini
+$RECYCLE.BIN/
+*.cab
+*.msi
+*.msix
+*.msm
+*.msp
+*.lnk
+
+# Linux
+*~
+.fuse_hidden*
+.directory
+.Trash-*
+.nfs*
+
+# ==========================================
+# FilantropiaSolar Specific
+# ==========================================
+
+# Data files (large datasets)
+data/
+!data/.gitkeep
+!data/README.md
+weather_files/
+!weather_files/.gitkeep
+!weather_files/README.md
+
+# Model files (trained ML models)
+models/
+!models/.gitkeep
+!models/README.md
+
+# Log files
+logs/
+*.log
+!logs/.gitkeep
+
+# Export files
+exports/
+!exports/.gitkeep
+!exports/README.md
+
+# Configuration files with sensitive data
+config/local.py
+config/production.py
+secrets.yaml
+secrets.json
+
+# Cache directories
+.cache/
+cache/
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+
+# Backup files
+*.bak
+*.backup
+*~
+
+# Archive directory (development artifacts)
+archive/
+old/
+backup/
+
+# ==========================================
+# Docker
+# ==========================================
+.dockerignore
+
+# ==========================================
+# Version Control
+# ==========================================
+.git/
+.gitattributes
+
+# ==========================================
+# Documentation
+# ==========================================
+docs/build/
+docs/source/_build/
+
+# ==========================================
+# Database
+# ==========================================
+*.db
+*.sqlite
+*.sqlite3
+
+# PostgreSQL
+postgresql/
+
+# ==========================================
+# Monitoring and Logging
+# ==========================================
+monitoring/prometheus/data/
+monitoring/grafana/data/
+
+# ==========================================
+# SSL/TLS Certificates
+# ==========================================
+*.pem
+*.key
+*.crt
+*.cert
+*.pfx
+ssl/
+certs/
+
+# ==========================================
+# Performance and Profiling
+# ==========================================
+*.prof
+profile.txt
+benchmark.json
+.benchmarks/
+
+# Memory profiling
+mprofile_*.dat
+
+# ==========================================
+# Testing
+# ==========================================
+.coverage
+.coverage.*
+htmlcov/
+.pytest_cache/
+.tox/
+.nox/
+
+# Test fixtures
+tests/fixtures/large_files/
+tests/fixtures/generated/
+
+# ==========================================
+# Security
+# ==========================================
+.secrets.baseline
+secrets/
+private_keys/
+
+# ==========================================
+# Backup and Sync
+# ==========================================
+*.sync-conflict-*
+.sync/
+sync/
+
+# Dropbox
+.dropbox
+.dropbox.attr
+.dropbox.cache
+
+# Google Drive
+desktop.ini
+
+# OneDrive
+*.tmp
+
+# ==========================================
+# Miscellaneous
+# ==========================================
+.vagrant/
+Vagrantfile.local
+
+# Terraform
+.terraform/
+*.tfstate
+*.tfstate.*
+.terraform.lock.hcl
+
+# Node.js (if frontend is added later)
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+
+# ==========================================
+# Custom ignore patterns
+# ==========================================
+# Add your custom patterns here
+
+# Large files that shouldn't be committed
+*.csv
+*.xlsx
+*.xls
+!data/sample_*.csv
+!tests/fixtures/*.csv
+
+# Generated files
+generated/
+auto_generated/
+*.generated.*

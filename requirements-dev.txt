@@ -1,0 +1,94 @@
+# FilantropiaSolar - Development Requirements
+# Additional dependencies for development, testing, and code quality
+
+# Include production requirements
+-r requirements.txt
+
+# ========================================
+# Testing Framework
+# ========================================
+pytest==8.1.1
+pytest-cov==4.0.0
+pytest-asyncio==0.23.6
+pytest-mock==3.12.0
+pytest-xdist==3.5.0       # Parallel test execution
+pytest-benchmark==4.0.0   # Performance benchmarking
+hypothesis==6.100.1        # Property-based testing
+factory-boy==3.3.0         # Test data generation
+freezegun==1.4.0           # Time mocking for tests
+
+# ========================================
+# Code Quality & Linting
+# ========================================
+ruff==0.4.4                # Fast Python linter and formatter
+mypy==1.10.0               # Static type checking
+pre-commit==3.7.1          # Pre-commit hooks
+bandit[toml]==1.7.8        # Security vulnerability scanner
+
+# ========================================
+# Documentation
+# ========================================
+mkdocs==1.6.0
+mkdocs-material==9.5.21
+mkdocstrings[python]==0.25.1
+mkdocs-gen-files==0.5.0
+mkdocs-literate-nav==0.6.1
+mkdocs-section-index==0.3.9
+
+# ========================================
+# Jupyter & Interactive Development
+# ========================================
+jupyter==1.0.0
+jupyterlab==4.2.0
+ipykernel==6.29.4
+ipython==8.25.0
+notebook==7.2.0
+
+# ========================================
+# Performance Profiling & Monitoring
+# ========================================
+py-spy==0.3.14            # Sampling profiler
+memory-profiler==0.61.0   # Memory usage profiling
+line-profiler==4.1.3      # Line-by-line profiling
+snakeviz==2.2.0           # cProfile visualization
+
+# ========================================
+# Build & Packaging Tools
+# ========================================
+build==1.2.1              # PEP 517 build frontend
+twine==5.1.0               # Package uploading to PyPI
+hatchling==1.24.2          # Modern build backend
+wheel==0.43.0              # Wheel building support
+
+# ========================================
+# API Development (Optional)
+# ========================================
+fastapi==0.111.0
+uvicorn[standard]==0.30.0
+python-multipart==0.0.9
+websockets==12.0
+
+# ========================================
+# Advanced ML Tools (Optional)
+# ========================================
+xgboost==2.0.3
+lightgbm==4.3.0
+optuna==3.6.1             # Hyperparameter optimization
+shap==0.45.1              # Model explainability
+
+# ========================================
+# Database Development (Optional)
+# ========================================
+sqlalchemy==2.0.30
+asyncpg==0.29.0           # PostgreSQL async driver
+alembic==1.13.1           # Database migrations
+redis==5.0.4
+
+# ========================================
+# Development Utilities
+# ========================================
+invoke==2.2.0             # Task execution
+python-dotenv==1.0.1      # Environment variable management
+click==8.1.7              # CLI development
+tqdm==4.66.4              # Progress bars
+colorama==0.4.6           # Cross-platform colored terminal text

@@ -1,0 +1,313 @@
+[build-system]
+requires = ["hatchling>=1.21.0"]
+build-backend = "hatchling.build"
+
+[project]
+name = "filantropia-solar"
+version = "2.0.0"
+description = "Advanced Solar Energy Analysis Application for Portuguese PV Installations"
+readme = "README.md"
+license = {text = "MIT"}
+requires-python = ">=3.11"
+authors = [
+    {name = "FilantropiaSolar Team", email = "team@filantropia-solar.com"},
+]
+maintainers = [
+    {name = "FilantropiaSolar Team", email = "team@filantropia-solar.com"},
+]
+keywords = [
+    "solar energy",
+    "photovoltaic",
+    "machine learning",
+    "energy prediction",
+    "portugal",
+    "renewable energy",
+    "weather simulation"
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Environment :: Console",
+    "Environment :: Web Environment",
+    "Environment :: MacOS X",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Programming Language :: Python :: 3 :: Only",
+    "Topic :: Scientific/Engineering",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+    "Topic :: Scientific/Engineering :: Atmospheric Science",
+    "Topic :: Utilities",
+    "Typing :: Typed",
+]
+
+# Core dependencies
+dependencies = [
+    # Core Data Science (Latest stable versions)
+    "pandas>=2.2.0,<3.0.0",
+    "numpy>=1.26.0,<2.0.0",
+    "scipy>=1.13.0,<2.0.0",
+    
+    # Machine Learning
+    "scikit-learn>=1.4.0,<2.0.0",
+    "joblib>=1.3.0,<2.0.0",
+    
+    # Visualization
+    "matplotlib>=3.8.0,<4.0.0",
+    "seaborn>=0.13.0,<1.0.0",
+    
+    # Data Processing
+    "openpyxl>=3.1.0,<4.0.0",
+    "python-dateutil>=2.9.0",
+    "pytz>=2024.1",
+    
+    # HTTP and API
+    "requests>=2.31.0,<3.0.0",
+    "aiohttp>=3.9.0,<4.0.0",  # For async HTTP operations
+    
+    # GUI (keeping tkinter support)
+    "Pillow>=10.3.0,<11.0.0",
+    "tkcalendar>=1.6.0,<2.0.0",
+    
+    # Configuration and utilities
+    "pydantic>=2.5.0,<3.0.0",  # For data validation
+    "pydantic-settings>=2.1.0,<3.0.0",  # For settings management
+    "typer>=0.9.0,<1.0.0",  # For CLI
+    "rich>=13.7.0,<14.0.0",  # For beautiful terminal output
+    "loguru>=0.7.0,<1.0.0",  # Better logging
+    
+    # Performance improvements
+    "polars>=0.20.0,<1.0.0",  # Faster DataFrame operations
+    "orjson>=3.9.0,<4.0.0",  # Faster JSON serialization
+]
+
+[project.optional-dependencies]
+# Web API dependencies
+api = [
+    "fastapi>=0.109.0,<1.0.0",
+    "uvicorn[standard]>=0.27.0,<1.0.0",
+    "python-multipart>=0.0.6",  # For file uploads
+    "websockets>=12.0,<13.0",  # WebSocket support
+]
+
+# Advanced ML features
+ml-extra = [
+    "xgboost>=2.0.0,<3.0.0",
+    "lightgbm>=4.3.0,<5.0.0",
+    "optuna>=3.5.0,<4.0.0",  # Hyperparameter optimization
+    "shap>=0.44.0,<1.0.0",   # Model explainability
+]
+
+# Database support
+database = [
+    "sqlalchemy>=2.0.0,<3.0.0",
+    "asyncpg>=0.29.0,<1.0.0",  # PostgreSQL async driver
+    "redis>=5.0.0,<6.0.0",
+]
+
+# Development dependencies
+dev = [
+    # Testing
+    "pytest>=8.0.0,<9.0.0",
+    "pytest-cov>=4.0.0,<5.0.0",
+    "pytest-asyncio>=0.23.0,<1.0.0",
+    "pytest-mock>=3.12.0,<4.0.0",
+    "pytest-xdist>=3.5.0,<4.0.0",  # Parallel testing
+    "hypothesis>=6.96.0,<7.0.0",   # Property-based testing
+    "factory-boy>=3.3.0,<4.0.0",   # Test data generation
+    "freezegun>=1.4.0,<2.0.0",     # Time mocking
+    
+    # Code quality
+    "ruff>=0.2.0,<1.0.0",           # Fast linter & formatter
+    "mypy>=1.8.0,<2.0.0",           # Type checking
+    "pre-commit>=3.6.0,<4.0.0",    # Pre-commit hooks
+    "bandit[toml]>=1.7.0,<2.0.0",  # Security linting
+    
+    # Documentation
+    "mkdocs>=1.5.0,<2.0.0",
+    "mkdocs-material>=9.5.0,<10.0.0",
+    "mkdocstrings[python]>=0.24.0,<1.0.0",
+    
+    # Jupyter support
+    "jupyter>=1.0.0,<2.0.0",
+    "ipykernel>=6.29.0,<7.0.0",
+    "jupyterlab>=4.1.0,<5.0.0",
+    
+    # Performance profiling
+    "py-spy>=0.3.14",
+    "memory-profiler>=0.61.0",
+    "line-profiler>=4.1.0",
+]
+
+# All optional dependencies
+all = [
+    "filantropia-solar[api,ml-extra,database]"
+]
+
+[project.urls]
+Homepage = "https://github.com/your-org/filantropia-solar"
+Documentation = "https://filantropia-solar.readthedocs.io"
+Repository = "https://github.com/your-org/filantropia-solar.git"
+"Bug Tracker" = "https://github.com/your-org/filantropia-solar/issues"
+Changelog = "https://github.com/your-org/filantropia-solar/blob/main/CHANGELOG.md"
+
+[project.scripts]
+filantropia-solar = "filantropia_solar.cli:app"
+fs-predict = "filantropia_solar.predict:main"
+fs-train = "filantropia_solar.train:main"
+
+[project.gui-scripts]
+filantropia-solar-gui = "filantropia_solar.gui.main:main"
+
+# Hatch build configuration
+[tool.hatch.version]
+path = "src/filantropia_solar/__init__.py"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/filantropia_solar"]
+
+[tool.hatch.build.targets.sdist]
+include = [
+    "src/",
+    "tests/",
+    "docs/",
+    "README.md",
+    "LICENSE",
+    "CHANGELOG.md",
+]
+
+# Ruff configuration (replaces Black, isort, flake8, etc.)
+[tool.ruff]
+target-version = "py311"
+line-length = 88
+select = [
+    "E",   # pycodestyle errors
+    "W",   # pycodestyle warnings
+    "F",   # Pyflakes
+    "I",   # isort
+    "B",   # flake8-bugbear
+    "C4",  # flake8-comprehensions
+    "UP",  # pyupgrade
+    "ARG", # flake8-unused-arguments
+    "SIM", # flake8-simplify
+    "TCH", # flake8-type-checking
+    "PTH", # flake8-use-pathlib
+    "ERA", # flake8-eradicate
+    "PL",  # pylint
+    "RUF", # Ruff-specific rules
+]
+ignore = [
+    "E501",  # line too long, handled by formatter
+    "B008",  # do not perform function calls in argument defaults
+    "PLR0913",  # too many arguments to function call
+    "PLR0911",  # too many return statements
+]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+skip-magic-trailing-comma = false
+line-ending = "auto"
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**/*.py" = ["S101", "PLR2004", "ARG001"]
+"src/**/__init__.py" = ["F401"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["filantropia_solar"]
+force-sort-within-sections = true
+
+# MyPy configuration
+[tool.mypy]
+python_version = "3.11"
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = true
+disallow_incomplete_defs = true
+check_untyped_defs = true
+disallow_untyped_decorators = true
+no_implicit_optional = true
+warn_redundant_casts = true
+warn_unused_ignores = true
+warn_no_return = true
+warn_unreachable = true
+strict_equality = true
+show_error_codes = true
+
+[[tool.mypy.overrides]]
+module = [
+    "matplotlib.*",
+    "seaborn.*",
+    "sklearn.*",
+    "joblib.*",
+    "pandas.*",
+    "numpy.*",
+    "scipy.*",
+    "tkcalendar.*",
+    "polars.*",
+]
+ignore_missing_imports = true
+
+# Pytest configuration
+[tool.pytest.ini_options]
+minversion = "8.0"
+addopts = [
+    "--strict-markers",
+    "--strict-config",
+    "--cov=src/filantropia_solar",
+    "--cov-branch",
+    "--cov-report=term-missing",
+    "--cov-report=html",
+    "--cov-report=xml",
+    "--cov-fail-under=80",
+]
+testpaths = ["tests"]
+filterwarnings = [
+    "error",
+    "ignore::UserWarning",
+    "ignore::DeprecationWarning",
+    "ignore::PendingDeprecationWarning",
+]
+markers = [
+    "slow: marks tests as slow (deselect with '-m \"not slow\"')",
+    "integration: marks tests as integration tests",
+    "unit: marks tests as unit tests",
+    "ml: marks tests that involve machine learning models",
+    "gui: marks tests for GUI components",
+]
+
+# Coverage configuration
+[tool.coverage.run]
+source = ["src"]
+branch = true
+omit = [
+    "*/tests/*",
+    "*/venv/*",
+    "*/__pycache__/*",
+    "*/migrations/*",
+]
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "raise AssertionError",
+    "raise NotImplementedError",
+    "if __name__ == .__main__.:",
+    "if TYPE_CHECKING:",
+    "@abstract",
+]
+
+# Bandit security linting
+[tool.bandit]
+exclude_dirs = ["tests", "venv"]
+skips = ["B101"]  # Skip assert_used test
+
+[tool.bandit.assert_used]
+skips = ["*_test.py", "test_*.py"]
