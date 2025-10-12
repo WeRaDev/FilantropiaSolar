@@ -1,33 +1,39 @@
 # FilantropiaSolar - Development Requirements
-# Additional dependencies for development, testing, and code quality
+# Essential dependencies for development, testing, and code quality
 
-# Include production requirements
--r requirements.txt
+# ========================================
+# Core Dependencies (without scipy/pillow issues)
+# ========================================
+pandas>=2.2.0
+numpy>=1.26.0
+scikit-learn>=1.4.0
+matplotlib>=3.8.0
+requests>=2.31.0
+openpyxl>=3.1.0
+joblib>=1.3.0
 
 # ========================================
 # Testing Framework
 # ========================================
-pytest==8.1.1
-pytest-cov==4.0.0
-pytest-asyncio==0.23.6
-pytest-mock==3.12.0
-pytest-xdist==3.5.0       # Parallel test execution
-pytest-benchmark==4.0.0   # Performance benchmarking
-hypothesis==6.100.1        # Property-based testing
-factory-boy==3.3.0         # Test data generation
-freezegun==1.4.0           # Time mocking for tests
+pytest>=8.0.0
+pytest-cov>=4.0.0
+pytest-benchmark>=4.0.0   # Performance benchmarking
+pytest-timeout>=2.1.0     # Test timeout support
 
 # ========================================
 # Code Quality & Linting
 # ========================================
-ruff==0.4.4                # Fast Python linter and formatter
-mypy==1.10.0               # Static type checking
-pre-commit==3.7.1          # Pre-commit hooks
-bandit[toml]==1.7.8        # Security vulnerability scanner
+ruff>=0.2.0                # Fast Python linter and formatter
+mypy>=1.8.0                # Static type checking
+bandit>=1.7.0              # Security vulnerability scanner
 
 # ========================================
 # Documentation
 # ========================================
+# Documentation
+# ========================================
+mkdocs>=1.5.0
+mkdocs-material>=9.5.0
 mkdocs==1.6.0
 mkdocs-material==9.5.21
 mkdocstrings[python]==0.25.1
