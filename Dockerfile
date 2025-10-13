@@ -194,6 +194,6 @@ USER appuser
 CMD ["python", "-m", "filantropia_solar.cli", "--gpu"]
 
 # ============================================
-# Build arguments and final stage selection
+# Final stage selection (fixed to production for CI builds)
 # ============================================
-FROM ${BUILD_TARGET} as final
+FROM production as final

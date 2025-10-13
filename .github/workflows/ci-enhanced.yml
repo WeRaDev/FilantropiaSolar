@@ -299,8 +299,6 @@ jobs:
         tags: filantropia-solar:test
         cache-from: type=gha
         cache-to: type=gha,mode=max
-        build-args: |
-          BUILD_TARGET=production
         target: final
         
     - name: Run Trivy security scan
