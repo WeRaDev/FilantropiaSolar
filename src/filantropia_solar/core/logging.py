@@ -19,7 +19,7 @@ import sys
 import threading
 import time
 import traceback
-from typing import Any, Optional
+from typing import Any, ClassVar, Optional
 
 from .config import get_settings
 
@@ -48,7 +48,7 @@ class LogContext:
 class ColoredFormatter(logging.Formatter):
     """Colored console formatter for better readability."""
 
-    COLORS = {
+    COLORS: ClassVar[dict[str, str]] = {
         "DEBUG": "\033[36m",  # Cyan
         "INFO": "\033[32m",  # Green
         "WARNING": "\033[33m",  # Yellow
@@ -305,14 +305,19 @@ def setup_logging() -> None:
     logging_manager.setup_logging()
 
 
-def log_performance(operation_name: str) -> Callable:
-    """Decorator for logging function performance."""
+def log_performance(operation_name: str | None = None) -> Callable:
+    """Decorator for logging function performance.
+
+    If `operation_name` is provided, it will be used as the metric name; otherwise
+    the fully qualified function name is used.
+    """
 
     def decorator(func: Callable) -> Callable:
         @functools.wraps(func)
         def wrapper(*args, **kwargs):
             perf_logger = get_performance_logger()
-            with perf_logger.timer(f"{func.__module__}.{func.__name__}"):
+            op_name = operation_name or f"{func.__module__}.{func.__name__}"
+            with perf_logger.timer(op_name):
                 return func(*args, **kwargs)
 
         return wrapper
