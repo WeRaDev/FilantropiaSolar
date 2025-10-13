@@ -226,7 +226,7 @@ class FilantropiaSolarApp:
             self.energy_predictor = EnhancedEnergyPredictor(
                 self.data_processor, self.weather_simulator
             )
-            
+
             # Initialize weather ranking system
             self.weather_ranking_system = WeatherRankingSystem(
                 self.energy_predictor, self.data_processor
@@ -713,7 +713,8 @@ class FilantropiaSolarApp:
 
             # Grid layout: 3 rows, 1 column for the three main charts
             gs = self.figure.add_gridspec(
-                3, 1,
+                3,
+                1,
                 height_ratios=[1, 1, 1],  # Equal height for all 3 charts
                 hspace=0.3,
             )
@@ -765,10 +766,14 @@ class FilantropiaSolarApp:
     def _clear_plots(self):
         """Initialize empty plots with placeholder content."""
         if hasattr(self, "hourly_energy_ax"):
-            axes = [self.hourly_energy_ax, self.hourly_weather_ax, self.daily_overview_ax]
+            axes = [
+                self.hourly_energy_ax,
+                self.hourly_weather_ax,
+                self.daily_overview_ax,
+            ]
             titles = [
                 "1️⃣ Hourly Energy Production (Ranked Bars)",
-                "2️⃣ Hourly Weather Conditions (Temperature, Humidity, Cloud Cover, Wind)", 
+                "2️⃣ Hourly Weather Conditions (Temperature, Humidity, Cloud Cover, Wind)",
                 "3️⃣ Daily Energy & Weather Overview (15-Day Range with Navigation)",
             ]
 
@@ -1134,35 +1139,46 @@ class FilantropiaSolarApp:
 
         try:
             # Clear existing plots
-            for ax in [self.hourly_energy_ax, self.hourly_weather_ax, self.daily_overview_ax]:
+            for ax in [
+                self.hourly_energy_ax,
+                self.hourly_weather_ax,
+                self.daily_overview_ax,
+            ]:
                 ax.clear()
 
             # Extract data
             daily_summary = results["daily_summary"]
             hourly_data = results["hourly_data"]
-            
-            logger.info(f"Chart update - Hourly data columns: {list(hourly_data.columns)}")
+
+            logger.info(
+                f"Chart update - Hourly data columns: {list(hourly_data.columns)}"
+            )
             logger.info(f"Chart update - Daily summary shape: {daily_summary.shape}")
             logger.info(f"Chart update - Hourly data shape: {hourly_data.shape}")
 
             # Get data for currently selected day
             current_date = daily_summary.index[self.current_day_index]
-            target_date = current_date.date() if hasattr(current_date, "date") else current_date
+            target_date = (
+                current_date.date() if hasattr(current_date, "date") else current_date
+            )
 
             # Filter hourly data for the current day
             try:
                 current_day_hourly = hourly_data[hourly_data.index.date == target_date]
             except AttributeError:
                 current_day_hourly = hourly_data[hourly_data.index == target_date]
-                
+
             if current_day_hourly.empty:
                 logger.warning(f"No hourly data found for {target_date}")
                 return
-            
+
             # ===== WEATHER RANKING SYSTEM INTEGRATION =====
-            
+
             # Check if weather ranking system is available
-            if not hasattr(self, 'weather_ranking_system') or self.weather_ranking_system is None:
+            if (
+                not hasattr(self, "weather_ranking_system")
+                or self.weather_ranking_system is None
+            ):
                 logger.error("Weather ranking system not initialized")
                 # Use fallback ranking
                 weather_ranked_hourly = pd.DataFrame()
@@ -1170,104 +1186,152 @@ class FilantropiaSolarApp:
             else:
                 try:
                     # Debug: Check available weather columns
-                    weather_cols = ['temperature_2m', 'relative_humidity_2m', 'cloud_cover', 'wind_speed_10m', 'shortwave_radiation']
-                    available_weather_cols = [col for col in weather_cols if col in hourly_data.columns]
+                    weather_cols = [
+                        "temperature_2m",
+                        "relative_humidity_2m",
+                        "cloud_cover",
+                        "wind_speed_10m",
+                        "shortwave_radiation",
+                    ]
+                    available_weather_cols = [
+                        col for col in weather_cols if col in hourly_data.columns
+                    ]
                     logger.info(f"Available weather columns: {available_weather_cols}")
-                    
+
                     # Get weather rankings for this day
-                    weather_ranked_hourly = self.weather_ranking_system.rank_hourly_weather_conditions(
-                        hourly_data, target_date
+                    weather_ranked_hourly = (
+                        self.weather_ranking_system.rank_hourly_weather_conditions(
+                            hourly_data, target_date
+                        )
                     )
-                    
+
                     # Get daily weather rankings for all days
-                    daily_dates = [d.date() if hasattr(d, "date") else d for d in daily_summary.index]
-                    daily_weather_rankings = self.weather_ranking_system.rank_daily_weather_conditions(
-                        hourly_data, daily_dates
+                    daily_dates = [
+                        d.date() if hasattr(d, "date") else d
+                        for d in daily_summary.index
+                    ]
+                    daily_weather_rankings = (
+                        self.weather_ranking_system.rank_daily_weather_conditions(
+                            hourly_data, daily_dates
+                        )
                     )
-                    
-                    logger.info(f"Weather ranked hourly data shape: {weather_ranked_hourly.shape}")
-                    logger.info(f"Daily weather rankings count: {len(daily_weather_rankings)}")
-                    
+
+                    logger.info(
+                        f"Weather ranked hourly data shape: {weather_ranked_hourly.shape}"
+                    )
+                    logger.info(
+                        f"Daily weather rankings count: {len(daily_weather_rankings)}"
+                    )
+
                 except Exception as e:
                     logger.error(f"Error in weather ranking system: {e}")
                     import traceback
+
                     logger.error(f"Weather ranking traceback: {traceback.format_exc()}")
                     # Use fallback ranking
                     weather_ranked_hourly = pd.DataFrame()
                     daily_weather_rankings = {}
-            
+
             # ===== CREATE THE 3 CHARTS =====
-            logger.info(f"Creating charts for day {self.current_day_index + 1}: {target_date}")
-            
+            logger.info(
+                f"Creating charts for day {self.current_day_index + 1}: {target_date}"
+            )
+
             # Chart 1: Hourly Energy Production (Ranked Bars)
             self._create_hourly_energy_chart(current_day_hourly, target_date)
-            
-            # Chart 2: Hourly Weather Conditions 
+
+            # Chart 2: Hourly Weather Conditions
             self._create_hourly_weather_chart(current_day_hourly, target_date)
-            
+
             # Chart 3: Daily Overview with Moving Red Frame
-            daily_dates = [d.date() if hasattr(d, "date") else d for d in daily_summary.index]
+            daily_dates = [
+                d.date() if hasattr(d, "date") else d for d in daily_summary.index
+            ]
             self._create_daily_overview_chart(daily_summary, hourly_data, daily_dates)
 
             # Refresh canvas
             self.canvas.draw()
 
             # Update day information display
-            current_day_energy = current_day_hourly.get('predicted_total_energy', pd.Series([0]))
+            current_day_energy = current_day_hourly.get(
+                "predicted_total_energy", pd.Series([0])
+            )
             if not current_day_energy.empty:
                 avg_energy = current_day_energy.mean()
                 total_energy = current_day_energy.sum()
                 peak_energy = current_day_energy.max()
-                
+
                 info_text = f"📅 Day {self.current_day_index + 1} of 15: {target_date.strftime('%Y-%m-%d')} | Total: {total_energy:.1f} kWh | Peak: {peak_energy:.1f} kWh | Avg: {avg_energy:.1f} kWh"
             else:
                 info_text = f"📅 Day {self.current_day_index + 1} of 15: {target_date.strftime('%Y-%m-%d')} | No energy data available"
-                
+
             if hasattr(self, "day_info_label"):
                 self.day_info_label.config(text=info_text)
 
         except Exception as e:
             logger.error(f"Error updating charts: {e}")
             import traceback
+
             logger.error(f"Full traceback: {traceback.format_exc()}")
 
             # Show error message in charts
             error_msg = f"Chart update failed: {str(e)}"
-            for ax in [self.hourly_energy_ax, self.hourly_weather_ax, self.daily_overview_ax]:
+            for ax in [
+                self.hourly_energy_ax,
+                self.hourly_weather_ax,
+                self.daily_overview_ax,
+            ]:
                 ax.clear()
                 ax.text(
-                    0.5, 0.5, error_msg,
-                    horizontalalignment="center", verticalalignment="center",
-                    transform=ax.transAxes, fontsize=10, color="red", alpha=0.8,
+                    0.5,
+                    0.5,
+                    error_msg,
+                    horizontalalignment="center",
+                    verticalalignment="center",
+                    transform=ax.transAxes,
+                    fontsize=10,
+                    color="red",
+                    alpha=0.8,
                 )
 
             self._create_weather_color_legend()
             self.canvas.draw()
-    
+
     def _create_hourly_energy_chart(self, current_day_hourly, target_date):
         """Chart 1: Hourly Energy Production with Ranked Bars."""
         try:
             if current_day_hourly.empty:
                 self.hourly_energy_ax.text(
-                    0.5, 0.5, "No energy data\navailable for this day",
-                    horizontalalignment="center", verticalalignment="center",
-                    transform=self.hourly_energy_ax.transAxes, fontsize=12, alpha=0.6,
+                    0.5,
+                    0.5,
+                    "No energy data\navailable for this day",
+                    horizontalalignment="center",
+                    verticalalignment="center",
+                    transform=self.hourly_energy_ax.transAxes,
+                    fontsize=12,
+                    alpha=0.6,
                 )
                 return
-            
+
             # Get energy data
-            energy_col = "predicted_total_energy" if "predicted_total_energy" in current_day_hourly.columns else "Produced Energy (kWh)"
-            hourly_energy = current_day_hourly.get(energy_col, pd.Series([0] * len(current_day_hourly)))
+            energy_col = (
+                "predicted_total_energy"
+                if "predicted_total_energy" in current_day_hourly.columns
+                else "Produced Energy (kWh)"
+            )
+            hourly_energy = current_day_hourly.get(
+                energy_col, pd.Series([0] * len(current_day_hourly))
+            )
             hourly_energy = pd.to_numeric(hourly_energy, errors="coerce").fillna(0)
-            
+
             hours = current_day_hourly.index.hour
-            
+
             # Create energy-based rankings (1-5 scale)
             if len(hourly_energy) > 1:
                 # Calculate percentiles for ranking
                 percentiles = [20, 40, 60, 80]
                 thresholds = [hourly_energy.quantile(p / 100) for p in percentiles]
-                
+
                 energy_rankings = []
                 for energy in hourly_energy:
                     if energy <= thresholds[0]:
@@ -1282,189 +1346,278 @@ class FilantropiaSolarApp:
                         energy_rankings.append(5)  # Excellent
             else:
                 energy_rankings = [3] * len(hourly_energy)
-            
+
             # Color map for energy rankings
             color_map = {
                 1: "#DC143C",  # Poor - Dark Red
                 2: "#FF8C00",  # Below Average - Dark Orange
                 3: "#FFA500",  # Average - Orange
                 4: "#32CD32",  # Good - Lime Green
-                5: "#FFD700"   # Excellent - Gold
+                5: "#FFD700",  # Excellent - Gold
             }
-            
+
             bar_colors = [color_map.get(r, "#3498db") for r in energy_rankings]
-            
+
             # Create bar chart
             bars = self.hourly_energy_ax.bar(
-                hours, hourly_energy, color=bar_colors, alpha=0.8, 
-                edgecolor="black", linewidth=1
+                hours,
+                hourly_energy,
+                color=bar_colors,
+                alpha=0.8,
+                edgecolor="black",
+                linewidth=1,
             )
-            
+
             # Add value labels on bars
             for bar, energy, ranking in zip(bars, hourly_energy, energy_rankings):
                 if energy > 0.1:  # Only show labels for significant values
                     height = bar.get_height()
                     # Show energy value
                     self.hourly_energy_ax.text(
-                        bar.get_x() + bar.get_width() / 2.0, height + height * 0.02,
-                        f"{energy:.1f}", ha="center", va="bottom",
-                        fontsize=9, fontweight="bold"
+                        bar.get_x() + bar.get_width() / 2.0,
+                        height + height * 0.02,
+                        f"{energy:.1f}",
+                        ha="center",
+                        va="bottom",
+                        fontsize=9,
+                        fontweight="bold",
                     )
                     # Show ranking as stars
                     stars = "⭐" * ranking
                     self.hourly_energy_ax.text(
-                        bar.get_x() + bar.get_width() / 2.0, height + height * 0.08,
-                        stars, ha="center", va="bottom", fontsize=8
+                        bar.get_x() + bar.get_width() / 2.0,
+                        height + height * 0.08,
+                        stars,
+                        ha="center",
+                        va="bottom",
+                        fontsize=8,
                     )
-            
+
             # Chart formatting
             self.hourly_energy_ax.set_title(
                 f"1️⃣ Hourly Energy Production - {target_date.strftime('%Y-%m-%d')}",
-                fontsize=14, fontweight="bold", pad=20
+                fontsize=14,
+                fontweight="bold",
+                pad=20,
             )
             self.hourly_energy_ax.set_xlabel("Hour of Day", fontsize=12)
             self.hourly_energy_ax.set_ylabel("Energy Production (kWh)", fontsize=12)
             self.hourly_energy_ax.grid(True, alpha=0.3)
-            
+
             # Set x-axis limits
             self.hourly_energy_ax.set_xlim(-0.5, 23.5)
             self.hourly_energy_ax.set_xticks(range(0, 24, 2))
-            
+
             # Add top margin for labels
             if hourly_energy.max() > 0:
                 self.hourly_energy_ax.set_ylim(0, hourly_energy.max() * 1.2)
-                
+
             # Add ranking legend
             legend_text = "Ranking: ⭐=Poor, ⭐⭐=Below Avg, ⭐⭐⭐=Average, ⭐⭐⭐⭐=Good, ⭐⭐⭐⭐⭐=Excellent"
             self.hourly_energy_ax.text(
-                0.5, -0.15, legend_text, transform=self.hourly_energy_ax.transAxes,
-                ha="center", va="top", fontsize=10, style="italic"
+                0.5,
+                -0.15,
+                legend_text,
+                transform=self.hourly_energy_ax.transAxes,
+                ha="center",
+                va="top",
+                fontsize=10,
+                style="italic",
             )
-                
+
         except Exception as e:
             logger.error(f"Error creating hourly energy chart: {e}")
             self.hourly_energy_ax.text(
-                0.5, 0.5, f"Error creating chart:\n{str(e)}",
-                horizontalalignment="center", verticalalignment="center",
-                transform=self.hourly_energy_ax.transAxes, fontsize=10, color="red"
+                0.5,
+                0.5,
+                f"Error creating chart:\n{str(e)}",
+                horizontalalignment="center",
+                verticalalignment="center",
+                transform=self.hourly_energy_ax.transAxes,
+                fontsize=10,
+                color="red",
             )
-    
+
     def _create_hourly_weather_chart(self, current_day_hourly, target_date):
         """Chart 2: Hourly Weather Conditions (Temperature, Humidity, Cloud Cover, Wind)."""
         try:
             # Simple and safe approach: just clear the main axes content
             self.hourly_weather_ax.clear()
-            
+
             if current_day_hourly.empty:
                 self.hourly_weather_ax.text(
-                    0.5, 0.5, "No weather data\navailable for this day",
-                    horizontalalignment="center", verticalalignment="center",
-                    transform=self.hourly_weather_ax.transAxes, fontsize=12, alpha=0.6,
+                    0.5,
+                    0.5,
+                    "No weather data\navailable for this day",
+                    horizontalalignment="center",
+                    verticalalignment="center",
+                    transform=self.hourly_weather_ax.transAxes,
+                    fontsize=12,
+                    alpha=0.6,
                 )
                 return
-            
+
             hours = current_day_hourly.index.hour
-            
+
             # Check available weather variables
-            weather_vars = ['temperature_2m', 'relative_humidity_2m', 'cloud_cover', 'wind_speed_10m']
-            available_vars = [var for var in weather_vars if var in current_day_hourly.columns]
-            
+            weather_vars = [
+                "temperature_2m",
+                "relative_humidity_2m",
+                "cloud_cover",
+                "wind_speed_10m",
+            ]
+            available_vars = [
+                var for var in weather_vars if var in current_day_hourly.columns
+            ]
+
             if not available_vars:
                 self.hourly_weather_ax.text(
-                    0.5, 0.5, "No weather variables\nfound in data",
-                    horizontalalignment="center", verticalalignment="center",
-                    transform=self.hourly_weather_ax.transAxes, fontsize=12, alpha=0.6,
+                    0.5,
+                    0.5,
+                    "No weather variables\nfound in data",
+                    horizontalalignment="center",
+                    verticalalignment="center",
+                    transform=self.hourly_weather_ax.transAxes,
+                    fontsize=12,
+                    alpha=0.6,
                 )
                 return
-            
+
             # Create or reuse secondary y-axis to prevent stacking
-            if not hasattr(self, '_weather_ax2') or self._weather_ax2 is None:
+            if not hasattr(self, "_weather_ax2") or self._weather_ax2 is None:
                 self._weather_ax2 = self.hourly_weather_ax.twinx()
             else:
                 self._weather_ax2.clear()
             ax2 = self._weather_ax2
-            
+
             # Plot Temperature (Line, left y-axis)
-            if 'temperature_2m' in available_vars:
-                temp_data = pd.to_numeric(current_day_hourly['temperature_2m'], errors='coerce').fillna(20)
+            if "temperature_2m" in available_vars:
+                temp_data = pd.to_numeric(
+                    current_day_hourly["temperature_2m"], errors="coerce"
+                ).fillna(20)
                 self.hourly_weather_ax.plot(
-                    hours, temp_data, 'ro-', linewidth=3, markersize=6,
-                    label='Temperature (°C)', alpha=0.8
+                    hours,
+                    temp_data,
+                    "ro-",
+                    linewidth=3,
+                    markersize=6,
+                    label="Temperature (°C)",
+                    alpha=0.8,
                 )
-                self.hourly_weather_ax.set_ylabel('Temperature (°C)', color='red', fontsize=12)
-                self.hourly_weather_ax.tick_params(axis='y', labelcolor='red')
-            
+                self.hourly_weather_ax.set_ylabel(
+                    "Temperature (°C)", color="red", fontsize=12
+                )
+                self.hourly_weather_ax.tick_params(axis="y", labelcolor="red")
+
             # Plot Humidity (Line, right y-axis)
-            if 'relative_humidity_2m' in available_vars:
-                humidity_data = pd.to_numeric(current_day_hourly['relative_humidity_2m'], errors='coerce').fillna(50)
+            if "relative_humidity_2m" in available_vars:
+                humidity_data = pd.to_numeric(
+                    current_day_hourly["relative_humidity_2m"], errors="coerce"
+                ).fillna(50)
                 ax2.plot(
-                    hours, humidity_data, 'b^-', linewidth=2, markersize=5,
-                    label='Humidity (%)', alpha=0.7
+                    hours,
+                    humidity_data,
+                    "b^-",
+                    linewidth=2,
+                    markersize=5,
+                    label="Humidity (%)",
+                    alpha=0.7,
                 )
-            
+
             # Plot Cloud Cover (Bars, right y-axis)
-            if 'cloud_cover' in available_vars:
-                cloud_data = pd.to_numeric(current_day_hourly['cloud_cover'], errors='coerce').fillna(50)
+            if "cloud_cover" in available_vars:
+                cloud_data = pd.to_numeric(
+                    current_day_hourly["cloud_cover"], errors="coerce"
+                ).fillna(50)
                 ax2.bar(
-                    hours, cloud_data, alpha=0.4, color='lightgray',
-                    label='Cloud Cover (%)', width=0.8
+                    hours,
+                    cloud_data,
+                    alpha=0.4,
+                    color="lightgray",
+                    label="Cloud Cover (%)",
+                    width=0.8,
                 )
-            
+
             # Plot Wind Speed (Line, right y-axis)
-            if 'wind_speed_10m' in available_vars:
-                wind_data = pd.to_numeric(current_day_hourly['wind_speed_10m'], errors='coerce').fillna(5)
+            if "wind_speed_10m" in available_vars:
+                wind_data = pd.to_numeric(
+                    current_day_hourly["wind_speed_10m"], errors="coerce"
+                ).fillna(5)
                 ax2.plot(
-                    hours, wind_data, 'g*-', linewidth=2, markersize=5,
-                    label='Wind Speed (m/s)', alpha=0.7
+                    hours,
+                    wind_data,
+                    "g*-",
+                    linewidth=2,
+                    markersize=5,
+                    label="Wind Speed (m/s)",
+                    alpha=0.7,
                 )
-            
+
             # Formatting
             self.hourly_weather_ax.set_title(
                 f"2️⃣ Hourly Weather Conditions - {target_date.strftime('%Y-%m-%d')}",
-                fontsize=14, fontweight="bold", pad=20
+                fontsize=14,
+                fontweight="bold",
+                pad=20,
             )
             self.hourly_weather_ax.set_xlabel("Hour of Day", fontsize=12)
-            
+
             # Right y-axis formatting
-            ax2.set_ylabel('Humidity (%) / Cloud Cover (%) / Wind Speed (m/s)', color='blue', fontsize=12)
-            ax2.tick_params(axis='y', labelcolor='blue')
+            ax2.set_ylabel(
+                "Humidity (%) / Cloud Cover (%) / Wind Speed (m/s)",
+                color="blue",
+                fontsize=12,
+            )
+            ax2.tick_params(axis="y", labelcolor="blue")
             ax2.set_ylim(0, 100)  # 0-100% scale for humidity and cloud cover
-            
+
             # Add legends
             lines1, labels1 = self.hourly_weather_ax.get_legend_handles_labels()
             lines2, labels2 = ax2.get_legend_handles_labels()
-            self.hourly_weather_ax.legend(lines1 + lines2, labels1 + labels2, 
-                                         loc='upper left', fontsize=10)
-            
+            self.hourly_weather_ax.legend(
+                lines1 + lines2, labels1 + labels2, loc="upper left", fontsize=10
+            )
+
             # Grid and axis limits
             self.hourly_weather_ax.grid(True, alpha=0.3)
             self.hourly_weather_ax.set_xlim(-0.5, 23.5)
             self.hourly_weather_ax.set_xticks(range(0, 24, 2))
-            
+
         except Exception as e:
             logger.error(f"Error creating hourly weather chart: {e}")
             self.hourly_weather_ax.text(
-                0.5, 0.5, f"Error creating chart:\n{str(e)}",
-                horizontalalignment="center", verticalalignment="center",
-                transform=self.hourly_weather_ax.transAxes, fontsize=10, color="red"
+                0.5,
+                0.5,
+                f"Error creating chart:\n{str(e)}",
+                horizontalalignment="center",
+                verticalalignment="center",
+                transform=self.hourly_weather_ax.transAxes,
+                fontsize=10,
+                color="red",
             )
-    
+
     def _create_daily_overview_chart(self, daily_summary, hourly_data, daily_dates):
         """Chart 3: Daily Energy & Weather Overview with Moving Red Frame."""
         try:
             # Simple and safe approach: just clear the main axes content
             self.daily_overview_ax.clear()
-                
+
             # Get energy data
-            energy_col = "predicted_total_energy" if "predicted_total_energy" in daily_summary.columns else "total_energy"
-            daily_energy = daily_summary.get(energy_col, pd.Series([0] * len(daily_summary)))
+            energy_col = (
+                "predicted_total_energy"
+                if "predicted_total_energy" in daily_summary.columns
+                else "total_energy"
+            )
+            daily_energy = daily_summary.get(
+                energy_col, pd.Series([0] * len(daily_summary))
+            )
             daily_energy = pd.to_numeric(daily_energy, errors="coerce").fillna(0)
-            
+
             # Calculate daily weather averages
             daily_temperatures = []
             daily_humidity = []
             daily_clouds = []
-            
+
             for date in daily_dates:
                 try:
                     # Filter hourly data for this date
@@ -1472,142 +1625,212 @@ class FilantropiaSolarApp:
                         day_data = hourly_data[hourly_data.index.date == date]
                     except AttributeError:
                         day_data = hourly_data[hourly_data.index == date]
-                    
+
                     if not day_data.empty:
-                        temp = pd.to_numeric(day_data.get('temperature_2m', [20]), errors='coerce').mean()
-                        humidity = pd.to_numeric(day_data.get('relative_humidity_2m', [50]), errors='coerce').mean()
-                        clouds = pd.to_numeric(day_data.get('cloud_cover', [50]), errors='coerce').mean()
+                        temp = pd.to_numeric(
+                            day_data.get("temperature_2m", [20]), errors="coerce"
+                        ).mean()
+                        humidity = pd.to_numeric(
+                            day_data.get("relative_humidity_2m", [50]), errors="coerce"
+                        ).mean()
+                        clouds = pd.to_numeric(
+                            day_data.get("cloud_cover", [50]), errors="coerce"
+                        ).mean()
                     else:
                         temp, humidity, clouds = 20, 50, 50
-                        
+
                     daily_temperatures.append(temp)
                     daily_humidity.append(humidity)
                     daily_clouds.append(clouds)
-                    
+
                 except Exception as e:
                     logger.warning(f"Error processing weather for {date}: {e}")
                     daily_temperatures.append(20)
-                    daily_humidity.append(50) 
+                    daily_humidity.append(50)
                     daily_clouds.append(50)
-            
+
             # Create the main energy bars
             x_positions = range(len(daily_dates))
-            
+
             # Color bars based on energy levels (green gradient)
             import matplotlib.pyplot as plt
+
             if len(daily_energy) > 1:
-                normalized_energy = (daily_energy - daily_energy.min()) / (daily_energy.max() - daily_energy.min())
-                bar_colors = [plt.cm.RdYlGn(0.3 + 0.7 * norm) for norm in normalized_energy]
+                normalized_energy = (daily_energy - daily_energy.min()) / (
+                    daily_energy.max() - daily_energy.min()
+                )
+                bar_colors = [
+                    plt.cm.RdYlGn(0.3 + 0.7 * norm) for norm in normalized_energy
+                ]
             else:
-                bar_colors = ['orange'] * len(daily_energy)
-            
+                bar_colors = ["orange"] * len(daily_energy)
+
             bars = self.daily_overview_ax.bar(
-                x_positions, daily_energy, color=bar_colors, alpha=0.7,
-                edgecolor='black', linewidth=1, label='Daily Energy (kWh)'
+                x_positions,
+                daily_energy,
+                color=bar_colors,
+                alpha=0.7,
+                edgecolor="black",
+                linewidth=1,
+                label="Daily Energy (kWh)",
             )
-            
+
             # Add the MOVING RED FRAME around currently selected day
             if 0 <= self.current_day_index < len(bars):
                 selected_bar = bars[self.current_day_index]
-                
+
                 # Highlight selected bar with thick red outline
                 selected_bar.set_edgecolor("red")
                 selected_bar.set_linewidth(5)
-                
+
                 # Create a prominent red frame around the selected bar
                 from matplotlib.patches import Rectangle
+
                 bar_x = selected_bar.get_x()
                 bar_width = selected_bar.get_width()
-                bar_height = selected_bar.get_height() if selected_bar.get_height() > 0 else daily_energy.max() * 0.1
-                
+                bar_height = (
+                    selected_bar.get_height()
+                    if selected_bar.get_height() > 0
+                    else daily_energy.max() * 0.1
+                )
+
                 # Main red frame
                 frame = Rectangle(
-                    (bar_x - 0.15, -bar_height * 0.1), 
-                    bar_width + 0.3, 
+                    (bar_x - 0.15, -bar_height * 0.1),
+                    bar_width + 0.3,
                     bar_height * 1.3,
-                    linewidth=4, edgecolor='red', facecolor='none', 
-                    alpha=0.9, linestyle='-'
+                    linewidth=4,
+                    edgecolor="red",
+                    facecolor="none",
+                    alpha=0.9,
+                    linestyle="-",
                 )
                 self.daily_overview_ax.add_patch(frame)
-                
+
                 # Add "VIEWING" label with arrow
                 self.daily_overview_ax.annotate(
                     f"◀ VIEWING DAY {self.current_day_index + 1}",
-                    xy=(bar_x + bar_width/2, bar_height),
-                    xytext=(0, 30), textcoords='offset points',
-                    ha="center", va="bottom", fontsize=12, fontweight="bold",
-                    color="red", bbox=dict(boxstyle="round,pad=0.3", facecolor="yellow", alpha=0.8),
-                    arrowprops=dict(arrowstyle='->', color='red', lw=2)
+                    xy=(bar_x + bar_width / 2, bar_height),
+                    xytext=(0, 30),
+                    textcoords="offset points",
+                    ha="center",
+                    va="bottom",
+                    fontsize=12,
+                    fontweight="bold",
+                    color="red",
+                    bbox=dict(boxstyle="round,pad=0.3", facecolor="yellow", alpha=0.8),
+                    arrowprops=dict(arrowstyle="->", color="red", lw=2),
                 )
-            
+
             # Create or reuse secondary y-axis for weather data
-            if not hasattr(self, '_daily_ax2') or self._daily_ax2 is None:
+            if not hasattr(self, "_daily_ax2") or self._daily_ax2 is None:
                 self._daily_ax2 = self.daily_overview_ax.twinx()
             else:
                 self._daily_ax2.clear()
             ax2 = self._daily_ax2
-            
+
             # Plot daily average temperature with bright, visible color
-            ax2.plot(x_positions, daily_temperatures, color='darkred', marker='o', linewidth=2, markersize=6,
-                    label='Avg Temperature (°C)', alpha=0.9, markerfacecolor='red', markeredgecolor='darkred')
-            
-            # Plot daily average cloud cover with bright, visible color  
-            ax2.plot(x_positions, daily_clouds, color='darkblue', marker='s', linewidth=2, markersize=5,
-                    label='Avg Cloud Cover (%)', alpha=0.9, markerfacecolor='blue', markeredgecolor='darkblue')
-            
+            ax2.plot(
+                x_positions,
+                daily_temperatures,
+                color="darkred",
+                marker="o",
+                linewidth=2,
+                markersize=6,
+                label="Avg Temperature (°C)",
+                alpha=0.9,
+                markerfacecolor="red",
+                markeredgecolor="darkred",
+            )
+
+            # Plot daily average cloud cover with bright, visible color
+            ax2.plot(
+                x_positions,
+                daily_clouds,
+                color="darkblue",
+                marker="s",
+                linewidth=2,
+                markersize=5,
+                label="Avg Cloud Cover (%)",
+                alpha=0.9,
+                markerfacecolor="blue",
+                markeredgecolor="darkblue",
+            )
+
             # Chart formatting
             self.daily_overview_ax.set_title(
                 f"3️⃣ Daily Energy & Weather Overview (15-Day Analysis Period)",
-                fontsize=14, fontweight="bold", pad=20
+                fontsize=14,
+                fontweight="bold",
+                pad=20,
             )
             self.daily_overview_ax.set_xlabel("Day in Analysis Period", fontsize=12)
-            self.daily_overview_ax.set_ylabel("Daily Energy Production (kWh)", color='blue', fontsize=12)
-            ax2.set_ylabel("Temperature (°C) / Cloud Cover (%)", color='red', fontsize=12)
-            
+            self.daily_overview_ax.set_ylabel(
+                "Daily Energy Production (kWh)", color="blue", fontsize=12
+            )
+            ax2.set_ylabel(
+                "Temperature (°C) / Cloud Cover (%)", color="red", fontsize=12
+            )
+
             # Set x-axis labels
-            date_labels = [f"Day {i+1}\n{d.strftime('%m/%d')}" for i, d in enumerate(daily_dates)]
+            date_labels = [
+                f"Day {i + 1}\n{d.strftime('%m/%d')}" for i, d in enumerate(daily_dates)
+            ]
             self.daily_overview_ax.set_xticks(x_positions)
-            self.daily_overview_ax.set_xticklabels(date_labels, rotation=0, ha='center')
-            
+            self.daily_overview_ax.set_xticklabels(date_labels, rotation=0, ha="center")
+
             # Axis colors
-            self.daily_overview_ax.tick_params(axis='y', labelcolor='blue')
-            ax2.tick_params(axis='y', labelcolor='red')
-            
+            self.daily_overview_ax.tick_params(axis="y", labelcolor="blue")
+            ax2.tick_params(axis="y", labelcolor="red")
+
             # Add legends
             lines1, labels1 = self.daily_overview_ax.get_legend_handles_labels()
             lines2, labels2 = ax2.get_legend_handles_labels()
-            self.daily_overview_ax.legend(lines1 + lines2, labels1 + labels2,
-                                         loc='upper right', fontsize=9)
-            
+            self.daily_overview_ax.legend(
+                lines1 + lines2, labels1 + labels2, loc="upper right", fontsize=9
+            )
+
             self.daily_overview_ax.grid(True, alpha=0.3)
-            
+
             # Add navigation instruction
             instruction_text = "← Previous | → Next | Red frame shows day being analyzed in hourly charts above"
             self.daily_overview_ax.text(
-                0.5, -0.15, instruction_text, transform=self.daily_overview_ax.transAxes,
-                ha="center", va="top", fontsize=11, style="italic",
-                bbox=dict(boxstyle="round,pad=0.5", facecolor="lightblue", alpha=0.3)
+                0.5,
+                -0.15,
+                instruction_text,
+                transform=self.daily_overview_ax.transAxes,
+                ha="center",
+                va="top",
+                fontsize=11,
+                style="italic",
+                bbox=dict(boxstyle="round,pad=0.5", facecolor="lightblue", alpha=0.3),
             )
-            
+
             # Set y-axis limits with margin
             if daily_energy.max() > 0:
-                self.daily_overview_ax.set_ylim(0, daily_energy.max() * 1.4)  # Extra space for labels
-            
+                self.daily_overview_ax.set_ylim(
+                    0, daily_energy.max() * 1.4
+                )  # Extra space for labels
+
             # Ensure last day shows data (fix for zero production issue)
             if len(daily_energy) > 0 and daily_energy.iloc[-1] == 0:
                 logger.warning(f"Last day has zero production: {daily_dates[-1]}")
-                
+
         except Exception as e:
             logger.error(f"Error creating daily overview chart: {e}")
             import traceback
+
             logger.error(f"Traceback: {traceback.format_exc()}")
             self.daily_overview_ax.text(
-                0.5, 0.5, f"Error creating chart:\n{str(e)}",
-                horizontalalignment="center", verticalalignment="center",
-                transform=self.daily_overview_ax.transAxes, fontsize=10, color="red"
+                0.5,
+                0.5,
+                f"Error creating chart:\n{str(e)}",
+                horizontalalignment="center",
+                verticalalignment="center",
+                transform=self.daily_overview_ax.transAxes,
+                fontsize=10,
+                color="red",
             )
-    
-            
 
     def _previous_day(self):
         """Navigate to the previous day in the analysis period."""
@@ -1629,10 +1852,16 @@ class FilantropiaSolarApp:
     def _refresh_day_display(self):
         """Refresh charts and displays for the currently selected day."""
         if self.current_results:
-            logger.info(f"Refreshing day display for day index {self.current_day_index}")
+            logger.info(
+                f"Refreshing day display for day index {self.current_day_index}"
+            )
             logger.info(f"Current results keys: {list(self.current_results.keys())}")
-            logger.info(f"Daily summary shape: {self.current_results['daily_summary'].shape}")
-            logger.info(f"Hourly data shape: {self.current_results['hourly_data'].shape}")
+            logger.info(
+                f"Daily summary shape: {self.current_results['daily_summary'].shape}"
+            )
+            logger.info(
+                f"Hourly data shape: {self.current_results['hourly_data'].shape}"
+            )
             self._update_charts(self.current_results)
         else:
             logger.warning("No current results available for refresh")

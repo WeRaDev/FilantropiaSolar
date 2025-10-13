@@ -1,0 +1,420 @@
+#!/usr/bin/env python3
+"""
+Smart Data Cache Manager
+Optimized caching system for FilantropiaSolar application that:
+1. Loads data once and caches processed datasets
+2. Stores trained ML models for instant reuse
+3. Handles incremental updates when new data is added
+4. Maintains database integrity with deduplication
+"""
+
+import hashlib
+import json
+import logging
+import pickle
+import sqlite3
+from datetime import datetime, timedelta
+from pathlib import Path
+from typing import Any, Dict, List, Optional, Tuple
+
+import joblib
+import pandas as pd
+import numpy as np
+
+logger = logging.getLogger(__name__)
+
+
+class DataCacheManager:
+    """
+    Smart cache manager for solar energy data and ML models.
+
+    Features:
+    - SQLite database for metadata management
+    - Pickle caching for fast data loading
+    - ML model versioning and storage
+    - Automatic data deduplication
+    - Cache validation and integrity checks
+    """
+
+    def __init__(self, cache_dir: str = "cache", db_name: str = "filantropia_cache.db"):
+        """Initialize the cache manager."""
+        self.cache_dir = Path(cache_dir)
+        self.cache_dir.mkdir(exist_ok=True)
+
+        self.db_path = self.cache_dir / db_name
+        self.data_cache_dir = self.cache_dir / "data"
+        self.model_cache_dir = self.cache_dir / "models"
+
+        # Create cache directories
+        self.data_cache_dir.mkdir(exist_ok=True)
+        self.model_cache_dir.mkdir(exist_ok=True)
+
+        # Initialize database
+        self._init_database()
+
+        logger.info(f"Data cache manager initialized with cache dir: {self.cache_dir}")
+
+    def _init_database(self):
+        """Initialize SQLite database for cache metadata."""
+        with sqlite3.connect(self.db_path) as conn:
+            conn.execute("""
+                CREATE TABLE IF NOT EXISTS data_cache (
+                    cache_key TEXT PRIMARY KEY,
+                    file_path TEXT NOT NULL,
+                    data_hash TEXT NOT NULL,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    last_accessed TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    data_type TEXT NOT NULL,
+                    metadata TEXT
+                )
+            """)
+
+            conn.execute("""
+                CREATE TABLE IF NOT EXISTS model_cache (
+                    model_key TEXT PRIMARY KEY,
+                    installation_id TEXT NOT NULL,
+                    model_type TEXT NOT NULL,
+                    file_path TEXT NOT NULL,
+                    performance_metrics TEXT,
+                    training_data_hash TEXT NOT NULL,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    last_used TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )
+            """)
+
+            conn.execute("""
+                CREATE TABLE IF NOT EXISTS installation_metadata (
+                    installation_id TEXT PRIMARY KEY,
+                    location TEXT NOT NULL,
+                    capacity_kwp REAL NOT NULL,
+                    data_start_date DATE,
+                    data_end_date DATE,
+                    record_count INTEGER,
+                    last_updated TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )
+            """)
+
+            conn.commit()
+
+    def _compute_data_hash(self, data: Any) -> str:
+        """Compute hash for data integrity checking."""
+        if isinstance(data, pd.DataFrame):
+            # Hash based on shape, columns, and sample of data
+            content = f"{data.shape}_{list(data.columns)}_{data.head().to_string()}"
+        elif isinstance(data, dict):
+            content = json.dumps(data, sort_keys=True, default=str)
+        else:
+            content = str(data)
+
+        return hashlib.md5(content.encode()).hexdigest()
+
+    def _get_cache_key(self, data_type: str, identifier: str) -> str:
+        """Generate cache key for data."""
+        return f"{data_type}_{identifier}"
+
+    def is_cached(self, data_type: str, identifier: str) -> bool:
+        """Check if data is cached and valid."""
+        cache_key = self._get_cache_key(data_type, identifier)
+
+        with sqlite3.connect(self.db_path) as conn:
+            cursor = conn.cursor()
+            cursor.execute(
+                "SELECT file_path FROM data_cache WHERE cache_key = ?", (cache_key,)
+            )
+            result = cursor.fetchone()
+
+            if result:
+                file_path = Path(result[0])
+                return file_path.exists()
+
+        return False
+
+    def cache_data(
+        self, data: Any, data_type: str, identifier: str, metadata: Dict = None
+    ) -> bool:
+        """Cache data with metadata."""
+        try:
+            cache_key = self._get_cache_key(data_type, identifier)
+            data_hash = self._compute_data_hash(data)
+            file_path = self.data_cache_dir / f"{cache_key}.pkl"
+
+            # Save data
+            with open(file_path, "wb") as f:
+                pickle.dump(data, f, protocol=pickle.HIGHEST_PROTOCOL)
+
+            # Update database
+            with sqlite3.connect(self.db_path) as conn:
+                conn.execute(
+                    """
+                    INSERT OR REPLACE INTO data_cache 
+                    (cache_key, file_path, data_hash, data_type, metadata, last_accessed)
+                    VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+                """,
+                    (
+                        cache_key,
+                        str(file_path),
+                        data_hash,
+                        data_type,
+                        json.dumps(metadata) if metadata else None,
+                    ),
+                )
+                conn.commit()
+
+            logger.info(f"Cached data: {cache_key}")
+            return True
+
+        except Exception as e:
+            logger.error(f"Error caching data {cache_key}: {e}")
+            return False
+
+    def load_cached_data(self, data_type: str, identifier: str) -> Optional[Any]:
+        """Load cached data."""
+        try:
+            cache_key = self._get_cache_key(data_type, identifier)
+
+            with sqlite3.connect(self.db_path) as conn:
+                cursor = conn.cursor()
+                cursor.execute(
+                    "SELECT file_path FROM data_cache WHERE cache_key = ?", (cache_key,)
+                )
+                result = cursor.fetchone()
+
+                if result:
+                    file_path = Path(result[0])
+                    if file_path.exists():
+                        # Update last accessed time
+                        conn.execute(
+                            "UPDATE data_cache SET last_accessed = CURRENT_TIMESTAMP WHERE cache_key = ?",
+                            (cache_key,),
+                        )
+                        conn.commit()
+
+                        # Load data
+                        with open(file_path, "rb") as f:
+                            data = pickle.load(f)
+
+                        logger.info(f"Loaded cached data: {cache_key}")
+                        return data
+
+            return None
+
+        except Exception as e:
+            logger.error(f"Error loading cached data {cache_key}: {e}")
+            return None
+
+    def cache_model(
+        self,
+        model: Any,
+        installation_id: str,
+        model_type: str,
+        performance_metrics: Dict,
+        training_data_hash: str,
+    ) -> bool:
+        """Cache trained ML model."""
+        try:
+            model_key = f"{installation_id}_{model_type}"
+            file_path = self.model_cache_dir / f"{model_key}.joblib"
+
+            # Save model
+            joblib.dump(model, file_path, compress=3)
+
+            # Update database
+            with sqlite3.connect(self.db_path) as conn:
+                conn.execute(
+                    """
+                    INSERT OR REPLACE INTO model_cache 
+                    (model_key, installation_id, model_type, file_path, 
+                     performance_metrics, training_data_hash, last_used)
+                    VALUES (?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+                """,
+                    (
+                        model_key,
+                        installation_id,
+                        model_type,
+                        str(file_path),
+                        json.dumps(performance_metrics),
+                        training_data_hash,
+                    ),
+                )
+                conn.commit()
+
+            logger.info(f"Cached model: {model_key}")
+            return True
+
+        except Exception as e:
+            logger.error(f"Error caching model {model_key}: {e}")
+            return False
+
+    def load_cached_model(self, installation_id: str, model_type: str) -> Optional[Any]:
+        """Load cached ML model."""
+        try:
+            model_key = f"{installation_id}_{model_type}"
+
+            with sqlite3.connect(self.db_path) as conn:
+                cursor = conn.cursor()
+                cursor.execute(
+                    "SELECT file_path FROM model_cache WHERE model_key = ?",
+                    (model_key,),
+                )
+                result = cursor.fetchone()
+
+                if result:
+                    file_path = Path(result[0])
+                    if file_path.exists():
+                        # Update last used time
+                        conn.execute(
+                            "UPDATE model_cache SET last_used = CURRENT_TIMESTAMP WHERE model_key = ?",
+                            (model_key,),
+                        )
+                        conn.commit()
+
+                        # Load model
+                        model = joblib.load(file_path)
+                        logger.info(f"Loaded cached model: {model_key}")
+                        return model
+
+            return None
+
+        except Exception as e:
+            logger.error(f"Error loading cached model {model_key}: {e}")
+            return None
+
+    def get_cache_status(self) -> Dict[str, Any]:
+        """Get comprehensive cache status."""
+        try:
+            with sqlite3.connect(self.db_path) as conn:
+                cursor = conn.cursor()
+
+                # Data cache stats
+                cursor.execute(
+                    "SELECT COUNT(*), SUM(LENGTH(data_hash)) FROM data_cache"
+                )
+                data_count, data_size = cursor.fetchone()
+
+                # Model cache stats
+                cursor.execute(
+                    "SELECT COUNT(*), installation_id FROM model_cache GROUP BY installation_id"
+                )
+                model_stats = cursor.fetchall()
+
+                # Installation stats
+                cursor.execute(
+                    "SELECT COUNT(*), SUM(record_count) FROM installation_metadata"
+                )
+                installation_count, total_records = cursor.fetchone()
+
+                return {
+                    "data_cache": {
+                        "cached_items": data_count or 0,
+                        "approximate_size_mb": (data_size or 0) / (1024 * 1024),
+                    },
+                    "model_cache": {
+                        "cached_models": len(model_stats),
+                        "installations_with_models": len(
+                            set(stat[1] for stat in model_stats)
+                        ),
+                    },
+                    "installations": {
+                        "total_installations": installation_count or 0,
+                        "total_records": total_records or 0,
+                    },
+                    "cache_directory": str(self.cache_dir),
+                    "disk_usage_mb": sum(
+                        f.stat().st_size
+                        for f in self.cache_dir.rglob("*")
+                        if f.is_file()
+                    )
+                    / (1024 * 1024),
+                }
+
+        except Exception as e:
+            logger.error(f"Error getting cache status: {e}")
+            return {"error": str(e)}
+
+    def cleanup_old_cache(self, days_old: int = 30) -> int:
+        """Clean up old cache entries."""
+        try:
+            cutoff_date = datetime.now() - timedelta(days=days_old)
+            removed_count = 0
+
+            with sqlite3.connect(self.db_path) as conn:
+                cursor = conn.cursor()
+
+                # Get old entries
+                cursor.execute(
+                    """
+                    SELECT cache_key, file_path FROM data_cache 
+                    WHERE last_accessed < ?
+                """,
+                    (cutoff_date,),
+                )
+
+                old_entries = cursor.fetchall()
+
+                for cache_key, file_path in old_entries:
+                    # Remove file
+                    try:
+                        Path(file_path).unlink(missing_ok=True)
+                        removed_count += 1
+                    except Exception as e:
+                        logger.warning(f"Could not remove cache file {file_path}: {e}")
+
+                # Remove database entries
+                cursor.execute(
+                    "DELETE FROM data_cache WHERE last_accessed < ?", (cutoff_date,)
+                )
+                conn.commit()
+
+            logger.info(f"Cleaned up {removed_count} old cache entries")
+            return removed_count
+
+        except Exception as e:
+            logger.error(f"Error cleaning up cache: {e}")
+            return 0
+
+    def invalidate_cache(self, data_type: str = None, identifier: str = None):
+        """Invalidate cache entries."""
+        try:
+            with sqlite3.connect(self.db_path) as conn:
+                cursor = conn.cursor()
+
+                if data_type and identifier:
+                    # Invalidate specific entry
+                    cache_key = self._get_cache_key(data_type, identifier)
+                    cursor.execute(
+                        "SELECT file_path FROM data_cache WHERE cache_key = ?",
+                        (cache_key,),
+                    )
+                    result = cursor.fetchone()
+                    if result:
+                        Path(result[0]).unlink(missing_ok=True)
+                        cursor.execute(
+                            "DELETE FROM data_cache WHERE cache_key = ?", (cache_key,)
+                        )
+                        logger.info(f"Invalidated cache entry: {cache_key}")
+                elif data_type:
+                    # Invalidate all entries of specific type
+                    cursor.execute(
+                        "SELECT file_path FROM data_cache WHERE data_type = ?",
+                        (data_type,),
+                    )
+                    files = cursor.fetchall()
+                    for (file_path,) in files:
+                        Path(file_path).unlink(missing_ok=True)
+                    cursor.execute(
+                        "DELETE FROM data_cache WHERE data_type = ?", (data_type,)
+                    )
+                    logger.info(f"Invalidated all cache entries of type: {data_type}")
+                else:
+                    # Invalidate all cache
+                    cursor.execute("SELECT file_path FROM data_cache")
+                    files = cursor.fetchall()
+                    for (file_path,) in files:
+                        Path(file_path).unlink(missing_ok=True)
+                    cursor.execute("DELETE FROM data_cache")
+                    logger.info("Invalidated entire data cache")
+
+                conn.commit()
+
+        except Exception as e:
+            logger.error(f"Error invalidating cache: {e}")

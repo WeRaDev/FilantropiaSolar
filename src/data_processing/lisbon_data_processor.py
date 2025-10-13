@@ -3,13 +3,12 @@ Data Processing Module for Lisbon PV Installations
 Handles data loading, processing, correlation analysis for Lisbon_1 through Lisbon_4
 """
 
-import pandas as pd
-import numpy as np
-from datetime import datetime, timedelta
 import logging
 from pathlib import Path
 import sys
-import os
+
+import numpy as np
+import pandas as pd
 
 # Add project root to path
 project_root = Path(__file__).parent.parent.parent
@@ -30,7 +29,12 @@ class LisbonDataProcessor:
         Args:
             data_path (str): Path to the data directory
         """
-        self.data_path = Path(data_path) if data_path else Path.cwd()
+        if data_path:
+            self.data_path = Path(data_path)
+        else:
+            # Default to project_root/data directory
+            project_root = Path(__file__).parent.parent.parent
+            self.data_path = project_root / "data"
         self.lisbon_installations = ["Lisbon_1", "Lisbon_2", "Lisbon_3", "Lisbon_4"]
         self.correspondence = {
             "Lisbon_1": ["84071567"],

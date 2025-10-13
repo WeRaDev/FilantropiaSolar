@@ -3,8 +3,8 @@ Energy Ranking System for FilantropiaSolar
 Provides ranking functionality based on specific energy values (kWh/kWp)
 """
 
-import pandas as pd
 import numpy as np
+import pandas as pd
 
 
 def calculate_specific_energy_ranking(specific_energy):
@@ -32,9 +32,7 @@ def calculate_specific_energy_ranking(specific_energy):
 
 def _get_single_ranking(value):
     """Helper function to rank a single specific energy value"""
-    if pd.isna(value) or value < 0.1:
-        return 1
-    elif value < 0.2:
+    if pd.isna(value) or value < 0.1 or value < 0.2:
         return 1
     elif value < 0.4:
         return 2

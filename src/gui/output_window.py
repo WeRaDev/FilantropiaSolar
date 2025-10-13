@@ -4,10 +4,10 @@ Output Window
 Displays prediction results in a structured format.
 """
 
+import logging
 import tkinter as tk
 from tkinter import ttk
-from typing import Dict, Any
-import logging
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -103,7 +103,7 @@ class OutputWindow:
         parent.columnconfigure(0, weight=1)
         parent.rowconfigure(0, weight=1)
 
-    def display_results(self, results: Dict[str, Any]):
+    def display_results(self, results: dict[str, Any]):
         """Display prediction results."""
         try:
             self.results = results
@@ -318,7 +318,9 @@ class OutputWindow:
                     energy = row.get("predicted_total_energy", 0)
                     specific = row.get("predicted_specific_energy", 0)
                     ranking = row.get("ranking", 3)
-                    text += f"{str(date):<12} {energy:<12.1f} {specific:<18.2f} {ranking:<8}\n"
+                    text += (
+                        f"{date!s:<12} {energy:<12.1f} {specific:<18.2f} {ranking:<8}\n"
+                    )
 
             # Data source info
             source = self.results["data_source"]
@@ -340,7 +342,7 @@ class OutputWindow:
 
         except Exception as e:
             logger.error(f"Error updating detailed display: {e}")
-            self.detailed_text.insert(tk.END, f"Error displaying results: {str(e)}")
+            self.detailed_text.insert(tk.END, f"Error displaying results: {e!s}")
 
     def _show_no_data(self):
         """Show no data message."""

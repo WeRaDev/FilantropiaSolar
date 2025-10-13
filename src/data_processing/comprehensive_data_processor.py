@@ -6,13 +6,28 @@ combines with weather data from weather_files/ based on locations,
 and handles all available installations across Portugal.
 """
 
-import pandas as pd
-import numpy as np
-from datetime import datetime, timedelta
-from pathlib import Path
-from typing import Dict, List, Tuple, Optional, Any
-import logging
+from __future__ import annotations
+
 from dataclasses import dataclass
+import datetime
+import logging
+from pathlib import Path
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from datetime import datetime
+
+import numpy as np
+import pandas as pd
+
+# Constants for solar calculations
+SOLAR_DECLINATION_AMPLITUDE = 23.45  # degrees
+DAYS_IN_YEAR = 365.25
+SOLAR_DECLINATION_OFFSET = 284
+HOUR_ANGLE_MULTIPLIER = 15  # degrees per hour
+SOLAR_NOON = 12  # hours
+PERCENT_TO_FRACTION = 100  # for percentage calculations
+THEORETICAL_POWER_DIVISOR = 1000  # for power calculations
 
 logger = logging.getLogger(__name__)
 
@@ -27,8 +42,8 @@ class InstallationInfo:
     longitude: float
     installed_power_kwp: float
     connection_power_kwn: float
-    from_date: datetime
-    to_date: datetime
+    from_date: datetime.datetime
+    to_date: datetime.datetime
 
     @property
     def installation_id(self) -> str:
@@ -50,10 +65,10 @@ class ComprehensiveDataProcessor:
         self.weather_dir = Path(weather_dir)
 
         # Data storage
-        self.installations: Dict[str, InstallationInfo] = {}
-        self.energy_data: Dict[str, pd.DataFrame] = {}
-        self.weather_data: Dict[str, pd.DataFrame] = {}
-        self.combined_data: Dict[str, pd.DataFrame] = {}
+        self.installations: dict[str, InstallationInfo] = {}
+        self.energy_data: dict[str, pd.DataFrame] = {}
+        self.weather_data: dict[str, pd.DataFrame] = {}
+        self.combined_data: dict[str, pd.DataFrame] = {}
 
         # Location to weather file mapping
         self.weather_file_mapping = {
@@ -193,9 +208,9 @@ class ComprehensiveDataProcessor:
         """Load weather data for all available locations."""
         try:
             # Get unique locations from installations
-            locations = set(
+            locations = {
                 installation.location for installation in self.installations.values()
-            )
+            }
 
             for location in locations:
                 if location in self.weather_file_mapping:
@@ -312,12 +327,16 @@ class ComprehensiveDataProcessor:
             # Weather-energy interaction features
             if "temperature_2m" in df.columns and "cloud_cover" in df.columns:
                 df["temp_cloud_interaction"] = (
-                    df["temperature_2m"] * (100 - df["cloud_cover"]) / 100
+                    df["temperature_2m"]
+                    * (PERCENT_TO_FRACTION - df["cloud_cover"])
+                    / PERCENT_TO_FRACTION
                 )
 
             if "shortwave_radiation" in df.columns and "cloud_cover" in df.columns:
                 df["radiation_cloud_interaction"] = (
-                    df["shortwave_radiation"] * (100 - df["cloud_cover"]) / 100
+                    df["shortwave_radiation"]
+                    * (PERCENT_TO_FRACTION - df["cloud_cover"])
+                    / PERCENT_TO_FRACTION
                 )
 
             # Power efficiency (actual vs theoretical)
@@ -327,7 +346,9 @@ class ComprehensiveDataProcessor:
             ):
                 # Theoretical maximum power (simplified)
                 df["theoretical_power"] = (
-                    df["shortwave_radiation"] * installation.installed_power_kwp / 1000
+                    df["shortwave_radiation"]
+                    * installation.installed_power_kwp
+                    / THEORETICAL_POWER_DIVISOR
                 )
                 df["power_efficiency"] = np.where(
                     df["theoretical_power"] > 0,
@@ -345,7 +366,7 @@ class ComprehensiveDataProcessor:
             return df
 
     def _compute_solar_elevation(
-        self, timestamps: pd.DatetimeIndex, latitude: float, longitude: float
+        self, timestamps: pd.DatetimeIndex, latitude: float, _longitude: float
     ) -> np.ndarray:
         """Compute approximate solar elevation angle."""
         try:
@@ -354,10 +375,14 @@ class ComprehensiveDataProcessor:
             hour = timestamps.hour + timestamps.minute / 60.0
 
             # Solar declination angle
-            declination = 23.45 * np.sin(np.radians(360 * (284 + day_of_year) / 365.25))
+            declination = SOLAR_DECLINATION_AMPLITUDE * np.sin(
+                np.radians(
+                    360 * (SOLAR_DECLINATION_OFFSET + day_of_year) / DAYS_IN_YEAR
+                )
+            )
 
             # Hour angle
-            hour_angle = 15 * (hour - 12)
+            hour_angle = HOUR_ANGLE_MULTIPLIER * (hour - SOLAR_NOON)
 
             # Solar elevation
             lat_rad = np.radians(latitude)
@@ -375,37 +400,35 @@ class ComprehensiveDataProcessor:
             logger.error(f"Error computing solar elevation: {e}")
             return np.zeros(len(timestamps))
 
-    def get_installation_list(self) -> List[Tuple[str, InstallationInfo]]:
+    def get_installation_list(self) -> list[tuple[str, InstallationInfo]]:
         """Get list of all available installations."""
         return [(id, info) for id, info in self.installations.items()]
 
-    def get_installation_by_id(
-        self, installation_id: str
-    ) -> Optional[InstallationInfo]:
+    def get_installation_by_id(self, installation_id: str) -> InstallationInfo | None:
         """Get installation info by ID."""
         return self.installations.get(installation_id)
 
-    def get_combined_data(self, installation_id: str) -> Optional[pd.DataFrame]:
+    def get_combined_data(self, installation_id: str) -> pd.DataFrame | None:
         """Get combined data for a specific installation."""
         return self.combined_data.get(installation_id)
 
-    def get_energy_data(self, installation_id: str) -> Optional[pd.DataFrame]:
+    def get_energy_data(self, installation_id: str) -> pd.DataFrame | None:
         """Get energy data for a specific installation."""
         return self.energy_data.get(installation_id)
 
-    def get_weather_data(self, location: str) -> Optional[pd.DataFrame]:
+    def get_weather_data(self, location: str) -> pd.DataFrame | None:
         """Get weather data for a specific location."""
         return self.weather_data.get(location)
 
-    def get_locations(self) -> List[str]:
+    def get_locations(self) -> list[str]:
         """Get list of all available locations."""
         return list(
-            set(installation.location for installation in self.installations.values())
+            {installation.location for installation in self.installations.values()}
         )
 
     def get_installations_by_location(
         self, location: str
-    ) -> List[Tuple[str, InstallationInfo]]:
+    ) -> list[tuple[str, InstallationInfo]]:
         """Get all installations for a specific location."""
         return [
             (id, info)
@@ -413,7 +436,7 @@ class ComprehensiveDataProcessor:
             if info.location == location
         ]
 
-    def get_date_range(self) -> Tuple[datetime, datetime]:
+    def get_date_range(self) -> tuple[datetime.datetime, datetime.datetime]:
         """Get the overall date range of available data."""
         if not self.combined_data:
             return None, None
@@ -433,7 +456,7 @@ class ComprehensiveDataProcessor:
 
         return min_date, max_date
 
-    def get_data_summary(self) -> Dict[str, Any]:
+    def get_data_summary(self) -> dict[str, Any]:
         """Get a summary of loaded data."""
         date_min, date_max = self.get_date_range()
 
@@ -452,7 +475,7 @@ class ComprehensiveDataProcessor:
             },
         }
 
-    def is_date_in_historical_range(self, date: datetime) -> bool:
+    def is_date_in_historical_range(self, date: datetime.datetime) -> bool:
         """Check if a date is within the historical data range."""
         date_min, date_max = self.get_date_range()
         if date_min is None or date_max is None:

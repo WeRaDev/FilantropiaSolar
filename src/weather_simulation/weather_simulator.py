@@ -5,16 +5,15 @@ Generates synthetic weather data based on historical patterns for dates not avai
 Inspired by SolarSim methodology for weather simulation.
 """
 
-import pandas as pd
-import numpy as np
 from datetime import datetime, timedelta
-from typing import Dict, List, Tuple, Optional
 import logging
 from pathlib import Path
-from sklearn.preprocessing import StandardScaler
-from sklearn.neighbors import KNeighborsRegressor
-from scipy.stats import norm
 import warnings
+
+import numpy as np
+import pandas as pd
+from sklearn.neighbors import KNeighborsRegressor
+from sklearn.preprocessing import StandardScaler
 
 warnings.filterwarnings("ignore")
 
@@ -195,7 +194,7 @@ class WeatherSimulator:
         location: str,
         start_date: datetime,
         end_date: datetime,
-        reference_date: Optional[datetime] = None,
+        reference_date: datetime | None = None,
     ) -> pd.DataFrame:
         """
         Simulate weather data for a specific location and date range.
@@ -243,7 +242,7 @@ class WeatherSimulator:
 
             if len(similar_data) < 24:  # Need at least one day of data
                 logger.warning(
-                    f"Insufficient similar data for reference date, using general simulation"
+                    "Insufficient similar data for reference date, using general simulation"
                 )
                 return self._simulate_general(location, date_range)
 
@@ -407,8 +406,8 @@ class WeatherSimulator:
         return value
 
     def _compute_derived_parameters(
-        self, weather_point: Dict[str, float]
-    ) -> Dict[str, float]:
+        self, weather_point: dict[str, float]
+    ) -> dict[str, float]:
         """Compute derived weather parameters."""
         # Compute dew point if not present
         if (
@@ -479,7 +478,7 @@ class WeatherSimulator:
 
         return smoothed_df
 
-    def get_available_locations(self) -> List[str]:
+    def get_available_locations(self) -> list[str]:
         """Get list of available locations for simulation."""
         return list(self.models.keys())
 

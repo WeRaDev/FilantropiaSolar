@@ -5,20 +5,21 @@ Handles both historical and simulated weather data for energy production predict
 Supports 15-day prediction periods (7 days past + chosen date + 7 days future).
 """
 
-import pandas as pd
-import numpy as np
 from datetime import datetime, timedelta
-from typing import Dict, List, Tuple, Optional, Any, Union
 import logging
 from pathlib import Path
+from typing import Any
+
+import joblib
+import numpy as np
+import pandas as pd
 
 # Machine learning imports
-from sklearn.ensemble import RandomForestRegressor, GradientBoostingRegressor
+from sklearn.ensemble import GradientBoostingRegressor, RandomForestRegressor
 from sklearn.linear_model import LinearRegression
-from sklearn.preprocessing import StandardScaler
 from sklearn.metrics import mean_absolute_error, r2_score
 from sklearn.model_selection import train_test_split
-import joblib
+from sklearn.preprocessing import StandardScaler
 
 # Local imports
 from ..data_processing.comprehensive_data_processor import (
@@ -27,8 +28,8 @@ from ..data_processing.comprehensive_data_processor import (
 )
 from ..weather_simulation.weather_simulator import (
     WeatherSimulator,
-    simulate_weather_for_period,
 )
+
 # from ..utils.ranking_system import RankingSystem, EnergyRank  # Temporary disabled
 
 logger = logging.getLogger(__name__)
@@ -43,7 +44,7 @@ class EnhancedEnergyPredictor:
     def __init__(
         self,
         data_processor: ComprehensiveDataProcessor,
-        weather_simulator: Optional[WeatherSimulator] = None,
+        weather_simulator: WeatherSimulator | None = None,
     ):
         """Initialize the enhanced energy predictor."""
         self.data_processor = data_processor
@@ -51,12 +52,12 @@ class EnhancedEnergyPredictor:
         # self.ranking_system = RankingSystem()  # Temporary disabled
 
         # Model storage
-        self.models: Dict[
-            str, Dict[str, Any]
+        self.models: dict[
+            str, dict[str, Any]
         ] = {}  # {installation_id: {model_type: model}}
-        self.scalers: Dict[str, StandardScaler] = {}  # {installation_id: scaler}
-        self.model_performance: Dict[
-            str, Dict[str, float]
+        self.scalers: dict[str, StandardScaler] = {}  # {installation_id: scaler}
+        self.model_performance: dict[
+            str, dict[str, float]
         ] = {}  # {installation_id: {metric: value}}
 
         # Model configuration
@@ -172,7 +173,7 @@ class EnhancedEnergyPredictor:
 
     def _prepare_training_data(
         self, data: pd.DataFrame
-    ) -> Tuple[Optional[np.ndarray], Optional[np.ndarray]]:
+    ) -> tuple[np.ndarray | None, np.ndarray | None]:
         """Prepare training data from combined dataset."""
         try:
             # Define feature columns
@@ -229,7 +230,7 @@ class EnhancedEnergyPredictor:
 
     def predict_15day_period(
         self, installation_id: str, center_date: datetime, use_simulation: bool = False
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Predict energy production for a 15-day period around a center date.
 
@@ -337,17 +338,16 @@ class EnhancedEnergyPredictor:
                     location, start_date, end_date, center_date
                 )
                 return simulated_weather
+            # Fallback to available historical data or raise error
+            elif historical_weather is not None and len(historical_period) > 0:
+                logger.warning(
+                    f"Using partial historical data for {location} (coverage: {coverage_ratio:.2%})"
+                )
+                return historical_period
             else:
-                # Fallback to available historical data or raise error
-                if historical_weather is not None and len(historical_period) > 0:
-                    logger.warning(
-                        f"Using partial historical data for {location} (coverage: {coverage_ratio:.2%})"
-                    )
-                    return historical_period
-                else:
-                    raise ValueError(
-                        f"No weather data available for {location} and simulation not enabled"
-                    )
+                raise ValueError(
+                    f"No weather data available for {location} and simulation not enabled"
+                )
 
         except Exception as e:
             logger.error(f"Error getting weather data for period: {e}")
@@ -451,7 +451,7 @@ class EnhancedEnergyPredictor:
             return np.zeros(len(timestamps))
 
     def _make_predictions(
-        self, model_info: Dict[str, Any], scaler: StandardScaler, features: np.ndarray
+        self, model_info: dict[str, Any], scaler: StandardScaler, features: np.ndarray
     ) -> np.ndarray:
         """Make energy production predictions."""
         try:
@@ -475,7 +475,7 @@ class EnhancedEnergyPredictor:
 
     def _assign_rankings(
         self, predictions: np.ndarray, installation_id: str
-    ) -> List[int]:
+    ) -> list[int]:
         """Assign rankings to predictions (simple version)."""
         try:
             # Get historical data for ranking context
@@ -515,11 +515,11 @@ class EnhancedEnergyPredictor:
         self,
         weather_data: pd.DataFrame,
         predictions: np.ndarray,
-        rankings: List[int],
+        rankings: list[int],
         center_date: datetime,
         installation_info: InstallationInfo,
         used_simulation: bool,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Combine all prediction results into a comprehensive output."""
         try:
             # Create results DataFrame
@@ -634,7 +634,7 @@ class EnhancedEnergyPredictor:
             logger.error(f"Error combining prediction results: {e}")
             raise
 
-    def get_available_installations(self) -> List[Tuple[str, InstallationInfo]]:
+    def get_available_installations(self) -> list[tuple[str, InstallationInfo]]:
         """Get list of installations with trained models."""
         return [
             (id, info)
@@ -642,7 +642,7 @@ class EnhancedEnergyPredictor:
             if id in self.models
         ]
 
-    def get_model_performance(self, installation_id: str) -> Optional[Dict[str, float]]:
+    def get_model_performance(self, installation_id: str) -> dict[str, float] | None:
         """Get model performance metrics for an installation."""
         return self.model_performance.get(installation_id)
 

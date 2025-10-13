@@ -5,6 +5,13 @@ A comprehensive solar energy prediction and analysis tool for Portuguese PV inst
 Built with modern Python practices, type safety, and clean architecture principles.
 """
 
+from datetime import datetime
+import os
+from pathlib import Path
+import platform
+import sys
+import warnings
+
 # Package metadata
 __version__ = "2.0.0"
 __author__ = "WeRaDev Team"
@@ -17,16 +24,16 @@ __url__ = "https://github.com/WeRaDev/FilantropiaSolar"
 
 # Initialize logging as early as possible
 try:
-    from .core.logging import setup_logging, get_logger, log_startup
-    from .core.config import get_settings, get_environment
-    
+    from .core.config import get_environment, get_settings
+    from .core.logging import get_logger, log_startup, setup_logging
+
     # Setup logging with current configuration
     setup_logging()
-    
+
     # Log application startup
     logger = get_logger("filantropia_solar")
     settings = get_settings()
-    
+
     log_startup(
         component="FilantropiaSolar",
         version=__version__,
@@ -34,36 +41,40 @@ try:
             "environment": settings.environment.value,
             "debug": settings.debug,
             "log_level": settings.log_level.value,
-        }
+        },
     )
-    
+
     logger.info(f"FilantropiaSolar v{__version__} initialized successfully")
-    
+
 except Exception as e:
     # Fallback logging to stderr if core logging fails
-    import sys
-    print(f"Warning: Failed to initialize FilantropiaSolar logging: {e}", file=sys.stderr)
+    print(
+        f"Warning: Failed to initialize FilantropiaSolar logging: {e}", file=sys.stderr
+    )
 
 # Import core modules with error handling
 try:
     from . import core
     from .core import (
-        get_settings, get_logger, get_config,
-        ValidationError, ConfigurationError, 
-        FilantropiaSolarError, log_performance
+        ConfigurationError,
+        FilantropiaSolarError,
+        ValidationError,
+        get_config,
+        get_logger,
+        get_settings,
+        log_performance,
     )
 except ImportError as e:
-    import warnings
-    warnings.warn(f"Failed to import core modules: {e}")
+    warnings.warn(f"Failed to import core modules: {e}", stacklevel=2)
     core = None
 
 # Import main application modules with graceful degradation
 try:
     from . import data, models, utils
-    _modules_available = ['data', 'models', 'utils']
+
+    _modules_available = ["data", "models", "utils"]
 except ImportError as e:
-    import warnings
-    warnings.warn(f"Some modules failed to import: {e}")
+    warnings.warn(f"Some modules failed to import: {e}", stacklevel=2)
     _modules_available = []
 
 # Optional modules (may not be available in all environments)
@@ -71,49 +82,48 @@ _optional_modules = []
 
 try:
     from . import gui
-    _optional_modules.append('gui')
+
+    _optional_modules.append("gui")
 except ImportError:
     gui = None
 
 try:
     from . import api
-    _optional_modules.append('api')
+
+    _optional_modules.append("api")
 except ImportError:
     api = None
 
 try:
     from . import monitoring
-    _optional_modules.append('monitoring')
+
+    _optional_modules.append("monitoring")
 except ImportError:
     monitoring = None
 
 # Define public API
 __all__ = [
-    # Package metadata
-    "__version__",
+    "ConfigurationError",
+    "FilantropiaSolarError",
+    "ValidationError",
     "__author__",
     "__description__",
     "__license__",
     "__url__",
-    
-    # Core functionality
+    "__version__",
+    "check_dependencies",
     "core",
-    "get_settings",
-    "get_logger",
     "get_config",
-    
-    # Exceptions
-    "ValidationError",
-    "ConfigurationError",
-    "FilantropiaSolarError",
-    
-    # Decorators
+    "get_logger",
+    "get_settings",
+    "get_system_info",
+    "get_version_info",
     "log_performance",
-    
-    # Modules
-    *_modules_available,
-    *_optional_modules,
 ]
+
+# Add available modules to __all__
+__all__.extend(_modules_available)
+__all__.extend(_optional_modules)
 
 # Clean up temporary variables
 del _modules_available, _optional_modules
@@ -122,14 +132,10 @@ del _modules_available, _optional_modules
 def get_version_info():
     """
     Get comprehensive version and system information.
-    
+
     Returns:
         Dict containing version, environment, and system information
     """
-    import sys
-    import platform
-    from datetime import datetime
-    
     info = {
         "version": __version__,
         "python_version": sys.version,
@@ -137,25 +143,27 @@ def get_version_info():
         "architecture": platform.architecture(),
         "timestamp": datetime.utcnow().isoformat(),
     }
-    
+
     # Add configuration information if available
     try:
         settings = get_settings()
-        info.update({
-            "environment": settings.environment.value,
-            "debug_mode": settings.debug,
-            "log_level": settings.log_level.value,
-        })
+        info.update(
+            {
+                "environment": settings.environment.value,
+                "debug_mode": settings.debug,
+                "log_level": settings.log_level.value,
+            }
+        )
     except Exception:
         pass
-    
+
     return info
 
 
 def check_dependencies():
     """
     Check if all required dependencies are available.
-    
+
     Returns:
         Dict containing dependency status information
     """
@@ -174,31 +182,27 @@ def check_dependencies():
             "fastapi": None,
             "uvicorn": None,
             "prometheus_client": None,
-        }
+        },
     }
-    
-    for category, deps in dependencies.items():
+
+    for _category, deps in dependencies.items():
         for dep_name in deps:
             try:
                 __import__(dep_name)
                 deps[dep_name] = "available"
             except ImportError:
                 deps[dep_name] = "missing"
-    
+
     return dependencies
 
 
 def get_system_info():
     """
     Get system and environment information for debugging.
-    
+
     Returns:
         Dict containing system information
     """
-    import sys
-    import platform
-    import os
-    
     return {
         "version_info": get_version_info(),
         "dependencies": check_dependencies(),
@@ -210,8 +214,8 @@ def get_system_info():
             "memory_info": None,  # Could add psutil if available
         },
         "environment": {
-            "cwd": os.getcwd(),
+            "cwd": str(Path.cwd()),
             "user": os.getenv("USER") or os.getenv("USERNAME"),
-            "home": os.path.expanduser("~"),
-        }
+            "home": str(Path("~").expanduser()),
+        },
     }

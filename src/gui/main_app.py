@@ -3,25 +3,25 @@ Main GUI Application for FilantropiaSolar
 Provides three-window interface: Input, Output, and Plot windows
 """
 
+from datetime import datetime
+from pathlib import Path
+import sys
 import tkinter as tk
-from tkinter import ttk, messagebox
-from tkinter import font as tkFont
-import matplotlib.pyplot as plt
+from tkinter import messagebox, ttk
+
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 from matplotlib.figure import Figure
+import matplotlib.pyplot as plt
 import pandas as pd
-from datetime import datetime, timedelta
-import sys
-from pathlib import Path
 
 # Add project root to path
 project_root = Path(__file__).parent.parent.parent
 sys.path.append(str(project_root))
 
 from src.data_processing.lisbon_data_processor import LisbonDataProcessor
-from src.weather_api.weather_client import WeatherClient
 from src.prediction.energy_predictor import EnergyPredictor
-from src.utils.energy_ranking import get_ranking_description, get_ranking_color
+from src.utils.energy_ranking import get_ranking_color, get_ranking_description
+from src.weather_api.weather_client import WeatherClient
 
 
 class FilantropiaSolarApp:
@@ -214,9 +214,9 @@ class FilantropiaSolarApp:
 
         except Exception as e:
             self.status_label.config(
-                text=f"Error loading data: {str(e)}", foreground="red"
+                text=f"Error loading data: {e!s}", foreground="red"
             )
-            messagebox.showerror("Error", f"Failed to load data: {str(e)}")
+            messagebox.showerror("Error", f"Failed to load data: {e!s}")
 
     def generate_prediction(self):
         """Generate energy production prediction"""
@@ -275,8 +275,8 @@ class FilantropiaSolarApp:
             self.status_label.config(text="Prediction completed", foreground="green")
 
         except Exception as e:
-            self.status_label.config(text=f"Error: {str(e)}", foreground="red")
-            messagebox.showerror("Error", f"Failed to generate prediction: {str(e)}")
+            self.status_label.config(text=f"Error: {e!s}", foreground="red")
+            messagebox.showerror("Error", f"Failed to generate prediction: {e!s}")
 
     def update_results_display(self, target_date, installation, capacity):
         """Update the results text display"""
@@ -371,7 +371,7 @@ HOURLY BREAKDOWN
 
         except Exception as e:
             self.results_text.delete(1.0, tk.END)
-            self.results_text.insert(tk.END, f"Error displaying results: {str(e)}")
+            self.results_text.insert(tk.END, f"Error displaying results: {e!s}")
 
     def update_plot(self):
         """Update the energy production plot"""
@@ -428,7 +428,9 @@ HOURLY BREAKDOWN
             ax1.set_title("Solar Energy Production Forecast (±7 days)")
 
             # Add ranking colors to bars
-            for i, (bar, ranking) in enumerate(zip(bars, daily_data["Ranking"])):
+            for i, (bar, ranking) in enumerate(
+                zip(bars, daily_data["Ranking"], strict=False)
+            ):
                 color = get_ranking_color(int(round(ranking)))
                 bar.set_edgecolor(color)
                 bar.set_linewidth(2)
@@ -502,7 +504,7 @@ HOURLY BREAKDOWN
             self.ax.text(
                 0.5,
                 0.5,
-                f"Error creating plot: {str(e)}",
+                f"Error creating plot: {e!s}",
                 transform=self.ax.transAxes,
                 ha="center",
                 va="center",
@@ -526,7 +528,7 @@ HOURLY BREAKDOWN
             messagebox.showinfo("Success", f"Results exported to {filename}")
 
         except Exception as e:
-            messagebox.showerror("Error", f"Failed to export results: {str(e)}")
+            messagebox.showerror("Error", f"Failed to export results: {e!s}")
 
     def run(self):
         """Run the application"""

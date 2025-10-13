@@ -3,18 +3,18 @@ Energy Production Prediction Model for FilantropiaSolar
 Uses machine learning to predict solar energy production based on weather forecasts
 """
 
-import pandas as pd
-import numpy as np
-from datetime import datetime, timedelta
-from sklearn.ensemble import RandomForestRegressor, GradientBoostingRegressor
-from sklearn.linear_model import LinearRegression
-from sklearn.preprocessing import StandardScaler
-from sklearn.metrics import mean_absolute_error, r2_score
-from sklearn.model_selection import train_test_split
-import joblib
 import logging
 from pathlib import Path
 import sys
+
+import joblib
+import numpy as np
+import pandas as pd
+from sklearn.ensemble import GradientBoostingRegressor, RandomForestRegressor
+from sklearn.linear_model import LinearRegression
+from sklearn.metrics import mean_absolute_error, r2_score
+from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import StandardScaler
 
 # Add project root to path
 project_root = Path(__file__).parent.parent.parent

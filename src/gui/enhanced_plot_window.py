@@ -5,16 +5,14 @@ Displays energy production, weather data, and rankings for 15-day periods.
 Includes a day slider for navigating through the prediction period.
 """
 
+import logging
 import tkinter as tk
 from tkinter import ttk
-import matplotlib.pyplot as plt
+from typing import Any
+
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg, NavigationToolbar2Tk
 from matplotlib.figure import Figure
 import pandas as pd
-import numpy as np
-from datetime import datetime, timedelta
-from typing import Dict, List, Tuple, Optional, Any
-import logging
 
 # Local imports
 # from ..utils.ranking_system import EnergyRank  # Not needed for basic functionality
@@ -58,26 +56,28 @@ class EnhancedPlotWindow:
         main_frame.columnconfigure(0, weight=1)
         main_frame.rowconfigure(1, weight=1)
 
-        # Control frame
+        # Control frame with minimal padding
         control_frame = ttk.Frame(main_frame)
-        control_frame.grid(row=0, column=0, sticky=(tk.W, tk.E), pady=(0, 10))
+        control_frame.grid(row=0, column=0, sticky=(tk.W, tk.E), pady=(0, 5))
         control_frame.columnconfigure(1, weight=1)
 
         # Day selection controls
         self._create_day_controls(control_frame)
 
-        # Plot frame
+        # Plot frame - maximize space for plots
         plot_frame = ttk.Frame(main_frame)
-        plot_frame.grid(row=1, column=0, sticky=(tk.W, tk.E, tk.N, tk.S))
+        plot_frame.grid(
+            row=1, column=0, sticky=(tk.W, tk.E, tk.N, tk.S), padx=0, pady=0
+        )
         plot_frame.columnconfigure(0, weight=1)
         plot_frame.rowconfigure(0, weight=1)
 
         # Create matplotlib figure
         self._create_plot_area(plot_frame)
 
-        # Info frame
+        # Info frame with minimal padding
         info_frame = ttk.Frame(main_frame)
-        info_frame.grid(row=2, column=0, sticky=(tk.W, tk.E), pady=(10, 0))
+        info_frame.grid(row=2, column=0, sticky=(tk.W, tk.E), pady=(5, 0))
 
         # Create info display
         self._create_info_display(info_frame)
@@ -132,12 +132,12 @@ class EnhancedPlotWindow:
 
     def _create_plot_area(self, parent):
         """Create the matplotlib plot area."""
-        # Create figure with subplots
-        self.figure = Figure(figsize=(14, 10), dpi=100)
+        # Create figure with appropriate size for GUI
+        self.figure = Figure(figsize=(12, 8), dpi=80, tight_layout=True)
 
-        # Create subplots
+        # Create subplots with better spacing
         gs = self.figure.add_gridspec(
-            3, 2, height_ratios=[2, 1.5, 1], hspace=0.3, wspace=0.3
+            3, 2, height_ratios=[2, 1.5, 1], hspace=0.4, wspace=0.3
         )
 
         # Energy production plot (top, spans both columns)
@@ -152,7 +152,11 @@ class EnhancedPlotWindow:
 
         # Create canvas
         self.canvas = FigureCanvasTkAgg(self.figure, parent)
+
+        # Initialize with empty plots
+        self._setup_empty_plots()
         self.canvas.draw()
+
         self.canvas.get_tk_widget().grid(
             row=0, column=0, sticky=(tk.W, tk.E, tk.N, tk.S)
         )
@@ -162,6 +166,84 @@ class EnhancedPlotWindow:
         toolbar_frame.grid(row=1, column=0, sticky=(tk.W, tk.E))
         self.toolbar = NavigationToolbar2Tk(self.canvas, toolbar_frame)
         self.toolbar.update()
+
+    def _setup_empty_plots(self):
+        """Setup empty plots with placeholder content."""
+        try:
+            # Clear all axes
+            for ax in [
+                self.energy_ax,
+                self.temp_ax,
+                self.radiation_ax,
+                self.ranking_ax,
+            ]:
+                ax.clear()
+
+            # Energy plot placeholder
+            self.energy_ax.text(
+                0.5,
+                0.5,
+                "Energy Production Charts\n\nGenerate a prediction to see\ndaily energy production data",
+                horizontalalignment="center",
+                verticalalignment="center",
+                transform=self.energy_ax.transAxes,
+                fontsize=12,
+                color="gray",
+            )
+            self.energy_ax.set_title("Daily Energy Production (kWh)", fontweight="bold")
+
+            # Temperature plot placeholder
+            self.temp_ax.text(
+                0.5,
+                0.5,
+                "Temperature\nData",
+                horizontalalignment="center",
+                verticalalignment="center",
+                transform=self.temp_ax.transAxes,
+                fontsize=10,
+                color="gray",
+            )
+            self.temp_ax.set_title("Temperature (°C)", fontweight="bold")
+
+            # Radiation plot placeholder
+            self.radiation_ax.text(
+                0.5,
+                0.5,
+                "Solar\nRadiation",
+                horizontalalignment="center",
+                verticalalignment="center",
+                transform=self.radiation_ax.transAxes,
+                fontsize=10,
+                color="gray",
+            )
+            self.radiation_ax.set_title("Solar Radiation (W/m²)", fontweight="bold")
+
+            # Ranking plot placeholder
+            self.ranking_ax.text(
+                0.5,
+                0.5,
+                "Energy Performance Rankings\n\nRankings will appear here after prediction",
+                horizontalalignment="center",
+                verticalalignment="center",
+                transform=self.ranking_ax.transAxes,
+                fontsize=12,
+                color="gray",
+            )
+            self.ranking_ax.set_title(
+                "Daily Energy Rankings (1=Poor, 5=Excellent)", fontweight="bold"
+            )
+
+            # Add grid to all plots
+            for ax in [
+                self.energy_ax,
+                self.temp_ax,
+                self.radiation_ax,
+                self.ranking_ax,
+            ]:
+                ax.grid(True, alpha=0.3)
+
+        except Exception as e:
+            logger.error(f"Error setting up empty plots: {e}")
 
     def _create_info_display(self, parent):
         """Create information display area."""
@@ -248,7 +330,7 @@ class EnhancedPlotWindow:
             value_label.grid(row=i, column=1, sticky=tk.W, pady=2)
             self.source_labels[var_name] = value_label
 
-    def update_prediction_data(self, prediction_results: Dict[str, Any]):
+    def update_prediction_data(self, prediction_results: dict[str, Any]):
         """Update the plot with new prediction results."""
         try:
             self.prediction_results = prediction_results
@@ -299,8 +381,9 @@ class EnhancedPlotWindow:
             # Highlight current day
             self._highlight_current_day()
 
-            # Update canvas
-            self.canvas.draw()
+            # Update canvas and flush events
+            self.canvas.draw_idle()
+            self.canvas.flush_events()
 
         except Exception as e:
             logger.error(f"Error updating plots: {e}")
@@ -327,7 +410,9 @@ class EnhancedPlotWindow:
                 5: "#27ae60",  # Dark Green - Excellent
             }
 
-            for i, (bar, ranking) in enumerate(zip(bars, daily_summary["ranking"])):
+            for i, (bar, ranking) in enumerate(
+                zip(bars, daily_summary["ranking"], strict=False)
+            ):
                 if ranking in ranking_colors:
                     bar.set_color(ranking_colors[ranking])
 
@@ -436,7 +521,7 @@ class EnhancedPlotWindow:
             4: "Good",
             5: "Excellent",
         }
-        for bar, ranking in zip(bars, rankings):
+        for bar, ranking in zip(bars, rankings, strict=False):
             label = ranking_labels.get(ranking, "Unknown")
             self.ranking_ax.text(
                 bar.get_x() + bar.get_width() / 2.0,

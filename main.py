@@ -42,11 +42,11 @@ def main():
         # Setup directories
         setup_directories()
 
-        # Import and run GUI application
-        from src.gui.main_app import FilantropiaSolarApp
+        # Import and run GUI v1 application
+        from src.gui.gui_v1_main_app import FilantropiaSolarGUIv1
 
-        logger.info("Initializing GUI application")
-        app = FilantropiaSolarApp()
+        logger.info("Initializing GUI v1 application")
+        app = FilantropiaSolarGUIv1()
 
         logger.info("Starting GUI main loop")
         app.run()

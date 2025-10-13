@@ -5,20 +5,27 @@ This module provides centralized configuration management with type safety,
 validation, and support for multiple environments.
 """
 
-import os
-import logging
+from __future__ import annotations
+
 from dataclasses import dataclass, field
-from pathlib import Path
-from typing import Any, Dict, List, Optional, Union
 from enum import Enum
 import json
+import logging
+import os
+from pathlib import Path
+from typing import Any
+
+from pydantic import Field, validator
+from pydantic_settings import BaseSettings
 import yaml
-from pydantic import BaseSettings, Field, validator
+
+# Constants
+MAX_PORT_NUMBER = 65535
 
 
 class Environment(str, Enum):
     """Application environment enumeration."""
-    
+
     DEVELOPMENT = "development"
     TESTING = "testing"
     STAGING = "staging"
@@ -27,7 +34,7 @@ class Environment(str, Enum):
 
 class LogLevel(str, Enum):
     """Logging level enumeration."""
-    
+
     DEBUG = "DEBUG"
     INFO = "INFO"
     WARNING = "WARNING"
@@ -38,13 +45,13 @@ class LogLevel(str, Enum):
 @dataclass
 class DatabaseConfig:
     """Database configuration settings."""
-    
-    url: Optional[str] = None
+
+    url: str | None = None
     host: str = "localhost"
     port: int = 5432
     name: str = "filantropia_solar"
-    username: Optional[str] = None
-    password: Optional[str] = None
+    username: str | None = None
+    password: str | None = None
     pool_size: int = 5
     max_overflow: int = 10
     pool_timeout: int = 30
@@ -54,7 +61,7 @@ class DatabaseConfig:
 @dataclass
 class WeatherAPIConfig:
     """Weather API configuration settings."""
-    
+
     base_url: str = "https://api.open-meteo.com/v1/forecast"
     timeout: int = 30
     max_retries: int = 3
@@ -67,7 +74,7 @@ class WeatherAPIConfig:
 @dataclass
 class MLModelConfig:
     """Machine learning model configuration settings."""
-    
+
     default_model_type: str = "random_forest"
     model_cache_size: int = 100
     training_batch_size: int = 1000
@@ -82,12 +89,12 @@ class MLModelConfig:
 @dataclass
 class SecurityConfig:
     """Security configuration settings."""
-    
+
     secret_key: str = field(default_factory=lambda: os.urandom(32).hex())
     api_key_header: str = "X-API-Key"
     rate_limit_enabled: bool = True
     cors_enabled: bool = True
-    cors_origins: List[str] = field(default_factory=list)
+    cors_origins: list[str] = field(default_factory=list)
     session_timeout: int = 3600  # 1 hour
     password_min_length: int = 8
     max_login_attempts: int = 5
@@ -96,7 +103,7 @@ class SecurityConfig:
 @dataclass
 class MonitoringConfig:
     """Monitoring and observability configuration."""
-    
+
     metrics_enabled: bool = True
     metrics_port: int = 8001
     metrics_path: str = "/metrics"
@@ -110,10 +117,10 @@ class MonitoringConfig:
 @dataclass
 class CacheConfig:
     """Caching configuration settings."""
-    
+
     enabled: bool = True
     backend: str = "memory"  # memory, redis, memcached
-    redis_url: Optional[str] = None
+    redis_url: str | None = None
     default_ttl: int = 3600  # 1 hour
     max_entries: int = 10000
     key_prefix: str = "fs:"
@@ -122,38 +129,37 @@ class CacheConfig:
 class Settings(BaseSettings):
     """
     Application settings with environment variable support.
-    
+
     Automatically loads configuration from environment variables,
     .env files, and configuration files.
     """
-    
+
     # Application settings
     app_name: str = Field(default="FilantropiaSolar", env="APP_NAME")
     version: str = Field(default="1.0.0", env="APP_VERSION")
     debug: bool = Field(default=False, env="DEBUG")
     environment: Environment = Field(default=Environment.DEVELOPMENT, env="ENVIRONMENT")
-    
+
     # Server settings
     host: str = Field(default="0.0.0.0", env="HOST")
     port: int = Field(default=8000, env="PORT")
     workers: int = Field(default=1, env="WORKERS")
-    
+
     # Logging settings
     log_level: LogLevel = Field(default=LogLevel.INFO, env="LOG_LEVEL")
     log_format: str = Field(
-        default="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-        env="LOG_FORMAT"
+        default="%(asctime)s - %(name)s - %(levelname)s - %(message)s", env="LOG_FORMAT"
     )
-    log_file: Optional[str] = Field(default=None, env="LOG_FILE")
+    log_file: str | None = Field(default=None, env="LOG_FILE")
     log_rotation: bool = Field(default=True, env="LOG_ROTATION")
     log_retention: int = Field(default=30, env="LOG_RETENTION")  # days
-    
+
     # Paths
     data_dir: Path = Field(default=Path("data"), env="DATA_DIR")
     models_dir: Path = Field(default=Path("models"), env="MODELS_DIR")
     logs_dir: Path = Field(default=Path("logs"), env="LOGS_DIR")
     temp_dir: Path = Field(default=Path("temp"), env="TEMP_DIR")
-    
+
     # Component configurations
     database: DatabaseConfig = Field(default_factory=DatabaseConfig)
     weather_api: WeatherAPIConfig = Field(default_factory=WeatherAPIConfig)
@@ -161,58 +167,58 @@ class Settings(BaseSettings):
     security: SecurityConfig = Field(default_factory=SecurityConfig)
     monitoring: MonitoringConfig = Field(default_factory=MonitoringConfig)
     cache: CacheConfig = Field(default_factory=CacheConfig)
-    
+
     class Config:
         """Pydantic configuration."""
-        
+
         env_file = ".env"
         env_file_encoding = "utf-8"
         env_nested_delimiter = "__"
         case_sensitive = False
         validate_assignment = True
-    
+
     @validator("data_dir", "models_dir", "logs_dir", "temp_dir", pre=True)
-    def validate_paths(cls, v: Union[str, Path]) -> Path:
+    def validate_paths(cls, v: str | Path) -> Path:
         """Validate and convert path strings to Path objects."""
         path = Path(v)
         if not path.is_absolute():
             # Make relative paths relative to project root
             path = Path.cwd() / path
         return path
-    
+
     @validator("port")
     def validate_port(cls, v: int) -> int:
         """Validate port number."""
-        if not 1 <= v <= 65535:
-            raise ValueError("Port must be between 1 and 65535")
+        if not 1 <= v <= MAX_PORT_NUMBER:
+            raise ValueError(f"Port must be between 1 and {MAX_PORT_NUMBER}")
         return v
-    
+
     @validator("workers")
     def validate_workers(cls, v: int) -> int:
         """Validate worker count."""
         if v < 1:
             raise ValueError("Workers must be at least 1")
         return v
-    
+
     def create_directories(self) -> None:
         """Create necessary directories if they don't exist."""
         directories = [self.data_dir, self.models_dir, self.logs_dir, self.temp_dir]
         for directory in directories:
             directory.mkdir(parents=True, exist_ok=True)
-    
-    def to_dict(self) -> Dict[str, Any]:
+
+    def to_dict(self) -> dict[str, Any]:
         """Convert settings to dictionary."""
         return self.dict()
-    
+
     def to_json(self) -> str:
         """Convert settings to JSON string."""
         return self.json(indent=2, default=str)
-    
-    def save_to_file(self, file_path: Union[str, Path]) -> None:
+
+    def save_to_file(self, file_path: str | Path) -> None:
         """Save configuration to file."""
         file_path = Path(file_path)
         config_data = self.to_dict()
-        
+
         # Convert Path objects to strings for serialization
         def convert_paths(obj: Any) -> Any:
             if isinstance(obj, Path):
@@ -222,54 +228,54 @@ class Settings(BaseSettings):
             elif isinstance(obj, list):
                 return [convert_paths(item) for item in obj]
             return obj
-        
+
         config_data = convert_paths(config_data)
-        
+
         if file_path.suffix.lower() == ".yaml" or file_path.suffix.lower() == ".yml":
-            with open(file_path, "w", encoding="utf-8") as f:
+            with file_path.open("w", encoding="utf-8") as f:
                 yaml.safe_dump(config_data, f, default_flow_style=False, indent=2)
         else:
-            with open(file_path, "w", encoding="utf-8") as f:
+            with file_path.open("w", encoding="utf-8") as f:
                 json.dump(config_data, f, indent=2, ensure_ascii=False)
-    
+
     @classmethod
-    def load_from_file(cls, file_path: Union[str, Path]) -> "Settings":
+    def load_from_file(cls, file_path: str | Path) -> Settings:
         """Load configuration from file."""
         file_path = Path(file_path)
         if not file_path.exists():
             raise FileNotFoundError(f"Configuration file not found: {file_path}")
-        
-        with open(file_path, "r", encoding="utf-8") as f:
+
+        with file_path.open(encoding="utf-8") as f:
             if file_path.suffix.lower() in [".yaml", ".yml"]:
                 config_data = yaml.safe_load(f)
             else:
                 config_data = json.load(f)
-        
+
         return cls(**config_data)
 
 
 class ConfigurationManager:
     """
     Centralized configuration manager.
-    
+
     Provides singleton access to application configuration and
     manages configuration lifecycle.
     """
-    
-    _instance: Optional["ConfigurationManager"] = None
-    _settings: Optional[Settings] = None
-    
-    def __new__(cls) -> "ConfigurationManager":
+
+    _instance: ConfigurationManager | None = None
+    _settings: Settings | None = None
+
+    def __new__(cls) -> ConfigurationManager:
         """Ensure singleton instance."""
         if cls._instance is None:
             cls._instance = super().__new__(cls)
         return cls._instance
-    
+
     def __init__(self) -> None:
         """Initialize configuration manager."""
         if self._settings is None:
             self._load_configuration()
-    
+
     def _load_configuration(self) -> None:
         """Load configuration from environment and files."""
         # Try to load from configuration file if it exists
@@ -281,7 +287,7 @@ class ConfigurationManager:
             "settings.yml",
             "settings.json",
         ]
-        
+
         for config_file in config_files:
             if Path(config_file).exists():
                 try:
@@ -290,41 +296,41 @@ class ConfigurationManager:
                     break
                 except Exception as e:
                     logging.warning(f"Failed to load config from {config_file}: {e}")
-        
+
         # Fallback to environment variables and defaults
         if self._settings is None:
             self._settings = Settings()
             logging.info("Configuration loaded from environment variables and defaults")
-        
+
         # Create necessary directories
         self._settings.create_directories()
-    
+
     @property
     def settings(self) -> Settings:
         """Get current settings."""
         if self._settings is None:
             self._load_configuration()
         return self._settings
-    
+
     def reload(self) -> None:
         """Reload configuration."""
         self._settings = None
         self._load_configuration()
-    
+
     def update_settings(self, **kwargs: Any) -> None:
         """Update settings with new values."""
         if self._settings is None:
             self._load_configuration()
-        
+
         # Create new settings instance with updated values
         current_dict = self._settings.dict()
         current_dict.update(kwargs)
         self._settings = Settings(**current_dict)
-    
-    def get_environment_config(self) -> Dict[str, Any]:
+
+    def get_environment_config(self) -> dict[str, Any]:
         """Get environment-specific configuration."""
         env = self.settings.environment
-        
+
         # Environment-specific overrides
         env_configs = {
             Environment.DEVELOPMENT: {
@@ -353,7 +359,7 @@ class ConfigurationManager:
                 "ml_models.auto_retrain_threshold": 0.9,
             },
         }
-        
+
         return env_configs.get(env, {})
 
 
