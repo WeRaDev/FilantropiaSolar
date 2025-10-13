@@ -5,6 +5,8 @@
 # ============================================
 # Base image with Python 3.11
 # ============================================
+# Global build arg for selecting final stage (ensures availability during parse)
+ARG BUILD_TARGET=production
 FROM python:3.11-slim as base
 
 # Metadata
@@ -194,5 +196,4 @@ CMD ["python", "-m", "filantropia_solar.cli", "--gpu"]
 # ============================================
 # Build arguments and final stage selection
 # ============================================
-ARG BUILD_TARGET=production
 FROM ${BUILD_TARGET} as final
