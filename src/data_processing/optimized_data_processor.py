@@ -5,13 +5,14 @@ Extends ComprehensiveDataProcessor with intelligent caching capabilities
 for dramatic performance improvements.
 """
 
+from collections.abc import Callable
 import logging
-import time
 from pathlib import Path
-from typing import Dict, Any, Optional, Callable
+import time
+from typing import Any
 
-import pandas as pd
 import numpy as np
+import pandas as pd
 
 from .comprehensive_data_processor import ComprehensiveDataProcessor, InstallationInfo
 from .data_cache_manager import DataCacheManager
@@ -36,7 +37,7 @@ class OptimizedDataProcessor(ComprehensiveDataProcessor):
         data_dir: str = "data",
         weather_dir: str = "weather_files",
         use_cache: bool = True,
-        progress_callback: Optional[Callable] = None,
+        progress_callback: Callable | None = None,
     ):
         """Initialize optimized data processor."""
         self.use_cache = use_cache
@@ -294,7 +295,7 @@ class OptimizedDataProcessor(ComprehensiveDataProcessor):
 
             scores = []
 
-            for installation_id, data in self.combined_data.items():
+            for _installation_id, data in self.combined_data.items():
                 if data.empty:
                     continue
 
@@ -323,7 +324,7 @@ class OptimizedDataProcessor(ComprehensiveDataProcessor):
             logger.warning(f"Could not calculate data quality score: {e}")
             return 0.0
 
-    def get_performance_report(self) -> Dict[str, Any]:
+    def get_performance_report(self) -> dict[str, Any]:
         """Get comprehensive performance report."""
         return {
             "performance_metrics": self.performance_metrics,
@@ -360,21 +361,21 @@ class OptimizedDataProcessor(ComprehensiveDataProcessor):
 
         return suggestions
 
-    def get_cache_status(self) -> Optional[Dict[str, Any]]:
+    def get_cache_status(self) -> dict[str, Any] | None:
         """Get current cache status."""
         if not self.use_cache or not self.cache_manager:
             return None
 
         return self.cache_manager.get_cache_status()
 
-    def invalidate_cache(self, data_type: str = None):
+    def invalidate_cache(self, data_type: str | None = None):
         """Invalidate cache entries."""
         if self.use_cache and self.cache_manager:
             self.cache_manager.invalidate_cache(data_type)
             logger.info(f"Cache invalidated: {data_type or 'all'}")
 
     def add_new_installation_data(
-        self, installation_file: str, metadata: Dict[str, Any]
+        self, installation_file: str, metadata: dict[str, Any]
     ) -> bool:
         """
         Add new installation data incrementally.

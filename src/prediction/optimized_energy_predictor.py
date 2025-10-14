@@ -5,18 +5,16 @@ Extends EnhancedEnergyPredictor with intelligent ML model caching
 for instant loading and improved performance.
 """
 
+from collections.abc import Callable
 import logging
 import time
-from typing import Dict, Any, Optional, Callable
+from typing import Any
 
-import joblib
 import numpy as np
-import pandas as pd
-from sklearn.base import clone
 
-from .enhanced_energy_predictor import EnhancedEnergyPredictor
 from ..data_processing.optimized_data_processor import OptimizedDataProcessor
 from ..weather_simulation.weather_simulator import WeatherSimulator
+from .enhanced_energy_predictor import EnhancedEnergyPredictor
 
 logger = logging.getLogger(__name__)
 
@@ -37,7 +35,7 @@ class OptimizedEnergyPredictor(EnhancedEnergyPredictor):
         self,
         data_processor: OptimizedDataProcessor,
         weather_simulator: WeatherSimulator = None,
-        progress_callback: Optional[Callable] = None,
+        progress_callback: Callable | None = None,
     ):
         """Initialize optimized energy predictor."""
         self.progress_callback = progress_callback
@@ -195,7 +193,7 @@ class OptimizedEnergyPredictor(EnhancedEnergyPredictor):
         try:
             logger.info("Caching trained ML models...")
 
-            for installation_id in self.models.keys():
+            for installation_id in self.models:
                 # Cache best model
                 if "best_model" in self.models[installation_id]:
                     best_model = self.models[installation_id]["best_model"]
@@ -290,7 +288,7 @@ class OptimizedEnergyPredictor(EnhancedEnergyPredictor):
             else "full_training",
         }
 
-    def get_model_performance_report(self) -> Dict[str, Any]:
+    def get_model_performance_report(self) -> dict[str, Any]:
         """Get comprehensive model performance report."""
         report = {
             "training_metrics": self.model_performance_metrics,
@@ -321,7 +319,7 @@ class OptimizedEnergyPredictor(EnhancedEnergyPredictor):
 
         return report
 
-    def _analyze_model_performance(self) -> Dict[str, Any]:
+    def _analyze_model_performance(self) -> dict[str, Any]:
         """Analyze overall model performance across installations."""
         analysis = {
             "performance_distribution": {},
@@ -350,7 +348,7 @@ class OptimizedEnergyPredictor(EnhancedEnergyPredictor):
                 best_r2 = 0
                 best_mae = float("inf")
 
-                for model_name, metrics in performance.items():
+                for _model_name, metrics in performance.items():
                     if isinstance(metrics, dict) and "r2" in metrics:
                         if metrics["r2"] > best_r2:
                             best_r2 = metrics["r2"]
@@ -391,7 +389,7 @@ class OptimizedEnergyPredictor(EnhancedEnergyPredictor):
 
             # Capacity correlation
             if capacity_performance and len(capacity_performance) > 1:
-                capacities, r2s = zip(*capacity_performance)
+                capacities, r2s = zip(*capacity_performance, strict=False)
                 correlation = np.corrcoef(capacities, r2s)[0, 1]
                 analysis["capacity_correlation"] = {
                     "correlation_coefficient": correlation,

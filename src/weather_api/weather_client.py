@@ -219,7 +219,7 @@ class WeatherClient:
 
         # Check if we need historical, current, or forecast data
         today = datetime.now().date()
-        target_date_only = target_date.date()
+        target_date.date()
 
         if end_date <= today.strftime("%Y-%m-%d"):
             # All historical
@@ -286,12 +286,12 @@ class WeatherClient:
     def get_weather_data(self, location=None, start_date=None, end_date=None):
         """
         Generic weather data retrieval method - for backward compatibility
-        
+
         Args:
             location (str): Location (ignored, always uses Lisbon)
             start_date (str): Start date for historical data
             end_date (str): End date for historical data
-            
+
         Returns:
             pd.DataFrame or dict: Weather data
         """

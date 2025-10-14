@@ -257,7 +257,7 @@ class WeatherSimulator:
                 # Generate weather for each parameter
                 weather_point = {}
 
-                for param in models.keys():
+                for param in models:
                     if param in similar_data.columns:
                         # Get similar hour data
                         hour_mask = similar_data.index.hour == timestamp.hour

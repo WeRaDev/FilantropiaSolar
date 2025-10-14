@@ -6,11 +6,11 @@ This module implements an ML-based ranking system that correlates weather condit
 with energy production to provide intelligent rankings for both hourly and daily data.
 """
 
+from datetime import date
 import logging
+
 import numpy as np
 import pandas as pd
-from typing import Dict, List, Tuple, Optional, Any
-from datetime import datetime, date
 
 logger = logging.getLogger(__name__)
 
@@ -202,8 +202,8 @@ class WeatherRankingSystem:
             return pd.DataFrame()
 
     def rank_daily_weather_conditions(
-        self, hourly_data: pd.DataFrame, daily_dates: List[date]
-    ) -> Dict[date, Dict]:
+        self, hourly_data: pd.DataFrame, daily_dates: list[date]
+    ) -> dict[date, dict]:
         """
         Rank daily weather conditions based on average hourly weather potential.
 
@@ -293,7 +293,7 @@ class WeatherRankingSystem:
             logger.error(f"Error ranking daily weather conditions: {e}")
             return {}
 
-    def get_ranking_explanation(self, ranking: int) -> Dict[str, str]:
+    def get_ranking_explanation(self, ranking: int) -> dict[str, str]:
         """Get explanation for ranking value."""
         explanations = {
             5: {

@@ -305,10 +305,10 @@ class LisbonDataProcessor:
     def process_weather_data(self, weather_file="weather_files/Lisbon_weather.csv"):
         """
         Process weather data - alias for load_weather_data for backward compatibility
-        
+
         Args:
             weather_file (str): Path to weather CSV file
-            
+
         Returns:
             pd.DataFrame: Processed weather data
         """
@@ -397,7 +397,7 @@ class LisbonDataProcessor:
 
             summaries["combined"] = {
                 "total_installations": len(
-                    [k for k in self.pv_data.keys() if k in self.lisbon_installations]
+                    [k for k in self.pv_data if k in self.lisbon_installations]
                 ),
                 "total_records": total_records,
                 "total_energy_kwh": total_energy,
@@ -434,7 +434,7 @@ class LisbonDataProcessor:
 
         # Get historical data around the same time of year
         target_month = target_date.month
-        target_day_of_year = target_date.timetuple().tm_yday
+        target_date.timetuple().tm_yday
 
         # Filter data within the same month ± 1 month
         month_window = [target_month - 1, target_month, target_month + 1]

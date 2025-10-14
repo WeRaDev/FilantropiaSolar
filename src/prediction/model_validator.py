@@ -5,9 +5,9 @@ Implements location-based cross-validation by excluding one installation from tr
 and using it for model validation against real historical data.
 """
 
-import logging
 from datetime import datetime, timedelta
-from typing import Dict, List, Tuple, Any, Optional
+import logging
+from typing import Any
 
 import numpy as np
 import pandas as pd
@@ -44,8 +44,8 @@ class ModelValidator:
         logger.info("Model validator initialized")
 
     def run_cross_validation(
-        self, exclude_location: Optional[str] = None
-    ) -> Dict[str, Any]:
+        self, exclude_location: str | None = None
+    ) -> dict[str, Any]:
         """
         Run comprehensive cross-validation testing.
 
@@ -59,7 +59,7 @@ class ModelValidator:
 
         installations = list(self.data_processor.installations.keys())
         locations = list(
-            set(info.location for info in self.data_processor.installations.values())
+            {info.location for info in self.data_processor.installations.values()}
         )
 
         if exclude_location:
@@ -111,8 +111,8 @@ class ModelValidator:
         return validation_results
 
     def _validate_location(
-        self, test_location: str, test_installations: List[str]
-    ) -> Dict[str, Any]:
+        self, test_location: str, test_installations: list[str]
+    ) -> dict[str, Any]:
         """Validate models by excluding one location from training."""
         try:
             # Create training dataset excluding test location
@@ -166,7 +166,7 @@ class ModelValidator:
             return {"error": str(e)}
 
     def _train_excluded_models(
-        self, training_installations: List[str]
+        self, training_installations: list[str]
     ) -> EnhancedEnergyPredictor:
         """Train models excluding specific installations."""
         # Create temporary data processor with only training installations
@@ -200,7 +200,7 @@ class ModelValidator:
 
     def _test_installation(
         self, predictor: EnhancedEnergyPredictor, installation_id: str, location: str
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Test model performance on excluded installation."""
         try:
             # Get test data
@@ -281,8 +281,8 @@ class ModelValidator:
             return {"error": str(e), "predictions": None, "actual": None}
 
     def _calculate_metrics(
-        self, actual: List[float], predictions: List[float]
-    ) -> Dict[str, float]:
+        self, actual: list[float], predictions: list[float]
+    ) -> dict[str, float]:
         """Calculate comprehensive performance metrics."""
         try:
             actual_arr = np.array(actual)
@@ -318,7 +318,7 @@ class ModelValidator:
             logger.error(f"Error calculating metrics: {e}")
             return {"error": str(e)}
 
-    def _calculate_weather_coverage(self, data: pd.DataFrame) -> Dict[str, float]:
+    def _calculate_weather_coverage(self, data: pd.DataFrame) -> dict[str, float]:
         """Calculate weather data coverage and quality."""
         weather_cols = [
             "temperature_2m",
@@ -339,14 +339,14 @@ class ModelValidator:
         coverage["overall"] = np.mean(list(coverage.values()))
         return coverage
 
-    def _calculate_overall_metrics(self, location_results: Dict) -> Dict[str, Any]:
+    def _calculate_overall_metrics(self, location_results: dict) -> dict[str, Any]:
         """Calculate overall validation metrics across all locations."""
         try:
             all_metrics = []
             successful_tests = 0
             total_tests = 0
 
-            for location, result in location_results.items():
+            for _location, result in location_results.items():
                 if "error" not in result and "location_metrics" in result:
                     metrics = result["location_metrics"]
                     if "error" not in metrics:
@@ -376,7 +376,7 @@ class ModelValidator:
             logger.error(f"Error calculating overall metrics: {e}")
             return {"error": str(e)}
 
-    def _generate_recommendations(self, validation_results: Dict) -> List[str]:
+    def _generate_recommendations(self, validation_results: dict) -> list[str]:
         """Generate recommendations based on validation results."""
         recommendations = []
 

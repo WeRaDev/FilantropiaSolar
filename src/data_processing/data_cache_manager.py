@@ -8,18 +8,17 @@ Optimized caching system for FilantropiaSolar application that:
 4. Maintains database integrity with deduplication
 """
 
+from datetime import datetime, timedelta
 import hashlib
 import json
 import logging
+from pathlib import Path
 import pickle
 import sqlite3
-from datetime import datetime, timedelta
-from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any
 
 import joblib
 import pandas as pd
-import numpy as np
 
 logger = logging.getLogger(__name__)
 
@@ -130,7 +129,7 @@ class DataCacheManager:
         return False
 
     def cache_data(
-        self, data: Any, data_type: str, identifier: str, metadata: Dict = None
+        self, data: Any, data_type: str, identifier: str, metadata: dict | None = None
     ) -> bool:
         """Cache data with metadata."""
         try:
@@ -146,7 +145,7 @@ class DataCacheManager:
             with sqlite3.connect(self.db_path) as conn:
                 conn.execute(
                     """
-                    INSERT OR REPLACE INTO data_cache 
+                    INSERT OR REPLACE INTO data_cache
                     (cache_key, file_path, data_hash, data_type, metadata, last_accessed)
                     VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
                 """,
@@ -167,7 +166,7 @@ class DataCacheManager:
             logger.error(f"Error caching data {cache_key}: {e}")
             return False
 
-    def load_cached_data(self, data_type: str, identifier: str) -> Optional[Any]:
+    def load_cached_data(self, data_type: str, identifier: str) -> Any | None:
         """Load cached data."""
         try:
             cache_key = self._get_cache_key(data_type, identifier)
@@ -207,7 +206,7 @@ class DataCacheManager:
         model: Any,
         installation_id: str,
         model_type: str,
-        performance_metrics: Dict,
+        performance_metrics: dict,
         training_data_hash: str,
     ) -> bool:
         """Cache trained ML model."""
@@ -222,8 +221,8 @@ class DataCacheManager:
             with sqlite3.connect(self.db_path) as conn:
                 conn.execute(
                     """
-                    INSERT OR REPLACE INTO model_cache 
-                    (model_key, installation_id, model_type, file_path, 
+                    INSERT OR REPLACE INTO model_cache
+                    (model_key, installation_id, model_type, file_path,
                      performance_metrics, training_data_hash, last_used)
                     VALUES (?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
                 """,
@@ -245,7 +244,7 @@ class DataCacheManager:
             logger.error(f"Error caching model {model_key}: {e}")
             return False
 
-    def load_cached_model(self, installation_id: str, model_type: str) -> Optional[Any]:
+    def load_cached_model(self, installation_id: str, model_type: str) -> Any | None:
         """Load cached ML model."""
         try:
             model_key = f"{installation_id}_{model_type}"
@@ -279,7 +278,7 @@ class DataCacheManager:
             logger.error(f"Error loading cached model {model_key}: {e}")
             return None
 
-    def get_cache_status(self) -> Dict[str, Any]:
+    def get_cache_status(self) -> dict[str, Any]:
         """Get comprehensive cache status."""
         try:
             with sqlite3.connect(self.db_path) as conn:
@@ -311,7 +310,7 @@ class DataCacheManager:
                     "model_cache": {
                         "cached_models": len(model_stats),
                         "installations_with_models": len(
-                            set(stat[1] for stat in model_stats)
+                            {stat[1] for stat in model_stats}
                         ),
                     },
                     "installations": {
@@ -343,7 +342,7 @@ class DataCacheManager:
                 # Get old entries
                 cursor.execute(
                     """
-                    SELECT cache_key, file_path FROM data_cache 
+                    SELECT cache_key, file_path FROM data_cache
                     WHERE last_accessed < ?
                 """,
                     (cutoff_date,),
@@ -351,7 +350,7 @@ class DataCacheManager:
 
                 old_entries = cursor.fetchall()
 
-                for cache_key, file_path in old_entries:
+                for _cache_key, file_path in old_entries:
                     # Remove file
                     try:
                         Path(file_path).unlink(missing_ok=True)
@@ -372,7 +371,7 @@ class DataCacheManager:
             logger.error(f"Error cleaning up cache: {e}")
             return 0
 
-    def invalidate_cache(self, data_type: str = None, identifier: str = None):
+    def invalidate_cache(self, data_type: str | None = None, identifier: str | None = None):
         """Invalidate cache entries."""
         try:
             with sqlite3.connect(self.db_path) as conn:
