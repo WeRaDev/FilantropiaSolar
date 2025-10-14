@@ -371,7 +371,9 @@ class DataCacheManager:
             logger.error(f"Error cleaning up cache: {e}")
             return 0
 
-    def invalidate_cache(self, data_type: str | None = None, identifier: str | None = None):
+    def invalidate_cache(
+        self, data_type: str | None = None, identifier: str | None = None
+    ):
         """Invalidate cache entries."""
         try:
             with sqlite3.connect(self.db_path) as conn:

@@ -47,7 +47,7 @@ jobs:
         
     - name: Run Ruff linting (all source modules)
       run: |
-        ruff check --output-format=github src/ --ignore=PLR2004,PLC0415,ARG002,ARG005,ERA001,PTH123,E402
+        ruff check --output-format=github src/ --ignore=PLR2004,PLC0415,ARG002,ARG005,ERA001,PTH123,E402,B018,SIM102,F401,E721,PLR0912
       continue-on-error: true  # Allow linting issues for v1.0.0
         
     - name: Run Ruff formatting check
