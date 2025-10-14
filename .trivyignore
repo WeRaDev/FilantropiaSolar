@@ -1,18 +1,11 @@
 # Trivy ignore file for FilantropiaSolar
-# Ignore certain vulnerabilities that are acceptable for this project
+# Only ignore vulnerabilities that have been assessed and determined acceptable
+# Each ignored CVE MUST have a clear justification
 
-# Python development dependencies - low risk in containerized environment
-CVE-2023-40217  # urllib3 - MEDIUM severity, acceptable for dev environment
-CVE-2024-28176  # jose - JWT library, acceptable for ML model serving
-CVE-2023-43804  # urllib3 - Cookie parsing, low impact for our use case
+# Known false positives or acceptable risks for ML/data science applications
+# CVE-2023-40217  # urllib3 - Only if confirmed not applicable to our usage
+# CVE-2024-28176  # jose - Only if we don't use JWT features
 
-# OS package vulnerabilities that don't affect our Python application
-CVE-2023-4911   # glibc - Stack-based buffer overflow in ld.so
-CVE-2023-29491  # ncurses - Buffer overflow in _nc_wrap_entry
-
-# Ignore test and development related vulnerabilities
-# that don't impact production deployments
-TEMP-0000000-*  # Temporary test CVEs
-
-# Documentation: Add specific CVE numbers here with justification
-# Format: CVE-YYYY-NNNNN # Brief description of why it's acceptable
+# NOTE: Most CVEs should be fixed, not ignored
+# Only add entries here after security review and explicit approval
+# Format: CVE-YYYY-NNNNN # Specific justification why this is safe to ignore

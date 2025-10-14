@@ -270,7 +270,6 @@ jobs:
     needs: build
     runs-on: ubuntu-latest
     timeout-minutes: 20
-    continue-on-error: true  # Allow container security issues for v1.0.0
     
     steps:
     - name: Checkout code
@@ -295,9 +294,9 @@ jobs:
         image-ref: filantropia-solar:test
         format: 'sarif'
         output: 'trivy-results.sarif'
-        severity: 'CRITICAL,HIGH'  # Only scan for critical/high issues
-        exit-code: '0'  # Don't fail on vulnerabilities found
-      continue-on-error: true  # Don't fail if Trivy has issues
+        severity: 'CRITICAL,HIGH'  # Focus on critical/high security issues
+        exit-code: '1'  # Fail if critical/high vulnerabilities found
+        trivyignores: '.trivyignore'  # Use our ignore file for accepted risks
         
     - name: Upload Trivy scan results
       uses: github/codeql-action/upload-sarif@v3

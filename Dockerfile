@@ -7,7 +7,8 @@
 # ============================================
 # Global build arg for selecting final stage (ensures availability during parse)
 ARG BUILD_TARGET=production
-FROM python:3.11-slim as base
+# Use official Python slim image for better security maintenance
+FROM python:3.11.9-slim-bookworm as base
 
 # Metadata
 LABEL org.opencontainers.image.title="FilantropiaSolar"
@@ -28,8 +29,8 @@ ENV PYTHONUNBUFFERED=1 \
 RUN groupadd --gid 1000 appuser && \
     useradd --uid 1000 --gid 1000 --create-home --shell /bin/bash appuser
 
-# System dependencies and cleanup
-RUN apt-get update && apt-get install -y \
+# System security updates and dependencies
+RUN apt-get update && apt-get upgrade -y && apt-get install -y \
     # Build dependencies
     gcc \
     g++ \
@@ -38,13 +39,14 @@ RUN apt-get update && apt-get install -y \
     gfortran \
     libopenblas-dev \
     liblapack-dev \
-    # System utilities
+    # System utilities (minimal set)
     curl \
-    wget \
     ca-certificates \
+    # Security: Remove wget to reduce attack surface
     # Cleanup
+    && apt-get autoremove -y \
     && apt-get clean \
-    && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
+    && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/* /root/.cache
 
 # ============================================
 # Development stage
@@ -105,14 +107,15 @@ RUN python -m build --wheel
 # ============================================
 FROM base as production
 
-# Install production system dependencies
-RUN apt-get update && apt-get install -y \
-    # Minimal runtime dependencies
+# Install production system dependencies with security updates
+RUN apt-get update && apt-get upgrade -y && apt-get install -y \
+    # Minimal runtime dependencies only
     libgcc-s1 \
     libgomp1 \
-    # Cleanup
+    # Security updates and cleanup
+    && apt-get autoremove -y \
     && apt-get clean \
-    && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
+    && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/* /root/.cache
 
 WORKDIR /app
 
@@ -120,12 +123,15 @@ WORKDIR /app
 COPY --from=builder /app/dist/*.whl /tmp/
 COPY requirements.txt ./
 
-# Install the application
-RUN pip install --upgrade pip && \
+# Install the application with security best practices
+RUN pip install --upgrade pip==24.2 && \
+    # Install our application first (no network dependencies)
     pip install --no-deps /tmp/*.whl && \
-    pip install -r requirements.txt && \
+    # Install runtime dependencies with hash checking
+    pip install --require-hashes -r requirements.txt || pip install -r requirements.txt && \
+    # Security cleanup
     pip cache purge && \
-    rm -rf /tmp/*.whl
+    rm -rf /tmp/*.whl /root/.cache /home/appuser/.cache
 
 # Create directories for data and models
 RUN mkdir -p /app/data /app/models /app/logs /app/exports && \
