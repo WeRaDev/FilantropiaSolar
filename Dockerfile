@@ -80,7 +80,7 @@ RUN pip install -e .
 USER appuser
 
 # Development command
-CMD ["python", "-m", "filantropia_solar.cli", "--help"]
+CMD ["python", "main.py"]
 
 # ============================================
 # Production build stage
@@ -94,6 +94,7 @@ RUN pip install --upgrade pip build wheel
 
 # Copy source code and build files
 COPY pyproject.toml README.md LICENSE ./
+COPY main.py ./
 COPY src/ src/
 
 # Build the package
@@ -130,18 +131,19 @@ RUN pip install --upgrade pip && \
 RUN mkdir -p /app/data /app/models /app/logs /app/exports && \
     chown -R appuser:appuser /app
 
-# Copy configuration files
+# Copy configuration files and main application
 COPY --chown=appuser:appuser config/ config/
+COPY --chown=appuser:appuser main.py ./
 
 # Switch to non-root user
 USER appuser
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
-    CMD python -c "import filantropia_solar; print('OK')" || exit 1
+    CMD python -c "import sys; sys.path.insert(0, '/app'); import src.data_processing; print('OK')" || exit 1
 
 # Default command
-CMD ["python", "-m", "filantropia_solar.cli"]
+CMD ["python", "main.py"]
 
 # ============================================
 # API service stage
@@ -191,7 +193,7 @@ RUN pip install cuml-cu12 cudf-cu12 --extra-index-url https://pypi.anaconda.org/
 
 USER appuser
 
-CMD ["python", "-m", "filantropia_solar.cli", "--gpu"]
+CMD ["python", "main.py"]
 
 # ============================================
 # Final stage selection (fixed to production for CI builds)
