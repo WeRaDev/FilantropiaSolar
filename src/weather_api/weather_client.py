@@ -283,6 +283,29 @@ class WeatherClient:
             }
         )
 
+    def get_weather_data(self, location=None, start_date=None, end_date=None):
+        """
+        Generic weather data retrieval method - for backward compatibility
+        
+        Args:
+            location (str): Location (ignored, always uses Lisbon)
+            start_date (str): Start date for historical data
+            end_date (str): End date for historical data
+            
+        Returns:
+            pd.DataFrame or dict: Weather data
+        """
+        if start_date and end_date:
+            # Return historical data
+            return self.get_historical_weather(start_date, end_date)
+        elif start_date:
+            # Return data from start date to now
+            end_date = datetime.now().strftime("%Y-%m-%d")
+            return self.get_historical_weather(start_date, end_date)
+        else:
+            # Return current weather as dict
+            return self.get_current_weather()
+
 
 # Alternative weather client for other services (OpenWeatherMap, etc.)
 class OpenWeatherMapClient:

@@ -45,9 +45,9 @@ jobs:
         python -m pip install --upgrade pip
         pip install -r requirements-dev-simple.txt
         
-    - name: Run Ruff linting (core package only)
+    - name: Run Ruff linting (all source modules)
       run: |
-        ruff check --output-format=github src/filantropia_solar
+        ruff check --output-format=github src/
         
     - name: Run Ruff formatting check
       run: |
@@ -55,12 +55,12 @@ jobs:
         
     - name: Run MyPy type checking
       run: |
-        mypy src/filantropia_solar --config-file=pyproject.toml
+        mypy src/ --config-file=pyproject.toml
       continue-on-error: true  # Allow to fail while we improve type hints
         
     - name: Run Bandit security scan
       run: |
-        bandit -r src/filantropia_solar -f json -o bandit-report.json
+        bandit -r src/ -f json -o bandit-report.json
       continue-on-error: true
         
     - name: Upload security scan results
@@ -153,22 +153,10 @@ jobs:
         mkdir -p tests/fixtures
         
     - name: Run unit tests
-      run: |
-        pytest tests/unit/ -v \
-          --cov=src/filantropia_solar \
-          --cov-report=xml \
-          --cov-report=html \
-          --cov-report=term-missing \
-          --junitxml=pytest.xml
+      run: pytest tests/unit/ -v --cov=src --cov-report=xml --cov-report=html --cov-report=term-missing --junitxml=pytest.xml
           
     - name: Run integration tests
-      run: |
-        pytest tests/integration/ -v \
-          --cov=src/filantropia_solar \
-          --cov-append \
-          --cov-report=xml \
-          -m "integration"
-      continue-on-error: true  # Allow to fail until we have data files
+      run: pytest tests/integration/ -v --cov=src --cov-append --cov-report=xml -m "integration"
           
     - name: Upload coverage reports to Codecov
       uses: codecov/codecov-action@v4
@@ -220,15 +208,10 @@ jobs:
         pip install -r requirements-dev-simple.txt
         
     - name: Run performance benchmarks
-      run: |
-        pytest tests/performance/ -v \
-          --benchmark-only \
-          --benchmark-json=benchmark.json \
-          --benchmark-min-rounds=3
+      run: pytest tests/performance/ -v --benchmark-only --benchmark-json=benchmark.json --benchmark-min-rounds=3
           
     - name: Run ML model validation tests
-      run: |
-        pytest tests/ -v -m "ml" --timeout=300
+      run: pytest tests/ -v -m "ml" --timeout=300
         
     - name: Upload benchmark results
       uses: actions/upload-artifact@v4

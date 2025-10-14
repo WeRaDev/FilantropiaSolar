@@ -22,7 +22,7 @@ def test_data_processor_integration():
         # Create mock data similar to expected structure
         mock_data = pd.DataFrame(
             {
-                "datetime": pd.date_range("2020-01-01", periods=100, freq="H"),
+                "datetime": pd.date_range("2020-01-01", periods=100, freq="h"),
                 "energy_kwh": np.random.uniform(0, 10, 100),
                 "specific_energy": np.random.uniform(0, 1, 100),
                 "installation_id": ["test_installation"] * 100,
@@ -184,7 +184,7 @@ def test_large_dataset_processing():
         # Create larger synthetic dataset
         large_data = pd.DataFrame(
             {
-                "datetime": pd.date_range("2020-01-01", periods=10000, freq="H"),
+                "datetime": pd.date_range("2020-01-01", periods=10000, freq="h"),
                 "energy_kwh": np.random.uniform(0, 15, 10000),
                 "specific_energy": np.random.uniform(0, 1.2, 10000),
                 "temperature": np.random.uniform(10, 35, 10000),

@@ -302,6 +302,18 @@ class LisbonDataProcessor:
 
         return hourly_patterns
 
+    def process_weather_data(self, weather_file="weather_files/Lisbon_weather.csv"):
+        """
+        Process weather data - alias for load_weather_data for backward compatibility
+        
+        Args:
+            weather_file (str): Path to weather CSV file
+            
+        Returns:
+            pd.DataFrame: Processed weather data
+        """
+        return self.load_weather_data(weather_file)
+
     def get_installation_summary(self, installation):
         """
         Get summary statistics for an installation

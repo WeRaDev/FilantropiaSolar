@@ -3,9 +3,33 @@
     {
       "filename": "src/filantropia_solar/__init__.py",
       "reason": "exception while scanning file"
+    },
+    {
+      "filename": "src/filantropia_solar/core/__init__.py",
+      "reason": "exception while scanning file"
+    },
+    {
+      "filename": "src/filantropia_solar/core/config.py",
+      "reason": "exception while scanning file"
+    },
+    {
+      "filename": "src/filantropia_solar/core/exceptions.py",
+      "reason": "exception while scanning file"
+    },
+    {
+      "filename": "src/filantropia_solar/core/logging.py",
+      "reason": "exception while scanning file"
+    },
+    {
+      "filename": "src/filantropia_solar/data/base.py",
+      "reason": "exception while scanning file"
+    },
+    {
+      "filename": "src/filantropia_solar/models/base.py",
+      "reason": "exception while scanning file"
     }
   ],
-  "generated_at": "2025-10-12T19:55:48Z",
+  "generated_at": "2025-10-13T19:48:30Z",
   "metrics": {
     "_totals": {
       "CONFIDENCE.HIGH": 0,
@@ -16,12 +40,42 @@
       "SEVERITY.LOW": 0,
       "SEVERITY.MEDIUM": 0,
       "SEVERITY.UNDEFINED": 0,
-      "loc": 22,
+      "loc": 2431,
       "nosec": 0,
       "skipped_tests": 0
     },
     "src/filantropia_solar/__init__.py": {
-      "loc": 22,
+      "loc": 174,
+      "nosec": 0,
+      "skipped_tests": 0
+    },
+    "src/filantropia_solar/core/__init__.py": {
+      "loc": 121,
+      "nosec": 0,
+      "skipped_tests": 0
+    },
+    "src/filantropia_solar/core/config.py": {
+      "loc": 309,
+      "nosec": 0,
+      "skipped_tests": 0
+    },
+    "src/filantropia_solar/core/exceptions.py": {
+      "loc": 516,
+      "nosec": 0,
+      "skipped_tests": 0
+    },
+    "src/filantropia_solar/core/logging.py": {
+      "loc": 373,
+      "nosec": 0,
+      "skipped_tests": 0
+    },
+    "src/filantropia_solar/data/base.py": {
+      "loc": 408,
+      "nosec": 0,
+      "skipped_tests": 0
+    },
+    "src/filantropia_solar/models/base.py": {
+      "loc": 530,
       "nosec": 0,
       "skipped_tests": 0
     }
