@@ -1,6 +1,6 @@
-# FilantropiaSolar - Usage Guide
+# FilantropiaSolar - Usage Guide v1.0
 
-This guide provides step-by-step instructions for using the upgraded FilantropiaSolar system.
+This guide provides step-by-step instructions for using the FilantropiaSolar v1.0 production application.
 
 ## Quick Start Guide
 

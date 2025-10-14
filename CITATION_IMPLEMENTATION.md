@@ -13,8 +13,8 @@ doi: 10.17632/dbh93b6vp8.3
 
 ## ✅ Implementation Locations
 
-### 1. Application Header (`filantropia_solar_app.py`)
-- **Location**: Lines 8-10 in main application file
+### 1. Application Header (`main.py`)
+- **Location**: Header in main application file
 - **Content**: Full citation in docstring header
 - **Purpose**: Code-level attribution for developers
 
@@ -72,7 +72,7 @@ doi: 10.17632/dbh93b6vp8.3
 ## 📋 File Summary
 
 ### Modified Files:
-1. **`filantropia_solar_app.py`**:
+1. **`main.py`**:
    - Header docstring citation
    - Console startup notice
    - Welcome message citation

@@ -57,7 +57,7 @@ FilantropiaSolar is an advanced solar energy analysis application designed speci
 ### Running the Application
 
 ```bash
-python filantropia_solar_app.py
+python main.py
 ```
 
 The application will:
@@ -67,61 +67,6 @@ The application will:
 4. Launch the main interface with 3 tabs
 
 ---
-
-## 📄 Application Architecture
-
-### Minimum Requirements
-- Python 3.8 or higher
-- 4GB RAM
-- 1GB free disk space
-- Internet connection (for weather data)
-
-### Recommended
-- Python 3.9+
-- 8GB RAM
-- SSD storage
-- Stable broadband connection
-
-## 📦 Installation
-
-### 1. Clone the Repository
-```bash
-git clone <repository-url>
-cd FilantropiaSolar
-```
-
-### 2. Create Virtual Environment
-```bash
-python -m venv venv
-
-# Windows
-venv\\Scripts\\activate
-
-# macOS/Linux
-source venv/bin/activate
-```
-
-### 3. Install Dependencies
-```bash
-pip install -r requirements.txt
-```
-
-### 4. Verify Installation
-```bash
-python main.py --help
-```
-
-## 🚀 Quick Start
-
-### Running the Application
-```bash
-python main.py
-```
-
-### First Time Setup
-1. **Load Data**: The application will automatically load historical PV and weather data
-2. **Train Models**: Machine learning models will be trained on historical data
-3. **Ready to Use**: Once loaded, you can start making predictions
 
 ## 🎯 How to Use
 
@@ -193,23 +138,22 @@ The system uses a 5-tier ranking based on specific energy (kWh/kWp):
 ### Project Structure
 ```
 FilantropiaSolar/
-├── main.py                          # Application entry point
+├── main.py                          # Main application entry point (v1.0)
 ├── src/
 │   ├── data_processing/
 │   │   ├── __init__.py
-│   │   └── lisbon_data_processor.py  # Data loading and processing
+│   │   └── comprehensive_data_processor.py  # Enhanced data processing
 │   ├── weather_api/
 │   │   ├── __init__.py
 │   │   └── weather_client.py         # Weather API integration
 │   ├── prediction/
 │   │   ├── __init__.py
-│   │   └── energy_predictor.py       # ML prediction models
-│   ├── gui/
-│   │   ├── __init__.py
-│   │   └── main_app.py              # GUI application
+│   │   └── enhanced_energy_predictor.py     # Advanced ML models
 │   └── utils/
 │       ├── __init__.py
 │       └── energy_ranking.py        # Ranking system utilities
+├── archive/
+│   └── gui_versions/                # Previous GUI implementations
 ├── data/
 │   ├── PV Plants Datasets.xlsx      # Historical PV data
 │   ├── PV Plants Metadata.xlsx      # PV installation metadata
@@ -217,6 +161,7 @@ FilantropiaSolar/
 ├── models/                          # Trained ML models
 ├── logs/                           # Application logs
 ├── exports/                        # Exported results
+├── pyproject.toml                  # Project configuration
 └── requirements.txt                # Python dependencies
 ```
 
@@ -441,12 +386,13 @@ For support, questions, or feature requests:
 
 ## 📊 Project Statistics
 
-- **Lines of Code**: ~2,000+ lines
-- **Supported Installations**: 4 Lisbon PV plants
+- **Lines of Code**: ~3,500+ lines
+- **Supported Installations**: 9 Portuguese PV plants
 - **Historical Data**: 4 years (2019-2022)
 - **Weather Parameters**: 8 meteorological variables
-- **Prediction Accuracy**: Up to 85% R² score
+- **Prediction Accuracy**: Up to 90% R² score
 - **Ranking System**: 5-tier optimization framework
+- **Version**: 1.0.0 (Production Ready)
 
 ---
 

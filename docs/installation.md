@@ -151,6 +151,6 @@ If you encounter issues:
 
 After successful installation:
 
-1. Run the application: `python filantropia_solar_app.py`
+1. Run the application: `python main.py`
 2. Explore the interface and features
 3. Check the main README.md for detailed usage instructions
