@@ -124,13 +124,14 @@ COPY --from=builder /app/dist/*.whl /tmp/
 COPY requirements.txt ./
 
 # Install the application with security best practices
-RUN pip install --upgrade pip==24.2 && \
-    # Install our application first (no network dependencies)
+RUN set -ex && \
+    pip install --upgrade pip==24.2 && \
+    # Install runtime dependencies first
+    pip install -r requirements.txt && \
+    # Install our application (no network dependencies)
     pip install --no-deps /tmp/*.whl && \
-    # Install runtime dependencies with hash checking
-    pip install --require-hashes -r requirements.txt || pip install -r requirements.txt && \
-    # Security cleanup
-    pip cache purge && \
+    # Security cleanup  
+    (pip cache purge 2>/dev/null || echo "Cache already disabled") && \
     rm -rf /tmp/*.whl /root/.cache /home/appuser/.cache
 
 # Create directories for data and models
