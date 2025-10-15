@@ -151,11 +151,11 @@ all = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/your-org/filantropia-solar"
+Homepage = "https://github.com/WeRaDev/FilantropiaSolar"
 Documentation = "https://filantropia-solar.readthedocs.io"
-Repository = "https://github.com/your-org/filantropia-solar.git"
-"Bug Tracker" = "https://github.com/your-org/filantropia-solar/issues"
-Changelog = "https://github.com/your-org/filantropia-solar/blob/main/CHANGELOG.md"
+Repository = "https://github.com/WeRaDev/FilantropiaSolar.git"
+"Bug Tracker" = "https://github.com/WeRaDev/FilantropiaSolar/issues"
+Changelog = "https://github.com/WeRaDev/FilantropiaSolar/blob/main/CHANGELOG.md"
 
 [project.scripts]
 filantropia-solar = "main:main"
