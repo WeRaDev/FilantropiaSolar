@@ -283,6 +283,7 @@ jobs:
       with:
         context: .
         push: false
+        load: true
         tags: filantropia-solar:test
         cache-from: type=gha
         cache-to: type=gha,mode=max
