@@ -90,13 +90,6 @@ jobs:
       run: |
         python -m pip install --upgrade pip build
         python -m build
-    
-    - name: Generate SBOM (SPDX)
-      uses: anchore/sbom-action@v0
-      with:
-        path: .
-        format: spdx-json
-        output-file: sbom.spdx.json
         
     - name: Generate release notes
       id: release_notes
@@ -138,12 +131,43 @@ jobs:
         files: |
           dist/*.tar.gz
           dist/*.whl
-          sbom.spdx.json
         draft: false
         prerelease: false
         make_latest: true
         generate_release_notes: true
 
+  # ============================================
+  # Publish to PyPI
+  # ============================================
+  pypi-release:
+    name: PyPI Release
+    needs: [validate, github-release]
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    
+    environment:
+      name: pypi
+      url: https://pypi.org/p/filantropia-solar/
+      
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: "3.11"
+        
+    - name: Build package
+      run: |
+        python -m pip install --upgrade pip build
+        python -m build
+        
+    - name: Publish to PyPI
+      uses: pypa/gh-action-pypi-publish@release/v1
+      with:
+        skip-existing: true
+        verbose: true
 
   # ============================================
   # Update Documentation
@@ -186,7 +210,7 @@ jobs:
   # ============================================
   notify:
     name: Post-release Notifications
-    needs: [validate, github-release, docs-release]
+    needs: [validate, github-release, pypi-release, docs-release]
     runs-on: ubuntu-latest
     timeout-minutes: 5
     if: always()
@@ -197,7 +221,14 @@ jobs:
         echo "## 🎉 Release Summary"
         echo "Version: v${{ needs.validate.outputs.version }}"
         echo "GitHub Release: ${{ needs.github-release.result }}"
+        echo "PyPI Release: ${{ needs.pypi-release.result }}"
         echo "Documentation: ${{ needs.docs-release.result }}"
+        
+        if [ "${{ needs.pypi-release.result }}" = "success" ]; then
+          echo ""
+          echo "✅ Package is now available on PyPI:"
+          echo "   pip install filantropia-solar==${{ needs.validate.outputs.version }}"
+        fi
         
         if [ "${{ needs.github-release.result }}" = "success" ]; then
           echo ""
