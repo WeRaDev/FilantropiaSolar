@@ -2,12 +2,12 @@
 Advanced ML model validation and testing.
 """
 
-import pytest
-import numpy as np
-import sys
 import os
+import sys
+
+import numpy as np
+import pytest
 from sklearn.metrics import mean_absolute_error, r2_score
-from unittest.mock import Mock, patch
 
 # Add src to path for imports
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "src"))
@@ -174,8 +174,9 @@ def test_cross_validation_stability():
 @pytest.mark.slow
 def test_model_scalability():
     """Test model performance with larger datasets."""
-    from sklearn.ensemble import RandomForestRegressor
     import time
+
+    from sklearn.ensemble import RandomForestRegressor
 
     # Test different dataset sizes
     sizes = [100, 500, 1000, 2000]
@@ -240,7 +241,7 @@ def test_model_data_validation():
                 pytest.fail(f"Should have failed for {case['name']}")
         except Exception as e:
             if case["should_work"]:
-                pytest.fail(f"Should have worked for {case['name']}: {str(e)}")
+                pytest.fail(f"Should have worked for {case['name']}: {e!s}")
             # Expected to fail, test passes
 
 
@@ -254,7 +255,7 @@ def test_energy_ranking_validation():
         test_energies = [0.05, 0.15, 0.3, 0.5, 0.7, 0.9]
         expected_ranks = [1, 1, 2, 3, 4, 5]  # Based on kWh/kWp thresholds
 
-        for energy, expected_rank in zip(test_energies, expected_ranks):
+        for energy, expected_rank in zip(test_energies, expected_ranks, strict=False):
             rank = get_energy_rank(energy)
             assert rank == expected_rank, (
                 f"Energy {energy} should have rank {expected_rank}, got {rank}"

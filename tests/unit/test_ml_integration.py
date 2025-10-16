@@ -2,9 +2,10 @@
 Machine Learning integration tests.
 """
 
-import pytest
-import sys
 import os
+import sys
+
+import pytest
 
 # Add src to path for imports
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "src"))
@@ -38,8 +39,8 @@ def test_prediction_module_structure():
 def test_basic_ml_workflow():
     """Test basic ML workflow components."""
     try:
-        from sklearn.ensemble import RandomForestRegressor
         import numpy as np
+        from sklearn.ensemble import RandomForestRegressor
 
         # Create simple synthetic data
         X = np.random.rand(100, 5)

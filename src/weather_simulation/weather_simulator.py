@@ -505,9 +505,13 @@ def simulate_weather_for_period(
 
     # Define 15-day period (7 days before + center day + 7 days after = 15 days)
     # Start from 00:00:00 of first day to ensure complete day coverage
-    start_date = (center_date - timedelta(days=7)).replace(hour=0, minute=0, second=0, microsecond=0)
+    start_date = (center_date - timedelta(days=7)).replace(
+        hour=0, minute=0, second=0, microsecond=0
+    )
     # End at 23:59:59 of last day to ensure complete day coverage
-    end_date = (center_date + timedelta(days=7)).replace(hour=23, minute=59, second=59, microsecond=999999)
+    end_date = (center_date + timedelta(days=7)).replace(
+        hour=23, minute=59, second=59, microsecond=999999
+    )
 
     return simulator.simulate_weather(location, start_date, end_date, center_date)
 

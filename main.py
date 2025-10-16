@@ -13,15 +13,16 @@ Author: FilantropiaSolar Team
 Version: 2.0 - Enhanced Edition
 """
 
-import sys
-import logging
-import tkinter as tk
-from tkinter import ttk, messagebox
 from datetime import datetime, timedelta
+import logging
 from pathlib import Path
-import threading
 import queue
-from typing import Any, Dict
+import sys
+import threading
+import tkinter as tk
+from tkinter import messagebox, ttk
+from typing import Any
+
 import pandas as pd
 
 # Add src to path for imports
@@ -182,53 +183,61 @@ class FilantropiaSolarApp:
         """Create cache status display with management options."""
         try:
             if not self.cache_manager:
-                ttk.Label(parent, text="⚠️ Caching disabled", foreground="orange").pack(anchor=tk.W)
+                ttk.Label(parent, text="⚠️ Caching disabled", foreground="orange").pack(
+                    anchor=tk.W
+                )
                 return
-            
+
             status = self.cache_manager.get_cache_status()
-            
+
             # Status information frame
             info_frame = ttk.Frame(parent)
             info_frame.pack(fill=tk.X, pady=(0, 10))
-            
+
             # Cache statistics
-            ttk.Label(info_frame, text="📊 Cache Status:", font=("Arial", 10, "bold")).pack(anchor=tk.W)
-            
-            status_text = f"""• Data Cache: {status.get('data_cache', {}).get('cached_items', 0)} items ({status.get('data_cache', {}).get('size_mb', 0):.1f} MB)
-• Model Cache: {status.get('model_cache', {}).get('cached_models', 0)} models ({status.get('model_cache', {}).get('size_mb', 0):.1f} MB)
-• Total Size: {status.get('total_size_mb', 0):.1f} MB"""
-            
-            ttk.Label(info_frame, text=status_text, font=("Arial", 9)).pack(anchor=tk.W, pady=(2, 0))
-            
+            ttk.Label(
+                info_frame, text="📊 Cache Status:", font=("Arial", 10, "bold")
+            ).pack(anchor=tk.W)
+
+            status_text = f"""• Data Cache: {status.get("data_cache", {}).get("cached_items", 0)} items ({status.get("data_cache", {}).get("size_mb", 0):.1f} MB)
+• Model Cache: {status.get("model_cache", {}).get("cached_models", 0)} models ({status.get("model_cache", {}).get("size_mb", 0):.1f} MB)
+• Total Size: {status.get("total_size_mb", 0):.1f} MB"""
+
+            ttk.Label(info_frame, text=status_text, font=("Arial", 9)).pack(
+                anchor=tk.W, pady=(2, 0)
+            )
+
             # Cache management buttons
             buttons_frame = ttk.Frame(parent)
             buttons_frame.pack(fill=tk.X)
-            
+
             ttk.Button(
-                buttons_frame, 
-                text="🔄 Refresh Status", 
+                buttons_frame,
+                text="🔄 Refresh Status",
                 command=self._refresh_cache_status,
-                width=15
+                width=15,
             ).pack(side=tk.LEFT, padx=(0, 5))
-            
+
             ttk.Button(
-                buttons_frame, 
-                text="🧹 Clear Cache", 
+                buttons_frame,
+                text="🧹 Clear Cache",
                 command=self._clear_cache_dialog,
-                width=15
+                width=15,
             ).pack(side=tk.LEFT, padx=(0, 5))
-            
+
             ttk.Button(
-                buttons_frame, 
-                text="🔍 Validate Cache", 
+                buttons_frame,
+                text="🔍 Validate Cache",
                 command=self._validate_cache,
-                width=15
+                width=15,
             ).pack(side=tk.LEFT)
-            
+
         except Exception as e:
             logger.error(f"Error creating cache status display: {e}")
-            ttk.Label(parent, text=f"Error loading cache status: {e}", foreground="red").pack(anchor=tk.W)
-    
+            ttk.Label(
+                parent, text=f"Error loading cache status: {e}", foreground="red"
+            ).pack(anchor=tk.W)
+
     def _refresh_cache_status(self):
         """Refresh the cache status display."""
         try:
@@ -240,76 +249,85 @@ class FilantropiaSolarApp:
                         if "Configuration" in child.tab(tab_id, "text"):
                             # Find the cache frame and refresh it
                             self.input_status_var.set("Cache status refreshed")
-                            self.root.after(2000, lambda: self.input_status_var.set("Ready to generate analysis"))
+                            self.root.after(
+                                2000,
+                                lambda: self.input_status_var.set(
+                                    "Ready to generate analysis"
+                                ),
+                            )
                             break
         except Exception as e:
             logger.error(f"Error refreshing cache status: {e}")
-    
+
     def _clear_cache_dialog(self):
         """Show cache clearing dialog."""
         try:
             if not self.cache_manager:
                 messagebox.showwarning("Cache Management", "Cache is not enabled.")
                 return
-                
+
             result = messagebox.askyesnocancel(
                 "Clear Cache",
                 "Choose cache clearing option:\n\n"
                 "• Yes: Clear all cache (data + models)\n"
                 "• No: Clear only data cache\n"
-                "• Cancel: Keep cache unchanged"
+                "• Cancel: Keep cache unchanged",
             )
-            
+
             if result is True:  # Clear all
                 if self.cache_manager.clear_cache("all"):
                     messagebox.showinfo("Success", "All cache cleared successfully")
-                    self.input_status_var.set("All cache cleared - next run will rebuild")
+                    self.input_status_var.set(
+                        "All cache cleared - next run will rebuild"
+                    )
                 else:
                     messagebox.showerror("Error", "Failed to clear cache")
-                    
+
             elif result is False:  # Clear data only
                 if self.cache_manager.clear_cache("data"):
                     messagebox.showinfo("Success", "Data cache cleared successfully")
                     self.input_status_var.set("Data cache cleared - models preserved")
                 else:
                     messagebox.showerror("Error", "Failed to clear data cache")
-                    
+
         except Exception as e:
             logger.error(f"Error in cache clear dialog: {e}")
             messagebox.showerror("Error", f"Cache operation failed: {e}")
-    
+
     def _validate_cache(self):
         """Validate cache integrity."""
         try:
             if not self.cache_manager:
                 messagebox.showwarning("Cache Management", "Cache is not enabled.")
                 return
-                
+
             self.input_status_var.set("Validating cache integrity...")
             self.root.update_idletasks()
-            
+
             results = self.cache_manager.validate_cache()
-            
+
             if results.get("issues"):
                 issues_text = "\n".join(results["issues"][:5])  # Show first 5 issues
                 if len(results["issues"]) > 5:
                     issues_text += f"\n... and {len(results['issues']) - 5} more issues"
-                    
+
                 messagebox.showwarning(
                     "Cache Validation",
-                    f"Found {len(results['issues'])} issues:\n\n{issues_text}"
+                    f"Found {len(results['issues'])} issues:\n\n{issues_text}",
                 )
             else:
                 messagebox.showinfo(
                     "Cache Validation",
                     f"Cache validation successful!\n\n"
                     f"Valid entries: {results.get('valid_entries', 0)}\n"
-                    f"No issues found."
+                    f"No issues found.",
                 )
-                
+
             self.input_status_var.set("Cache validation completed")
-            self.root.after(3000, lambda: self.input_status_var.set("Ready to generate analysis"))
-            
+            self.root.after(
+                3000, lambda: self.input_status_var.set("Ready to generate analysis")
+            )
+
         except Exception as e:
             logger.error(f"Error validating cache: {e}")
             messagebox.showerror("Error", f"Cache validation failed: {e}")
@@ -347,7 +365,7 @@ class FilantropiaSolarApp:
 
             self.data_processor = ComprehensiveDataProcessor()
             # Store cache manager reference
-            self.cache_manager = getattr(self.data_processor, 'cache_manager', None)
+            self.cache_manager = getattr(self.data_processor, "cache_manager", None)
 
             # Step 2: Analyze available data ranges
             self._update_progress(35, "Analyzing available data ranges...")
@@ -400,7 +418,7 @@ class FilantropiaSolarApp:
 
         except Exception as e:
             logger.error(f"Error during initialization: {e}")
-            self.loading_queue.put(f"ERROR: {str(e)}")
+            self.loading_queue.put(f"ERROR: {e!s}")
 
     def _load_available_dates(self):
         """Load available date ranges for each installation."""
@@ -512,7 +530,7 @@ class FilantropiaSolarApp:
         except Exception as e:
             logger.error(f"Error transitioning to main GUI: {e}")
             messagebox.showerror(
-                "Interface Error", f"Failed to create main interface:\n{str(e)}"
+                "Interface Error", f"Failed to create main interface:\n{e!s}"
             )
             self._cleanup_and_exit()
 
@@ -693,9 +711,9 @@ class FilantropiaSolarApp:
         # Cache Status Display
         cache_frame = ttk.LabelFrame(container, text="System Status", padding="15")
         cache_frame.pack(fill=tk.X, pady=(15, 0))
-        
+
         self._create_cache_status_display(cache_frame)
-        
+
         # Status Display
         self.input_status_var = tk.StringVar(value="Ready to generate analysis")
         status_label = ttk.Label(
@@ -791,7 +809,9 @@ class FilantropiaSolarApp:
         main_split.pack(fill=tk.BOTH, expand=True)
 
         # Left panel: Overall info and daily values
-        left_frame = ttk.LabelFrame(main_split, text="Overall Information & Daily Summary", padding="10")
+        left_frame = ttk.LabelFrame(
+            main_split, text="Overall Information & Daily Summary", padding="10"
+        )
         main_split.add(left_frame, weight=1)
 
         # Left panel text area with scrollbar
@@ -811,7 +831,9 @@ class FilantropiaSolarApp:
         left_scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
 
         # Right panel: Hourly values for entire range
-        right_frame = ttk.LabelFrame(main_split, text="Hourly Breakdown (All Days)", padding="10")
+        right_frame = ttk.LabelFrame(
+            main_split, text="Hourly Breakdown (All Days)", padding="10"
+        )
         main_split.add(right_frame, weight=1)
 
         # Right panel text area with scrollbar
@@ -832,19 +854,19 @@ class FilantropiaSolarApp:
 
         # Initial content
         self._update_results_display(
-            "No analysis generated yet.\n\nUse the Analysis Configuration tab to generate detailed analysis.", 
-            "Hourly data will appear here after analysis is generated."
+            "No analysis generated yet.\n\nUse the Analysis Configuration tab to generate detailed analysis.",
+            "Hourly data will appear here after analysis is generated.",
         )
 
     def _create_charts_interface(self, parent):
         """Create the interactive charts interface."""
         try:
-            import matplotlib.pyplot as plt
             from matplotlib.backends.backend_tkagg import (
                 FigureCanvasTkAgg,
                 NavigationToolbar2Tk,
             )
             from matplotlib.figure import Figure
+            import matplotlib.pyplot as plt
 
             # Main container
             container = ttk.Frame(parent, padding="10")
@@ -890,15 +912,17 @@ class FilantropiaSolarApp:
             self.day_info_label.pack(pady=(0, 10))
 
             # Create matplotlib figure with adjusted layout for legends
-            self.figure = Figure(figsize=(20, 10), dpi=100)  # Wider for legends, shorter for charts
-            
+            self.figure = Figure(
+                figsize=(20, 10), dpi=100
+            )  # Wider for legends, shorter for charts
+
             # Adjust layout to leave space for right-aligned legends
             self.figure.subplots_adjust(
-                left=0.05,    # Charts aligned to left
-                right=0.75,   # Leave space on right for legends
-                top=0.95,     # Small top margin
-                bottom=0.1,   # Bottom margin
-                hspace=0.9    # Much more vertical spacing between charts
+                left=0.05,  # Charts aligned to left
+                right=0.75,  # Leave space on right for legends
+                top=0.95,  # Small top margin
+                bottom=0.1,  # Bottom margin
+                hspace=0.9,  # Much more vertical spacing between charts
             )
 
             # Grid layout: 3 rows, 1 column for shorter charts
@@ -943,7 +967,7 @@ class FilantropiaSolarApp:
             error_label = ttk.Label(
                 error_frame,
                 text=f"Charts Feature Unavailable\n\n"
-                f"Missing dependency: {str(e)}\n\n"
+                f"Missing dependency: {e!s}\n\n"
                 f"To enable interactive charts, please install matplotlib:\n"
                 f"pip install matplotlib\n\n"
                 f"Then restart FilantropiaSolar.",
@@ -968,7 +992,7 @@ class FilantropiaSolarApp:
             ]
 
             # Clear main charts
-            for ax, title in zip(axes, titles):
+            for ax, title in zip(axes, titles, strict=False):
                 ax.clear()
                 ax.text(
                     0.5,
@@ -1003,7 +1027,7 @@ class FilantropiaSolarApp:
             ]
 
             # Create properly sized color patches
-            for i, (rank, color, label) in enumerate(zip(rankings, colors, labels)):
+            for i, (rank, color, label) in enumerate(zip(rankings, colors, labels, strict=False)):
                 y_pos = 10.5 - i * 2.0  # Much better vertical spacing
 
                 # Draw much larger rectangle to properly contain all text
@@ -1149,10 +1173,10 @@ class FilantropiaSolarApp:
                 self.input_status_var.set("Weather simulation needed for analysis.")
                 messagebox.showerror(
                     "Weather Data Required",
-                    f"Analysis requires weather simulation for this period.\n\n"
-                    f'Solution: Enable "weather simulation" option below and try again.\n\n'
-                    f"This allows the system to generate weather data for periods where \n"
-                    f"historical weather information may be incomplete.",
+                    "Analysis requires weather simulation for this period.\n\n"
+                    'Solution: Enable "weather simulation" option below and try again.\n\n'
+                    "This allows the system to generate weather data for periods where \n"
+                    "historical weather information may be incomplete.",
                 )
             else:
                 self.input_status_var.set("Error during analysis. Check logs.")
@@ -1209,7 +1233,7 @@ class FilantropiaSolarApp:
             self.input_status_var.set("Error during model retraining.")
             messagebox.showerror(
                 "Retraining Error",
-                f"Failed to retrain ML models:\n\n{str(e)}\n\n"
+                f"Failed to retrain ML models:\n\n{e!s}\n\n"
                 f"Please check the logs for details.",
             )
         finally:
@@ -1218,7 +1242,7 @@ class FilantropiaSolarApp:
                 if isinstance(widget, ttk.Button):
                     widget.config(state="normal")
 
-    def _display_results(self, results: Dict[str, Any], mode: str):
+    def _display_results(self, results: dict[str, Any], mode: str):
         """Display comprehensive analysis results in split layout."""
         try:
             # ===== LEFT PANEL: OVERVIEW =====
@@ -1248,12 +1272,16 @@ class FilantropiaSolarApp:
             stats = results["period_statistics"]
             overview_text += "KEY PERFORMANCE METRICS (15-day period)\n"
             overview_text += "-" * 50 + "\n"
-            overview_text += f"Total Energy Production: {stats['total_energy_kwh']:.2f} kWh\n"
+            overview_text += (
+                f"Total Energy Production: {stats['total_energy_kwh']:.2f} kWh\n"
+            )
             overview_text += (
                 f"Average Daily Energy: {stats['total_energy_kwh'] / 15:.2f} kWh/day\n"
             )
             overview_text += f"Average Specific Energy: {stats['average_specific_energy']:.2f} kWh/kWp\n"
-            overview_text += f"Peak Hour Energy: {stats['peak_hour_energy']:.2f} kWh/kWp\n"
+            overview_text += (
+                f"Peak Hour Energy: {stats['peak_hour_energy']:.2f} kWh/kWp\n"
+            )
             overview_text += (
                 f"Average Temperature: {stats.get('average_temperature', 0):.1f}°C\n"
             )
@@ -1267,23 +1295,28 @@ class FilantropiaSolarApp:
             if "daily_summary" in results and "hourly_data" in results:
                 daily = results["daily_summary"]
                 hourly_data = results["hourly_data"]
-                
-                if mode == "historical" and "Produced Energy (kWh)" in hourly_data.columns:
+
+                if (
+                    mode == "historical"
+                    and "Produced Energy (kWh)" in hourly_data.columns
+                ):
                     energy_column = "Produced Energy (kWh)"
-                    data_type_label = "HISTORICAL" 
+                    data_type_label = "HISTORICAL"
                     logger.info("Using historical original energy data for display")
                 else:
                     energy_column = "predicted_total_energy"
                     data_type_label = "PREDICTED"
                     logger.info("Using predicted energy data for display")
-                
+
                 overview_text += f"\nDAILY SUMMARY ({data_type_label} DATA)\n"
                 overview_text += "=" * 50 + "\n"
                 overview_text += f"{'Day':<4} {'Date':<12} {'Energy(kWh)':<12} {'Peak':<8} {'Temp':<6} {'Cloud':<6} {'Rating':<12}\n"
                 overview_text += "-" * 50 + "\n"
 
                 # ===== HOURLY DATA (RIGHT PANEL) =====
-                hourly_text = f"HOURLY BREAKDOWN - ALL 15 DAYS ({data_type_label} DATA)\n"
+                hourly_text = (
+                    f"HOURLY BREAKDOWN - ALL 15 DAYS ({data_type_label} DATA)\n"
+                )
                 hourly_text += "=" * 70 + "\n\n"
 
                 for i, (date, row) in enumerate(daily.iterrows()):
@@ -1292,31 +1325,49 @@ class FilantropiaSolarApp:
                     if mode == "historical" and energy_column in hourly_data.columns:
                         # Calculate daily total from historical hourly data
                         try:
-                            day_hourly = hourly_data[hourly_data.index.date == (date.date() if hasattr(date, 'date') else date)]
-                            energy = day_hourly[energy_column].sum() if not day_hourly.empty else 0
+                            day_hourly = hourly_data[
+                                hourly_data.index.date
+                                == (date.date() if hasattr(date, "date") else date)
+                            ]
+                            energy = (
+                                day_hourly[energy_column].sum()
+                                if not day_hourly.empty
+                                else 0
+                            )
                         except Exception:
                             energy = row.get("predicted_total_energy", 0)  # Fallback
                     else:
                         energy = row.get("predicted_total_energy", 0)
-                    
+
                     ranking = row.get("ranking", 3)
                     temp = row.get("temperature_2m", 0)
                     cloud = row.get("cloud_cover", 0)
 
                     # Get peak hourly energy for this day using appropriate column
                     try:
-                        day_hourly = hourly_data[hourly_data.index.date == (date.date() if hasattr(date, 'date') else date)]
+                        day_hourly = hourly_data[
+                            hourly_data.index.date
+                            == (date.date() if hasattr(date, "date") else date)
+                        ]
                         if mode == "historical" and energy_column in day_hourly.columns:
-                            peak_energy = day_hourly[energy_column].max() if not day_hourly.empty else 0
+                            peak_energy = (
+                                day_hourly[energy_column].max()
+                                if not day_hourly.empty
+                                else 0
+                            )
                         else:
-                            peak_energy = day_hourly["predicted_total_energy"].max() if not day_hourly.empty else 0
+                            peak_energy = (
+                                day_hourly["predicted_total_energy"].max()
+                                if not day_hourly.empty
+                                else 0
+                            )
                     except Exception:
                         peak_energy = 0
 
                     # Convert ranking to descriptive rating
                     rating_map = {
                         1: "(1) Poor",
-                        2: "(2) Below", 
+                        2: "(2) Below",
                         3: "(3) Avg",
                         4: "(4) Good",
                         5: "(5) Excell",
@@ -1326,44 +1377,47 @@ class FilantropiaSolarApp:
                     # Add to daily summary (left panel)
                     marker = " <-" if i == self.current_day_index else ""
                     overview_text += f"{day_num:<4} {str(date)[:10]:<12} {energy:<12.2f} {peak_energy:<8.2f} {temp:<6.1f} {cloud:<6.0f} {rating:<12}{marker}\n"
-                    
+
                     # Add hourly breakdown to right panel
                     hourly_text += f"DAY {day_num}: {date.strftime('%Y-%m-%d')} ({date.strftime('%A')})\n"
                     hourly_text += "-" * 60 + "\n"
                     hourly_text += f"{'Hour':<6} {'Energy':<10} {'Temp°C':<8} {'Cloud%':<8} {'Wind':<8} {'Solar':<10} {'Humid%':<8}\n"
                     hourly_text += "-" * 60 + "\n"
-                    
+
                     try:
-                        day_hourly = hourly_data[hourly_data.index.date == (date.date() if hasattr(date, 'date') else date)]
+                        day_hourly = hourly_data[
+                            hourly_data.index.date
+                            == (date.date() if hasattr(date, "date") else date)
+                        ]
                         # Show ALL hours with data, not just productive ones
                         if not day_hourly.empty:
                             for _, hour_row in day_hourly.iterrows():
                                 hour = hour_row.name.hour
                                 h_energy = hour_row.get(energy_column, 0)
                                 h_temp = hour_row.get("temperature_2m", 0)
-                                h_cloud = hour_row.get("cloud_cover", 0) 
+                                h_cloud = hour_row.get("cloud_cover", 0)
                                 h_wind = hour_row.get("wind_speed_10m", 0)
                                 h_solar = hour_row.get("shortwave_radiation", 0)
                                 h_humidity = hour_row.get("relative_humidity_2m", 0)
-                                
+
                                 hourly_text += f"{hour:02d}:00 {h_energy:<10.2f} {h_temp:<8.1f} {h_cloud:<8.0f} {h_wind:<8.1f} {h_solar:<10.0f} {h_humidity:<8.0f}\n"
                         else:
                             hourly_text += "No hourly data available for this day\n"
                     except Exception as e:
-                        hourly_text += f"Error loading hourly data: {str(e)}\n"
-                    
+                        hourly_text += f"Error loading hourly data: {e!s}\n"
+
                     hourly_text += "\n"
 
             # Data source and model information (left panel)
             source = results["data_source"]
             overview_text += "\nDATA SOURCE & MODEL INFO\n"
             overview_text += "-" * 30 + "\n"
-            overview_text += (
-                f"PV Data: Sarmas et al. (2025)\nPhotovoltaic Power Production Dataset\n"
-            )
-            overview_text += f"DOI: 10.17632/dbh93b6vp8.3\n"
+            overview_text += "PV Data: Sarmas et al. (2025)\nPhotovoltaic Power Production Dataset\n"
+            overview_text += "DOI: 10.17632/dbh93b6vp8.3\n"
             overview_text += f"Weather: {'Simulated' if source['used_simulation'] else 'Historical'}\n"
-            overview_text += f"ML Model: {source['model_used'].replace('_', ' ').title()}\n"
+            overview_text += (
+                f"ML Model: {source['model_used'].replace('_', ' ').title()}\n"
+            )
 
             if (
                 "model_performance" in source
@@ -1373,13 +1427,17 @@ class FilantropiaSolarApp:
                 overview_text += f"Model R²: {perf.get('r2', 0):.3f}\n"
                 overview_text += f"Model MAE: {perf.get('mae', 0):.3f} kWh/kWp\n"
 
-            overview_text += f"\nEXPLORE: Use Interactive Charts tab for detailed analysis!"
+            overview_text += (
+                "\nEXPLORE: Use Interactive Charts tab for detailed analysis!"
+            )
 
             self._update_results_display(overview_text, hourly_text)
 
         except Exception as e:
             logger.error(f"Error displaying results: {e}")
-            self._update_results_display(f"Error displaying results: {str(e)}", "Error loading hourly data")
+            self._update_results_display(
+                f"Error displaying results: {e!s}", "Error loading hourly data"
+            )
 
     def _update_results_display(self, overview_text: str, hourly_text: str = ""):
         """Update the results text areas with new content."""
@@ -1388,15 +1446,15 @@ class FilantropiaSolarApp:
         self.results_overview_text.delete(1.0, tk.END)
         self.results_overview_text.insert(tk.END, overview_text)
         self.results_overview_text.config(state="disabled")
-        
+
         # Update right panel (hourly) if provided
-        if hasattr(self, 'results_hourly_text'):
+        if hasattr(self, "results_hourly_text"):
             self.results_hourly_text.config(state="normal")
             self.results_hourly_text.delete(1.0, tk.END)
             self.results_hourly_text.insert(tk.END, hourly_text)
             self.results_hourly_text.config(state="disabled")
 
-    def _update_charts(self, results: Dict[str, Any], mode: str = "simulation"):
+    def _update_charts(self, results: dict[str, Any], mode: str = "simulation"):
         """Update all charts with analysis results using weather-based ranking system."""
         if not hasattr(self, "hourly_energy_ax"):
             return
@@ -1404,33 +1462,41 @@ class FilantropiaSolarApp:
         try:
             # Determine correct energy column based on mode and available data
             hourly_data_preview = results.get("hourly_data", pd.DataFrame())
-            data_source = results.get('data_source', {})
-            
-            # Priority: 
+            data_source = results.get("data_source", {})
+
+            # Priority:
             # 1. If explicitly in simulation mode, use predicted data
             # 2. If historical mode and historical data available, use historical data
             # 3. Otherwise, use best available data
-            if mode == "simulation" or data_source.get('used_simulation', False):
+            if mode == "simulation" or data_source.get("used_simulation", False):
                 if "predicted_total_energy" in hourly_data_preview.columns:
                     energy_column_for_charts = "predicted_total_energy"
-                    logger.info("Using predicted energy data for charts (simulation mode)")
+                    logger.info(
+                        "Using predicted energy data for charts (simulation mode)"
+                    )
                 elif "Produced Energy (kWh)" in hourly_data_preview.columns:
                     energy_column_for_charts = "Produced Energy (kWh)"
-                    logger.info("Using historical energy data for charts (predicted not available)")
+                    logger.info(
+                        "Using historical energy data for charts (predicted not available)"
+                    )
                 else:
                     energy_column_for_charts = "predicted_total_energy"  # fallback
-                    logger.warning("No energy columns found, using predicted_total_energy as fallback")
-            elif mode == "historical" and "Produced Energy (kWh)" in hourly_data_preview.columns:
+                    logger.warning(
+                        "No energy columns found, using predicted_total_energy as fallback"
+                    )
+            elif (
+                mode == "historical"
+                and "Produced Energy (kWh)" in hourly_data_preview.columns
+            ):
                 energy_column_for_charts = "Produced Energy (kWh)"
                 logger.info("Using historical energy data for charts (historical mode)")
+            # Fallback: use whatever is available
+            elif "predicted_total_energy" in hourly_data_preview.columns:
+                energy_column_for_charts = "predicted_total_energy"
+                logger.info("Using predicted energy data for charts (fallback)")
             else:
-                # Fallback: use whatever is available
-                if "predicted_total_energy" in hourly_data_preview.columns:
-                    energy_column_for_charts = "predicted_total_energy"
-                    logger.info("Using predicted energy data for charts (fallback)")
-                else:
-                    energy_column_for_charts = "Produced Energy (kWh)"
-                    logger.info("Using historical energy data for charts (fallback)")
+                energy_column_for_charts = "Produced Energy (kWh)"
+                logger.info("Using historical energy data for charts (fallback)")
             # Clear existing plots
             for ax in [
                 self.hourly_energy_ax,
@@ -1527,8 +1593,14 @@ class FilantropiaSolarApp:
 
             # ===== CALCULATE DYNAMIC PRODUCTIVE HOURS RANGE =====
             # Determine the productive hours range across all 15 days using the correct energy column
-            productive_hour_min, productive_hour_max = self._calculate_dynamic_productive_hours(hourly_data, energy_column_for_charts)
-            logger.info(f"Dynamic productive hours range: {productive_hour_min}:00 - {productive_hour_max}:00")
+            productive_hour_min, productive_hour_max = (
+                self._calculate_dynamic_productive_hours(
+                    hourly_data, energy_column_for_charts
+                )
+            )
+            logger.info(
+                f"Dynamic productive hours range: {productive_hour_min}:00 - {productive_hour_max}:00"
+            )
 
             # ===== CREATE THE 3 CHARTS =====
             logger.info(
@@ -1536,10 +1608,21 @@ class FilantropiaSolarApp:
             )
 
             # Chart 1: Hourly Energy Production (Ranked Bars)
-            self._create_hourly_energy_chart(current_day_hourly, target_date, productive_hour_min, productive_hour_max, energy_column_for_charts)
+            self._create_hourly_energy_chart(
+                current_day_hourly,
+                target_date,
+                productive_hour_min,
+                productive_hour_max,
+                energy_column_for_charts,
+            )
 
             # Chart 2: Hourly Weather Conditions
-            self._create_hourly_weather_chart(current_day_hourly, target_date, productive_hour_min, productive_hour_max)
+            self._create_hourly_weather_chart(
+                current_day_hourly,
+                target_date,
+                productive_hour_min,
+                productive_hour_max,
+            )
 
             # Chart 3: Daily Overview with Moving Red Frame
             daily_dates = [
@@ -1559,7 +1642,11 @@ class FilantropiaSolarApp:
                 total_energy = current_day_energy.sum()
                 peak_energy = current_day_energy.max()
 
-                data_type = "Historical" if energy_column_for_charts == "Produced Energy (kWh)" else "Predicted"
+                data_type = (
+                    "Historical"
+                    if energy_column_for_charts == "Produced Energy (kWh)"
+                    else "Predicted"
+                )
                 info_text = f"📅 Day {self.current_day_index + 1} of 15: {target_date.strftime('%Y-%m-%d')} | {data_type} - Total: {total_energy:.2f} kWh | Peak: {peak_energy:.2f} kWh | Avg: {avg_energy:.2f} kWh"
             else:
                 info_text = f"📅 Day {self.current_day_index + 1} of 15: {target_date.strftime('%Y-%m-%d')} | No energy data available"
@@ -1574,7 +1661,7 @@ class FilantropiaSolarApp:
             logger.error(f"Full traceback: {traceback.format_exc()}")
 
             # Show error message in charts
-            error_msg = f"Chart update failed: {str(e)}"
+            error_msg = f"Chart update failed: {e!s}"
             for ax in [
                 self.hourly_energy_ax,
                 self.hourly_weather_ax,
@@ -1605,52 +1692,69 @@ class FilantropiaSolarApp:
                     if "predicted_total_energy" in hourly_data.columns
                     else "Produced Energy (kWh)"
                 )
-            
-            logger.info(f"Calculating productive hours using energy column: {energy_col}")
-            
+
+            logger.info(
+                f"Calculating productive hours using energy column: {energy_col}"
+            )
+
             if energy_col not in hourly_data.columns:
                 # Fallback to hardcoded range if no energy data
                 logger.warning("No energy column found, using default 6-20 hour range")
                 return 6, 20
-            
+
             # Get energy data and convert to numeric
-            energy_data = pd.to_numeric(hourly_data[energy_col], errors="coerce").fillna(0)
-            
+            energy_data = pd.to_numeric(
+                hourly_data[energy_col], errors="coerce"
+            ).fillna(0)
+
             # Define a minimal threshold (e.g., 0.1 kWh) for productive hours
             min_threshold = 0.1
-            
+
             # Find hours where energy production is above threshold
             productive_mask = energy_data > min_threshold
             productive_hourly_data = hourly_data[productive_mask]
-            
+
             if productive_hourly_data.empty:
                 # Fallback to hardcoded range if no productive hours found
-                logger.warning("No productive hours found above threshold, using default 6-20 hour range")
+                logger.warning(
+                    "No productive hours found above threshold, using default 6-20 hour range"
+                )
                 return 6, 20
-            
+
             # Get the hour range where production occurs
             productive_hours = productive_hourly_data.index.hour
             hour_min = productive_hours.min()
             hour_max = productive_hours.max()
-            
+
             # Ensure we have a reasonable range (at least 1 hour difference)
             if hour_max - hour_min < 1:
-                logger.warning("Very narrow productive hour range detected, using default 6-20 hour range")
+                logger.warning(
+                    "Very narrow productive hour range detected, using default 6-20 hour range"
+                )
                 return 6, 20
-            
+
             # Add some padding to ensure we capture edge hours
             hour_min = max(0, hour_min - 1)  # Don't go below 0
             hour_max = min(23, hour_max + 1)  # Don't go above 23
-            
-            logger.info(f"Calculated dynamic productive hours: {hour_min} to {hour_max}")
+
+            logger.info(
+                f"Calculated dynamic productive hours: {hour_min} to {hour_max}"
+            )
             return hour_min, hour_max
-            
+
         except Exception as e:
             logger.error(f"Error calculating dynamic productive hours: {e}")
             # Fallback to hardcoded range on error
             return 6, 20
 
-    def _create_hourly_energy_chart(self, current_day_hourly, target_date, productive_hour_min=6, productive_hour_max=20, energy_column="predicted_total_energy"):
+    def _create_hourly_energy_chart(
+        self,
+        current_day_hourly,
+        target_date,
+        productive_hour_min=6,
+        productive_hour_max=20,
+        energy_column="predicted_total_energy",
+    ):
         """Chart 1: Hourly Energy Production with Ranked Bars (Dynamic Productive Hours)."""
         try:
             if current_day_hourly.empty:
@@ -1668,10 +1772,10 @@ class FilantropiaSolarApp:
 
             # Filter to dynamic productive hours range
             productive_hours = current_day_hourly[
-                (current_day_hourly.index.hour >= productive_hour_min) & 
-                (current_day_hourly.index.hour <= productive_hour_max)
+                (current_day_hourly.index.hour >= productive_hour_min)
+                & (current_day_hourly.index.hour <= productive_hour_max)
             ]
-            
+
             if productive_hours.empty:
                 self.hourly_energy_ax.text(
                     0.5,
@@ -1685,15 +1789,27 @@ class FilantropiaSolarApp:
                 )
                 return
 
-            # Use the specified energy column 
-            energy_data_type = "HISTORICAL" if energy_column == "Produced Energy (kWh)" else "PREDICTED"
-            logger.info(f"Using {energy_data_type} data ({energy_column}) for hourly energy chart")
-            
+            # Use the specified energy column
+            energy_data_type = (
+                "HISTORICAL"
+                if energy_column == "Produced Energy (kWh)"
+                else "PREDICTED"
+            )
+            logger.info(
+                f"Using {energy_data_type} data ({energy_column}) for hourly energy chart"
+            )
+
             # Ensure the column exists in the data
             if energy_column not in productive_hours.columns:
-                energy_column = "predicted_total_energy" if "predicted_total_energy" in productive_hours.columns else "Produced Energy (kWh)"
-                logger.warning(f"Specified energy column not found, falling back to {energy_column}")
-                
+                energy_column = (
+                    "predicted_total_energy"
+                    if "predicted_total_energy" in productive_hours.columns
+                    else "Produced Energy (kWh)"
+                )
+                logger.warning(
+                    f"Specified energy column not found, falling back to {energy_column}"
+                )
+
             hourly_energy = productive_hours.get(
                 energy_column, pd.Series([0] * len(productive_hours))
             )
@@ -1744,10 +1860,10 @@ class FilantropiaSolarApp:
             )
 
             # Add value labels on bars
-            for bar, energy, ranking in zip(bars, hourly_energy, energy_rankings):
+            for bar, energy, ranking in zip(bars, hourly_energy, energy_rankings, strict=False):
                 if energy > 0.1:  # Only show labels for significant values
                     height = bar.get_height()
-                    
+
                     # Show energy value INSIDE the bar (middle of bar height)
                     self.hourly_energy_ax.text(
                         bar.get_x() + bar.get_width() / 2.0,
@@ -1759,7 +1875,7 @@ class FilantropiaSolarApp:
                         fontweight="bold",
                         color="black",  # Black text for visibility inside colored bars
                     )
-                    
+
                     # Show ranking ON TOP of bars
                     ranking_text = f"({ranking}/5)"
                     self.hourly_energy_ax.text(
@@ -1782,16 +1898,22 @@ class FilantropiaSolarApp:
                 fontweight="bold",
                 pad=15,
             )
-            self.hourly_energy_ax.set_xlabel(f"Hour of Day (Productive Hours {hour_range_str})", fontsize=12)
+            self.hourly_energy_ax.set_xlabel(
+                f"Hour of Day (Productive Hours {hour_range_str})", fontsize=12
+            )
             self.hourly_energy_ax.set_ylabel("Energy Production (kWh)", fontsize=12)
             self.hourly_energy_ax.grid(True, alpha=0.3)
 
             # Set x-axis limits for dynamic productive hours with padding
-            self.hourly_energy_ax.set_xlim(productive_hour_min - 0.5, productive_hour_max + 0.5)
+            self.hourly_energy_ax.set_xlim(
+                productive_hour_min - 0.5, productive_hour_max + 0.5
+            )
             # Set x-axis ticks dynamically
             tick_range = productive_hour_max - productive_hour_min + 1
             tick_step = max(1, tick_range // 8)  # Aim for ~8 ticks max
-            self.hourly_energy_ax.set_xticks(range(productive_hour_min, productive_hour_max + 1, tick_step))
+            self.hourly_energy_ax.set_xticks(
+                range(productive_hour_min, productive_hour_max + 1, tick_step)
+            )
 
             # Add top margin for labels
             if hourly_energy.max() > 0:
@@ -1799,14 +1921,15 @@ class FilantropiaSolarApp:
 
             # Create performance ranking legend
             from matplotlib.patches import Patch
+
             legend_elements = [
-                Patch(facecolor='#FFD700', label='Excellent (5)'),
-                Patch(facecolor='#32CD32', label='Good (4)'),
-                Patch(facecolor='#FFA500', label='Average (3)'),
-                Patch(facecolor='#FF8C00', label='Below Avg (2)'),
-                Patch(facecolor='#DC143C', label='Poor (1)')
+                Patch(facecolor="#FFD700", label="Excellent (5)"),
+                Patch(facecolor="#32CD32", label="Good (4)"),
+                Patch(facecolor="#FFA500", label="Average (3)"),
+                Patch(facecolor="#FF8C00", label="Below Avg (2)"),
+                Patch(facecolor="#DC143C", label="Poor (1)"),
             ]
-            
+
             # Add legend to the right side
             self.hourly_energy_ax.legend(
                 handles=legend_elements,
@@ -1820,7 +1943,7 @@ class FilantropiaSolarApp:
                 bbox_to_anchor=(1.08, 0.5),  # Moved further right
                 handlelength=0.8,
                 handletextpad=0.3,
-                borderaxespad=0.2
+                borderaxespad=0.2,
             )
 
         except Exception as e:
@@ -1828,7 +1951,7 @@ class FilantropiaSolarApp:
             self.hourly_energy_ax.text(
                 0.5,
                 0.5,
-                f"Error creating chart:\n{str(e)}",
+                f"Error creating chart:\n{e!s}",
                 horizontalalignment="center",
                 verticalalignment="center",
                 transform=self.hourly_energy_ax.transAxes,
@@ -1836,14 +1959,20 @@ class FilantropiaSolarApp:
                 color="red",
             )
 
-    def _create_hourly_weather_chart(self, current_day_hourly, target_date, productive_hour_min=6, productive_hour_max=20):
+    def _create_hourly_weather_chart(
+        self,
+        current_day_hourly,
+        target_date,
+        productive_hour_min=6,
+        productive_hour_max=20,
+    ):
         """Chart 2: Hourly Weather Conditions (Temperature, Humidity, Cloud Cover, Wind) - Dynamic Productive Hours."""
         try:
             # Clear the main axes content and properly handle secondary axis
             self.hourly_weather_ax.clear()
-            
+
             # Remove existing secondary axis if it exists
-            if hasattr(self, '_weather_ax2') and self._weather_ax2 is not None:
+            if hasattr(self, "_weather_ax2") and self._weather_ax2 is not None:
                 self._weather_ax2.remove()
                 self._weather_ax2 = None
 
@@ -1862,10 +1991,10 @@ class FilantropiaSolarApp:
 
             # Filter to dynamic productive hours range
             productive_hours = current_day_hourly[
-                (current_day_hourly.index.hour >= productive_hour_min) & 
-                (current_day_hourly.index.hour <= productive_hour_max)
+                (current_day_hourly.index.hour >= productive_hour_min)
+                & (current_day_hourly.index.hour <= productive_hour_max)
             ]
-            
+
             if productive_hours.empty:
                 self.hourly_weather_ax.text(
                     0.5,
@@ -1997,7 +2126,9 @@ class FilantropiaSolarApp:
                 fontweight="bold",
                 pad=15,
             )
-            self.hourly_weather_ax.set_xlabel(f"Hour of Day (Productive Hours {hour_range_str})", fontsize=12)
+            self.hourly_weather_ax.set_xlabel(
+                f"Hour of Day (Productive Hours {hour_range_str})", fontsize=12
+            )
 
             # Right y-axis formatting
             ax2.set_ylabel(
@@ -2011,13 +2142,13 @@ class FilantropiaSolarApp:
             # Add compact legend to avoid overlap
             lines1, labels1 = self.hourly_weather_ax.get_legend_handles_labels()
             lines2, labels2 = ax2.get_legend_handles_labels()
-            
+
             # Only show legend if we have data to display (moved outside)
             if lines1 or lines2:
                 self.hourly_weather_ax.legend(
-                    lines1 + lines2, 
-                    labels1 + labels2, 
-                    loc="center left", 
+                    lines1 + lines2,
+                    labels1 + labels2,
+                    loc="center left",
                     fontsize=8,  # Smaller font
                     ncol=1,  # Single column outside chart
                     frameon=True,
@@ -2027,23 +2158,27 @@ class FilantropiaSolarApp:
                     bbox_to_anchor=(1.08, 0.5),  # Moved further right
                     handlelength=0.8,
                     handletextpad=0.3,
-                    borderaxespad=0.2
+                    borderaxespad=0.2,
                 )
 
             # Grid and axis limits for dynamic productive hours with padding
             self.hourly_weather_ax.grid(True, alpha=0.3)
-            self.hourly_weather_ax.set_xlim(productive_hour_min - 0.5, productive_hour_max + 0.5)
+            self.hourly_weather_ax.set_xlim(
+                productive_hour_min - 0.5, productive_hour_max + 0.5
+            )
             # Set x-axis ticks dynamically
             tick_range = productive_hour_max - productive_hour_min + 1
             tick_step = max(1, tick_range // 8)  # Aim for ~8 ticks max
-            self.hourly_weather_ax.set_xticks(range(productive_hour_min, productive_hour_max + 1, tick_step))
+            self.hourly_weather_ax.set_xticks(
+                range(productive_hour_min, productive_hour_max + 1, tick_step)
+            )
 
         except Exception as e:
             logger.error(f"Error creating hourly weather chart: {e}")
             self.hourly_weather_ax.text(
                 0.5,
                 0.5,
-                f"Error creating chart:\n{str(e)}",
+                f"Error creating chart:\n{e!s}",
                 horizontalalignment="center",
                 verticalalignment="center",
                 transform=self.hourly_weather_ax.transAxes,
@@ -2056,9 +2191,9 @@ class FilantropiaSolarApp:
         try:
             # Clear the main axes content and properly handle secondary axis
             self.daily_overview_ax.clear()
-            
+
             # Remove existing secondary axis if it exists
-            if hasattr(self, '_daily_ax2') and self._daily_ax2 is not None:
+            if hasattr(self, "_daily_ax2") and self._daily_ax2 is not None:
                 self._daily_ax2.remove()
                 self._daily_ax2 = None
 
@@ -2216,7 +2351,7 @@ class FilantropiaSolarApp:
 
             # Chart formatting
             self.daily_overview_ax.set_title(
-                f"Chart 3: Daily Energy & Weather Overview (15-Day Analysis Period)",
+                "Chart 3: Daily Energy & Weather Overview (15-Day Analysis Period)",
                 fontsize=11,  # Reduced font size
                 fontweight="bold",
                 pad=15,
@@ -2243,13 +2378,13 @@ class FilantropiaSolarApp:
             # Add compact legend with better positioning
             lines1, labels1 = self.daily_overview_ax.get_legend_handles_labels()
             lines2, labels2 = ax2.get_legend_handles_labels()
-            
+
             # Only show legend if we have data (moved outside)
             if lines1 or lines2:
                 self.daily_overview_ax.legend(
-                    lines1 + lines2, 
-                    labels1 + labels2, 
-                    loc="center left", 
+                    lines1 + lines2,
+                    labels1 + labels2,
+                    loc="center left",
                     fontsize=8,  # Smaller font
                     ncol=1,  # Single column outside chart
                     frameon=True,
@@ -2259,7 +2394,7 @@ class FilantropiaSolarApp:
                     bbox_to_anchor=(1.08, 0.5),  # Moved further right
                     handlelength=0.8,
                     handletextpad=0.3,
-                    borderaxespad=0.2
+                    borderaxespad=0.2,
                 )
 
             self.daily_overview_ax.grid(True, alpha=0.3)
@@ -2282,7 +2417,7 @@ class FilantropiaSolarApp:
             self.daily_overview_ax.text(
                 0.5,
                 0.5,
-                f"Error creating chart:\n{str(e)}",
+                f"Error creating chart:\n{e!s}",
                 horizontalalignment="center",
                 verticalalignment="center",
                 transform=self.daily_overview_ax.transAxes,
@@ -2320,23 +2455,30 @@ class FilantropiaSolarApp:
             logger.info(
                 f"Hourly data shape: {self.current_results['hourly_data'].shape}"
             )
-            
+
             # Determine mode based on stored analysis mode, then data source information
             if self.current_analysis_mode:
                 mode = self.current_analysis_mode
                 logger.info(f"Using stored analysis mode for chart refresh: {mode}")
             else:
-                data_source = self.current_results.get('data_source', {})
-                if data_source.get('used_simulation', False):
-                    mode = "simulation" 
-                    logger.info("Using simulation mode for chart refresh (data source indicates simulation)")
-                elif "Produced Energy (kWh)" in self.current_results.get('hourly_data', pd.DataFrame()).columns:
+                data_source = self.current_results.get("data_source", {})
+                if data_source.get("used_simulation", False):
+                    mode = "simulation"
+                    logger.info(
+                        "Using simulation mode for chart refresh (data source indicates simulation)"
+                    )
+                elif (
+                    "Produced Energy (kWh)"
+                    in self.current_results.get("hourly_data", pd.DataFrame()).columns
+                ):
                     mode = "historical"
-                    logger.info("Using historical mode for chart refresh (historical data detected)")
+                    logger.info(
+                        "Using historical mode for chart refresh (historical data detected)"
+                    )
                 else:
                     mode = "simulation"
                     logger.info("Defaulting to simulation mode for chart refresh")
-                
+
             self._update_charts(self.current_results, mode)
         else:
             logger.warning("No current results available for refresh")
@@ -2347,40 +2489,33 @@ class FilantropiaSolarApp:
             "INTERACTIVE CHARTS - USER GUIDE\n"
             "===================================\n\n"
             "This tab displays three interactive charts for detailed solar energy analysis:\n\n"
-            
             "CHART 1: HOURLY ENERGY PRODUCTION\n"
             "• Shows energy production for each hour of the selected day\n"
             "• Energy values are displayed INSIDE the bars (white text)\n"
             "• Performance rankings (1-5) are shown ABOVE the bars\n"
             "• Bar colors represent performance: Red=Poor, Orange=Below Avg, Yellow=Average, Green=Good, Gold=Excellent\n"
             "• Shows productive hours of the range\n\n"
-            
             "CHART 2: HOURLY WEATHER CONDITIONS\n"
             "• Temperature (red line with circles) - Left axis\n"
             "• Humidity (blue line with triangles) - Right axis\n"
             "• Cloud Cover (gray bars) - Right axis\n"
             "• Wind Speed (green line with stars) - Right axis\n"
             "• Shows weather conditions for the same productive hours\n\n"
-            
             "CHART 3: DAILY OVERVIEW (15-DAY PERIOD)\n"
             "• Energy bars for all 15 days in the analysis period\n"
             "• Temperature and Cloud Cover trend lines\n"
             "• RED FRAME highlights the currently selected day\n"
             "• 'VIEWING DAY X' label shows which day is displayed in hourly charts above\n\n"
-            
             "NAVIGATION:\n"
             "• Previous/Next: Navigate between days in the 15-day period\n"
             "• Center: Jump to the middle day (day 8) of the analysis period\n\n"
-            
             "DATA TYPES:\n"
             "• HISTORICAL: Shows actual recorded solar production data\n"
             "• PREDICTED: Shows ML model predictions for future dates\n"
             "• Chart titles indicate which data type is being displayed\n\n"
-            
-            
             "TIP: Use this tab after generating analysis in the 'Analysis Configuration' tab."
         )
-        
+
         messagebox.showinfo("Interactive Charts Help", help_text)
 
     def _show_welcome_message(self):

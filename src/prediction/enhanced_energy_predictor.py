@@ -8,7 +8,7 @@ Supports 15-day prediction periods (7 days past + chosen date + 7 days future).
 from datetime import datetime, timedelta
 import logging
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 import joblib
 import numpy as np
@@ -54,7 +54,7 @@ class EnhancedEnergyPredictor:
         # self.ranking_system = RankingSystem()  # Temporary disabled
 
         # Get cache manager from data processor
-        self.cache_manager = getattr(data_processor, 'cache_manager', None)
+        self.cache_manager = getattr(data_processor, "cache_manager", None)
 
         # Model storage
         self.models: dict[
@@ -97,27 +97,33 @@ class EnhancedEnergyPredictor:
                 model_key = f"model_{installation_id}"
                 scaler_key = f"scaler_{installation_id}"
                 perf_key = f"performance_{installation_id}"
-                
-                if not (self.cache_manager.is_cached("models", model_key) and 
-                       self.cache_manager.is_cached("models", scaler_key) and
-                       self.cache_manager.is_cached("models", perf_key)):
+
+                if not (
+                    self.cache_manager.is_cached("models", model_key)
+                    and self.cache_manager.is_cached("models", scaler_key)
+                    and self.cache_manager.is_cached("models", perf_key)
+                ):
                     all_cached = False
                     break
-            
+
             if all_cached:
                 logger.info("Loading all models from cache")
                 for installation_id, _ in self.data_processor.get_installation_list():
                     try:
                         self._load_cached_models(installation_id)
                     except Exception as e:
-                        logger.error(f"Error loading cached models for {installation_id}: {e}")
+                        logger.error(
+                            f"Error loading cached models for {installation_id}: {e}"
+                        )
                         all_cached = False
                         break
-                
+
                 if all_cached:
-                    logger.info(f"Successfully loaded models for {len(self.models)} installations from cache")
+                    logger.info(
+                        f"Successfully loaded models for {len(self.models)} installations from cache"
+                    )
                     return
-                    
+
         logger.info("Training models from source (not fully cached)")
         for (
             installation_id,
@@ -202,7 +208,7 @@ class EnhancedEnergyPredictor:
             self.model_performance[installation_id] = performance
 
             logger.info(f"{installation_id} - Best model: {best_model_name}")
-            
+
             # Cache the trained models
             if self.cache_manager:
                 self._cache_models(installation_id)
@@ -215,58 +221,69 @@ class EnhancedEnergyPredictor:
             model_key = f"model_{installation_id}"
             scaler_key = f"scaler_{installation_id}"
             perf_key = f"performance_{installation_id}"
-            
+
             # Load models
             cached_models = self.cache_manager.load_cached_data("models", model_key)
             cached_scaler = self.cache_manager.load_cached_data("models", scaler_key)
             cached_performance = self.cache_manager.load_cached_data("models", perf_key)
-            
+
             if cached_models and cached_scaler and cached_performance:
                 self.models[installation_id] = cached_models
                 self.scalers[installation_id] = cached_scaler
                 self.model_performance[installation_id] = cached_performance
-                
-                logger.info(f"Loaded cached models for {installation_id} - Best: {cached_models.get('best_model_name', 'unknown')}")
+
+                logger.info(
+                    f"Loaded cached models for {installation_id} - Best: {cached_models.get('best_model_name', 'unknown')}"
+                )
                 return True
-                
+
         except Exception as e:
             logger.error(f"Error loading cached models for {installation_id}: {e}")
-            
+
         return False
-    
+
     def _cache_models(self, installation_id: str) -> bool:
         """Cache trained models for an installation."""
         try:
             model_key = f"model_{installation_id}"
             scaler_key = f"scaler_{installation_id}"
             perf_key = f"performance_{installation_id}"
-            
+
             # Cache models with metadata
             model_metadata = {
                 "installation_id": installation_id,
-                "best_model": self.models[installation_id].get("best_model_name", "unknown"),
+                "best_model": self.models[installation_id].get(
+                    "best_model_name", "unknown"
+                ),
                 "model_count": len(self.models[installation_id].get("all_models", {})),
-                "performance": self.model_performance[installation_id]
+                "performance": self.model_performance[installation_id],
             }
-            
+
             success = True
             success &= self.cache_manager.cache_data(
                 self.models[installation_id], "models", model_key, model_metadata
             )
             success &= self.cache_manager.cache_data(
-                self.scalers[installation_id], "models", scaler_key, 
-                {"installation_id": installation_id, "scaler_type": "StandardScaler"}
+                self.scalers[installation_id],
+                "models",
+                scaler_key,
+                {"installation_id": installation_id, "scaler_type": "StandardScaler"},
             )
             success &= self.cache_manager.cache_data(
-                self.model_performance[installation_id], "models", perf_key,
-                {"installation_id": installation_id, "metrics": list(self.model_performance[installation_id].keys())}
+                self.model_performance[installation_id],
+                "models",
+                perf_key,
+                {
+                    "installation_id": installation_id,
+                    "metrics": list(self.model_performance[installation_id].keys()),
+                },
             )
-            
+
             if success:
                 logger.info(f"Successfully cached models for {installation_id}")
-            
+
             return success
-            
+
         except Exception as e:
             logger.error(f"Error caching models for {installation_id}: {e}")
             return False
@@ -361,9 +378,13 @@ class EnhancedEnergyPredictor:
 
             # Define 15-day period (7 days before + center day + 7 days after = 15 days)
             # Start from 00:00:00 of first day to ensure complete day coverage
-            start_date = (center_date - timedelta(days=7)).replace(hour=0, minute=0, second=0, microsecond=0)
+            start_date = (center_date - timedelta(days=7)).replace(
+                hour=0, minute=0, second=0, microsecond=0
+            )
             # End at 23:59:59 of last day to ensure complete day coverage
-            end_date = (center_date + timedelta(days=7)).replace(hour=23, minute=59, second=59, microsecond=999999)
+            end_date = (center_date + timedelta(days=7)).replace(
+                hour=23, minute=59, second=59, microsecond=999999
+            )
 
             # Get or simulate weather data
             weather_data = self._get_weather_data_for_period(
@@ -631,25 +652,36 @@ class EnhancedEnergyPredictor:
                 predictions * installation_info.installed_power_kwp
             )
             results_df["ranking"] = rankings
-            
+
             # *** CRITICAL FIX: Add historical data when available ***
             # Get historical energy data from the data processor
-            historical_data = self.data_processor.get_combined_data(installation_info.installation_id)
-            if historical_data is not None and "Produced Energy (kWh)" in historical_data.columns:
+            historical_data = self.data_processor.get_combined_data(
+                installation_info.installation_id
+            )
+            if (
+                historical_data is not None
+                and "Produced Energy (kWh)" in historical_data.columns
+            ):
                 # Merge historical data with results based on datetime index
-                historical_energy_cols = ["Produced Energy (kWh)", "Specific Energy (kWh/kWp)"]
-                available_historical_cols = [col for col in historical_energy_cols if col in historical_data.columns]
-                
+                historical_energy_cols = [
+                    "Produced Energy (kWh)",
+                    "Specific Energy (kWh/kWp)",
+                ]
+                available_historical_cols = [
+                    col
+                    for col in historical_energy_cols
+                    if col in historical_data.columns
+                ]
+
                 if available_historical_cols:
                     # Only merge rows that have matching timestamps
                     historical_subset = historical_data[available_historical_cols]
                     results_df = results_df.merge(
-                        historical_subset, 
-                        left_index=True, 
-                        right_index=True, 
-                        how='left'
+                        historical_subset, left_index=True, right_index=True, how="left"
                     )
-                    logger.info(f"Successfully merged historical energy data: {len(results_df[results_df['Produced Energy (kWh)'].notna()])} historical records found")
+                    logger.info(
+                        f"Successfully merged historical energy data: {len(results_df[results_df['Produced Energy (kWh)'].notna()])} historical records found"
+                    )
                 else:
                     logger.warning("Historical data columns not found in combined data")
             else:

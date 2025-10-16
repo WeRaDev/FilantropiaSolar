@@ -12,7 +12,7 @@ from dataclasses import dataclass
 import datetime
 import logging
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Optional
+from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     from datetime import datetime
@@ -62,7 +62,12 @@ class ComprehensiveDataProcessor:
     then combines them based on location matching.
     """
 
-    def __init__(self, data_dir: str = "data", weather_dir: str = "weather_files", use_cache: bool = True):
+    def __init__(
+        self,
+        data_dir: str = "data",
+        weather_dir: str = "weather_files",
+        use_cache: bool = True,
+    ):
         """Initialize the comprehensive data processor with optional caching."""
         self.data_dir = Path(data_dir)
         self.weather_dir = Path(weather_dir)
@@ -96,22 +101,26 @@ class ComprehensiveDataProcessor:
     def _load_installations_metadata(self):
         """Load PV installations metadata from Excel file with caching."""
         cache_key = "installations_metadata"
-        
+
         # Try to load from cache first
         if self.cache_manager and self.cache_manager.is_cached("metadata", cache_key):
-            cached_installations = self.cache_manager.load_cached_data("metadata", cache_key)
+            cached_installations = self.cache_manager.load_cached_data(
+                "metadata", cache_key
+            )
             if cached_installations:
                 self.installations = cached_installations
-                logger.info(f"Loaded {len(self.installations)} installations from cache")
+                logger.info(
+                    f"Loaded {len(self.installations)} installations from cache"
+                )
                 return
-        
+
         try:
             metadata_file = self.data_dir / "PV Plants Metadata.xlsx"
             if not metadata_file.exists():
                 raise FileNotFoundError(f"Metadata file not found: {metadata_file}")
 
             logger.info("Loading installations metadata from source (not cached)")
-            
+
             # Read metadata with proper header handling
             df = pd.read_excel(metadata_file, header=1)
             df = df.dropna(how="all").reset_index(drop=True)
@@ -150,14 +159,19 @@ class ComprehensiveDataProcessor:
                     continue
 
             logger.info(f"Successfully loaded {len(self.installations)} installations")
-            
+
             # Cache the installations metadata
             if self.cache_manager:
                 self.cache_manager.cache_data(
-                    self.installations, 
-                    "metadata", 
+                    self.installations,
+                    "metadata",
                     cache_key,
-                    metadata={"total_installations": len(self.installations), "locations": list(set(inst.location for inst in self.installations.values()))}
+                    metadata={
+                        "total_installations": len(self.installations),
+                        "locations": list(
+                            set(inst.location for inst in self.installations.values())
+                        ),
+                    },
                 )
 
         except Exception as e:
@@ -173,16 +187,20 @@ class ComprehensiveDataProcessor:
                 if not self.cache_manager.is_cached("energy_data", installation_id):
                     all_cached = False
                     break
-            
+
             if all_cached:
                 logger.info("Loading all energy data from cache")
                 for installation_id in self.installations.keys():
-                    cached_data = self.cache_manager.load_cached_data("energy_data", installation_id)
+                    cached_data = self.cache_manager.load_cached_data(
+                        "energy_data", installation_id
+                    )
                     if cached_data is not None:
                         self.energy_data[installation_id] = cached_data
-                logger.info(f"Loaded energy data for {len(self.energy_data)} installations from cache")
+                logger.info(
+                    f"Loaded energy data for {len(self.energy_data)} installations from cache"
+                )
                 return
-                
+
         try:
             datasets_file = self.data_dir / "PV Plants Datasets.xlsx"
             if not datasets_file.exists():
@@ -198,13 +216,19 @@ class ComprehensiveDataProcessor:
             # Load data for each installation
             for installation_id, installation in self.installations.items():
                 # Check cache for individual installation
-                if self.cache_manager and self.cache_manager.is_cached("energy_data", installation_id):
-                    cached_data = self.cache_manager.load_cached_data("energy_data", installation_id)
+                if self.cache_manager and self.cache_manager.is_cached(
+                    "energy_data", installation_id
+                ):
+                    cached_data = self.cache_manager.load_cached_data(
+                        "energy_data", installation_id
+                    )
                     if cached_data is not None:
                         self.energy_data[installation_id] = cached_data
-                        logger.info(f"Loaded {len(cached_data)} energy records for {installation_id} from cache")
+                        logger.info(
+                            f"Loaded {len(cached_data)} energy records for {installation_id} from cache"
+                        )
                         continue
-                
+
                 sheet_name = installation.serial_number
 
                 if sheet_name in sheet_names:
@@ -239,14 +263,18 @@ class ComprehensiveDataProcessor:
                         logger.info(
                             f"Loaded {len(df)} energy records for {installation_id}"
                         )
-                        
+
                         # Cache the energy data
                         if self.cache_manager:
                             self.cache_manager.cache_data(
-                                df, 
-                                "energy_data", 
+                                df,
+                                "energy_data",
                                 installation_id,
-                                metadata={"records": len(df), "location": installation.location, "power_kwp": installation.installed_power_kwp}
+                                metadata={
+                                    "records": len(df),
+                                    "location": installation.location,
+                                    "power_kwp": installation.installed_power_kwp,
+                                },
                             )
 
                     except Exception as e:
@@ -288,21 +316,40 @@ class ComprehensiveDataProcessor:
                             # Parse datetime with robust format handling to avoid UserWarning
                             try:
                                 # Try primary format first (most common)
-                                df["datetime"] = pd.to_datetime(df["time"], format='%m/%d/%y %I:%M %p', errors='raise')
+                                df["datetime"] = pd.to_datetime(
+                                    df["time"],
+                                    format="%m/%d/%y %I:%M %p",
+                                    errors="raise",
+                                )
                             except (ValueError, TypeError):
-                                logger.info(f"Primary datetime format failed for {location}, trying fallback formats")
+                                logger.info(
+                                    f"Primary datetime format failed for {location}, trying fallback formats"
+                                )
                                 # Try common alternative formats
-                                for fmt in ['%m/%d/%Y %I:%M %p', '%Y-%m-%d %H:%M:%S', '%m/%d/%y %H:%M', '%m/%d/%Y %H:%M']:
+                                for fmt in [
+                                    "%m/%d/%Y %I:%M %p",
+                                    "%Y-%m-%d %H:%M:%S",
+                                    "%m/%d/%y %H:%M",
+                                    "%m/%d/%Y %H:%M",
+                                ]:
                                     try:
-                                        df["datetime"] = pd.to_datetime(df["time"], format=fmt, errors='raise')
-                                        logger.info(f"Successfully parsed datetime using format: {fmt}")
+                                        df["datetime"] = pd.to_datetime(
+                                            df["time"], format=fmt, errors="raise"
+                                        )
+                                        logger.info(
+                                            f"Successfully parsed datetime using format: {fmt}"
+                                        )
                                         break
                                     except (ValueError, TypeError):
                                         continue
                                 else:
                                     # Final fallback with infer_datetime_format=True to suppress warning
-                                    logger.warning(f"All explicit formats failed for {location}, using infer_datetime_format")
-                                    df["datetime"] = pd.to_datetime(df["time"], infer_datetime_format=True)
+                                    logger.warning(
+                                        f"All explicit formats failed for {location}, using infer_datetime_format"
+                                    )
+                                    df["datetime"] = pd.to_datetime(
+                                        df["time"], infer_datetime_format=True
+                                    )
                             df = df.set_index("datetime")
 
                             # Clean column names

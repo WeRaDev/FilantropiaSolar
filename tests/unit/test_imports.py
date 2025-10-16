@@ -2,9 +2,10 @@
 Test basic imports and module availability.
 """
 
-import pytest
-import sys
 import os
+import sys
+
+import pytest
 
 # Add src to path for imports
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "src"))
@@ -64,8 +65,8 @@ class TestBasicImports:
 
     def test_main_application_import(self):
         """Test that the main application module can be accessed (v1.0.0)."""
-        import sys
         import os
+        import sys
 
         # Add project root to path
         project_root = os.path.join(os.path.dirname(__file__), "..", "..")

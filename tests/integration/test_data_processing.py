@@ -2,12 +2,13 @@
 Integration tests for data processing workflows.
 """
 
-import pytest
-import sys
 import os
-import pandas as pd
-import numpy as np
+import sys
 from unittest.mock import Mock, patch
+
+import numpy as np
+import pandas as pd
+import pytest
 
 # Add src to path for imports
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "src"))
@@ -127,8 +128,8 @@ def test_end_to_end_workflow():
     try:
         # Test that all major components can work together
         from data_processing.lisbon_data_processor import LisbonDataProcessor
-        from weather_api.weather_client import WeatherClient
         from prediction.energy_predictor import EnergyPredictor
+        from weather_api.weather_client import WeatherClient
 
         # Initialize components
         processor = LisbonDataProcessor()
@@ -178,8 +179,8 @@ def test_end_to_end_workflow():
 def test_large_dataset_processing():
     """Test processing of larger datasets (performance test)."""
     try:
-        import pandas as pd
         import numpy as np
+        import pandas as pd
 
         # Create larger synthetic dataset
         large_data = pd.DataFrame(
@@ -204,4 +205,4 @@ def test_large_dataset_processing():
         assert len(high_energy) > 0
 
     except Exception as e:
-        pytest.skip(f"Large dataset test failed: {str(e)}")
+        pytest.skip(f"Large dataset test failed: {e!s}")

@@ -4,10 +4,10 @@ Performance benchmark tests for FilantropiaSolar.
 These tests measure performance of key application components.
 """
 
-import pytest
-import time
-import sys
 import os
+import sys
+
+import pytest
 
 # Add src to path for imports
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "src"))
