@@ -21,7 +21,7 @@ from datetime import datetime, timedelta
 from pathlib import Path
 import threading
 import queue
-from typing import Any
+from typing import Any, Dict
 import pandas as pd
 
 # Add src to path for imports
