@@ -42,7 +42,7 @@ class LogLevel(str, Enum):
     CRITICAL = "CRITICAL"
 
 
-@dataclass
+@dataclass(slots=True)
 class DatabaseConfig:
     """Database configuration settings."""
 
@@ -58,7 +58,7 @@ class DatabaseConfig:
     echo: bool = False
 
 
-@dataclass
+@dataclass(slots=True)
 class WeatherAPIConfig:
     """Weather API configuration settings."""
 
@@ -71,7 +71,7 @@ class WeatherAPIConfig:
     rate_limit_window: int = 60  # 1 minute
 
 
-@dataclass
+@dataclass(slots=True)
 class MLModelConfig:
     """Machine learning model configuration settings."""
 
@@ -86,7 +86,7 @@ class MLModelConfig:
     model_versioning: bool = True
 
 
-@dataclass
+@dataclass(slots=True)
 class SecurityConfig:
     """Security configuration settings."""
 
@@ -100,7 +100,7 @@ class SecurityConfig:
     max_login_attempts: int = 5
 
 
-@dataclass
+@dataclass(slots=True)
 class MonitoringConfig:
     """Monitoring and observability configuration."""
 
@@ -114,7 +114,7 @@ class MonitoringConfig:
     performance_tracking: bool = True
 
 
-@dataclass
+@dataclass(slots=True)
 class CacheConfig:
     """Caching configuration settings."""
 

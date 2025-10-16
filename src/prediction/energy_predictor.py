@@ -122,14 +122,15 @@ class EnergyPredictor:
         if "Month" in features_df.columns:
 
             def get_season_num(month):
-                if month in [12, 1, 2]:
-                    return 0  # Winter
-                elif month in [3, 4, 5]:
-                    return 1  # Spring
-                elif month in [6, 7, 8]:
-                    return 2  # Summer
-                else:
-                    return 3  # Autumn
+                match month:
+                    case 12 | 1 | 2:
+                        return 0  # Winter
+                    case 3 | 4 | 5:
+                        return 1  # Spring
+                    case 6 | 7 | 8:
+                        return 2  # Summer
+                    case _:
+                        return 3  # Autumn
 
             features_df["Season"] = features_df["Month"].apply(get_season_num)
 
@@ -215,13 +216,14 @@ class EnergyPredictor:
 
         for model_name, model in self.models.items():
             try:
-                # Train model
-                if model_name == "linear":
-                    model.fit(X_train_scaled, y_train)
-                    y_pred = model.predict(X_test_scaled)
-                else:
-                    model.fit(X_train, y_train)
-                    y_pred = model.predict(X_test)
+                # Train model using modern match-case syntax
+                match model_name:
+                    case "linear":
+                        model.fit(X_train_scaled, y_train)
+                        y_pred = model.predict(X_test_scaled)
+                    case _:
+                        model.fit(X_train, y_train)
+                        y_pred = model.predict(X_test)
 
                 # Calculate metrics
                 mae = mean_absolute_error(y_test, y_pred)
@@ -293,12 +295,13 @@ class EnergyPredictor:
             # Handle missing values
             X = X.fillna(X.mean())
 
-            # Make predictions
-            if self.best_model_name == "linear":
-                X_scaled = self.scaler.transform(X)
-                predictions = self.best_model.predict(X_scaled)
-            else:
-                predictions = self.best_model.predict(X)
+            # Make predictions using modern match-case syntax
+            match self.best_model_name:
+                case "linear":
+                    X_scaled = self.scaler.transform(X)
+                    predictions = self.best_model.predict(X_scaled)
+                case _:
+                    predictions = self.best_model.predict(X)
 
             # Ensure non-negative predictions
             predictions = np.maximum(predictions, 0)

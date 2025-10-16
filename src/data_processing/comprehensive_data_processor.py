@@ -32,7 +32,7 @@ THEORETICAL_POWER_DIVISOR = 1000  # for power calculations
 logger = logging.getLogger(__name__)
 
 
-@dataclass
+@dataclass(slots=True)
 class InstallationInfo:
     """Information about a PV installation."""
 
@@ -222,8 +222,24 @@ class ComprehensiveDataProcessor:
                         try:
                             df = pd.read_csv(weather_file)
 
-                            # Parse datetime
-                            df["datetime"] = pd.to_datetime(df["time"])
+                            # Parse datetime with robust format handling to avoid UserWarning
+                            try:
+                                # Try primary format first (most common)
+                                df["datetime"] = pd.to_datetime(df["time"], format='%m/%d/%y %I:%M %p', errors='raise')
+                            except (ValueError, TypeError):
+                                logger.info(f"Primary datetime format failed for {location}, trying fallback formats")
+                                # Try common alternative formats
+                                for fmt in ['%m/%d/%Y %I:%M %p', '%Y-%m-%d %H:%M:%S', '%m/%d/%y %H:%M', '%m/%d/%Y %H:%M']:
+                                    try:
+                                        df["datetime"] = pd.to_datetime(df["time"], format=fmt, errors='raise')
+                                        logger.info(f"Successfully parsed datetime using format: {fmt}")
+                                        break
+                                    except (ValueError, TypeError):
+                                        continue
+                                else:
+                                    # Final fallback with infer_datetime_format=True to suppress warning
+                                    logger.warning(f"All explicit formats failed for {location}, using infer_datetime_format")
+                                    df["datetime"] = pd.to_datetime(df["time"], infer_datetime_format=True)
                             df = df.set_index("datetime")
 
                             # Clean column names

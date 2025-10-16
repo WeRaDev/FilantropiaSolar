@@ -259,9 +259,11 @@ class EnhancedEnergyPredictor:
             model_info = self.models[installation_id]
             scaler = self.scalers[installation_id]
 
-            # Define 15-day period
-            start_date = center_date - timedelta(days=7)
-            end_date = center_date + timedelta(days=7)
+            # Define 15-day period (7 days before + center day + 7 days after = 15 days)
+            # Start from 00:00:00 of first day to ensure complete day coverage
+            start_date = (center_date - timedelta(days=7)).replace(hour=0, minute=0, second=0, microsecond=0)
+            # End at 23:59:59 of last day to ensure complete day coverage
+            end_date = (center_date + timedelta(days=7)).replace(hour=23, minute=59, second=59, microsecond=999999)
 
             # Get or simulate weather data
             weather_data = self._get_weather_data_for_period(
@@ -529,6 +531,29 @@ class EnhancedEnergyPredictor:
                 predictions * installation_info.installed_power_kwp
             )
             results_df["ranking"] = rankings
+            
+            # *** CRITICAL FIX: Add historical data when available ***
+            # Get historical energy data from the data processor
+            historical_data = self.data_processor.get_combined_data(installation_info.installation_id)
+            if historical_data is not None and "Produced Energy (kWh)" in historical_data.columns:
+                # Merge historical data with results based on datetime index
+                historical_energy_cols = ["Produced Energy (kWh)", "Specific Energy (kWh/kWp)"]
+                available_historical_cols = [col for col in historical_energy_cols if col in historical_data.columns]
+                
+                if available_historical_cols:
+                    # Only merge rows that have matching timestamps
+                    historical_subset = historical_data[available_historical_cols]
+                    results_df = results_df.merge(
+                        historical_subset, 
+                        left_index=True, 
+                        right_index=True, 
+                        how='left'
+                    )
+                    logger.info(f"Successfully merged historical energy data: {len(results_df[results_df['Produced Energy (kWh)'].notna()])} historical records found")
+                else:
+                    logger.warning("Historical data columns not found in combined data")
+            else:
+                logger.info("No historical energy data available for merging")
 
             # Simple color and description mapping
             color_map = {
