@@ -1,16 +1,12 @@
-name: Build FilantropiaSolar v1.0.3 Smart Caching Edition
+name: Legacy packaging (manual) — deprecated
 
+# This legacy workflow is kept for reference and manual runs only.
+# It is not triggered on push/PR. Prefer ci-enhanced.yml for CI/CD.
 on:
-  push:
-    branches: [ main, develop ]
-    tags: [ 'v*' ]
-  pull_request:
-    branches: [ main ]
-  release:
-    types: [ published ]
+  workflow_dispatch:
 
 env:
-  PYTHON_VERSION: '3.9'
+  PYTHON_VERSION: '3.11'
   CACHE_VERSION: 'v1.0.3'
 
 jobs:
