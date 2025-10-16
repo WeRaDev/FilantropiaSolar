@@ -5,7 +5,6 @@ Uses machine learning to predict solar energy production based on weather foreca
 
 import logging
 from pathlib import Path
-import sys
 
 import joblib
 import numpy as np
@@ -15,10 +14,6 @@ from sklearn.linear_model import LinearRegression
 from sklearn.metrics import mean_absolute_error, r2_score
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler
-
-# Add project root to path
-project_root = Path(__file__).parent.parent.parent
-sys.path.append(str(project_root))
 
 from src.utils.energy_ranking import calculate_specific_energy_ranking
 

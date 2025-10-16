@@ -5,14 +5,9 @@ Handles data loading, processing, correlation analysis for Lisbon_1 through Lisb
 
 import logging
 from pathlib import Path
-import sys
 
 import numpy as np
 import pandas as pd
-
-# Add project root to path
-project_root = Path(__file__).parent.parent.parent
-sys.path.append(str(project_root))
 
 from src.utils.energy_ranking import calculate_specific_energy_ranking
 
