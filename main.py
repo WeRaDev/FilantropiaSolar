@@ -70,6 +70,8 @@ class FilantropiaSolarApp:
         self.current_results = None
         self.current_day_index = 7  # Start with center date
         self.available_dates = {}  # Store available dates per installation
+        self.cache_manager = None  # Will be set after initialization
+        self.current_analysis_mode = None  # Store current analysis mode
 
         logger.info("FilantropiaSolar Application initialized")
 
@@ -176,6 +178,143 @@ class FilantropiaSolarApp:
         ):
             self._cleanup_and_exit()
 
+    def _create_cache_status_display(self, parent):
+        """Create cache status display with management options."""
+        try:
+            if not self.cache_manager:
+                ttk.Label(parent, text="⚠️ Caching disabled", foreground="orange").pack(anchor=tk.W)
+                return
+            
+            status = self.cache_manager.get_cache_status()
+            
+            # Status information frame
+            info_frame = ttk.Frame(parent)
+            info_frame.pack(fill=tk.X, pady=(0, 10))
+            
+            # Cache statistics
+            ttk.Label(info_frame, text="📊 Cache Status:", font=("Arial", 10, "bold")).pack(anchor=tk.W)
+            
+            status_text = f"""• Data Cache: {status.get('data_cache', {}).get('cached_items', 0)} items ({status.get('data_cache', {}).get('size_mb', 0):.1f} MB)
+• Model Cache: {status.get('model_cache', {}).get('cached_models', 0)} models ({status.get('model_cache', {}).get('size_mb', 0):.1f} MB)
+• Total Size: {status.get('total_size_mb', 0):.1f} MB"""
+            
+            ttk.Label(info_frame, text=status_text, font=("Arial", 9)).pack(anchor=tk.W, pady=(2, 0))
+            
+            # Cache management buttons
+            buttons_frame = ttk.Frame(parent)
+            buttons_frame.pack(fill=tk.X)
+            
+            ttk.Button(
+                buttons_frame, 
+                text="🔄 Refresh Status", 
+                command=self._refresh_cache_status,
+                width=15
+            ).pack(side=tk.LEFT, padx=(0, 5))
+            
+            ttk.Button(
+                buttons_frame, 
+                text="🧹 Clear Cache", 
+                command=self._clear_cache_dialog,
+                width=15
+            ).pack(side=tk.LEFT, padx=(0, 5))
+            
+            ttk.Button(
+                buttons_frame, 
+                text="🔍 Validate Cache", 
+                command=self._validate_cache,
+                width=15
+            ).pack(side=tk.LEFT)
+            
+        except Exception as e:
+            logger.error(f"Error creating cache status display: {e}")
+            ttk.Label(parent, text=f"Error loading cache status: {e}", foreground="red").pack(anchor=tk.W)
+    
+    def _refresh_cache_status(self):
+        """Refresh the cache status display."""
+        try:
+            # Find and update the cache frame
+            for child in self.main_frame.winfo_children():
+                if isinstance(child, ttk.Notebook):
+                    for tab_id in child.tabs():
+                        tab_frame = child.nametowidget(tab_id)
+                        if "Configuration" in child.tab(tab_id, "text"):
+                            # Find the cache frame and refresh it
+                            self.input_status_var.set("Cache status refreshed")
+                            self.root.after(2000, lambda: self.input_status_var.set("Ready to generate analysis"))
+                            break
+        except Exception as e:
+            logger.error(f"Error refreshing cache status: {e}")
+    
+    def _clear_cache_dialog(self):
+        """Show cache clearing dialog."""
+        try:
+            if not self.cache_manager:
+                messagebox.showwarning("Cache Management", "Cache is not enabled.")
+                return
+                
+            result = messagebox.askyesnocancel(
+                "Clear Cache",
+                "Choose cache clearing option:\n\n"
+                "• Yes: Clear all cache (data + models)\n"
+                "• No: Clear only data cache\n"
+                "• Cancel: Keep cache unchanged"
+            )
+            
+            if result is True:  # Clear all
+                if self.cache_manager.clear_cache("all"):
+                    messagebox.showinfo("Success", "All cache cleared successfully")
+                    self.input_status_var.set("All cache cleared - next run will rebuild")
+                else:
+                    messagebox.showerror("Error", "Failed to clear cache")
+                    
+            elif result is False:  # Clear data only
+                if self.cache_manager.clear_cache("data"):
+                    messagebox.showinfo("Success", "Data cache cleared successfully")
+                    self.input_status_var.set("Data cache cleared - models preserved")
+                else:
+                    messagebox.showerror("Error", "Failed to clear data cache")
+                    
+        except Exception as e:
+            logger.error(f"Error in cache clear dialog: {e}")
+            messagebox.showerror("Error", f"Cache operation failed: {e}")
+    
+    def _validate_cache(self):
+        """Validate cache integrity."""
+        try:
+            if not self.cache_manager:
+                messagebox.showwarning("Cache Management", "Cache is not enabled.")
+                return
+                
+            self.input_status_var.set("Validating cache integrity...")
+            self.root.update_idletasks()
+            
+            results = self.cache_manager.validate_cache()
+            
+            if results.get("issues"):
+                issues_text = "\n".join(results["issues"][:5])  # Show first 5 issues
+                if len(results["issues"]) > 5:
+                    issues_text += f"\n... and {len(results['issues']) - 5} more issues"
+                    
+                messagebox.showwarning(
+                    "Cache Validation",
+                    f"Found {len(results['issues'])} issues:\n\n{issues_text}"
+                )
+            else:
+                messagebox.showinfo(
+                    "Cache Validation",
+                    f"Cache validation successful!\n\n"
+                    f"Valid entries: {results.get('valid_entries', 0)}\n"
+                    f"No issues found."
+                )
+                
+            self.input_status_var.set("Cache validation completed")
+            self.root.after(3000, lambda: self.input_status_var.set("Ready to generate analysis"))
+            
+        except Exception as e:
+            logger.error(f"Error validating cache: {e}")
+            messagebox.showerror("Error", f"Cache validation failed: {e}")
+            self.input_status_var.set("Cache validation failed")
+
     def _cleanup_and_exit(self):
         """Perform cleanup and exit the application."""
         try:
@@ -207,6 +346,8 @@ class FilantropiaSolarApp:
             )
 
             self.data_processor = ComprehensiveDataProcessor()
+            # Store cache manager reference
+            self.cache_manager = getattr(self.data_processor, 'cache_manager', None)
 
             # Step 2: Analyze available data ranges
             self._update_progress(35, "Analyzing available data ranges...")
@@ -549,6 +690,12 @@ class FilantropiaSolarApp:
         )
         retrain_button.pack(side=tk.LEFT)
 
+        # Cache Status Display
+        cache_frame = ttk.LabelFrame(container, text="System Status", padding="15")
+        cache_frame.pack(fill=tk.X, pady=(15, 0))
+        
+        self._create_cache_status_display(cache_frame)
+        
         # Status Display
         self.input_status_var = tk.StringVar(value="Ready to generate analysis")
         status_label = ttk.Label(
@@ -966,8 +1113,9 @@ class FilantropiaSolarApp:
                 installation_id, center_date, use_simulation
             )
 
-            # Store results and update displays
+            # Store results and analysis mode for consistent navigation
             self.current_results = results
+            self.current_analysis_mode = mode  # Store the mode for day navigation
             self._display_results(results, mode)
             self._update_charts(results, mode)
 
@@ -1254,14 +1402,35 @@ class FilantropiaSolarApp:
             return
 
         try:
-            # Determine correct energy column based on mode
+            # Determine correct energy column based on mode and available data
             hourly_data_preview = results.get("hourly_data", pd.DataFrame())
-            if mode == "historical" and "Produced Energy (kWh)" in hourly_data_preview.columns:
+            data_source = results.get('data_source', {})
+            
+            # Priority: 
+            # 1. If explicitly in simulation mode, use predicted data
+            # 2. If historical mode and historical data available, use historical data
+            # 3. Otherwise, use best available data
+            if mode == "simulation" or data_source.get('used_simulation', False):
+                if "predicted_total_energy" in hourly_data_preview.columns:
+                    energy_column_for_charts = "predicted_total_energy"
+                    logger.info("Using predicted energy data for charts (simulation mode)")
+                elif "Produced Energy (kWh)" in hourly_data_preview.columns:
+                    energy_column_for_charts = "Produced Energy (kWh)"
+                    logger.info("Using historical energy data for charts (predicted not available)")
+                else:
+                    energy_column_for_charts = "predicted_total_energy"  # fallback
+                    logger.warning("No energy columns found, using predicted_total_energy as fallback")
+            elif mode == "historical" and "Produced Energy (kWh)" in hourly_data_preview.columns:
                 energy_column_for_charts = "Produced Energy (kWh)"
-                logger.info("Using historical energy data for charts")
+                logger.info("Using historical energy data for charts (historical mode)")
             else:
-                energy_column_for_charts = "predicted_total_energy"
-                logger.info("Using predicted energy data for charts")
+                # Fallback: use whatever is available
+                if "predicted_total_energy" in hourly_data_preview.columns:
+                    energy_column_for_charts = "predicted_total_energy"
+                    logger.info("Using predicted energy data for charts (fallback)")
+                else:
+                    energy_column_for_charts = "Produced Energy (kWh)"
+                    logger.info("Using historical energy data for charts (fallback)")
             # Clear existing plots
             for ax in [
                 self.hourly_energy_ax,
@@ -2151,8 +2320,23 @@ class FilantropiaSolarApp:
             logger.info(
                 f"Hourly data shape: {self.current_results['hourly_data'].shape}"
             )
-            # Need to determine mode for chart refresh - check if we have historical data
-            mode = "historical" if "Produced Energy (kWh)" in self.current_results.get('hourly_data', pd.DataFrame()).columns else "simulation"
+            
+            # Determine mode based on stored analysis mode, then data source information
+            if self.current_analysis_mode:
+                mode = self.current_analysis_mode
+                logger.info(f"Using stored analysis mode for chart refresh: {mode}")
+            else:
+                data_source = self.current_results.get('data_source', {})
+                if data_source.get('used_simulation', False):
+                    mode = "simulation" 
+                    logger.info("Using simulation mode for chart refresh (data source indicates simulation)")
+                elif "Produced Energy (kWh)" in self.current_results.get('hourly_data', pd.DataFrame()).columns:
+                    mode = "historical"
+                    logger.info("Using historical mode for chart refresh (historical data detected)")
+                else:
+                    mode = "simulation"
+                    logger.info("Defaulting to simulation mode for chart refresh")
+                
             self._update_charts(self.current_results, mode)
         else:
             logger.warning("No current results available for refresh")

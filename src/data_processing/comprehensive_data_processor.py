@@ -12,13 +12,16 @@ from dataclasses import dataclass
 import datetime
 import logging
 from pathlib import Path
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Optional
 
 if TYPE_CHECKING:
     from datetime import datetime
 
 import numpy as np
 import pandas as pd
+
+# Import the cache manager
+from .data_cache_manager import DataCacheManager
 
 # Constants for solar calculations
 SOLAR_DECLINATION_AMPLITUDE = 23.45  # degrees
@@ -59,10 +62,14 @@ class ComprehensiveDataProcessor:
     then combines them based on location matching.
     """
 
-    def __init__(self, data_dir: str = "data", weather_dir: str = "weather_files"):
-        """Initialize the comprehensive data processor."""
+    def __init__(self, data_dir: str = "data", weather_dir: str = "weather_files", use_cache: bool = True):
+        """Initialize the comprehensive data processor with optional caching."""
         self.data_dir = Path(data_dir)
         self.weather_dir = Path(weather_dir)
+        self.use_cache = use_cache
+
+        # Initialize cache manager
+        self.cache_manager = DataCacheManager() if use_cache else None
 
         # Data storage
         self.installations: dict[str, InstallationInfo] = {}
@@ -80,19 +87,31 @@ class ComprehensiveDataProcessor:
             "Loule": "Loule_weather.csv",
         }
 
-        # Load all data
+        # Load all data (with caching if enabled)
         self._load_installations_metadata()
         self._load_energy_production_data()
         self._load_weather_data()
         self._combine_data()
 
     def _load_installations_metadata(self):
-        """Load PV installations metadata from Excel file."""
+        """Load PV installations metadata from Excel file with caching."""
+        cache_key = "installations_metadata"
+        
+        # Try to load from cache first
+        if self.cache_manager and self.cache_manager.is_cached("metadata", cache_key):
+            cached_installations = self.cache_manager.load_cached_data("metadata", cache_key)
+            if cached_installations:
+                self.installations = cached_installations
+                logger.info(f"Loaded {len(self.installations)} installations from cache")
+                return
+        
         try:
             metadata_file = self.data_dir / "PV Plants Metadata.xlsx"
             if not metadata_file.exists():
                 raise FileNotFoundError(f"Metadata file not found: {metadata_file}")
 
+            logger.info("Loading installations metadata from source (not cached)")
+            
             # Read metadata with proper header handling
             df = pd.read_excel(metadata_file, header=1)
             df = df.dropna(how="all").reset_index(drop=True)
@@ -131,13 +150,39 @@ class ComprehensiveDataProcessor:
                     continue
 
             logger.info(f"Successfully loaded {len(self.installations)} installations")
+            
+            # Cache the installations metadata
+            if self.cache_manager:
+                self.cache_manager.cache_data(
+                    self.installations, 
+                    "metadata", 
+                    cache_key,
+                    metadata={"total_installations": len(self.installations), "locations": list(set(inst.location for inst in self.installations.values()))}
+                )
 
         except Exception as e:
             logger.error(f"Error loading installations metadata: {e}")
             raise
 
     def _load_energy_production_data(self):
-        """Load energy production data for all installations from Excel sheets."""
+        """Load energy production data for all installations from Excel sheets with caching."""
+        # Check if all energy data is cached
+        all_cached = True
+        if self.cache_manager:
+            for installation_id in self.installations.keys():
+                if not self.cache_manager.is_cached("energy_data", installation_id):
+                    all_cached = False
+                    break
+            
+            if all_cached:
+                logger.info("Loading all energy data from cache")
+                for installation_id in self.installations.keys():
+                    cached_data = self.cache_manager.load_cached_data("energy_data", installation_id)
+                    if cached_data is not None:
+                        self.energy_data[installation_id] = cached_data
+                logger.info(f"Loaded energy data for {len(self.energy_data)} installations from cache")
+                return
+                
         try:
             datasets_file = self.data_dir / "PV Plants Datasets.xlsx"
             if not datasets_file.exists():
@@ -148,9 +193,18 @@ class ComprehensiveDataProcessor:
             sheet_names = excel_file.sheet_names
 
             logger.info(f"Found {len(sheet_names)} data sheets: {sheet_names}")
+            logger.info("Loading energy production data from source (not fully cached)")
 
             # Load data for each installation
             for installation_id, installation in self.installations.items():
+                # Check cache for individual installation
+                if self.cache_manager and self.cache_manager.is_cached("energy_data", installation_id):
+                    cached_data = self.cache_manager.load_cached_data("energy_data", installation_id)
+                    if cached_data is not None:
+                        self.energy_data[installation_id] = cached_data
+                        logger.info(f"Loaded {len(cached_data)} energy records for {installation_id} from cache")
+                        continue
+                
                 sheet_name = installation.serial_number
 
                 if sheet_name in sheet_names:
@@ -185,6 +239,15 @@ class ComprehensiveDataProcessor:
                         logger.info(
                             f"Loaded {len(df)} energy records for {installation_id}"
                         )
+                        
+                        # Cache the energy data
+                        if self.cache_manager:
+                            self.cache_manager.cache_data(
+                                df, 
+                                "energy_data", 
+                                installation_id,
+                                metadata={"records": len(df), "location": installation.location, "power_kwp": installation.installed_power_kwp}
+                            )
 
                     except Exception as e:
                         logger.error(

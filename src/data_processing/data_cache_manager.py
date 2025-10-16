@@ -200,6 +200,134 @@ class DataCacheManager:
         except Exception as e:
             logger.error(f"Error loading cached data {cache_key}: {e}")
             return None
+    
+    def get_cache_status(self) -> dict[str, Any]:
+        """Get comprehensive cache status information."""
+        try:
+            with sqlite3.connect(self.db_path) as conn:
+                cursor = conn.cursor()
+                
+                # Get data cache stats
+                cursor.execute("SELECT COUNT(*) FROM data_cache")
+                data_cache_count = cursor.fetchone()[0]
+                
+                cursor.execute("SELECT COUNT(*) FROM model_cache")
+                model_cache_count = cursor.fetchone()[0]
+                
+                cursor.execute("SELECT COUNT(*) FROM installation_metadata")
+                installation_count = cursor.fetchone()[0]
+                
+                # Get disk usage
+                data_cache_size = sum(f.stat().st_size for f in self.data_cache_dir.rglob('*') if f.is_file())
+                model_cache_size = sum(f.stat().st_size for f in self.model_cache_dir.rglob('*') if f.is_file())
+                total_size = data_cache_size + model_cache_size
+                
+                # Get recent activity
+                cursor.execute(
+                    "SELECT COUNT(*) FROM data_cache WHERE last_accessed > datetime('now', '-1 day')"
+                )
+                recent_data_access = cursor.fetchone()[0]
+                
+                cursor.execute(
+                    "SELECT COUNT(*) FROM model_cache WHERE last_used > datetime('now', '-1 day')"
+                )
+                recent_model_access = cursor.fetchone()[0]
+                
+                return {
+                    "data_cache": {
+                        "cached_items": data_cache_count,
+                        "size_mb": data_cache_size / (1024 * 1024),
+                        "recent_access": recent_data_access
+                    },
+                    "model_cache": {
+                        "cached_models": model_cache_count,
+                        "size_mb": model_cache_size / (1024 * 1024),
+                        "recent_access": recent_model_access
+                    },
+                    "installations": {
+                        "count": installation_count
+                    },
+                    "total_size_mb": total_size / (1024 * 1024),
+                    "cache_directory": str(self.cache_dir)
+                }
+                
+        except Exception as e:
+            logger.error(f"Error getting cache status: {e}")
+            return {"error": str(e)}
+    
+    def clear_cache(self, cache_type: str = "all") -> bool:
+        """Clear cache data."""
+        try:
+            with sqlite3.connect(self.db_path) as conn:
+                if cache_type == "all" or cache_type == "data":
+                    # Clear data cache files
+                    for file_path in self.data_cache_dir.rglob('*.pkl'):
+                        file_path.unlink()
+                    
+                    # Clear database entries
+                    conn.execute("DELETE FROM data_cache")
+                    logger.info("Cleared data cache")
+                
+                if cache_type == "all" or cache_type == "models":
+                    # Clear model cache files
+                    for file_path in self.model_cache_dir.rglob('*'):
+                        if file_path.is_file():
+                            file_path.unlink()
+                    
+                    # Clear database entries
+                    conn.execute("DELETE FROM model_cache")
+                    logger.info("Cleared model cache")
+                
+                if cache_type == "all":
+                    conn.execute("DELETE FROM installation_metadata")
+                    logger.info("Cleared installation metadata")
+                
+                conn.commit()
+                return True
+                
+        except Exception as e:
+            logger.error(f"Error clearing cache: {e}")
+            return False
+    
+    def validate_cache(self) -> dict[str, Any]:
+        """Validate cache integrity."""
+        validation_results = {
+            "valid_entries": 0,
+            "invalid_entries": 0,
+            "missing_files": 0,
+            "orphaned_files": 0,
+            "issues": []
+        }
+        
+        try:
+            with sqlite3.connect(self.db_path) as conn:
+                cursor = conn.cursor()
+                
+                # Check data cache integrity
+                cursor.execute("SELECT cache_key, file_path FROM data_cache")
+                for cache_key, file_path in cursor.fetchall():
+                    if not Path(file_path).exists():
+                        validation_results["missing_files"] += 1
+                        validation_results["issues"].append(f"Missing file for {cache_key}: {file_path}")
+                    else:
+                        validation_results["valid_entries"] += 1
+                
+                # Check model cache integrity
+                cursor.execute("SELECT model_key, file_path FROM model_cache")
+                for model_key, file_path in cursor.fetchall():
+                    if not Path(file_path).exists():
+                        validation_results["missing_files"] += 1
+                        validation_results["issues"].append(f"Missing model file for {model_key}: {file_path}")
+                    else:
+                        validation_results["valid_entries"] += 1
+                
+                logger.info(f"Cache validation completed: {validation_results['valid_entries']} valid, {validation_results['invalid_entries'] + validation_results['missing_files']} issues")
+                
+        except Exception as e:
+            logger.error(f"Error validating cache: {e}")
+            validation_results["issues"].append(f"Validation error: {e}")
+        
+        return validation_results
 
     def cache_model(
         self,

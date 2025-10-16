@@ -8,7 +8,7 @@ Supports 15-day prediction periods (7 days past + chosen date + 7 days future).
 from datetime import datetime, timedelta
 import logging
 from pathlib import Path
-from typing import Any
+from typing import Any, Optional
 
 import joblib
 import numpy as np
@@ -45,11 +45,16 @@ class EnhancedEnergyPredictor:
         self,
         data_processor: ComprehensiveDataProcessor,
         weather_simulator: WeatherSimulator | None = None,
+        use_cache: bool = True,
     ):
-        """Initialize the enhanced energy predictor."""
+        """Initialize the enhanced energy predictor with optional model caching."""
         self.data_processor = data_processor
         self.weather_simulator = weather_simulator
+        self.use_cache = use_cache
         # self.ranking_system = RankingSystem()  # Temporary disabled
+
+        # Get cache manager from data processor
+        self.cache_manager = getattr(data_processor, 'cache_manager', None)
 
         # Model storage
         self.models: dict[
@@ -84,7 +89,36 @@ class EnhancedEnergyPredictor:
         self._train_all_models()
 
     def _train_all_models(self):
-        """Train prediction models for all available installations."""
+        """Train prediction models for all available installations with caching."""
+        # Check if all models are cached
+        all_cached = True
+        if self.cache_manager:
+            for installation_id, _ in self.data_processor.get_installation_list():
+                model_key = f"model_{installation_id}"
+                scaler_key = f"scaler_{installation_id}"
+                perf_key = f"performance_{installation_id}"
+                
+                if not (self.cache_manager.is_cached("models", model_key) and 
+                       self.cache_manager.is_cached("models", scaler_key) and
+                       self.cache_manager.is_cached("models", perf_key)):
+                    all_cached = False
+                    break
+            
+            if all_cached:
+                logger.info("Loading all models from cache")
+                for installation_id, _ in self.data_processor.get_installation_list():
+                    try:
+                        self._load_cached_models(installation_id)
+                    except Exception as e:
+                        logger.error(f"Error loading cached models for {installation_id}: {e}")
+                        all_cached = False
+                        break
+                
+                if all_cached:
+                    logger.info(f"Successfully loaded models for {len(self.models)} installations from cache")
+                    return
+                    
+        logger.info("Training models from source (not fully cached)")
         for (
             installation_id,
             installation_info,
@@ -168,8 +202,74 @@ class EnhancedEnergyPredictor:
             self.model_performance[installation_id] = performance
 
             logger.info(f"{installation_id} - Best model: {best_model_name}")
+            
+            # Cache the trained models
+            if self.cache_manager:
+                self._cache_models(installation_id)
         else:
             logger.warning(f"No models successfully trained for {installation_id}")
+
+    def _load_cached_models(self, installation_id: str) -> bool:
+        """Load cached models for an installation."""
+        try:
+            model_key = f"model_{installation_id}"
+            scaler_key = f"scaler_{installation_id}"
+            perf_key = f"performance_{installation_id}"
+            
+            # Load models
+            cached_models = self.cache_manager.load_cached_data("models", model_key)
+            cached_scaler = self.cache_manager.load_cached_data("models", scaler_key)
+            cached_performance = self.cache_manager.load_cached_data("models", perf_key)
+            
+            if cached_models and cached_scaler and cached_performance:
+                self.models[installation_id] = cached_models
+                self.scalers[installation_id] = cached_scaler
+                self.model_performance[installation_id] = cached_performance
+                
+                logger.info(f"Loaded cached models for {installation_id} - Best: {cached_models.get('best_model_name', 'unknown')}")
+                return True
+                
+        except Exception as e:
+            logger.error(f"Error loading cached models for {installation_id}: {e}")
+            
+        return False
+    
+    def _cache_models(self, installation_id: str) -> bool:
+        """Cache trained models for an installation."""
+        try:
+            model_key = f"model_{installation_id}"
+            scaler_key = f"scaler_{installation_id}"
+            perf_key = f"performance_{installation_id}"
+            
+            # Cache models with metadata
+            model_metadata = {
+                "installation_id": installation_id,
+                "best_model": self.models[installation_id].get("best_model_name", "unknown"),
+                "model_count": len(self.models[installation_id].get("all_models", {})),
+                "performance": self.model_performance[installation_id]
+            }
+            
+            success = True
+            success &= self.cache_manager.cache_data(
+                self.models[installation_id], "models", model_key, model_metadata
+            )
+            success &= self.cache_manager.cache_data(
+                self.scalers[installation_id], "models", scaler_key, 
+                {"installation_id": installation_id, "scaler_type": "StandardScaler"}
+            )
+            success &= self.cache_manager.cache_data(
+                self.model_performance[installation_id], "models", perf_key,
+                {"installation_id": installation_id, "metrics": list(self.model_performance[installation_id].keys())}
+            )
+            
+            if success:
+                logger.info(f"Successfully cached models for {installation_id}")
+            
+            return success
+            
+        except Exception as e:
+            logger.error(f"Error caching models for {installation_id}: {e}")
+            return False
 
     def _prepare_training_data(
         self, data: pd.DataFrame
