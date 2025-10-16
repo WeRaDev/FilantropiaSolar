@@ -1027,7 +1027,7 @@ class FilantropiaSolarApp:
             ]
 
             # Create properly sized color patches
-            for i, (rank, color, label) in enumerate(zip(rankings, colors, labels, strict=False)):
+for i, (_rank, color, label) in enumerate(zip(rankings, colors, labels, strict=False)):
                 y_pos = 10.5 - i * 2.0  # Much better vertical spacing
 
                 # Draw much larger rectangle to properly contain all text
@@ -1861,7 +1861,7 @@ class FilantropiaSolarApp:
 
             # Add value labels on bars
             for bar, energy, ranking in zip(bars, hourly_energy, energy_rankings, strict=False):
-                if energy > 0.1:  # Only show labels for significant values
+if energy > 0.1:  # TODO: constantize threshold if needed
                     height = bar.get_height()
 
                     # Show energy value INSIDE the bar (middle of bar height)

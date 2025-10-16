@@ -143,9 +143,7 @@ class FilantropiaPerformanceBenchmark:
 
         try:
             # Clear Python module cache to simulate fresh startup
-            modules_to_clear = [
-                name for name in sys.modules.keys() if name.startswith("src.")
-            ]
+            modules_to_clear = [name for name in list(sys.modules) if name.startswith("src.")]
             for module_name in modules_to_clear:
                 if module_name in sys.modules:
                     del sys.modules[module_name]
@@ -167,7 +165,7 @@ class FilantropiaPerformanceBenchmark:
                 from src.weather_simulation.weather_simulator import WeatherSimulator
 
                 weather_simulator = WeatherSimulator("weather_files")
-                predictor = EnhancedEnergyPredictor(
+                _ = EnhancedEnergyPredictor(
                     data_processor, weather_simulator, use_cache=True
                 )
                 cached_model_time = time.time()

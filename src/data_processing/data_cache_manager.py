@@ -138,7 +138,7 @@ class DataCacheManager:
             file_path = self.data_cache_dir / f"{cache_key}.pkl"
 
             # Save data
-            with open(file_path, "wb") as f:
+            with Path(file_path).open("wb") as f:
                 pickle.dump(data, f, protocol=pickle.HIGHEST_PROTOCOL)
 
             # Update database
@@ -189,7 +189,7 @@ class DataCacheManager:
                         conn.commit()
 
                         # Load data
-                        with open(file_path, "rb") as f:
+                        with Path(file_path).open("rb") as f:
                             data = pickle.load(f)
 
                         logger.info(f"Loaded cached data: {cache_key}")
@@ -265,7 +265,7 @@ class DataCacheManager:
         """Clear cache data."""
         try:
             with sqlite3.connect(self.db_path) as conn:
-                if cache_type == "all" or cache_type == "data":
+                if cache_type in {"all", "data"}:
                     # Clear data cache files
                     for file_path in self.data_cache_dir.rglob("*.pkl"):
                         file_path.unlink()
@@ -274,7 +274,7 @@ class DataCacheManager:
                     conn.execute("DELETE FROM data_cache")
                     logger.info("Cleared data cache")
 
-                if cache_type == "all" or cache_type == "models":
+                if cache_type in {"all", "models"}:
                     # Clear model cache files
                     for file_path in self.model_cache_dir.rglob("*"):
                         if file_path.is_file():
@@ -418,9 +418,7 @@ class DataCacheManager:
             logger.error(f"Error loading cached model {model_key}: {e}")
             return None
 
-    def get_cache_status(self) -> dict[str, Any]:
-        """Get comprehensive cache status."""
-        try:
+    # NOTE: Duplicate get_cache_status removed to avoid redefinition (F811)
             with sqlite3.connect(self.db_path) as conn:
                 cursor = conn.cursor()
 
