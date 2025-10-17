@@ -21,7 +21,7 @@ import sys
 import threading
 import tkinter as tk
 from tkinter import messagebox, ttk
-from typing import Any
+from typing import Any, Dict
 
 import pandas as pd
 
@@ -32,6 +32,12 @@ sys.path.insert(0, str(SRC_PATH))
 # Configure logger
 logger = logging.getLogger(__name__)
 
+# Lint/clarity constants
+MAX_ISSUES_PREVIEW = 5
+DEFAULT_DAY_INDEX_MAX = 14
+ENERGY_LABEL_THRESHOLD = 0.1
+DEFAULT_PROD_HOUR_MIN = 6
+DEFAULT_PROD_HOUR_MAX = 20
 
 class FilantropiaSolarApp:
     """
@@ -1241,6 +1247,120 @@ for i, (_rank, color, label) in enumerate(zip(rankings, colors, labels, strict=F
             for widget in self.root.winfo_children():
                 if isinstance(widget, ttk.Button):
                     widget.config(state="normal")
+
+    def _determine_energy_column_for_mode(self, hourly_df: pd.DataFrame, mode: str, data_source: dict) -> tuple[str, str]:
+        """Decide energy column and its label based on mode and data availability."""
+        if mode == "simulation" or data_source.get("used_simulation", False):
+            if "predicted_total_energy" in hourly_df.columns:
+                return "predicted_total_energy", "PREDICTED"
+            if "Produced Energy (kWh)" in hourly_df.columns:
+                return "Produced Energy (kWh)", "HISTORICAL"
+            return "predicted_total_energy", "PREDICTED"
+        if mode == "historical" and "Produced Energy (kWh)" in hourly_df.columns:
+            return "Produced Energy (kWh)", "HISTORICAL"
+        if "predicted_total_energy" in hourly_df.columns:
+            return "predicted_total_energy", "PREDICTED"
+        return "Produced Energy (kWh)", "HISTORICAL"
+
+    def _get_day_hourly(self, hourly_df: pd.DataFrame, date) -> pd.DataFrame:
+        """Return hourly rows matching a given date, tolerant to index dtype."""
+        try:
+            return hourly_df[hourly_df.index.date == (date.date() if hasattr(date, "date") else date)]
+        except Exception:
+            return hourly_df[hourly_df.index == (date.date() if hasattr(date, "date") else date)]
+
+    def _compose_results_text(self, results: dict[str, Any], mode: str) -> tuple[str, str]:
+        """Compose overview and hourly text blocks for results display."""
+        overview_text = "FILANTROPIA SOLAR - ANALYSIS RESULTS\n" + "=" * 60 + "\n\n"
+        analysis_type = "HISTORICAL ANALYSIS" if mode == "historical" else "FUTURE SIMULATION"
+        overview_text += f"Analysis Type: {analysis_type}\n\n"
+        inst_info = results["installation_info"]
+        overview_text += f"Installation: {inst_info['location']} (Serial: {inst_info['serial_number']})\n"
+        overview_text += f"Capacity: {inst_info['capacity_kwp']} kWp\n\n"
+        period = results["prediction_period"]
+        overview_text += f"Analysis Period: {period['start'].date()} to {period['end'].date()}\n"
+        overview_text += f"Center Date: {period['center_date'].date()}\n"
+        overview_text += f"Total Hours Analyzed: {period['total_hours']}\n\n"
+        stats = results["period_statistics"]
+        overview_text += "KEY PERFORMANCE METRICS (15-day period)\n" + "-" * 50 + "\n"
+        overview_text += f"Total Energy Production: {stats['total_energy_kwh']:.2f} kWh\n"
+        overview_text += f"Average Daily Energy: {stats['total_energy_kwh'] / 15:.2f} kWh/day\n"
+        overview_text += f"Average Specific Energy: {stats['average_specific_energy']:.2f} kWh/kWp\n"
+        overview_text += f"Peak Hour Energy: {stats['peak_hour_energy']:.2f} kWh/kWp\n"
+        overview_text += f"Average Temperature: {stats.get('average_temperature', 0):.1f}°C\n"
+        overview_text += f"Average Cloud Cover: {stats.get('average_cloud_cover', 0):.1f}%\n\n"
+
+        hourly_text = ""
+        if "daily_summary" in results and "hourly_data" in results:
+            daily = results["daily_summary"]
+            hourly_df = results["hourly_data"]
+            data_source = results.get("data_source", {})
+            energy_column, data_type_label = self._determine_energy_column_for_mode(hourly_df, mode, data_source)
+
+            overview_text += f"\nDAILY SUMMARY ({data_type_label} DATA)\n" + "=" * 50 + "\n"
+            overview_text += f"{'Day':<4} {'Date':<12} {'Energy(kWh)':<12} {'Peak':<8} {'Temp':<6} {'Cloud':<6} {'Rating':<12}\n"
+            overview_text += "-" * 50 + "\n"
+
+            hourly_text = f"HOURLY BREAKDOWN - ALL 15 DAYS ({data_type_label} DATA)\n" + "=" * 70 + "\n\n"
+
+            rating_map = {1: "(1) Poor", 2: "(2) Below", 3: "(3) Avg", 4: "(4) Good", 5: "(5) Excell"}
+
+            for i, (date, row) in enumerate(daily.iterrows()):
+                day_num = i + 1
+                day_hourly = self._get_day_hourly(hourly_df, date)
+                if mode == "historical" and energy_column in day_hourly.columns:
+                    try:
+                        energy = day_hourly[energy_column].sum() if not day_hourly.empty else 0
+                    except Exception:
+                        energy = row.get("predicted_total_energy", 0)
+                else:
+                    energy = row.get("predicted_total_energy", 0)
+
+                temp = row.get("temperature_2m", 0)
+                cloud = row.get("cloud_cover", 0)
+                ranking = row.get("ranking", 3)
+                peak_energy = 0
+                try:
+                    if not day_hourly.empty:
+                        if mode == "historical" and energy_column in day_hourly.columns:
+                            peak_energy = day_hourly[energy_column].max()
+                        else:
+                            peak_energy = day_hourly.get("predicted_total_energy", pd.Series([0])).max()
+                except Exception:
+                    peak_energy = 0
+
+                rating = rating_map.get(ranking, "Unknown")
+                marker = " <-" if i == self.current_day_index else ""
+                overview_text += f"{day_num:<4} {str(date)[:10]:<12} {energy:<12.2f} {peak_energy:<8.2f} {temp:<6.1f} {cloud:<6.0f} {rating:<12}{marker}\n"
+
+                hourly_text += f"DAY {day_num}: {date.strftime('%Y-%m-%d')} ({date.strftime('%A')})\n"
+                hourly_text += "-" * 60 + "\n"
+                hourly_text += f"{'Hour':<6} {'Energy':<10} {'Temp°C':<8} {'Cloud%':<8} {'Wind':<8} {'Solar':<10} {'Humid%':<8}\n"
+                hourly_text += "-" * 60 + "\n"
+                if not day_hourly.empty:
+                    for _, hour_row in day_hourly.iterrows():
+                        hour = hour_row.name.hour
+                        h_energy = hour_row.get(energy_column, 0)
+                        h_temp = hour_row.get("temperature_2m", 0)
+                        h_cloud = hour_row.get("cloud_cover", 0)
+                        h_wind = hour_row.get("wind_speed_10m", 0)
+                        h_solar = hour_row.get("shortwave_radiation", 0)
+                        h_humidity = hour_row.get("relative_humidity_2m", 0)
+                        hourly_text += f"{hour:02d}:00 {h_energy:<10.2f} {h_temp:<8.1f} {h_cloud:<8.0f} {h_wind:<8.1f} {h_solar:<10.0f} {h_humidity:<8.0f}\n"
+                hourly_text += "\n"
+
+        source = results["data_source"]
+        overview_text += "\nDATA SOURCE & MODEL INFO\n" + "-" * 30 + "\n"
+        overview_text += "PV Data: Sarmas et al. (2025)\nPhotovoltaic Power Production Dataset\n"
+        overview_text += "DOI: 10.17632/dbh93b6vp8.3\n"
+        overview_text += f"Weather: {'Simulated' if source.get('used_simulation') else 'Historical'}\n"
+        overview_text += f"ML Model: {source.get('model_used','').replace('_', ' ').title()}\n"
+        if "model_performance" in source and source.get("model_used") in source["model_performance"]:
+            perf = source["model_performance"][source["model_used"]]
+            overview_text += f"Model R²: {perf.get('r2', 0):.3f}\n"
+            overview_text += f"Model MAE: {perf.get('mae', 0):.3f} kWh/kWp\n"
+        overview_text += "\nEXPLORE: Use Interactive Charts tab for detailed analysis!"
+        return overview_text, hourly_text
 
     def _display_results(self, results: dict[str, Any], mode: str):
         """Display comprehensive analysis results in split layout."""
