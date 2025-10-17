@@ -88,3 +88,23 @@ Tip: create a dedicated Agent Profile for CLI usage and pre-approve the commands
 
 ---
 If you want the agent to adopt stricter gates (e.g., fail CI on lint/type), ask it to “enforce quality gates” and it will tighten the workflows accordingly.
+
+## Current status (2025-10-17)
+- CI/tooling: fixed a critical syntax error in `main.py`; ruff now runs. Remaining lint includes complexity (PLR091x) and import ordering (I001) in several modules.
+- Dependencies: migrated to `pyproject.toml`; adjusted Pillow pins with environment markers for Python 3.14+. Editable install verified locally.
+- Main refactors: hoisted imports in `main.py`, delegated `_display_results` to `_compose_results_text`, introduced constants (e.g., `ENERGY_LABEL_THRESHOLD`), removed deprecated `typing.Dict` usage.
+- App test: launched GUI, resolved cache incompatibility by clearing `cache/`, verified warm start and loaded 9 installations.
+
+## Open PRs
+1. chore/ci-quality-gates — enforce CI gates and add SBOM (open)
+2. chore/deps-to-pyproject — dependency migration to pyproject (open)
+3. chore/lint-refactors-1 — safe lint fixes across repo (open)
+4. chore/lint-refactors-2 — import hygiene in prediction and data_processing modules (open)
+5. chore/lint-refactors-3 — main.py import hoisting and cleanup (open)
+6. chore/lint-refactors-4 — main.py method splitting/import hygiene, ongoing (open)
+
+## Next steps
+- Split `_create_hourly_energy_chart` and `_create_hourly_weather_chart` into focused helpers to reduce PLR0912/0915.
+- Address remaining PLC0415/I001 across repo; keep imports top-level and organized; remove in-function imports.
+- Fix F821 in `src/prediction/enhanced_energy_predictor.py` (import `Path`, `joblib`) and related save/load paths.
+- Run ruff and mypy locally; add or adjust unit tests as needed; update PR descriptions and push.
