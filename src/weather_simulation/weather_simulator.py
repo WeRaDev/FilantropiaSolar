@@ -125,7 +125,7 @@ class WeatherSimulator:
                 features = features[mask]
                 targets = targets[mask]
 
-if len(features) < MIN_FEATURES_RECORDS:  # Need minimum data
+                if len(features) < MIN_FEATURES_RECORDS:  # Need minimum data
                     logger.warning(
                         f"Insufficient data for {location}: {len(features)} records"
                     )
