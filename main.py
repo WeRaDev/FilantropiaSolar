@@ -19,6 +19,7 @@ from pathlib import Path
 import queue
 import sys
 import threading
+import traceback
 import tkinter as tk
 from tkinter import messagebox, ttk
 from typing import Any
@@ -28,6 +29,37 @@ import pandas as pd
 # Add src to path for imports
 SRC_PATH = Path(__file__).parent / "src"
 sys.path.insert(0, str(SRC_PATH))
+
+# Project imports (prefer top-level; guarded to avoid hard runtime deps at import time)
+try:
+    from src.data_processing.comprehensive_data_processor import (
+        ComprehensiveDataProcessor,
+    )
+    from src.weather_simulation.weather_simulator import WeatherSimulator
+    from src.prediction.enhanced_energy_predictor import EnhancedEnergyPredictor
+    from src.prediction.weather_ranking_system import WeatherRankingSystem
+except Exception:
+    ComprehensiveDataProcessor = None  # type: ignore[assignment]
+    WeatherSimulator = None  # type: ignore[assignment]
+    EnhancedEnergyPredictor = None  # type: ignore[assignment]
+    WeatherRankingSystem = None  # type: ignore[assignment]
+
+# Optional matplotlib imports
+try:
+    import matplotlib.pyplot as plt  # type: ignore[import-not-found]
+    from matplotlib.figure import Figure  # type: ignore[import-not-found]
+    from matplotlib.backends.backend_tkagg import (  # type: ignore[import-not-found]
+        FigureCanvasTkAgg,
+        NavigationToolbar2Tk,
+    )
+    from matplotlib.patches import Rectangle, Patch  # type: ignore[import-not-found]
+except Exception:
+    plt = None  # type: ignore[assignment]
+    Figure = None  # type: ignore[assignment]
+    FigureCanvasTkAgg = None  # type: ignore[assignment]
+    NavigationToolbar2Tk = None  # type: ignore[assignment]
+    Rectangle = None  # type: ignore[assignment]
+    Patch = None  # type: ignore[assignment]
 
 # Configure logger
 logger = logging.getLogger(__name__)
@@ -251,7 +283,6 @@ class FilantropiaSolarApp:
             for child in self.main_frame.winfo_children():
                 if isinstance(child, ttk.Notebook):
                     for tab_id in child.tabs():
-                        tab_frame = child.nametowidget(tab_id)
                         if "Configuration" in child.tab(tab_id, "text"):
                             # Find the cache frame and refresh it
                             self.input_status_var.set("Cache status refreshed")
@@ -313,9 +344,11 @@ class FilantropiaSolarApp:
             results = self.cache_manager.validate_cache()
 
             if results.get("issues"):
-                issues_text = "\n".join(results["issues"][:5])  # Show first 5 issues
-                if len(results["issues"]) > 5:
-                    issues_text += f"\n... and {len(results['issues']) - 5} more issues"
+                issues_text = "\n".join(results["issues"][:MAX_ISSUES_PREVIEW])
+                if len(results["issues"]) > MAX_ISSUES_PREVIEW:
+                    issues_text += (
+                        f"\n... and {len(results['issues']) - MAX_ISSUES_PREVIEW} more issues"
+                    )
 
                 messagebox.showwarning(
                     "Cache Validation",
@@ -365,9 +398,6 @@ class FilantropiaSolarApp:
         try:
             # Step 1: Load data processing system
             self._update_progress(15, "Loading installation data...")
-            from src.data_processing.comprehensive_data_processor import (
-                ComprehensiveDataProcessor,
-            )
 
             self.data_processor = ComprehensiveDataProcessor()
             # Store cache manager reference
@@ -379,14 +409,11 @@ class FilantropiaSolarApp:
 
             # Step 3: Initialize weather simulation
             self._update_progress(55, "Initializing weather simulation...")
-            from src.weather_simulation.weather_simulator import WeatherSimulator
 
             self.weather_simulator = WeatherSimulator("weather_files")
 
             # Step 4: Initialize ML models (try loading existing first)
             self._update_progress(75, "Initializing machine learning models...")
-            from src.prediction.enhanced_energy_predictor import EnhancedEnergyPredictor
-            from src.prediction.weather_ranking_system import WeatherRankingSystem
 
             self.energy_predictor = EnhancedEnergyPredictor(
                 self.data_processor, self.weather_simulator
@@ -867,12 +894,14 @@ class FilantropiaSolarApp:
     def _create_charts_interface(self, parent):
         """Create the interactive charts interface."""
         try:
-            from matplotlib.backends.backend_tkagg import (
-                FigureCanvasTkAgg,
-                NavigationToolbar2Tk,
-            )
-            from matplotlib.figure import Figure
-            import matplotlib.pyplot as plt
+            # Ensure matplotlib is available
+            if (
+                Figure is None
+                or FigureCanvasTkAgg is None
+                or NavigationToolbar2Tk is None
+                or plt is None
+            ):
+                raise ImportError("matplotlib is not installed")
 
             # Main container
             container = ttk.Frame(parent, padding="10")
@@ -1037,7 +1066,6 @@ class FilantropiaSolarApp:
                 y_pos = 10.5 - i * 2.0  # Much better vertical spacing
 
                 # Draw much larger rectangle to properly contain all text
-                from matplotlib.patches import Rectangle
 
                 rect = Rectangle(
                     (0.5, y_pos - 0.8),
@@ -1518,8 +1546,6 @@ class FilantropiaSolarApp:
 
                 except Exception as e:
                     logger.error(f"Error in weather ranking system: {e}")
-                    import traceback
-
                     logger.error(f"Weather ranking traceback: {traceback.format_exc()}")
                     # Use fallback ranking
                     weather_ranked_hourly = pd.DataFrame()
@@ -1590,8 +1616,6 @@ class FilantropiaSolarApp:
 
         except Exception as e:
             logger.error(f"Error updating charts: {e}")
-            import traceback
-
             logger.error(f"Full traceback: {traceback.format_exc()}")
 
             # Show error message in charts
@@ -1854,7 +1878,6 @@ class FilantropiaSolarApp:
                 self.hourly_energy_ax.set_ylim(0, hourly_energy.max() * 1.2)
 
             # Create performance ranking legend
-            from matplotlib.patches import Patch
 
             legend_elements = [
                 Patch(facecolor="#FFD700", label="Excellent (5)"),
@@ -2182,7 +2205,6 @@ class FilantropiaSolarApp:
             x_positions = range(len(daily_dates))
 
             # Color bars based on energy levels (green gradient)
-            import matplotlib.pyplot as plt
 
             if len(daily_energy) > 1:
                 normalized_energy = (daily_energy - daily_energy.min()) / (
@@ -2213,7 +2235,6 @@ class FilantropiaSolarApp:
                 selected_bar.set_linewidth(5)
 
                 # Create a prominent red frame around the selected bar
-                from matplotlib.patches import Rectangle
 
                 bar_x = selected_bar.get_x()
                 bar_width = selected_bar.get_width()
@@ -2247,8 +2268,8 @@ class FilantropiaSolarApp:
                     fontsize=12,
                     fontweight="bold",
                     color="red",
-                    bbox=dict(boxstyle="round,pad=0.3", facecolor="yellow", alpha=0.8),
-                    arrowprops=dict(arrowstyle="->", color="red", lw=2),
+                    bbox={"boxstyle": "round,pad=0.3", "facecolor": "yellow", "alpha": 0.8},
+                    arrowprops={"arrowstyle": "->", "color": "red", "lw": 2},
                 )
 
             # Create new secondary y-axis and store reference
@@ -2345,8 +2366,6 @@ class FilantropiaSolarApp:
 
         except Exception as e:
             logger.error(f"Error creating daily overview chart: {e}")
-            import traceback
-
             logger.error(f"Traceback: {traceback.format_exc()}")
             self.daily_overview_ax.text(
                 0.5,
@@ -2367,7 +2386,7 @@ class FilantropiaSolarApp:
 
     def _next_day(self):
         """Navigate to the next day in the analysis period."""
-        if self.current_day_index < 14:
+        if self.current_day_index < DEFAULT_DAY_INDEX_MAX:
             self.current_day_index += 1
             self._refresh_day_display()
 
