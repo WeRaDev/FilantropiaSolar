@@ -177,7 +177,7 @@ jobs:
   # ============================================
   notify:
     name: Post-release Notifications
-    needs: [validate, github-release, pypi-release, docs-release]
+    needs: [validate, github-release, docs-release]
     runs-on: ubuntu-latest
     timeout-minutes: 5
     if: always()
@@ -188,14 +188,7 @@ jobs:
         echo "## 🎉 Release Summary"
         echo "Version: v${{ needs.validate.outputs.version }}"
         echo "GitHub Release: ${{ needs.github-release.result }}"
-        echo "PyPI Release: ${{ needs.pypi-release.result }}"
         echo "Documentation: ${{ needs.docs-release.result }}"
-        
-        if [ "${{ needs.pypi-release.result }}" = "success" ]; then
-          echo ""
-          echo "✅ Package is now available on PyPI:"
-          echo "   pip install filantropia-solar==${{ needs.validate.outputs.version }}"
-        fi
         
         if [ "${{ needs.github-release.result }}" = "success" ]; then
           echo ""
