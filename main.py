@@ -19,25 +19,23 @@ from pathlib import Path
 import queue
 import sys
 import threading
-import traceback
 import tkinter as tk
 from tkinter import messagebox, ttk
+import traceback
 from typing import Any
 
 import pandas as pd
 
-# Add src to path for imports
-SRC_PATH = Path(__file__).parent / "src"
-sys.path.insert(0, str(SRC_PATH))
+# Remove sys.path manipulation - use proper package imports instead
 
-# Project imports (prefer top-level; guarded to avoid hard runtime deps at import time)
+# Project imports (using relative imports from package)
 try:
-    from src.data_processing.comprehensive_data_processor import (
+    from filantropia_solar.data_processing.comprehensive_data_processor import (
         ComprehensiveDataProcessor,
     )
-    from src.weather_simulation.weather_simulator import WeatherSimulator
-    from src.prediction.enhanced_energy_predictor import EnhancedEnergyPredictor
-    from src.prediction.weather_ranking_system import WeatherRankingSystem
+    from filantropia_solar.weather_simulation.weather_simulator import WeatherSimulator
+    from filantropia_solar.prediction.enhanced_energy_predictor import EnhancedEnergyPredictor
+    from filantropia_solar.prediction.weather_ranking_system import WeatherRankingSystem
 except Exception:
     ComprehensiveDataProcessor = None  # type: ignore[assignment]
     WeatherSimulator = None  # type: ignore[assignment]
@@ -46,13 +44,13 @@ except Exception:
 
 # Optional matplotlib imports
 try:
-    import matplotlib.pyplot as plt  # type: ignore[import-not-found]
-    from matplotlib.figure import Figure  # type: ignore[import-not-found]
     from matplotlib.backends.backend_tkagg import (  # type: ignore[import-not-found]
         FigureCanvasTkAgg,
         NavigationToolbar2Tk,
     )
-    from matplotlib.patches import Rectangle, Patch  # type: ignore[import-not-found]
+    from matplotlib.figure import Figure  # type: ignore[import-not-found]
+    from matplotlib.patches import Patch, Rectangle  # type: ignore[import-not-found]
+    import matplotlib.pyplot as plt  # type: ignore[import-not-found]
 except Exception:
     plt = None  # type: ignore[assignment]
     Figure = None  # type: ignore[assignment]
@@ -776,7 +774,7 @@ class FilantropiaSolarApp:
             self.simulation_checkbox.config(state="normal")
             self.simulation_var.set(True)
 
-    def _on_installation_change(self, event=None):
+    def _on_installation_change(self, _event=None):
         """Handle installation selection change."""
         try:
             installation_text = self.installation_var.get()
@@ -1715,206 +1713,170 @@ class FilantropiaSolarApp:
     ):
         """Chart 1: Hourly Energy Production with Ranked Bars (Dynamic Productive Hours)."""
         try:
+            # Early returns for empty data
             if current_day_hourly.empty:
-                self.hourly_energy_ax.text(
-                    0.5,
-                    0.5,
-                    "No energy data\navailable for this day",
-                    horizontalalignment="center",
-                    verticalalignment="center",
-                    transform=self.hourly_energy_ax.transAxes,
-                    fontsize=12,
-                    alpha=0.6,
-                )
+                self._show_chart_message(self.hourly_energy_ax, "No energy data\navailable for this day")
                 return
 
-            # Filter to dynamic productive hours range
-            productive_hours = current_day_hourly[
-                (current_day_hourly.index.hour >= productive_hour_min)
-                & (current_day_hourly.index.hour <= productive_hour_max)
-            ]
-
+            productive_hours = self._filter_productive_hours(current_day_hourly, productive_hour_min, productive_hour_max)
             if productive_hours.empty:
-                self.hourly_energy_ax.text(
-                    0.5,
-                    0.5,
-                    "No productive hours\ndata available",
-                    horizontalalignment="center",
-                    verticalalignment="center",
-                    transform=self.hourly_energy_ax.transAxes,
-                    fontsize=12,
-                    alpha=0.6,
-                )
+                self._show_chart_message(self.hourly_energy_ax, "No productive hours\ndata available")
                 return
 
-            # Use the specified energy column
-            energy_data_type = (
-                "HISTORICAL"
-                if energy_column == "Produced Energy (kWh)"
-                else "PREDICTED"
-            )
-            logger.info(
-                f"Using {energy_data_type} data ({energy_column}) for hourly energy chart"
-            )
-
-            # Ensure the column exists in the data
-            if energy_column not in productive_hours.columns:
-                energy_column = (
-                    "predicted_total_energy"
-                    if "predicted_total_energy" in productive_hours.columns
-                    else "Produced Energy (kWh)"
-                )
-                logger.warning(
-                    f"Specified energy column not found, falling back to {energy_column}"
-                )
-
-            hourly_energy = productive_hours.get(
-                energy_column, pd.Series([0] * len(productive_hours))
-            )
-            hourly_energy = pd.to_numeric(hourly_energy, errors="coerce").fillna(0)
-
+            # Prepare energy data
+            energy_column, energy_data_type = self._prepare_energy_column(productive_hours, energy_column)
+            hourly_energy = self._extract_energy_data(productive_hours, energy_column)
             hours = productive_hours.index.hour
 
-            # Create energy-based rankings (1-5 scale)
-            if len(hourly_energy) > 1:
-                # Calculate percentiles for ranking
-                percentiles = [20, 40, 60, 80]
-                thresholds = [hourly_energy.quantile(p / 100) for p in percentiles]
+            # Create rankings and colors
+            energy_rankings = self._calculate_energy_rankings(hourly_energy)
+            bar_colors = self._get_ranking_colors(energy_rankings)
 
-                energy_rankings = []
-                for energy in hourly_energy:
-                    if energy <= thresholds[0]:
-                        energy_rankings.append(1)  # Poor
-                    elif energy <= thresholds[1]:
-                        energy_rankings.append(2)  # Below Average
-                    elif energy <= thresholds[2]:
-                        energy_rankings.append(3)  # Average
-                    elif energy <= thresholds[3]:
-                        energy_rankings.append(4)  # Good
-                    else:
-                        energy_rankings.append(5)  # Excellent
-            else:
-                energy_rankings = [3] * len(hourly_energy)
-
-            # Color map for energy rankings
-            color_map = {
-                1: "#DC143C",  # Poor - Dark Red
-                2: "#FF8C00",  # Below Average - Dark Orange
-                3: "#FFA500",  # Average - Orange
-                4: "#32CD32",  # Good - Lime Green
-                5: "#FFD700",  # Excellent - Gold
-            }
-
-            bar_colors = [color_map.get(r, "#3498db") for r in energy_rankings]
-
-            # Create bar chart
-            bars = self.hourly_energy_ax.bar(
-                hours,
-                hourly_energy,
-                color=bar_colors,
-                alpha=0.8,
-                edgecolor="black",
-                linewidth=1,
-            )
-
-            # Add value labels on bars
-            for bar, energy, ranking in zip(bars, hourly_energy, energy_rankings, strict=False):
-                if energy > ENERGY_LABEL_THRESHOLD:
-                    height = bar.get_height()
-
-                    # Show energy value INSIDE the bar (middle of bar height)
-                    self.hourly_energy_ax.text(
-                        bar.get_x() + bar.get_width() / 2.0,
-                        height / 2.0,  # Middle of bar
-                        f"{energy:.2f}",
-                        ha="center",
-                        va="center",
-                        fontsize=8,
-                        fontweight="bold",
-                        color="black",  # Black text for visibility inside colored bars
-                    )
-
-                    # Show ranking ON TOP of bars
-                    ranking_text = f"({ranking}/5)"
-                    self.hourly_energy_ax.text(
-                        bar.get_x() + bar.get_width() / 2.0,
-                        height + height * 0.02,  # Above the bar
-                        ranking_text,
-                        ha="center",
-                        va="bottom",
-                        fontsize=8,
-                        fontweight="bold",
-                        color="black",
-                    )
-
-            # Chart formatting with dynamic hour range and data type indication
-            hour_range_str = f"{productive_hour_min}:00-{productive_hour_max}:00"
-            title_suffix = f"({energy_data_type} DATA)"
-            self.hourly_energy_ax.set_title(
-                f"Chart 1: {title_suffix} Hourly Energy Production ({hour_range_str}) - {target_date.strftime('%Y-%m-%d')}",
-                fontsize=11,  # Reduced font size
-                fontweight="bold",
-                pad=15,
-            )
-            self.hourly_energy_ax.set_xlabel(
-                f"Hour of Day (Productive Hours {hour_range_str})", fontsize=12
-            )
-            self.hourly_energy_ax.set_ylabel("Energy Production (kWh)", fontsize=12)
-            self.hourly_energy_ax.grid(True, alpha=0.3)
-
-            # Set x-axis limits for dynamic productive hours with padding
-            self.hourly_energy_ax.set_xlim(
-                productive_hour_min - 0.5, productive_hour_max + 0.5
-            )
-            # Set x-axis ticks dynamically
-            tick_range = productive_hour_max - productive_hour_min + 1
-            tick_step = max(1, tick_range // 8)  # Aim for ~8 ticks max
-            self.hourly_energy_ax.set_xticks(
-                range(productive_hour_min, productive_hour_max + 1, tick_step)
-            )
-
-            # Add top margin for labels
-            if hourly_energy.max() > 0:
-                self.hourly_energy_ax.set_ylim(0, hourly_energy.max() * 1.2)
-
-            # Create performance ranking legend
-
-            legend_elements = [
-                Patch(facecolor="#FFD700", label="Excellent (5)"),
-                Patch(facecolor="#32CD32", label="Good (4)"),
-                Patch(facecolor="#FFA500", label="Average (3)"),
-                Patch(facecolor="#FF8C00", label="Below Avg (2)"),
-                Patch(facecolor="#DC143C", label="Poor (1)"),
-            ]
-
-            # Add legend to the right side
-            self.hourly_energy_ax.legend(
-                handles=legend_elements,
-                loc="center left",
-                fontsize=8,
-                ncol=1,
-                frameon=True,
-                fancybox=False,
-                shadow=False,
-                framealpha=0.9,
-                bbox_to_anchor=(1.08, 0.5),  # Moved further right
-                handlelength=0.8,
-                handletextpad=0.3,
-                borderaxespad=0.2,
-            )
+            # Create and customize chart
+            bars = self._create_energy_bars(hours, hourly_energy, bar_colors)
+            self._add_bar_labels(bars, hourly_energy, energy_rankings)
+            self._format_energy_chart(target_date, productive_hour_min, productive_hour_max, energy_data_type, hourly_energy)
+            self._add_energy_legend()
 
         except Exception as e:
             logger.error(f"Error creating hourly energy chart: {e}")
-            self.hourly_energy_ax.text(
-                0.5,
-                0.5,
-                f"Error creating chart:\n{e!s}",
-                horizontalalignment="center",
-                verticalalignment="center",
-                transform=self.hourly_energy_ax.transAxes,
-                fontsize=10,
-                color="red",
+            self._show_chart_error(self.hourly_energy_ax, e)
+
+    def _show_chart_message(self, axis, message):
+        """Show a message on a chart axis."""
+        axis.text(
+            0.5, 0.5, message,
+            horizontalalignment="center", verticalalignment="center",
+            transform=axis.transAxes, fontsize=12, alpha=0.6
+        )
+
+    def _show_chart_error(self, axis, error):
+        """Show an error message on a chart axis."""
+        axis.text(
+            0.5, 0.5, f"Error creating chart:\n{error!s}",
+            horizontalalignment="center", verticalalignment="center",
+            transform=axis.transAxes, fontsize=10, color="red"
+        )
+
+    def _filter_productive_hours(self, current_day_hourly, min_hour, max_hour):
+        """Filter data to productive hours range."""
+        return current_day_hourly[
+            (current_day_hourly.index.hour >= min_hour)
+            & (current_day_hourly.index.hour <= max_hour)
+        ]
+
+    def _prepare_energy_column(self, productive_hours, energy_column):
+        """Prepare and validate energy column, return column name and data type."""
+        energy_data_type = "HISTORICAL" if energy_column == "Produced Energy (kWh)" else "PREDICTED"
+        logger.info(f"Using {energy_data_type} data ({energy_column}) for hourly energy chart")
+
+        if energy_column not in productive_hours.columns:
+            energy_column = (
+                "predicted_total_energy" if "predicted_total_energy" in productive_hours.columns
+                else "Produced Energy (kWh)"
             )
+            logger.warning(f"Specified energy column not found, falling back to {energy_column}")
+
+        return energy_column, energy_data_type
+
+    def _extract_energy_data(self, productive_hours, energy_column):
+        """Extract and clean energy data."""
+        hourly_energy = productive_hours.get(energy_column, pd.Series([0] * len(productive_hours)))
+        return pd.to_numeric(hourly_energy, errors="coerce").fillna(0)
+
+    def _calculate_energy_rankings(self, hourly_energy):
+        """Calculate 1-5 rankings based on energy percentiles."""
+        if len(hourly_energy) <= 1:
+            return [3] * len(hourly_energy)
+
+        percentiles = [20, 40, 60, 80]
+        thresholds = [hourly_energy.quantile(p / 100) for p in percentiles]
+
+        energy_rankings = []
+        for energy in hourly_energy:
+            if energy <= thresholds[0]:
+                energy_rankings.append(1)  # Poor
+            elif energy <= thresholds[1]:
+                energy_rankings.append(2)  # Below Average
+            elif energy <= thresholds[2]:
+                energy_rankings.append(3)  # Average
+            elif energy <= thresholds[3]:
+                energy_rankings.append(4)  # Good
+            else:
+                energy_rankings.append(5)  # Excellent
+        return energy_rankings
+
+    def _get_ranking_colors(self, energy_rankings):
+        """Get colors for energy rankings."""
+        color_map = {
+            1: "#DC143C", 2: "#FF8C00", 3: "#FFA500",
+            4: "#32CD32", 5: "#FFD700"
+        }
+        return [color_map.get(r, "#3498db") for r in energy_rankings]
+
+    def _create_energy_bars(self, hours, hourly_energy, bar_colors):
+        """Create energy bar chart."""
+        return self.hourly_energy_ax.bar(
+            hours, hourly_energy, color=bar_colors,
+            alpha=0.8, edgecolor="black", linewidth=1
+        )
+
+    def _add_bar_labels(self, bars, hourly_energy, energy_rankings):
+        """Add value and ranking labels to bars."""
+        for bar, energy, ranking in zip(bars, hourly_energy, energy_rankings, strict=False):
+            if energy > ENERGY_LABEL_THRESHOLD:
+                height = bar.get_height()
+                x_center = bar.get_x() + bar.get_width() / 2.0
+
+                # Energy value inside bar
+                self.hourly_energy_ax.text(
+                    x_center, height / 2.0, f"{energy:.2f}",
+                    ha="center", va="center", fontsize=8, fontweight="bold", color="black"
+                )
+
+                # Ranking above bar
+                self.hourly_energy_ax.text(
+                    x_center, height + height * 0.02, f"({ranking}/5)",
+                    ha="center", va="bottom", fontsize=8, fontweight="bold", color="black"
+                )
+
+    def _format_energy_chart(self, target_date, productive_hour_min, productive_hour_max, energy_data_type, hourly_energy):
+        """Format energy chart axes and labels."""
+        hour_range_str = f"{productive_hour_min}:00-{productive_hour_max}:00"
+        title_suffix = f"({energy_data_type} DATA)"
+        
+        self.hourly_energy_ax.set_title(
+            f"Chart 1: {title_suffix} Hourly Energy Production ({hour_range_str}) - {target_date.strftime('%Y-%m-%d')}",
+            fontsize=11, fontweight="bold", pad=15
+        )
+        self.hourly_energy_ax.set_xlabel(f"Hour of Day (Productive Hours {hour_range_str})", fontsize=12)
+        self.hourly_energy_ax.set_ylabel("Energy Production (kWh)", fontsize=12)
+        self.hourly_energy_ax.grid(True, alpha=0.3)
+
+        # Set axis limits and ticks
+        self.hourly_energy_ax.set_xlim(productive_hour_min - 0.5, productive_hour_max + 0.5)
+        tick_range = productive_hour_max - productive_hour_min + 1
+        tick_step = max(1, tick_range // 8)
+        self.hourly_energy_ax.set_xticks(range(productive_hour_min, productive_hour_max + 1, tick_step))
+        
+        if hourly_energy.max() > 0:
+            self.hourly_energy_ax.set_ylim(0, hourly_energy.max() * 1.2)
+
+    def _add_energy_legend(self):
+        """Add performance ranking legend to energy chart."""
+        legend_elements = [
+            Patch(facecolor="#FFD700", label="Excellent (5)"),
+            Patch(facecolor="#32CD32", label="Good (4)"),
+            Patch(facecolor="#FFA500", label="Average (3)"),
+            Patch(facecolor="#FF8C00", label="Below Avg (2)"),
+            Patch(facecolor="#DC143C", label="Poor (1)"),
+        ]
+        self.hourly_energy_ax.legend(
+            handles=legend_elements, loc="center left", fontsize=8, ncol=1,
+            frameon=True, fancybox=False, shadow=False, framealpha=0.9,
+            bbox_to_anchor=(1.08, 0.5), handlelength=0.8,
+            handletextpad=0.3, borderaxespad=0.2
+        )
 
     def _create_hourly_weather_chart(
         self,

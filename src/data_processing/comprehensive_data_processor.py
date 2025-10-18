@@ -169,7 +169,7 @@ class ComprehensiveDataProcessor:
                     metadata={
                         "total_installations": len(self.installations),
                         "locations": list(
-                            set(inst.location for inst in self.installations.values())
+                            {inst.location for inst in self.installations.values()}
                         ),
                     },
                 )
@@ -183,14 +183,14 @@ class ComprehensiveDataProcessor:
         # Check if all energy data is cached
         all_cached = True
         if self.cache_manager:
-            for installation_id in self.installations.keys():
+            for installation_id in self.installations:
                 if not self.cache_manager.is_cached("energy_data", installation_id):
                     all_cached = False
                     break
 
             if all_cached:
                 logger.info("Loading all energy data from cache")
-                for installation_id in self.installations.keys():
+                for installation_id in self.installations:
                     cached_data = self.cache_manager.load_cached_data(
                         "energy_data", installation_id
                     )

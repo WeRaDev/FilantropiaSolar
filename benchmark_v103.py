@@ -114,9 +114,9 @@ class FilantropiaPerformanceBenchmark:
                     )
 
                     weather_simulator = WeatherSimulator("weather_files")
-                    predictor = EnhancedEnergyPredictor(
-                        data_processor, weather_simulator, use_cache=True
-                    )
+                _predictor = EnhancedEnergyPredictor(
+                    data_processor, weather_simulator
+                )
                     fresh_model_time = time.time()
 
                 # Record fresh startup results
@@ -207,12 +207,12 @@ class FilantropiaPerformanceBenchmark:
             # Test cache status retrieval
             with measure_time("Cache Status Retrieval"):
                 status = cache_manager.get_cache_status()
-                status_time = time.time()
+                _status_time = time.time()
 
             # Test cache validation
             with measure_time("Cache Validation"):
                 validation_results = cache_manager.validate_cache()
-                validation_time = time.time()
+                _validation_time = time.time()
 
             self.results["cache_operations"] = {
                 "status_retrieval_time": 0.1,  # Approximate from context

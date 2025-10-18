@@ -39,7 +39,7 @@ class WeatherSimulator:
     def __init__(self, weather_data_dir: str):
         """Initialize the weather simulator with historical weather data."""
         self.weather_data_dir = Path(weather_data_dir)
-        self.weather_data = {}
+        self.weather_data: dict[str, pd.DataFrame] = {}
         self.location_mapping = {
             "Lisbon": "Lisbon_weather.csv",
             "Setubal": "Setubal_weather.csv",
@@ -48,8 +48,8 @@ class WeatherSimulator:
             "Tavira": "Tavira_weather.csv",
             "Loule": "Loule_weather.csv",
         }
-        self.scalers = {}
-        self.models = {}
+        self.scalers: dict[str, StandardScaler] = {}
+        self.models: dict[str, dict[str, KNeighborsRegressor]] = {}
         self._load_historical_data()
         self._prepare_simulation_models()
 

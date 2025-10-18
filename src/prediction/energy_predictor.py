@@ -4,7 +4,6 @@ Uses machine learning to predict solar energy production based on weather foreca
 """
 
 import logging
-from pathlib import Path
 
 import joblib
 import numpy as np
