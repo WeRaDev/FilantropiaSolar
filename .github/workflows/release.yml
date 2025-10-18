@@ -137,39 +137,6 @@ jobs:
         generate_release_notes: true
 
   # ============================================
-  # Publish to PyPI
-  # ============================================
-  pypi-release:
-    name: PyPI Release
-    needs: [validate, github-release]
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-    
-    environment:
-      name: pypi
-      url: https://pypi.org/p/filantropia-solar/
-      
-    steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
-      
-    - name: Set up Python
-      uses: actions/setup-python@v5
-      with:
-        python-version: "3.11"
-        
-    - name: Build package
-      run: |
-        python -m pip install --upgrade pip build
-        python -m build
-        
-    - name: Publish to PyPI
-      uses: pypa/gh-action-pypi-publish@release/v1
-      with:
-        skip-existing: true
-        verbose: true
-
-  # ============================================
   # Update Documentation
   # ============================================
   docs-release:
