@@ -426,23 +426,23 @@ class OptimizedEnergyPredictor(EnhancedEnergyPredictor):
             avg_r2 = metrics.get("average_r2_score", 0)
 
             # Training time suggestions
-            if training_time < SLOW_TRAINING_THRESHOLD_SECONDS
+            if training_time < SLOW_TRAINING_THRESHOLD_SECONDS:
                 suggestions.append(
                     "✅ Excellent model loading performance (cached models)"
                 )
-            elif training_time > VERY_SLOW_TRAINING_THRESHOLD_SECONDS
+            elif training_time > VERY_SLOW_TRAINING_THRESHOLD_SECONDS:
                 suggestions.append(
                     "⚠️ Consider enabling model caching to reduce training time"
                 )
 
             # Model accuracy suggestions
-            if avg_r2 > OUTSTANDING_R2_THRESHOLD
+            if avg_r2 > OUTSTANDING_R2_THRESHOLD:
                 suggestions.append("✅ Outstanding model accuracy across installations")
-            elif avg_r2 > GOOD_R2_THRESHOLD
+            elif avg_r2 > GOOD_R2_THRESHOLD:
                 suggestions.append(
                     "✅ Good model accuracy - suitable for production use"
                 )
-            elif avg_r2 > MODERATE_R2_THRESHOLD
+            elif avg_r2 > MODERATE_R2_THRESHOLD:
                 suggestions.append(
                     "⚠️ Moderate model accuracy - consider feature engineering"
                 )
