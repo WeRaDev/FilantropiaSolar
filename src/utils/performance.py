@@ -11,11 +11,23 @@ from dataclasses import dataclass
 from datetime import datetime
 import functools
 import gc
+import sys
 import threading
 import time
 from typing import Any, Optional, TypeVar
 
 from ..core import get_logger
+
+# Optional imports with graceful fallbacks
+try:
+    import psutil
+except ImportError:
+    psutil = None
+
+try:
+    import pandas as pd
+except ImportError:
+    pd = None
 
 T = TypeVar("T")
 F = TypeVar("F", bound=Callable[..., Any])
@@ -387,9 +399,7 @@ class MemoryOptimizer:
     @staticmethod
     def get_memory_usage() -> dict[str, Any]:
         """Get current memory usage information."""
-        try:
-            import psutil
-
+        if psutil is not None:
             process = psutil.Process()
             memory_info = process.memory_info()
 
@@ -400,10 +410,8 @@ class MemoryOptimizer:
                 "available": psutil.virtual_memory().available,
                 "unit": "bytes",
             }
-        except ImportError:
+        else:
             # Fallback without psutil
-            import sys
-
             return {
                 "objects_count": len(gc.get_objects()),
                 "gc_counts": gc.get_counts(),
@@ -414,47 +422,44 @@ class MemoryOptimizer:
     @staticmethod
     def optimize_dataframe_memory(df) -> Any:
         """Optimize pandas DataFrame memory usage."""
-        try:
-            import pandas as pd
-
-            if not isinstance(df, pd.DataFrame):
-                return df
-
-            original_memory = df.memory_usage(deep=True).sum()
-
-            # Optimize numeric columns
-            for col in df.columns:
-                col_type = df[col].dtype
-
-                if pd.api.types.is_integer_dtype(col_type):
-                    # Downcast integers
-                    df[col] = pd.to_numeric(df[col], downcast="integer")
-
-                elif pd.api.types.is_float_dtype(col_type):
-                    # Downcast floats
-                    df[col] = pd.to_numeric(df[col], downcast="float")
-
-                elif pd.api.types.is_object_dtype(col_type):
-                    # Try to convert to category if low cardinality
-                    unique_count = df[col].nunique()
-                    total_count = len(df[col])
-
-                    if unique_count / total_count < 0.5:  # Less than 50% unique
-                        df[col] = df[col].astype("category")
-
-            optimized_memory = df.memory_usage(deep=True).sum()
-            reduction_ratio = 1 - optimized_memory / original_memory
-
-            logger.info(
-                f"DataFrame memory optimized: {original_memory:,} -> {optimized_memory:,} bytes "
-                f"({reduction_ratio:.1%} reduction)"
-            )
-
-            return df
-
-        except ImportError:
+        if pd is None:
             logger.warning("pandas not available for DataFrame memory optimization")
             return df
+
+        if not isinstance(df, pd.DataFrame):
+            return df
+
+        original_memory = df.memory_usage(deep=True).sum()
+
+        # Optimize numeric columns
+        for col in df.columns:
+            col_type = df[col].dtype
+
+            if pd.api.types.is_integer_dtype(col_type):
+                # Downcast integers
+                df[col] = pd.to_numeric(df[col], downcast="integer")
+
+            elif pd.api.types.is_float_dtype(col_type):
+                # Downcast floats
+                df[col] = pd.to_numeric(df[col], downcast="float")
+
+            elif pd.api.types.is_object_dtype(col_type):
+                # Try to convert to category if low cardinality
+                unique_count = df[col].nunique()
+                total_count = len(df[col])
+
+                if unique_count / total_count < 0.5:  # Less than 50% unique
+                    df[col] = df[col].astype("category")
+
+        optimized_memory = df.memory_usage(deep=True).sum()
+        reduction_ratio = 1 - optimized_memory / original_memory
+
+        logger.info(
+            f"DataFrame memory optimized: {original_memory:,} -> {optimized_memory:,} bytes "
+            f"({reduction_ratio:.1%} reduction)"
+        )
+
+        return df
 
 
 def profile_memory_usage(func: F) -> F:

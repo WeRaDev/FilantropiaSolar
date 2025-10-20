@@ -17,6 +17,12 @@ import time
 SRC_PATH = Path(__file__).parent / "src"
 sys.path.insert(0, str(SRC_PATH))
 
+# Import modules that will be used in timing tests
+from src.data_processing.comprehensive_data_processor import ComprehensiveDataProcessor
+from src.data_processing.data_cache_manager import DataCacheManager
+from src.prediction.enhanced_energy_predictor import EnhancedEnergyPredictor
+from src.weather_simulation.weather_simulator import WeatherSimulator
+
 # Configure logging for benchmark
 logging.basicConfig(
     level=logging.INFO,
@@ -91,11 +97,6 @@ class FilantropiaPerformanceBenchmark:
         with tempfile.TemporaryDirectory() as temp_cache:
             try:
                 with measure_time("Data Processor Initialization (Fresh)"):
-                    from src.data_processing.comprehensive_data_processor import (
-                        ComprehensiveDataProcessor,
-                    )
-                    from src.data_processing.data_cache_manager import DataCacheManager
-
                     # Create fresh cache manager in temp directory
                     cache_manager = DataCacheManager(cache_dir=temp_cache)
 
@@ -106,13 +107,6 @@ class FilantropiaPerformanceBenchmark:
                     fresh_data_time = time.time()
 
                 with measure_time("ML Model Training (Fresh)"):
-                    from src.prediction.enhanced_energy_predictor import (
-                        EnhancedEnergyPredictor,
-                    )
-                    from src.weather_simulation.weather_simulator import (
-                        WeatherSimulator,
-                    )
-
                     weather_simulator = WeatherSimulator("weather_files")
                     _predictor = EnhancedEnergyPredictor(
                         data_processor, weather_simulator
@@ -153,19 +147,10 @@ class FilantropiaPerformanceBenchmark:
             cached_start_time = time.time()
 
             with measure_time("Data Processor Load (Cached)"):
-                from src.data_processing.comprehensive_data_processor import (
-                    ComprehensiveDataProcessor,
-                )
-
                 data_processor = ComprehensiveDataProcessor(use_cache=True)
                 cached_data_time = time.time()
 
             with measure_time("ML Model Load (Cached)"):
-                from src.prediction.enhanced_energy_predictor import (
-                    EnhancedEnergyPredictor,
-                )
-                from src.weather_simulation.weather_simulator import WeatherSimulator
-
                 weather_simulator = WeatherSimulator("weather_files")
                 _ = EnhancedEnergyPredictor(
                     data_processor, weather_simulator, use_cache=True
@@ -202,8 +187,6 @@ class FilantropiaPerformanceBenchmark:
         logger.info("-" * 50)
 
         try:
-            from src.data_processing.data_cache_manager import DataCacheManager
-
             cache_manager = DataCacheManager()
 
             # Test cache status retrieval

@@ -3,7 +3,6 @@ Test basic imports and module availability.
 """
 
 import os
-import sys
 
 import pytest
 
@@ -16,7 +15,7 @@ class TestBasicImports:
     def test_data_processing_import(self):
         """Test that data_processing module can be imported."""
         try:
-            import src.data_processing as data_processing
+            from src import data_processing
 
             assert data_processing is not None
         except ImportError:
@@ -25,7 +24,7 @@ class TestBasicImports:
     def test_weather_api_import(self):
         """Test that weather_api module can be imported."""
         try:
-            import src.weather_api as weather_api
+            from src import weather_api
 
             assert weather_api is not None
         except ImportError:
@@ -34,7 +33,7 @@ class TestBasicImports:
     def test_prediction_import(self):
         """Test that prediction module can be imported."""
         try:
-            import src.prediction as prediction
+            from src import prediction
 
             assert prediction is not None
         except ImportError:
@@ -43,7 +42,7 @@ class TestBasicImports:
     def test_utils_import(self):
         """Test that utils module can be imported."""
         try:
-            import src.utils as utils
+            from src import utils
 
             assert utils is not None
         except ImportError:
@@ -52,7 +51,7 @@ class TestBasicImports:
     def test_gui_import(self):
         """Test that gui module can be imported (v1.0.0 - compatibility only)."""
         try:
-            import src.gui as gui
+            from src import gui
 
             # In v1.0.0, GUI functionality is integrated into main.py
             # This test ensures the module can be imported for compatibility
@@ -64,8 +63,6 @@ class TestBasicImports:
 
     def test_main_application_import(self):
         """Test that the main application module can be accessed (v1.0.0)."""
-        import os
-        import sys
 
         # Use project root for main.py path
         project_root = os.path.join(os.path.dirname(__file__), "..", "..")
