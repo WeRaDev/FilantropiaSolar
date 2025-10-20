@@ -180,33 +180,48 @@ class ComprehensiveDataProcessor:
 
     def _load_energy_production_data(self):
         """Load energy production data for all installations from Excel sheets with caching."""
+        # Try to load all from cache first
+        if self._try_load_all_energy_from_cache():
+            return
+
+        # Load from source files
+        self._load_energy_from_source_files()
+
+    def _try_load_all_energy_from_cache(self) -> bool:
+        """Try to load all energy data from cache. Returns True if successful."""
+        if not self.cache_manager:
+            return False
+
         # Check if all energy data is cached
-        all_cached = True
-        if self.cache_manager:
-            for installation_id in self.installations:
-                if not self.cache_manager.is_cached("energy_data", installation_id):
-                    all_cached = False
-                    break
+        all_cached = all(
+            self.cache_manager.is_cached("energy_data", installation_id)
+            for installation_id in self.installations
+        )
 
-            if all_cached:
-                logger.info("Loading all energy data from cache")
-                for installation_id in self.installations:
-                    cached_data = self.cache_manager.load_cached_data(
-                        "energy_data", installation_id
-                    )
-                    if cached_data is not None:
-                        self.energy_data[installation_id] = cached_data
-                logger.info(
-                    f"Loaded energy data for {len(self.energy_data)} installations from cache"
-                )
-                return
+        if not all_cached:
+            return False
 
+        logger.info("Loading all energy data from cache")
+        for installation_id in self.installations:
+            cached_data = self.cache_manager.load_cached_data(
+                "energy_data", installation_id
+            )
+            if cached_data is not None:
+                self.energy_data[installation_id] = cached_data
+
+        logger.info(
+            f"Loaded energy data for {len(self.energy_data)} installations from cache"
+        )
+        return True
+
+    def _load_energy_from_source_files(self):
+        """Load energy production data from Excel source files."""
         try:
             datasets_file = self.data_dir / "PV Plants Datasets.xlsx"
             if not datasets_file.exists():
                 raise FileNotFoundError(f"Datasets file not found: {datasets_file}")
 
-            # Get all sheet names (which should correspond to serial numbers)
+            # Get all sheet names
             excel_file = pd.ExcelFile(datasets_file)
             sheet_names = excel_file.sheet_names
 
@@ -215,77 +230,9 @@ class ComprehensiveDataProcessor:
 
             # Load data for each installation
             for installation_id, installation in self.installations.items():
-                # Check cache for individual installation
-                if self.cache_manager and self.cache_manager.is_cached(
-                    "energy_data", installation_id
-                ):
-                    cached_data = self.cache_manager.load_cached_data(
-                        "energy_data", installation_id
-                    )
-                    if cached_data is not None:
-                        self.energy_data[installation_id] = cached_data
-                        logger.info(
-                            f"Loaded {len(cached_data)} energy records for {installation_id} from cache"
-                        )
-                        continue
-
-                sheet_name = installation.serial_number
-
-                if sheet_name in sheet_names:
-                    try:
-                        # Load the sheet data
-                        df = pd.read_excel(datasets_file, sheet_name=sheet_name)
-
-                        # Clean and process the data
-                        df["Date"] = pd.to_datetime(df["Date"])
-                        df = df.set_index("Date")
-
-                        # Ensure numeric columns
-                        numeric_columns = [
-                            "Produced Energy (kWh)",
-                            "Specific Energy (kWh/kWp)",
-                            "CO2 Avoided (tons)",
-                        ]
-                        for col in numeric_columns:
-                            if col in df.columns:
-                                df[col] = pd.to_numeric(df[col], errors="coerce")
-
-                        # Remove invalid data
-                        df = df.dropna(subset=["Produced Energy (kWh)"])
-
-                        # Add installation metadata
-                        df["installation_id"] = installation_id
-                        df["location"] = installation.location
-                        df["installed_power_kwp"] = installation.installed_power_kwp
-                        df["connection_power_kwn"] = installation.connection_power_kwn
-
-                        self.energy_data[installation_id] = df
-                        logger.info(
-                            f"Loaded {len(df)} energy records for {installation_id}"
-                        )
-
-                        # Cache the energy data
-                        if self.cache_manager:
-                            self.cache_manager.cache_data(
-                                df,
-                                "energy_data",
-                                installation_id,
-                                metadata={
-                                    "records": len(df),
-                                    "location": installation.location,
-                                    "power_kwp": installation.installed_power_kwp,
-                                },
-                            )
-
-                    except Exception as e:
-                        logger.error(
-                            f"Error loading energy data for {installation_id}: {e}"
-                        )
-                        continue
-                else:
-                    logger.warning(
-                        f"No data sheet found for installation {installation_id} (sheet: {sheet_name})"
-                    )
+                self._load_single_installation_energy_data(
+                    installation_id, installation, datasets_file, sheet_names
+                )
 
             logger.info(
                 f"Successfully loaded energy data for {len(self.energy_data)} installations"
@@ -294,6 +241,106 @@ class ComprehensiveDataProcessor:
         except Exception as e:
             logger.error(f"Error loading energy production data: {e}")
             raise
+
+    def _load_single_installation_energy_data(
+        self,
+        installation_id: str,
+        installation: InstallationInfo,
+        datasets_file: Path,
+        sheet_names: list[str],
+    ):
+        """Load energy data for a single installation."""
+        # Check cache for individual installation
+        if self._try_load_installation_from_cache(installation_id):
+            return
+
+        sheet_name = installation.serial_number
+        if sheet_name not in sheet_names:
+            logger.warning(
+                f"No data sheet found for installation {installation_id} (sheet: {sheet_name})"
+            )
+            return
+
+        try:
+            # Load and process the sheet data
+            df = self._process_energy_sheet_data(
+                datasets_file, sheet_name, installation_id, installation
+            )
+
+            self.energy_data[installation_id] = df
+            logger.info(f"Loaded {len(df)} energy records for {installation_id}")
+
+            # Cache the energy data
+            self._cache_installation_energy_data(df, installation_id, installation)
+
+        except Exception as e:
+            logger.error(f"Error loading energy data for {installation_id}: {e}")
+
+    def _try_load_installation_from_cache(self, installation_id: str) -> bool:
+        """Try to load single installation data from cache."""
+        if not (self.cache_manager and self.cache_manager.is_cached("energy_data", installation_id)):
+            return False
+
+        cached_data = self.cache_manager.load_cached_data("energy_data", installation_id)
+        if cached_data is not None:
+            self.energy_data[installation_id] = cached_data
+            logger.info(
+                f"Loaded {len(cached_data)} energy records for {installation_id} from cache"
+            )
+            return True
+        return False
+
+    def _process_energy_sheet_data(
+        self,
+        datasets_file: Path,
+        sheet_name: str,
+        installation_id: str,
+        installation: InstallationInfo,
+    ) -> pd.DataFrame:
+        """Process energy data from Excel sheet."""
+        # Load the sheet data
+        df = pd.read_excel(datasets_file, sheet_name=sheet_name)
+
+        # Clean and process the data
+        df["Date"] = pd.to_datetime(df["Date"])
+        df = df.set_index("Date")
+
+        # Ensure numeric columns
+        numeric_columns = [
+            "Produced Energy (kWh)",
+            "Specific Energy (kWh/kWp)",
+            "CO2 Avoided (tons)",
+        ]
+        for col in numeric_columns:
+            if col in df.columns:
+                df[col] = pd.to_numeric(df[col], errors="coerce")
+
+        # Remove invalid data
+        df = df.dropna(subset=["Produced Energy (kWh)"])
+
+        # Add installation metadata
+        df["installation_id"] = installation_id
+        df["location"] = installation.location
+        df["installed_power_kwp"] = installation.installed_power_kwp
+        df["connection_power_kwn"] = installation.connection_power_kwn
+
+        return df
+
+    def _cache_installation_energy_data(
+        self, df: pd.DataFrame, installation_id: str, installation: InstallationInfo
+    ):
+        """Cache energy data for an installation."""
+        if self.cache_manager:
+            self.cache_manager.cache_data(
+                df,
+                "energy_data",
+                installation_id,
+                metadata={
+                    "records": len(df),
+                    "location": installation.location,
+                    "power_kwp": installation.installed_power_kwp,
+                },
+            )
 
     def _load_weather_data(self):
         """Load weather data for all available locations."""
