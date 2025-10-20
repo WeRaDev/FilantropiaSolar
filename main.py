@@ -1522,7 +1522,7 @@ class FilantropiaSolarApp:
 
             logger.info(f"Weather ranked hourly data shape: {weather_ranked_hourly.shape}")
             logger.info(f"Daily weather rankings count: {len(daily_weather_rankings)}")
-            
+
             return weather_ranked_hourly, daily_weather_rankings
         except Exception as e:
             logger.error(f"Error in weather ranking system: {e}")
@@ -1539,7 +1539,7 @@ class FilantropiaSolarApp:
             hourly_data = results["hourly_data"]
             daily_summary = results["daily_summary"]
             data_source = results.get("data_source", {})
-            
+
             # Determine correct energy column
             energy_column_for_charts = self._determine_energy_column(hourly_data, mode, data_source)
             # Clear existing plots
@@ -1565,7 +1565,7 @@ class FilantropiaSolarApp:
                 return
 
             # Get weather rankings
-            weather_ranked_hourly, daily_weather_rankings = self._get_weather_rankings(
+            _weather_ranked_hourly, _daily_weather_rankings = self._get_weather_rankings(
                 hourly_data, target_date, daily_summary
             )
 
@@ -1642,12 +1642,12 @@ class FilantropiaSolarApp:
     def _update_day_info_display(self, current_day_hourly, target_date, energy_column_for_charts):
         """Update the day information display with energy statistics."""
         current_day_energy = current_day_hourly.get(energy_column_for_charts, pd.Series([0]))
-        
+
         if not current_day_energy.empty:
             avg_energy = current_day_energy.mean()
             total_energy = current_day_energy.sum()
             peak_energy = current_day_energy.max()
-            
+
             data_type = "Historical" if energy_column_for_charts == "Produced Energy (kWh)" else "Predicted"
             info_text = (f"📅 Day {self.current_day_index + 1} of 15: {target_date.strftime('%Y-%m-%d')} | "
                         f"{data_type} - Total: {total_energy:.2f} kWh | Peak: {peak_energy:.2f} kWh | "
@@ -1655,7 +1655,7 @@ class FilantropiaSolarApp:
         else:
             info_text = (f"📅 Day {self.current_day_index + 1} of 15: {target_date.strftime('%Y-%m-%d')} | "
                         "No energy data available")
-            
+
         if hasattr(self, "day_info_label"):
             self.day_info_label.config(text=info_text)
 

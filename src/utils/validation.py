@@ -470,7 +470,7 @@ class InputValidator:
             return float(value) if not isinstance(value, (int, float)) else value
 
     @staticmethod
-    def _validate_numeric_range(numeric_value: int | float, min_value: int | float | None, 
+    def _validate_numeric_range(numeric_value: int | float, min_value: int | float | None,
                                max_value: int | float | None, field_name: str) -> None:
         """Helper method to validate numeric value is within range."""
         if min_value is not None and numeric_value < min_value:
@@ -478,7 +478,7 @@ class InputValidator:
                 f"{field_name} must be at least {min_value}",
                 field=field_name, value=numeric_value
             )
-        
+
         if max_value is not None and numeric_value > max_value:
             raise ValidationError(
                 f"{field_name} must be at most {max_value}",
