@@ -6,8 +6,8 @@ This module implements an ML-based ranking system that correlates weather condit
 with energy production to provide intelligent rankings for both hourly and daily data.
 """
 
-from datetime import date
 import logging
+from datetime import date
 
 import numpy as np
 import pandas as pd

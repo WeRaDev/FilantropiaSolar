@@ -5,10 +5,10 @@ This module defines custom exceptions with proper error handling patterns,
 error codes, and detailed error information for better debugging and user experience.
 """
 
+import traceback
 from collections.abc import Callable
 from datetime import datetime
 from enum import Enum
-import traceback
 from typing import Any
 
 

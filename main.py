@@ -14,15 +14,15 @@ Author: FilantropiaSolar Team
 Version: 2.0 - Enhanced Edition
 """
 
-from datetime import datetime, timedelta
 import logging
-from pathlib import Path
 import queue
 import sys
 import threading
 import tkinter as tk
-from tkinter import messagebox, ttk
 import traceback
+from datetime import datetime, timedelta
+from pathlib import Path
+from tkinter import messagebox, ttk
 from typing import Any
 
 import pandas as pd
@@ -47,13 +47,13 @@ except Exception:
 
 # Optional matplotlib imports
 try:
+    import matplotlib.pyplot as plt  # type: ignore[import-not-found]
     from matplotlib.backends.backend_tkagg import (  # type: ignore[import-not-found]
         FigureCanvasTkAgg,
         NavigationToolbar2Tk,
     )
     from matplotlib.figure import Figure  # type: ignore[import-not-found]
     from matplotlib.patches import Patch, Rectangle  # type: ignore[import-not-found]
-    import matplotlib.pyplot as plt  # type: ignore[import-not-found]
 except Exception:
     plt = None  # type: ignore[assignment]
     Figure = None  # type: ignore[assignment]

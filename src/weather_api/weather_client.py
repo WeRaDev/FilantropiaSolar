@@ -3,8 +3,8 @@ Weather API Client for FilantropiaSolar
 Provides weather data retrieval for current and forecast conditions
 """
 
-from datetime import datetime, timedelta
 import logging
+from datetime import datetime, timedelta
 
 import pandas as pd
 import requests

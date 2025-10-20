@@ -8,9 +8,9 @@ and handles all available installations across Portugal.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
 import datetime
 import logging
+from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
