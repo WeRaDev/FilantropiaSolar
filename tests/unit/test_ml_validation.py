@@ -9,8 +9,7 @@ import numpy as np
 import pytest
 from sklearn.metrics import mean_absolute_error, r2_score
 
-# Add src to path for imports
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "src"))
+# Use proper package imports - no sys.path manipulation needed
 
 
 @pytest.mark.ml
@@ -249,7 +248,7 @@ def test_model_data_validation():
 def test_energy_ranking_validation():
     """Test energy ranking system validation."""
     try:
-        from utils.energy_ranking import get_energy_rank, get_rank_color
+        from src.utils.energy_ranking import get_energy_rank, get_rank_color
 
         # Test ranking function
         test_energies = [0.05, 0.15, 0.3, 0.5, 0.7, 0.9]
