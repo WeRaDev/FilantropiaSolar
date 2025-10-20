@@ -14,8 +14,12 @@ from src.utils.energy_ranking import calculate_specific_energy_ranking
 logger = logging.getLogger(__name__)
 
 # Constants for data processing and analysis
-MINIMUM_CORRELATION_SAMPLES = 10  # Minimum data points needed for meaningful correlation analysis
-OPTIMAL_RANKING_THRESHOLD = 4  # Rankings >= 4 are considered optimal (good to excellent)
+MINIMUM_CORRELATION_SAMPLES = (
+    10  # Minimum data points needed for meaningful correlation analysis
+)
+OPTIMAL_RANKING_THRESHOLD = (
+    4  # Rankings >= 4 are considered optimal (good to excellent)
+)
 MONTHS_PER_YEAR = 12  # Number of months in a year for date calculations
 DEFAULT_PV_CAPACITY_KWP = 10.0  # Default PV capacity in kWp if not specified
 
@@ -370,7 +374,8 @@ class LisbonDataProcessor:
             summary["ranking"] = {
                 "avg": df["Ranking"].mean(),
                 "distribution": df["Ranking"].value_counts().to_dict(),
-                "optimal_hours_pct": (df["Ranking"] >= OPTIMAL_RANKING_THRESHOLD).mean() * 100,
+                "optimal_hours_pct": (df["Ranking"] >= OPTIMAL_RANKING_THRESHOLD).mean()
+                * 100,
             }
 
         return summary
@@ -439,7 +444,11 @@ class LisbonDataProcessor:
         # Filter data within the same month ± 1 month
         month_window = [target_month - 1, target_month, target_month + 1]
         month_window = [
-            (m - 1) % MONTHS_PER_YEAR + 1 if m <= 0 else (m - 1) % MONTHS_PER_YEAR + 1 if m > MONTHS_PER_YEAR else m
+            (m - 1) % MONTHS_PER_YEAR + 1
+            if m <= 0
+            else (m - 1) % MONTHS_PER_YEAR + 1
+            if m > MONTHS_PER_YEAR
+            else m
             for m in month_window
         ]
 

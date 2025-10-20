@@ -21,14 +21,14 @@ logger = logging.getLogger(__name__)
 
 # Validation thresholds
 MIN_TEST_DATA_POINTS = 100  # Minimum data points needed for testing
-MIN_DAILY_DATA_HOURS = 24   # Minimum hours of data needed (one day)
+MIN_DAILY_DATA_HOURS = 24  # Minimum hours of data needed (one day)
 EXCELLENT_SUCCESS_RATE = 90  # Success rate threshold for excellent performance
-GOOD_SUCCESS_RATE = 70      # Success rate threshold for good performance
-HIGH_ACCURACY_R2 = 0.8      # R² threshold for high accuracy
+GOOD_SUCCESS_RATE = 70  # Success rate threshold for good performance
+HIGH_ACCURACY_R2 = 0.8  # R² threshold for high accuracy
 MODERATE_ACCURACY_R2 = 0.6  # R² threshold for moderate accuracy
-LOW_ERROR_MAPE = 15         # MAPE threshold for low errors
-MODERATE_ERROR_MAPE = 25    # MAPE threshold for moderate errors
-POOR_PERFORMANCE_R2 = 0.5   # R² threshold for poor performance
+LOW_ERROR_MAPE = 15  # MAPE threshold for low errors
+MODERATE_ERROR_MAPE = 25  # MAPE threshold for moderate errors
+POOR_PERFORMANCE_R2 = 0.5  # R² threshold for poor performance
 
 
 class ModelValidator:

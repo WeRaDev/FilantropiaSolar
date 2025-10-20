@@ -451,7 +451,10 @@ class MemoryOptimizer:
                 unique_count = df[col].nunique()
                 total_count = len(df[col])
 
-                if unique_count / total_count < MemoryOptimizer.CATEGORY_THRESHOLD_RATIO:  # Less than 50% unique
+                if (
+                    unique_count / total_count
+                    < MemoryOptimizer.CATEGORY_THRESHOLD_RATIO
+                ):  # Less than 50% unique
                     df[col] = df[col].astype("category")
 
         optimized_memory = df.memory_usage(deep=True).sum()

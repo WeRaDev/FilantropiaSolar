@@ -42,6 +42,7 @@ DAYLIGHT_END_HOUR = 18
 SOLAR_NOON_HOUR = 12
 HOUR_PEAK_DIVISOR = 6.0
 
+
 class WeatherRankingSystem:
     """
     ML-based ranking system that analyzes weather conditions to predict
@@ -90,7 +91,10 @@ class WeatherRankingSystem:
                 radiation = 0
             if radiation > 0:
                 # Normalize radiation (typical max W/m²)
-                radiation_score = min(radiation / RADIATION_TYPICAL_MAX * RADIATION_MAX_POINTS, RADIATION_MAX_POINTS)
+                radiation_score = min(
+                    radiation / RADIATION_TYPICAL_MAX * RADIATION_MAX_POINTS,
+                    RADIATION_MAX_POINTS,
+                )
                 score += (
                     radiation_score * self.weather_factors["shortwave_radiation"] / 0.40
                 )
@@ -105,11 +109,15 @@ class WeatherRankingSystem:
             score -= cloud_penalty * abs(self.weather_factors["cloud_cover"]) / 0.25
 
             # Temperature (optimal around 25°C for solar panels)
-            temp = pd.to_numeric(weather_row.get("temperature_2m", TEMP_DEFAULT_C), errors="coerce")
+            temp = pd.to_numeric(
+                weather_row.get("temperature_2m", TEMP_DEFAULT_C), errors="coerce"
+            )
             if pd.isna(temp):
                 temp = TEMP_DEFAULT_C
             if TEMP_COMFORT_RANGE_C <= temp <= TEMP_MAX_C:
-                temp_bonus = TEMP_MAX_POINTS * (1 - abs(temp - TEMP_OPTIMAL_C) / TEMP_COMFORT_RANGE_C)
+                temp_bonus = TEMP_MAX_POINTS * (
+                    1 - abs(temp - TEMP_OPTIMAL_C) / TEMP_COMFORT_RANGE_C
+                )
             else:
                 temp_bonus = max(
                     0, TEMP_MAX_POINTS - abs(temp - TEMP_OPTIMAL_C) / 3
@@ -118,11 +126,18 @@ class WeatherRankingSystem:
 
             # Humidity (lower is generally better)
             humidity = pd.to_numeric(
-                weather_row.get("relative_humidity_2m", HUMIDITY_DEFAULT_PERCENT), errors="coerce"
+                weather_row.get("relative_humidity_2m", HUMIDITY_DEFAULT_PERCENT),
+                errors="coerce",
             )
             if pd.isna(humidity):
                 humidity = HUMIDITY_DEFAULT_PERCENT
-            humidity_penalty = (humidity - HUMIDITY_BASELINE_PERCENT) / HUMIDITY_RANGE_PERCENT * HUMIDITY_MAX_POINTS if humidity > HUMIDITY_BASELINE_PERCENT else 0
+            humidity_penalty = (
+                (humidity - HUMIDITY_BASELINE_PERCENT)
+                / HUMIDITY_RANGE_PERCENT
+                * HUMIDITY_MAX_POINTS
+                if humidity > HUMIDITY_BASELINE_PERCENT
+                else 0
+            )
             score -= (
                 humidity_penalty
                 * abs(self.weather_factors["relative_humidity_2m"])
@@ -130,7 +145,9 @@ class WeatherRankingSystem:
             )
 
             # Wind (slight positive for cooling)
-            wind = pd.to_numeric(weather_row.get("wind_speed_10m", WIND_DEFAULT_MS), errors="coerce")
+            wind = pd.to_numeric(
+                weather_row.get("wind_speed_10m", WIND_DEFAULT_MS), errors="coerce"
+            )
             if pd.isna(wind):
                 wind = WIND_DEFAULT_MS
             wind_bonus = min(wind / WIND_MAX_MS * WIND_MAX_POINTS, WIND_MAX_POINTS)

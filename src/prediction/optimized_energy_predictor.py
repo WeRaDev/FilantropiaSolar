@@ -356,9 +356,13 @@ class OptimizedEnergyPredictor(EnhancedEnergyPredictor):
                 best_mae = float("inf")
 
                 for _model_name, metrics in performance.items():
-                    if isinstance(metrics, dict) and "r2" in metrics and metrics["r2"] > best_r2:
-                            best_r2 = metrics["r2"]
-                            best_mae = metrics.get("mae", best_mae)
+                    if (
+                        isinstance(metrics, dict)
+                        and "r2" in metrics
+                        and metrics["r2"] > best_r2
+                    ):
+                        best_r2 = metrics["r2"]
+                        best_mae = metrics.get("mae", best_mae)
 
                 if best_r2 > 0:
                     r2_scores.append(best_r2)

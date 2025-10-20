@@ -452,14 +452,18 @@ class InputValidator:
         return str_value
 
     @staticmethod
-    def _convert_to_numeric(value: Any, field_name: str, allow_none: bool) -> int | float | None:
+    def _convert_to_numeric(
+        value: Any, field_name: str, allow_none: bool
+    ) -> int | float | None:
         """Helper method to convert value to numeric type."""
         if isinstance(value, str):
             value = value.strip()
             if not value:
                 if allow_none:
                     return None
-                raise ValidationError(f"{field_name} cannot be empty", field=field_name, value=value)
+                raise ValidationError(
+                    f"{field_name} cannot be empty", field=field_name, value=value
+                )
 
             # Try to detect if it should be int or float
             if "." in value or "e" in value.lower():
@@ -470,19 +474,25 @@ class InputValidator:
             return float(value) if not isinstance(value, (int, float)) else value
 
     @staticmethod
-    def _validate_numeric_range(numeric_value: int | float, min_value: int | float | None,
-                               max_value: int | float | None, field_name: str) -> None:
+    def _validate_numeric_range(
+        numeric_value: int | float,
+        min_value: int | float | None,
+        max_value: int | float | None,
+        field_name: str,
+    ) -> None:
         """Helper method to validate numeric value is within range."""
         if min_value is not None and numeric_value < min_value:
             raise ValidationError(
                 f"{field_name} must be at least {min_value}",
-                field=field_name, value=numeric_value
+                field=field_name,
+                value=numeric_value,
             )
 
         if max_value is not None and numeric_value > max_value:
             raise ValidationError(
                 f"{field_name} must be at most {max_value}",
-                field=field_name, value=numeric_value
+                field=field_name,
+                value=numeric_value,
             )
 
     @staticmethod
@@ -514,28 +524,37 @@ class InputValidator:
         if value is None:
             if allow_none:
                 return None
-            raise ValidationError(f"{field_name} cannot be None", field=field_name, value=value)
+            raise ValidationError(
+                f"{field_name} cannot be None", field=field_name, value=value
+            )
 
         # Try to convert to numeric
         try:
-            numeric_value = InputValidator._convert_to_numeric(value, field_name, allow_none)
+            numeric_value = InputValidator._convert_to_numeric(
+                value, field_name, allow_none
+            )
             if numeric_value is None:
                 return None
         except (ValueError, TypeError, InvalidOperation) as e:
             raise ValidationError(
                 f"{field_name} must be a valid number",
-                field=field_name, value=value, expected_type=float
+                field=field_name,
+                value=value,
+                expected_type=float,
             ) from e
 
         # Check for special float values
         if isinstance(numeric_value, float) and not math.isfinite(numeric_value):
             raise ValidationError(
                 f"{field_name} must be a finite number",
-                field=field_name, value=numeric_value
+                field=field_name,
+                value=numeric_value,
             )
 
         # Check range constraints
-        InputValidator._validate_numeric_range(numeric_value, min_value, max_value, field_name)
+        InputValidator._validate_numeric_range(
+            numeric_value, min_value, max_value, field_name
+        )
 
         # Convert to requested type
         if convert_to_type is not None:
@@ -544,7 +563,9 @@ class InputValidator:
             except (ValueError, OverflowError) as e:
                 raise ValidationError(
                     f"{field_name} cannot be converted to {convert_to_type.__name__}",
-                    field=field_name, value=numeric_value, expected_type=convert_to_type
+                    field=field_name,
+                    value=numeric_value,
+                    expected_type=convert_to_type,
                 ) from e
 
         return numeric_value
