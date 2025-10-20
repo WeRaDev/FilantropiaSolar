@@ -225,14 +225,14 @@ class ValidationSchema:
             return result
 
         # Handle special type conversions
-        if expected_type == float and isinstance(value, (int, str)):
+        if expected_type is float and isinstance(value, (int, str)):
             try:
                 result.sanitized_value = float(value)
                 return result
             except (ValueError, TypeError):
                 pass
 
-        if expected_type == int and isinstance(value, (float, str)):
+        if expected_type is int and isinstance(value, (float, str)):
             try:
                 result.sanitized_value = int(value)
                 return result

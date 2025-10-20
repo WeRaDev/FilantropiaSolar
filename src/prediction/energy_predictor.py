@@ -355,13 +355,13 @@ class EnergyPredictor:
                     "Ranking": "mean",
                     "temperature_2m (°C)": "mean"
                     if "temperature_2m (°C)" in predictions_df.columns
-                    else lambda x: np.nan,
+                    else lambda _: np.nan,
                     "shortwave_radiation (W/m²)": "mean"
                     if "shortwave_radiation (W/m²)" in predictions_df.columns
-                    else lambda x: np.nan,
+                    else lambda _: np.nan,
                     "cloud_cover (%)": "mean"
                     if "cloud_cover (%)" in predictions_df.columns
-                    else lambda x: np.nan,
+                    else lambda _: np.nan,
                 }
             )
             .round(2)
