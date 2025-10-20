@@ -136,7 +136,7 @@ class EnhancedEnergyPredictor:
                 logger.error(f"Error training models for {installation_id}: {e}")
 
     def _train_installation_models(
-        self, installation_id: str, installation_info: InstallationInfo
+        self, installation_id: str, _installation_info: InstallationInfo
     ):
         """Train prediction models for a specific installation."""
         logger.info(f"Training models for {installation_id}")
