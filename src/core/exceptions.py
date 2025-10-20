@@ -510,7 +510,7 @@ retry_data_processing = retry_sync(
 if __name__ == "__main__":
     # Test configuration constants
     TEST_FAILURE_PROBABILITY = 0.7  # Probability of failure in example test functions
-    
+
     # Example usage
     @retry_sync()
     def example_sync_function():
