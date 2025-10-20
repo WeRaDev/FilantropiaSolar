@@ -8,6 +8,7 @@ from collections.abc import Callable
 from dataclasses import dataclass
 import functools
 import logging
+import random
 import time
 from typing import Any, ParamSpec, TypeVar
 
@@ -173,8 +174,6 @@ def retry_sync(
                         )
 
                         if config.jitter:
-                            import random
-
                             delay *= 0.5 + random.random() * 0.5  # Add 0-50% jitter
 
                         logger.warning(
@@ -238,8 +237,6 @@ def retry_async(
                         )
 
                         if config.jitter:
-                            import random
-
                             delay *= 0.5 + random.random() * 0.5  # Add 0-50% jitter
 
                         logger.warning(
@@ -515,7 +512,6 @@ if __name__ == "__main__":
     @retry_sync()
     def example_sync_function():
         """Example sync function with retry"""
-        import random
 
         if random.random() < 0.7:
             raise DataProcessingError("Random failure for testing")
@@ -524,7 +520,6 @@ if __name__ == "__main__":
     @retry_async()
     async def example_async_function():
         """Example async function with retry"""
-        import random
 
         if random.random() < 0.7:
             raise WeatherAPIError("Random API failure for testing")
