@@ -598,40 +598,46 @@ class FilantropiaSolarApp:
         container = ttk.Frame(parent, padding="20")
         container.pack(fill=tk.BOTH, expand=True)
 
-        # Header
+        # Create all sections
+        self._create_header_section(container)
+        self._create_mode_selection_section(container)
+        self._create_installation_selection_section(container)
+        self._create_date_selection_section(container)
+        self._create_options_and_buttons_section(container)
+        self._create_status_section(container)
+        
+        # Initialize interface
+        self._on_mode_change()
+        self._on_installation_change()
+        
+    def _create_header_section(self, container):
+        """Create the header section with title."""
         title_label = ttk.Label(
-            container,
-            text="Solar Energy Analysis Configuration",
-            font=("Arial", 16, "bold"),
+            container, text="Solar Energy Analysis Configuration",
+            font=("Arial", 16, "bold")
         )
         title_label.pack(pady=(0, 20))
-
-        # Analysis Mode Selection
+        
+    def _create_mode_selection_section(self, container):
+        """Create the analysis mode selection section."""
         mode_frame = ttk.LabelFrame(container, text="Analysis Mode", padding="15")
         mode_frame.pack(fill=tk.X, pady=(0, 15))
 
         self.mode_var = tk.StringVar(value="historical")
 
         ttk.Radiobutton(
-            mode_frame,
-            text="📈 Historical Analysis (analyze existing data)",
-            variable=self.mode_var,
-            value="historical",
-            command=self._on_mode_change,
+            mode_frame, text="📈 Historical Analysis (analyze existing data)",
+            variable=self.mode_var, value="historical", command=self._on_mode_change
         ).pack(anchor=tk.W, pady=(0, 5))
 
         ttk.Radiobutton(
-            mode_frame,
-            text="🔮 Future Simulation (predict any date)",
-            variable=self.mode_var,
-            value="simulation",
-            command=self._on_mode_change,
+            mode_frame, text="🔮 Future Simulation (predict any date)",
+            variable=self.mode_var, value="simulation", command=self._on_mode_change
         ).pack(anchor=tk.W)
-
-        # Installation Selection
-        install_frame = ttk.LabelFrame(
-            container, text="Installation Selection", padding="15"
-        )
+        
+    def _create_installation_selection_section(self, container):
+        """Create the installation selection section."""
+        install_frame = ttk.LabelFrame(container, text="Installation Selection", padding="15")
         install_frame.pack(fill=tk.X, pady=(0, 15))
 
         ttk.Label(install_frame, text="Choose Installation:").pack(anchor=tk.W)
@@ -646,75 +652,57 @@ class FilantropiaSolarApp:
             value=installation_options[0] if installation_options else ""
         )
         installation_combo = ttk.Combobox(
-            install_frame,
-            textvariable=self.installation_var,
-            values=installation_options,
-            state="readonly",
-            width=65,
+            install_frame, textvariable=self.installation_var,
+            values=installation_options, state="readonly", width=65
         )
         installation_combo.pack(fill=tk.X, pady=(5, 0))
         installation_combo.bind("<<ComboboxSelected>>", self._on_installation_change)
-
-        # Date Selection (Dynamic based on mode)
-        self.date_frame = ttk.LabelFrame(container, text="Date Selection", padding="15")
-        self.date_frame.pack(fill=tk.X, pady=(0, 15))
-
+        
+    def _create_date_selection_section(self, container):
+        """Create the date selection section."""
         # Historical date selection frame
         self.historical_date_frame = ttk.Frame(self.date_frame)
         self.historical_date_frame.pack(fill=tk.X)
 
-        ttk.Label(self.historical_date_frame, text="Available Data Range:").pack(
-            anchor=tk.W
-        )
+        ttk.Label(self.historical_date_frame, text="Available Data Range:").pack(anchor=tk.W)
         self.date_range_label = ttk.Label(
-            self.historical_date_frame,
-            text="Select an installation first",
-            foreground="gray",
+            self.historical_date_frame, text="Select an installation first", foreground="gray"
         )
         self.date_range_label.pack(anchor=tk.W, pady=(2, 10))
 
-        ttk.Label(self.historical_date_frame, text="Select Historical Date:").pack(
-            anchor=tk.W
-        )
+        ttk.Label(self.historical_date_frame, text="Select Historical Date:").pack(anchor=tk.W)
         self.historical_date_var = tk.StringVar()
         self.historical_date_combo = ttk.Combobox(
-            self.historical_date_frame,
-            textvariable=self.historical_date_var,
-            state="readonly",
-            width=20,
+            self.historical_date_frame, textvariable=self.historical_date_var,
+            state="readonly", width=20
         )
         self.historical_date_combo.pack(anchor=tk.W, pady=(5, 0))
 
-        # Simulation date selection frame
+        # Simulation date selection frame  
         self.simulation_date_frame = ttk.Frame(self.date_frame)
-
-        ttk.Label(self.simulation_date_frame, text="Enter Date for Simulation:").pack(
-            anchor=tk.W
-        )
-        self.simulation_date_var = tk.StringVar(
-            value=datetime.now().strftime("%Y-%m-%d")
-        )
+        
+        ttk.Label(self.simulation_date_frame, text="Enter Date for Simulation:").pack(anchor=tk.W)
+        self.simulation_date_var = tk.StringVar(value=datetime.now().strftime("%Y-%m-%d"))
         simulation_date_entry = ttk.Entry(
             self.simulation_date_frame, textvariable=self.simulation_date_var, width=20
         )
         simulation_date_entry.pack(anchor=tk.W, pady=(5, 0))
-
+        
         ttk.Label(
-            self.simulation_date_frame,
-            text="Format: YYYY-MM-DD (e.g., 2025-06-15)",
-            font=("Arial", 9),
-            foreground="gray",
+            self.simulation_date_frame, text="Format: YYYY-MM-DD (e.g., 2025-06-15)",
+            font=("Arial", 9), foreground="gray"
         ).pack(anchor=tk.W, pady=(2, 0))
-
+        
+    def _create_options_and_buttons_section(self, container):
+        """Create the options and action buttons section."""
         # Analysis Options
         options_frame = ttk.LabelFrame(container, text="Options", padding="15")
         options_frame.pack(fill=tk.X, pady=(0, 20))
 
         self.simulation_var = tk.BooleanVar(value=True)
         self.simulation_checkbox = ttk.Checkbutton(
-            options_frame,
-            text="Enable weather simulation (recommended for complete analysis)",
-            variable=self.simulation_var,
+            options_frame, text="Enable weather simulation (recommended for complete analysis)",
+            variable=self.simulation_var
         )
         self.simulation_checkbox.pack(anchor=tk.W)
 
@@ -724,26 +712,24 @@ class FilantropiaSolarApp:
 
         # Main analysis button
         predict_button = ttk.Button(
-            buttons_frame,
-            text="🚀 Generate 15-Day Analysis",
-            command=self._generate_analysis,
-            style="Accent.TButton",
+            buttons_frame, text="🚀 Generate 15-Day Analysis",
+            command=self._generate_analysis, style="Accent.TButton"
         )
         predict_button.pack(side=tk.LEFT, padx=(0, 10))
 
         # ML retrain button for advanced users
         retrain_button = ttk.Button(
-            buttons_frame,
-            text="🔧 Retrain ML Models",
-            command=self._retrain_models,
-            style="TButton",
+            buttons_frame, text="🔧 Retrain ML Models",
+            command=self._retrain_models, style="TButton"
         )
         retrain_button.pack(side=tk.LEFT)
-
+        
+    def _create_status_section(self, container):
+        """Create the system status and ready message section."""
         # Cache Status Display
         cache_frame = ttk.LabelFrame(container, text="System Status", padding="15")
         cache_frame.pack(fill=tk.X, pady=(15, 0))
-
+        
         self._create_cache_status_display(cache_frame)
 
         # Status Display
@@ -752,10 +738,6 @@ class FilantropiaSolarApp:
             container, textvariable=self.input_status_var, foreground="goldenrod"
         )
         status_label.pack(pady=(10, 0))
-
-        # Initialize interface
-        self._on_mode_change()
-        self._on_installation_change()
 
     def _on_mode_change(self):
         """Handle analysis mode change."""
@@ -1304,141 +1286,154 @@ class FilantropiaSolarApp:
                 hourly_df.index == (date.date() if hasattr(date, "date") else date)
             ]
 
+    def _build_overview_header(self, results: dict[str, Any], mode: str) -> str:
+        """Build the header section of the overview text."""
+        overview_text = "FILANTROPIA SOLAR - ANALYSIS RESULTS\n" + "=" * 60 + "\n\n"
+        analysis_type = "HISTORICAL ANALYSIS" if mode == "historical" else "FUTURE SIMULATION"
+        overview_text += f"Analysis Type: {analysis_type}\n\n"
+        
+        inst_info = results["installation_info"]
+        overview_text += f"Installation: {inst_info['location']} (Serial: {inst_info['serial_number']})\n"
+        overview_text += f"Capacity: {inst_info['capacity_kwp']} kWp\n\n"
+        
+        period = results["prediction_period"]
+        overview_text += f"Analysis Period: {period['start'].date()} to {period['end'].date()}\n"
+        overview_text += f"Center Date: {period['center_date'].date()}\n"
+        overview_text += f"Total Hours Analyzed: {period['total_hours']}\n\n"
+        
+        return overview_text
+
+    def _build_performance_metrics(self, results: dict[str, Any]) -> str:
+        """Build the performance metrics section."""
+        stats = results["period_statistics"]
+        text = "KEY PERFORMANCE METRICS (15-day period)\n" + "-" * 50 + "\n"
+        text += f"Total Energy Production: {stats['total_energy_kwh']:.2f} kWh\n"
+        text += f"Average Daily Energy: {stats['total_energy_kwh'] / 15:.2f} kWh/day\n"
+        text += f"Average Specific Energy: {stats['average_specific_energy']:.2f} kWh/kWp\n"
+        text += f"Peak Hour Energy: {stats['peak_hour_energy']:.2f} kWh/kWp\n"
+        text += f"Average Temperature: {stats.get('average_temperature', 0):.1f}°C\n"
+        text += f"Average Cloud Cover: {stats.get('average_cloud_cover', 0):.1f}%\n\n"
+        return text
+
+    def _build_data_source_info(self, results: dict[str, Any]) -> str:
+        """Build the data source and model information section."""
+        source = results["data_source"]
+        text = "\nDATA SOURCE & MODEL INFO\n" + "-" * 30 + "\n"
+        text += "PV Data: Sarmas et al. (2025)\nPhotovoltaic Power Production Dataset\n"
+        text += "DOI: 10.17632/dbh93b6vp8.3\n"
+        text += f"Weather: {'Simulated' if source.get('used_simulation') else 'Historical'}\n"
+        text += f"ML Model: {source.get('model_used', '').replace('_', ' ').title()}\n"
+        
+        if "model_performance" in source and source.get("model_used") in source["model_performance"]:
+            perf = source["model_performance"][source["model_used"]]
+            text += f"Model R²: {perf.get('r2', 0):.3f}\n"
+            text += f"Model MAE: {perf.get('mae', 0):.3f} kWh/kWp\n"
+            
+        text += "\nEXPLORE: Use Interactive Charts tab for detailed analysis!"
+        return text
+
     def _compose_results_text(
         self, results: dict[str, Any], mode: str
     ) -> tuple[str, str]:
         """Compose overview and hourly text blocks for results display."""
-        overview_text = "FILANTROPIA SOLAR - ANALYSIS RESULTS\n" + "=" * 60 + "\n\n"
-        analysis_type = (
-            "HISTORICAL ANALYSIS" if mode == "historical" else "FUTURE SIMULATION"
-        )
-        overview_text += f"Analysis Type: {analysis_type}\n\n"
-        inst_info = results["installation_info"]
-        overview_text += f"Installation: {inst_info['location']} (Serial: {inst_info['serial_number']})\n"
-        overview_text += f"Capacity: {inst_info['capacity_kwp']} kWp\n\n"
-        period = results["prediction_period"]
-        overview_text += (
-            f"Analysis Period: {period['start'].date()} to {period['end'].date()}\n"
-        )
-        overview_text += f"Center Date: {period['center_date'].date()}\n"
-        overview_text += f"Total Hours Analyzed: {period['total_hours']}\n\n"
-        stats = results["period_statistics"]
-        overview_text += "KEY PERFORMANCE METRICS (15-day period)\n" + "-" * 50 + "\n"
-        overview_text += (
-            f"Total Energy Production: {stats['total_energy_kwh']:.2f} kWh\n"
-        )
-        overview_text += (
-            f"Average Daily Energy: {stats['total_energy_kwh'] / 15:.2f} kWh/day\n"
-        )
-        overview_text += (
-            f"Average Specific Energy: {stats['average_specific_energy']:.2f} kWh/kWp\n"
-        )
-        overview_text += f"Peak Hour Energy: {stats['peak_hour_energy']:.2f} kWh/kWp\n"
-        overview_text += (
-            f"Average Temperature: {stats.get('average_temperature', 0):.1f}°C\n"
-        )
-        overview_text += (
-            f"Average Cloud Cover: {stats.get('average_cloud_cover', 0):.1f}%\n\n"
-        )
+        overview_text = self._build_overview_header(results, mode)
+        overview_text += self._build_performance_metrics(results)
 
+        # Generate daily summary and hourly breakdown if data available
         hourly_text = ""
         if "daily_summary" in results and "hourly_data" in results:
-            daily = results["daily_summary"]
-            hourly_df = results["hourly_data"]
-            data_source = results.get("data_source", {})
-            energy_column, data_type_label = self._determine_energy_column_for_mode(
-                hourly_df, mode, data_source
+            daily_overview, hourly_text = self._build_daily_summary_and_hourly(
+                results, mode
             )
-
-            overview_text += (
-                f"\nDAILY SUMMARY ({data_type_label} DATA)\n" + "=" * 50 + "\n"
-            )
-            overview_text += f"{'Day':<4} {'Date':<12} {'Energy(kWh)':<12} {'Peak':<8} {'Temp':<6} {'Cloud':<6} {'Rating':<12}\n"
-            overview_text += "-" * 50 + "\n"
-
-            hourly_text = (
-                f"HOURLY BREAKDOWN - ALL 15 DAYS ({data_type_label} DATA)\n"
-                + "=" * 70
-                + "\n\n"
-            )
-
-            rating_map = {
-                1: "(1) Poor",
-                2: "(2) Below",
-                3: "(3) Avg",
-                4: "(4) Good",
-                5: "(5) Excell",
-            }
-
-            for i, (date, row) in enumerate(daily.iterrows()):
-                day_num = i + 1
-                day_hourly = self._get_day_hourly(hourly_df, date)
-                if mode == "historical" and energy_column in day_hourly.columns:
-                    try:
-                        energy = (
-                            day_hourly[energy_column].sum()
-                            if not day_hourly.empty
-                            else 0
-                        )
-                    except Exception:
-                        energy = row.get("predicted_total_energy", 0)
-                else:
-                    energy = row.get("predicted_total_energy", 0)
-
-                temp = row.get("temperature_2m", 0)
-                cloud = row.get("cloud_cover", 0)
-                ranking = row.get("ranking", 3)
-                peak_energy = 0
-                try:
-                    if not day_hourly.empty:
-                        if mode == "historical" and energy_column in day_hourly.columns:
-                            peak_energy = day_hourly[energy_column].max()
-                        else:
-                            peak_energy = day_hourly.get(
-                                "predicted_total_energy", pd.Series([0])
-                            ).max()
-                except Exception:
-                    peak_energy = 0
-
-                rating = rating_map.get(ranking, "Unknown")
-                marker = " <-" if i == self.current_day_index else ""
-                overview_text += f"{day_num:<4} {str(date)[:10]:<12} {energy:<12.2f} {peak_energy:<8.2f} {temp:<6.1f} {cloud:<6.0f} {rating:<12}{marker}\n"
-
-                hourly_text += f"DAY {day_num}: {date.strftime('%Y-%m-%d')} ({date.strftime('%A')})\n"
-                hourly_text += "-" * 60 + "\n"
-                hourly_text += f"{'Hour':<6} {'Energy':<10} {'Temp°C':<8} {'Cloud%':<8} {'Wind':<8} {'Solar':<10} {'Humid%':<8}\n"
-                hourly_text += "-" * 60 + "\n"
-                if not day_hourly.empty:
-                    for _, hour_row in day_hourly.iterrows():
-                        hour = hour_row.name.hour
-                        h_energy = hour_row.get(energy_column, 0)
-                        h_temp = hour_row.get("temperature_2m", 0)
-                        h_cloud = hour_row.get("cloud_cover", 0)
-                        h_wind = hour_row.get("wind_speed_10m", 0)
-                        h_solar = hour_row.get("shortwave_radiation", 0)
-                        h_humidity = hour_row.get("relative_humidity_2m", 0)
-                        hourly_text += f"{hour:02d}:00 {h_energy:<10.2f} {h_temp:<8.1f} {h_cloud:<8.0f} {h_wind:<8.1f} {h_solar:<10.0f} {h_humidity:<8.0f}\n"
-                hourly_text += "\n"
-
-        source = results["data_source"]
-        overview_text += "\nDATA SOURCE & MODEL INFO\n" + "-" * 30 + "\n"
-        overview_text += (
-            "PV Data: Sarmas et al. (2025)\nPhotovoltaic Power Production Dataset\n"
-        )
-        overview_text += "DOI: 10.17632/dbh93b6vp8.3\n"
-        overview_text += f"Weather: {'Simulated' if source.get('used_simulation') else 'Historical'}\n"
-        overview_text += (
-            f"ML Model: {source.get('model_used', '').replace('_', ' ').title()}\n"
-        )
-        if (
-            "model_performance" in source
-            and source.get("model_used") in source["model_performance"]
-        ):
-            perf = source["model_performance"][source["model_used"]]
-            overview_text += f"Model R²: {perf.get('r2', 0):.3f}\n"
-            overview_text += f"Model MAE: {perf.get('mae', 0):.3f} kWh/kWp\n"
-        overview_text += "\nEXPLORE: Use Interactive Charts tab for detailed analysis!"
+            overview_text += daily_overview
+            
+        overview_text += self._build_data_source_info(results)
         return overview_text, hourly_text
+
+    def _build_daily_summary_and_hourly(self, results: dict[str, Any], mode: str) -> tuple[str, str]:
+        """Build daily summary overview section and detailed hourly breakdown."""
+        daily = results["daily_summary"]
+        hourly_df = results["hourly_data"]
+        data_source = results.get("data_source", {})
+        energy_column, data_type_label = self._determine_energy_column_for_mode(
+            hourly_df, mode, data_source
+        )
+
+        # Daily summary header
+        overview_text = f"\nDAILY SUMMARY ({data_type_label} DATA)\n" + "=" * 50 + "\n"
+        overview_text += f"{'Day':<4} {'Date':<12} {'Energy(kWh)':<12} {'Peak':<8} {'Temp':<6} {'Cloud':<6} {'Rating':<12}\n"
+        overview_text += "-" * 50 + "\n"
+
+        # Hourly breakdown header
+        hourly_text = f"HOURLY BREAKDOWN - ALL 15 DAYS ({data_type_label} DATA)\n" + "=" * 70 + "\n\n"
+
+        rating_map = {
+            1: "(1) Poor", 2: "(2) Below", 3: "(3) Avg", 4: "(4) Good", 5: "(5) Excell"
+        }
+
+        for i, (date, row) in enumerate(daily.iterrows()):
+            day_num = i + 1
+            day_hourly = self._get_day_hourly(hourly_df, date)
+            
+            # Calculate energy and peak values
+            energy = self._calculate_daily_energy(day_hourly, row, mode, energy_column)
+            peak_energy = self._calculate_peak_energy(day_hourly, row, mode, energy_column)
+            
+            temp = row.get("temperature_2m", 0)
+            cloud = row.get("cloud_cover", 0)
+            ranking = row.get("ranking", 3)
+            rating = rating_map.get(ranking, "Unknown")
+            marker = " <-" if i == self.current_day_index else ""
+            
+            # Add daily summary line
+            overview_text += f"{day_num:<4} {str(date)[:10]:<12} {energy:<12.2f} {peak_energy:<8.2f} {temp:<6.1f} {cloud:<6.0f} {rating:<12}{marker}\n"
+
+            # Add hourly breakdown
+            hourly_text += self._build_hourly_day_section(day_num, date, day_hourly, energy_column)
+            
+        return overview_text, hourly_text
+
+    def _calculate_daily_energy(self, day_hourly: pd.DataFrame, row, mode: str, energy_column: str) -> float:
+        """Calculate total daily energy based on mode and available data."""
+        if mode == "historical" and energy_column in day_hourly.columns:
+            try:
+                return day_hourly[energy_column].sum() if not day_hourly.empty else 0
+            except Exception:
+                return row.get("predicted_total_energy", 0)
+        else:
+            return row.get("predicted_total_energy", 0)
+            
+    def _calculate_peak_energy(self, day_hourly: pd.DataFrame, row, mode: str, energy_column: str) -> float:
+        """Calculate peak hourly energy based on mode and available data."""
+        try:
+            if not day_hourly.empty:
+                if mode == "historical" and energy_column in day_hourly.columns:
+                    return day_hourly[energy_column].max()
+                else:
+                    return day_hourly.get("predicted_total_energy", pd.Series([0])).max()
+        except Exception:
+            pass
+        return 0
+        
+    def _build_hourly_day_section(self, day_num: int, date, day_hourly: pd.DataFrame, energy_column: str) -> str:
+        """Build the hourly breakdown section for a single day."""
+        text = f"DAY {day_num}: {date.strftime('%Y-%m-%d')} ({date.strftime('%A')})\n"
+        text += "-" * 60 + "\n"
+        text += f"{'Hour':<6} {'Energy':<10} {'Temp°C':<8} {'Cloud%':<8} {'Wind':<8} {'Solar':<10} {'Humid%':<8}\n"
+        text += "-" * 60 + "\n"
+        
+        if not day_hourly.empty:
+            for _, hour_row in day_hourly.iterrows():
+                hour = hour_row.name.hour
+                h_energy = hour_row.get(energy_column, 0)
+                h_temp = hour_row.get("temperature_2m", 0)
+                h_cloud = hour_row.get("cloud_cover", 0)
+                h_wind = hour_row.get("wind_speed_10m", 0)
+                h_solar = hour_row.get("shortwave_radiation", 0)
+                h_humidity = hour_row.get("relative_humidity_2m", 0)
+                text += f"{hour:02d}:00 {h_energy:<10.2f} {h_temp:<8.1f} {h_cloud:<8.0f} {h_wind:<8.1f} {h_solar:<10.0f} {h_humidity:<8.0f}\n"
+        text += "\n"
+        return text
 
     def _display_results(self, results: dict[str, Any], mode: str):
         """Display comprehensive analysis results in split layout."""
@@ -1976,85 +1971,175 @@ class FilantropiaSolarApp:
             borderaxespad=0.2,
         )
 
+    def _prepare_weather_chart_axes(self):
+        """Clear and prepare axes for weather chart."""
+        self.hourly_weather_ax.clear()
+        
+        # Remove existing secondary axis if it exists
+        if hasattr(self, "_weather_ax2") and self._weather_ax2 is not None:
+            self._weather_ax2.remove()
+            self._weather_ax2 = None
+            
+    def _validate_weather_data(self, current_day_hourly, productive_hour_min, productive_hour_max):
+        """Validate and filter weather data for productive hours."""
+        if current_day_hourly.empty:
+            self.hourly_weather_ax.text(
+                0.5, 0.5, "No weather data\navailable for this day",
+                horizontalalignment="center", verticalalignment="center",
+                transform=self.hourly_weather_ax.transAxes, fontsize=12, alpha=0.6
+            )
+            return None, None, None
+
+        # Filter to dynamic productive hours range
+        productive_hours = current_day_hourly[
+            (current_day_hourly.index.hour >= productive_hour_min) &
+            (current_day_hourly.index.hour <= productive_hour_max)
+        ]
+
+        if productive_hours.empty:
+            self.hourly_weather_ax.text(
+                0.5, 0.5, "No productive hours\nweather data available",
+                horizontalalignment="center", verticalalignment="center",
+                transform=self.hourly_weather_ax.transAxes, fontsize=12, alpha=0.6
+            )
+            return None, None, None
+
+        # Check available weather variables
+        weather_vars = ["temperature_2m", "relative_humidity_2m", "cloud_cover",
+                       "wind_speed_10m", "shortwave_radiation"]
+        available_vars = [var for var in weather_vars if var in productive_hours.columns]
+
+        if not available_vars:
+            self.hourly_weather_ax.text(
+                0.5, 0.5, "No weather variables\nfound in data",
+                horizontalalignment="center", verticalalignment="center",
+                transform=self.hourly_weather_ax.transAxes, fontsize=12, alpha=0.6
+            )
+            return None, None, None
+            
+        return productive_hours, productive_hours.index.hour, available_vars
+        
+    def _plot_weather_variables(self, productive_hours, hours, available_vars, ax2):
+        """Plot all available weather variables on the chart."""
+        # Plot Temperature (Line, left y-axis)
+        if "temperature_2m" in available_vars:
+            temp_data = pd.to_numeric(productive_hours["temperature_2m"], errors="coerce").fillna(20)
+            self.hourly_weather_ax.plot(
+                hours, temp_data, "ro-", linewidth=3, markersize=6,
+                label="Temperature (°C)", alpha=0.8
+            )
+            self.hourly_weather_ax.set_ylabel("Temperature (°C)", color="red", fontsize=12)
+            self.hourly_weather_ax.tick_params(axis="y", labelcolor="red")
+
+        # Plot Humidity (Line, right y-axis)
+        if "relative_humidity_2m" in available_vars:
+            humidity_data = pd.to_numeric(productive_hours["relative_humidity_2m"], errors="coerce").fillna(50)
+            ax2.plot(
+                hours, humidity_data, "b^-", linewidth=2, markersize=5,
+                label="Humidity (%)", alpha=0.7
+            )
+
+        # Plot Cloud Cover (Bars, right y-axis)
+        if "cloud_cover" in available_vars:
+            cloud_data = pd.to_numeric(productive_hours["cloud_cover"], errors="coerce").fillna(50)
+            ax2.bar(
+                hours, cloud_data, alpha=0.4, color="lightgray",
+                label="Cloud Cover (%)", width=0.8
+            )
+
+        # Plot Wind Speed (Line, right y-axis)
+        if "wind_speed_10m" in available_vars:
+            wind_data = pd.to_numeric(productive_hours["wind_speed_10m"], errors="coerce").fillna(5)
+            ax2.plot(
+                hours, wind_data, "g*-", linewidth=2, markersize=5,
+                label="Wind Speed (m/s)", alpha=0.7
+            )
+
+        # Plot Solar Radiation (Line, right y-axis)
+        if "shortwave_radiation" in available_vars:
+            radiation_data = pd.to_numeric(productive_hours["shortwave_radiation"], errors="coerce").fillna(200)
+            ax2.plot(
+                hours, radiation_data / 10, "md-", linewidth=2, markersize=4,
+                label="Solar Radiation (W/m²/10)", alpha=0.7, color="orange"
+            )
+            
+    def _format_weather_chart(self, ax2, target_date, productive_hour_min, productive_hour_max):
+        """Format the weather chart with titles, labels, and legend."""
+        hour_range_str = f"{productive_hour_min}:00-{productive_hour_max}:00"
+        
+        self.hourly_weather_ax.set_title(
+            f"Chart 2: Hourly Weather Conditions ({hour_range_str}) - {target_date.strftime('%Y-%m-%d')}",
+            fontsize=11, fontweight="bold", pad=15
+        )
+        self.hourly_weather_ax.set_xlabel(
+            f"Hour of Day (Productive Hours {hour_range_str})", fontsize=12
+        )
+
+        # Right y-axis formatting
+        ax2.set_ylabel(
+            "Humidity (%) / Cloud Cover (%) / Wind (m/s) / Solar (W/m²/10)",
+            color="blue", fontsize=11
+        )
+        ax2.tick_params(axis="y", labelcolor="blue")
+        ax2.set_ylim(0, 100)  # 0-100% scale for humidity and cloud cover
+
+        # Add compact legend to avoid overlap
+        lines1, labels1 = self.hourly_weather_ax.get_legend_handles_labels()
+        lines2, labels2 = ax2.get_legend_handles_labels()
+
+        # Only show legend if we have data to display
+        if lines1 or lines2:
+            self.hourly_weather_ax.legend(
+                lines1 + lines2, labels1 + labels2, loc="center left",
+                fontsize=8, ncol=1, frameon=True, fancybox=False, shadow=False,
+                framealpha=0.9, bbox_to_anchor=(1.08, 0.5),
+                handlelength=0.8, handletextpad=0.3, borderaxespad=0.2
+            )
+
+        # Grid and axis limits for dynamic productive hours with padding
+        self.hourly_weather_ax.grid(True, alpha=0.3)
+        self.hourly_weather_ax.set_xlim(productive_hour_min - 0.5, productive_hour_max + 0.5)
+        
+        # Set x-axis ticks dynamically
+        tick_range = productive_hour_max - productive_hour_min + 1
+        tick_step = max(1, tick_range // 8)  # Aim for ~8 ticks max
+        self.hourly_weather_ax.set_xticks(
+            range(productive_hour_min, productive_hour_max + 1, tick_step)
+        )
+        
     def _create_hourly_weather_chart(
-        self,
-        current_day_hourly,
-        target_date,
-        productive_hour_min=6,
-        productive_hour_max=20,
+        self, current_day_hourly, target_date, productive_hour_min=6, productive_hour_max=20
     ):
         """Chart 2: Hourly Weather Conditions (Temperature, Humidity, Cloud Cover, Wind) - Dynamic Productive Hours."""
         try:
-            # Clear the main axes content and properly handle secondary axis
-            self.hourly_weather_ax.clear()
-
-            # Remove existing secondary axis if it exists
-            if hasattr(self, "_weather_ax2") and self._weather_ax2 is not None:
-                self._weather_ax2.remove()
-                self._weather_ax2 = None
-
-            if current_day_hourly.empty:
-                self.hourly_weather_ax.text(
-                    0.5,
-                    0.5,
-                    "No weather data\navailable for this day",
-                    horizontalalignment="center",
-                    verticalalignment="center",
-                    transform=self.hourly_weather_ax.transAxes,
-                    fontsize=12,
-                    alpha=0.6,
-                )
+            # Prepare axes
+            self._prepare_weather_chart_axes()
+            
+            # Validate and filter data
+            productive_hours, hours, available_vars = self._validate_weather_data(
+                current_day_hourly, productive_hour_min, productive_hour_max
+            )
+            if productive_hours is None:
                 return
-
-            # Filter to dynamic productive hours range
-            productive_hours = current_day_hourly[
-                (current_day_hourly.index.hour >= productive_hour_min)
-                & (current_day_hourly.index.hour <= productive_hour_max)
-            ]
-
-            if productive_hours.empty:
-                self.hourly_weather_ax.text(
-                    0.5,
-                    0.5,
-                    "No productive hours\nweather data available",
-                    horizontalalignment="center",
-                    verticalalignment="center",
-                    transform=self.hourly_weather_ax.transAxes,
-                    fontsize=12,
-                    alpha=0.6,
-                )
-                return
-
-            hours = productive_hours.index.hour
-
-            # Check available weather variables
-            weather_vars = [
-                "temperature_2m",
-                "relative_humidity_2m",
-                "cloud_cover",
-                "wind_speed_10m",
-                "shortwave_radiation",
-            ]
-            available_vars = [
-                var for var in weather_vars if var in productive_hours.columns
-            ]
-
-            if not available_vars:
-                self.hourly_weather_ax.text(
-                    0.5,
-                    0.5,
-                    "No weather variables\nfound in data",
-                    horizontalalignment="center",
-                    verticalalignment="center",
-                    transform=self.hourly_weather_ax.transAxes,
-                    fontsize=12,
-                    alpha=0.6,
-                )
-                return
-
-            # Create new secondary y-axis and store reference
+                
+            # Create secondary axis
             self._weather_ax2 = self.hourly_weather_ax.twinx()
             ax2 = self._weather_ax2
+            
+            # Plot all weather variables
+            self._plot_weather_variables(productive_hours, hours, available_vars, ax2)
+            
+            # Format chart
+            self._format_weather_chart(ax2, target_date, productive_hour_min, productive_hour_max)
+            
+        except Exception as e:
+            logger.error(f"Error creating hourly weather chart: {e}")
+            self.hourly_weather_ax.text(
+                0.5, 0.5, f"Error creating chart:\n{e!s}",
+                horizontalalignment="center", verticalalignment="center",
+                transform=self.hourly_weather_ax.transAxes,
+                fontsize=10, color="red"
+            )
 
             # Plot Temperature (Line, left y-axis)
             if "temperature_2m" in available_vars:
@@ -2203,244 +2288,241 @@ class FilantropiaSolarApp:
                 color="red",
             )
 
+    def _prepare_daily_overview_axes(self):
+        """Clear and prepare axes for daily overview chart."""
+        self.daily_overview_ax.clear()
+        
+        # Remove existing secondary axis if it exists
+        if hasattr(self, "_daily_ax2") and self._daily_ax2 is not None:
+            self._daily_ax2.remove()
+            self._daily_ax2 = None
+            
+    def _get_daily_energy_data(self, daily_summary):
+        """Extract and clean daily energy data."""
+        energy_col = (
+            "predicted_total_energy"
+            if "predicted_total_energy" in daily_summary.columns
+            else "total_energy"
+        )
+        daily_energy = daily_summary.get(
+            energy_col, pd.Series([0] * len(daily_summary))
+        )
+        return pd.to_numeric(daily_energy, errors="coerce").fillna(0)
+        
+    def _calculate_daily_weather_averages(self, hourly_data, daily_dates):
+        """Calculate daily weather averages for all dates."""
+        daily_temperatures = []
+        daily_humidity = []
+        daily_clouds = []
+
+        for date in daily_dates:
+            try:
+                # Filter hourly data for this date
+                try:
+                    day_data = hourly_data[hourly_data.index.date == date]
+                except AttributeError:
+                    day_data = hourly_data[hourly_data.index == date]
+
+                if not day_data.empty:
+                    temp = pd.to_numeric(
+                        day_data.get("temperature_2m", [20]), errors="coerce"
+                    ).mean()
+                    humidity = pd.to_numeric(
+                        day_data.get("relative_humidity_2m", [50]), errors="coerce"
+                    ).mean()
+                    clouds = pd.to_numeric(
+                        day_data.get("cloud_cover", [50]), errors="coerce"
+                    ).mean()
+                else:
+                    temp, humidity, clouds = 20, 50, 50
+
+                daily_temperatures.append(temp)
+                daily_humidity.append(humidity)
+                daily_clouds.append(clouds)
+
+            except Exception as e:
+                logger.warning(f"Error processing weather for {date}: {e}")
+                daily_temperatures.append(20)
+                daily_humidity.append(50)
+                daily_clouds.append(50)
+                
+        return daily_temperatures, daily_humidity, daily_clouds
+        
+    def _create_energy_bars(self, daily_energy, daily_dates):
+        """Create the main energy bars with color gradient."""
+        x_positions = range(len(daily_dates))
+
+        # Color bars based on energy levels (green gradient)
+        if len(daily_energy) > 1:
+            normalized_energy = (daily_energy - daily_energy.min()) / (
+                daily_energy.max() - daily_energy.min()
+            )
+            bar_colors = [
+                plt.cm.RdYlGn(0.3 + 0.7 * norm) for norm in normalized_energy
+            ]
+        else:
+            bar_colors = ["orange"] * len(daily_energy)
+
+        bars = self.daily_overview_ax.bar(
+            x_positions,
+            daily_energy,
+            color=bar_colors,
+            alpha=0.7,
+            edgecolor="black",
+            linewidth=1,
+            label="Daily Energy (kWh)",
+        )
+        return bars, x_positions
+        
+    def _highlight_selected_day(self, bars, daily_energy):
+        """Add red frame and label to highlight currently selected day."""
+        if 0 <= self.current_day_index < len(bars):
+            selected_bar = bars[self.current_day_index]
+
+            # Highlight selected bar with thick red outline
+            selected_bar.set_edgecolor("red")
+            selected_bar.set_linewidth(5)
+
+            # Create a prominent red frame around the selected bar
+            bar_x = selected_bar.get_x()
+            bar_width = selected_bar.get_width()
+            bar_height = (
+                selected_bar.get_height()
+                if selected_bar.get_height() > 0
+                else daily_energy.max() * 0.1
+            )
+
+            # Main red frame
+            frame = Rectangle(
+                (bar_x - 0.15, -bar_height * 0.1),
+                bar_width + 0.3,
+                bar_height * 1.3,
+                linewidth=4,
+                edgecolor="red",
+                facecolor="none",
+                alpha=0.9,
+                linestyle="-",
+            )
+            self.daily_overview_ax.add_patch(frame)
+
+            # Add "VIEWING" label with arrow
+            self.daily_overview_ax.annotate(
+                f"VIEWING DAY {self.current_day_index + 1}",
+                xy=(bar_x + bar_width / 2, bar_height),
+                xytext=(0, 30),
+                textcoords="offset points",
+                ha="center",
+                va="bottom",
+                fontsize=12,
+                fontweight="bold",
+                color="red",
+                bbox={
+                    "boxstyle": "round,pad=0.3",
+                    "facecolor": "yellow",
+                    "alpha": 0.8,
+                },
+                arrowprops={"arrowstyle": "->", "color": "red", "lw": 2},
+            )
+            
     def _create_daily_overview_chart(self, daily_summary, hourly_data, daily_dates):
         """Chart 3: Daily Energy & Weather Overview with Moving Red Frame."""
         try:
-            # Clear the main axes content and properly handle secondary axis
-            self.daily_overview_ax.clear()
-
-            # Remove existing secondary axis if it exists
-            if hasattr(self, "_daily_ax2") and self._daily_ax2 is not None:
-                self._daily_ax2.remove()
-                self._daily_ax2 = None
-
+            # Prepare axes
+            self._prepare_daily_overview_axes()
+            
             # Get energy data
-            energy_col = (
-                "predicted_total_energy"
-                if "predicted_total_energy" in daily_summary.columns
-                else "total_energy"
+            daily_energy = self._get_daily_energy_data(daily_summary)
+            
+            # Calculate weather averages
+            daily_temperatures, daily_humidity, daily_clouds = self._calculate_daily_weather_averages(
+                hourly_data, daily_dates
             )
-            daily_energy = daily_summary.get(
-                energy_col, pd.Series([0] * len(daily_summary))
+            
+            # Create energy bars
+            bars, x_positions = self._create_energy_bars(daily_energy, daily_dates)
+            
+            # Highlight selected day
+            self._highlight_selected_day(bars, daily_energy)
+            
+            # Add weather lines and format chart
+            self._add_weather_lines_and_format_chart(
+                x_positions, daily_humidity, daily_clouds, daily_dates, daily_energy
             )
-            daily_energy = pd.to_numeric(daily_energy, errors="coerce").fillna(0)
-
-            # Calculate daily weather averages
-            daily_temperatures = []
-            daily_humidity = []
-            daily_clouds = []
-
-            for date in daily_dates:
-                try:
-                    # Filter hourly data for this date
-                    try:
-                        day_data = hourly_data[hourly_data.index.date == date]
-                    except AttributeError:
-                        day_data = hourly_data[hourly_data.index == date]
-
-                    if not day_data.empty:
-                        temp = pd.to_numeric(
-                            day_data.get("temperature_2m", [20]), errors="coerce"
-                        ).mean()
-                        humidity = pd.to_numeric(
-                            day_data.get("relative_humidity_2m", [50]), errors="coerce"
-                        ).mean()
-                        clouds = pd.to_numeric(
-                            day_data.get("cloud_cover", [50]), errors="coerce"
-                        ).mean()
-                    else:
-                        temp, humidity, clouds = 20, 50, 50
-
-                    daily_temperatures.append(temp)
-                    daily_humidity.append(humidity)
-                    daily_clouds.append(clouds)
-
-                except Exception as e:
-                    logger.warning(f"Error processing weather for {date}: {e}")
-                    daily_temperatures.append(20)
-                    daily_humidity.append(50)
-                    daily_clouds.append(50)
-
-            # Create the main energy bars
-            x_positions = range(len(daily_dates))
-
-            # Color bars based on energy levels (green gradient)
-
-            if len(daily_energy) > 1:
-                normalized_energy = (daily_energy - daily_energy.min()) / (
-                    daily_energy.max() - daily_energy.min()
-                )
-                bar_colors = [
-                    plt.cm.RdYlGn(0.3 + 0.7 * norm) for norm in normalized_energy
-                ]
-            else:
-                bar_colors = ["orange"] * len(daily_energy)
-
-            bars = self.daily_overview_ax.bar(
-                x_positions,
-                daily_energy,
-                color=bar_colors,
-                alpha=0.7,
-                edgecolor="black",
-                linewidth=1,
-                label="Daily Energy (kWh)",
-            )
-
-            # Add the MOVING RED FRAME around currently selected day
-            if 0 <= self.current_day_index < len(bars):
-                selected_bar = bars[self.current_day_index]
-
-                # Highlight selected bar with thick red outline
-                selected_bar.set_edgecolor("red")
-                selected_bar.set_linewidth(5)
-
-                # Create a prominent red frame around the selected bar
-
-                bar_x = selected_bar.get_x()
-                bar_width = selected_bar.get_width()
-                bar_height = (
-                    selected_bar.get_height()
-                    if selected_bar.get_height() > 0
-                    else daily_energy.max() * 0.1
-                )
-
-                # Main red frame
-                frame = Rectangle(
-                    (bar_x - 0.15, -bar_height * 0.1),
-                    bar_width + 0.3,
-                    bar_height * 1.3,
-                    linewidth=4,
-                    edgecolor="red",
-                    facecolor="none",
-                    alpha=0.9,
-                    linestyle="-",
-                )
-                self.daily_overview_ax.add_patch(frame)
-
-                # Add "VIEWING" label with arrow
-                self.daily_overview_ax.annotate(
-                    f"VIEWING DAY {self.current_day_index + 1}",
-                    xy=(bar_x + bar_width / 2, bar_height),
-                    xytext=(0, 30),
-                    textcoords="offset points",
-                    ha="center",
-                    va="bottom",
-                    fontsize=12,
-                    fontweight="bold",
-                    color="red",
-                    bbox={
-                        "boxstyle": "round,pad=0.3",
-                        "facecolor": "yellow",
-                        "alpha": 0.8,
-                    },
-                    arrowprops={"arrowstyle": "->", "color": "red", "lw": 2},
-                )
-
-            # Create new secondary y-axis and store reference
-            self._daily_ax2 = self.daily_overview_ax.twinx()
-            ax2 = self._daily_ax2
-
-            # Plot daily average humidity with bright, visible color
-            ax2.plot(
-                x_positions,
-                daily_humidity,
-                color="darkgreen",
-                marker="o",
-                linewidth=2,
-                markersize=6,
-                label="Avg Humidity (%)",
-                alpha=0.9,
-                markerfacecolor="green",
-                markeredgecolor="darkgreen",
-            )
-
-            # Plot daily average cloud cover with bright, visible color
-            ax2.plot(
-                x_positions,
-                daily_clouds,
-                color="darkblue",
-                marker="s",
-                linewidth=2,
-                markersize=5,
-                label="Avg Cloud Cover (%)",
-                alpha=0.9,
-                markerfacecolor="blue",
-                markeredgecolor="darkblue",
-            )
-
-            # Chart formatting
-            self.daily_overview_ax.set_title(
-                "Chart 3: Daily Energy & Weather Overview (15-Day Analysis Period)",
-                fontsize=11,  # Reduced font size
-                fontweight="bold",
-                pad=15,
-            )
-            self.daily_overview_ax.set_xlabel("Day in Analysis Period", fontsize=12)
-            self.daily_overview_ax.set_ylabel(
-                "Daily Energy Production (kWh)", color="blue", fontsize=12
-            )
-            ax2.set_ylabel(
-                "Humidity (%) / Cloud Cover (%)", color="darkgreen", fontsize=12
-            )
-
-            # Set x-axis labels
-            date_labels = [
-                f"Day {i + 1}\n{d.strftime('%m/%d')}" for i, d in enumerate(daily_dates)
-            ]
-            self.daily_overview_ax.set_xticks(x_positions)
-            self.daily_overview_ax.set_xticklabels(date_labels, rotation=0, ha="center")
-
-            # Axis colors
-            self.daily_overview_ax.tick_params(axis="y", labelcolor="blue")
-            ax2.tick_params(axis="y", labelcolor="darkgreen")
-
-            # Add compact legend with better positioning
-            lines1, labels1 = self.daily_overview_ax.get_legend_handles_labels()
-            lines2, labels2 = ax2.get_legend_handles_labels()
-
-            # Only show legend if we have data (moved outside)
-            if lines1 or lines2:
-                self.daily_overview_ax.legend(
-                    lines1 + lines2,
-                    labels1 + labels2,
-                    loc="center left",
-                    fontsize=8,  # Smaller font
-                    ncol=1,  # Single column outside chart
-                    frameon=True,
-                    fancybox=False,  # Simpler frame
-                    shadow=False,  # No shadow
-                    framealpha=0.9,
-                    bbox_to_anchor=(1.08, 0.5),  # Moved further right
-                    handlelength=0.8,
-                    handletextpad=0.3,
-                    borderaxespad=0.2,
-                )
-
-            self.daily_overview_ax.grid(True, alpha=0.3)
-
-            # Set y-axis limits with margin
-            if daily_energy.max() > 0:
-                self.daily_overview_ax.set_ylim(
-                    0, daily_energy.max() * 1.4
-                )  # Extra space for labels
-
-            # Ensure last day shows data (fix for zero production issue)
-            if len(daily_energy) > 0 and daily_energy.iloc[-1] == 0:
-                logger.warning(f"Last day has zero production: {daily_dates[-1]}")
-
+            
         except Exception as e:
             logger.error(f"Error creating daily overview chart: {e}")
             logger.error(f"Traceback: {traceback.format_exc()}")
             self.daily_overview_ax.text(
-                0.5,
-                0.5,
-                f"Error creating chart:\n{e!s}",
-                horizontalalignment="center",
-                verticalalignment="center",
+                0.5, 0.5, f"Error creating chart:\n{e!s}",
+                horizontalalignment="center", verticalalignment="center",
                 transform=self.daily_overview_ax.transAxes,
-                fontsize=10,
-                color="red",
+                fontsize=10, color="red"
             )
+            
+    def _add_weather_lines_and_format_chart(self, x_positions, daily_humidity, daily_clouds, daily_dates, daily_energy):
+        """Add weather data lines and format the daily overview chart."""
+        # Create new secondary y-axis and store reference
+        self._daily_ax2 = self.daily_overview_ax.twinx()
+        ax2 = self._daily_ax2
+
+        # Plot daily average humidity with bright, visible color
+        ax2.plot(
+            x_positions, daily_humidity, color="darkgreen", marker="o",
+            linewidth=2, markersize=6, label="Avg Humidity (%)", alpha=0.9,
+            markerfacecolor="green", markeredgecolor="darkgreen"
+        )
+
+        # Plot daily average cloud cover with bright, visible color
+        ax2.plot(
+            x_positions, daily_clouds, color="darkblue", marker="s",
+            linewidth=2, markersize=5, label="Avg Cloud Cover (%)", alpha=0.9,
+            markerfacecolor="blue", markeredgecolor="darkblue"
+        )
+
+        # Chart formatting
+        self.daily_overview_ax.set_title(
+            "Chart 3: Daily Energy & Weather Overview (15-Day Analysis Period)",
+            fontsize=11, fontweight="bold", pad=15
+        )
+        self.daily_overview_ax.set_xlabel("Day in Analysis Period", fontsize=12)
+        self.daily_overview_ax.set_ylabel(
+            "Daily Energy Production (kWh)", color="blue", fontsize=12
+        )
+        ax2.set_ylabel(
+            "Humidity (%) / Cloud Cover (%)", color="darkgreen", fontsize=12
+        )
+
+        # Set x-axis labels
+        date_labels = [f"Day {i + 1}\n{d.strftime('%m/%d')}" for i, d in enumerate(daily_dates)]
+        self.daily_overview_ax.set_xticks(x_positions)
+        self.daily_overview_ax.set_xticklabels(date_labels, rotation=0, ha="center")
+
+        # Axis colors
+        self.daily_overview_ax.tick_params(axis="y", labelcolor="blue")
+        ax2.tick_params(axis="y", labelcolor="darkgreen")
+
+        # Add compact legend with better positioning
+        lines1, labels1 = self.daily_overview_ax.get_legend_handles_labels()
+        lines2, labels2 = ax2.get_legend_handles_labels()
+
+        # Only show legend if we have data
+        if lines1 or lines2:
+            self.daily_overview_ax.legend(
+                lines1 + lines2, labels1 + labels2, loc="center left",
+                fontsize=8, ncol=1, frameon=True, fancybox=False, shadow=False,
+                framealpha=0.9, bbox_to_anchor=(1.08, 0.5),
+                handlelength=0.8, handletextpad=0.3, borderaxespad=0.2
+            )
+
+        self.daily_overview_ax.grid(True, alpha=0.3)
+
+        # Set y-axis limits with margin
+        if daily_energy.max() > 0:
+            self.daily_overview_ax.set_ylim(0, daily_energy.max() * 1.4)
+
+        # Ensure last day shows data (fix for zero production issue)
+        if len(daily_energy) > 0 and daily_energy.iloc[-1] == 0:
+            logger.warning(f"Last day has zero production: {daily_dates[-1]}")
 
     def _previous_day(self):
         """Navigate to the previous day in the analysis period."""
