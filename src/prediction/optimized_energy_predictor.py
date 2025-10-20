@@ -18,6 +18,16 @@ from .enhanced_energy_predictor import EnhancedEnergyPredictor
 
 logger = logging.getLogger(__name__)
 
+# Constants for model performance thresholds and timing
+FAST_TRAINING_THRESHOLD_SECONDS = 5
+SLOW_TRAINING_THRESHOLD_SECONDS = 10
+VERY_SLOW_TRAINING_THRESHOLD_SECONDS = 120
+STRONG_CORRELATION_THRESHOLD = 0.7
+MODERATE_CORRELATION_THRESHOLD = 0.3
+OUTSTANDING_R2_THRESHOLD = 0.9
+GOOD_R2_THRESHOLD = 0.8
+MODERATE_R2_THRESHOLD = 0.7
+
 
 class OptimizedEnergyPredictor(EnhancedEnergyPredictor):
     """
@@ -284,7 +294,7 @@ class OptimizedEnergyPredictor(EnhancedEnergyPredictor):
             "average_mae": avg_mae,
             "cache_enabled": self.cache_manager is not None,
             "training_method": "cached"
-            if self.training_start_time and total_training_time < 5
+            if self.training_start_time and total_training_time < FAST_TRAINING_THRESHOLD_SECONDS
             else "full_training",
         }
 
@@ -394,9 +404,9 @@ class OptimizedEnergyPredictor(EnhancedEnergyPredictor):
                 analysis["capacity_correlation"] = {
                     "correlation_coefficient": correlation,
                     "interpretation": "Strong positive"
-                    if correlation > 0.7
+                    if correlation > STRONG_CORRELATION_THRESHOLD
                     else "Moderate"
-                    if correlation > 0.3
+                    if correlation > MODERATE_CORRELATION_THRESHOLD
                     else "Weak",
                 }
 
@@ -416,23 +426,23 @@ class OptimizedEnergyPredictor(EnhancedEnergyPredictor):
             avg_r2 = metrics.get("average_r2_score", 0)
 
             # Training time suggestions
-            if training_time < 10:
+            if training_time < SLOW_TRAINING_THRESHOLD_SECONDS
                 suggestions.append(
                     "✅ Excellent model loading performance (cached models)"
                 )
-            elif training_time > 120:
+            elif training_time > VERY_SLOW_TRAINING_THRESHOLD_SECONDS
                 suggestions.append(
                     "⚠️ Consider enabling model caching to reduce training time"
                 )
 
             # Model accuracy suggestions
-            if avg_r2 > 0.9:
+            if avg_r2 > OUTSTANDING_R2_THRESHOLD
                 suggestions.append("✅ Outstanding model accuracy across installations")
-            elif avg_r2 > 0.8:
+            elif avg_r2 > GOOD_R2_THRESHOLD
                 suggestions.append(
                     "✅ Good model accuracy - suitable for production use"
                 )
-            elif avg_r2 > 0.7:
+            elif avg_r2 > MODERATE_R2_THRESHOLD
                 suggestions.append(
                     "⚠️ Moderate model accuracy - consider feature engineering"
                 )
@@ -447,7 +457,7 @@ class OptimizedEnergyPredictor(EnhancedEnergyPredictor):
                 poor_locations = [
                     loc
                     for loc, perf in analysis["location_performance"].items()
-                    if perf.get("mean_r2", 0) < 0.7
+                    if perf.get("mean_r2", 0) < MODERATE_R2_THRESHOLD
                 ]
                 if poor_locations:
                     suggestions.append(
