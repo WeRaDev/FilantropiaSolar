@@ -19,6 +19,17 @@ from .enhanced_energy_predictor import EnhancedEnergyPredictor
 
 logger = logging.getLogger(__name__)
 
+# Validation thresholds
+MIN_TEST_DATA_POINTS = 100  # Minimum data points needed for testing
+MIN_DAILY_DATA_HOURS = 24   # Minimum hours of data needed (one day)
+EXCELLENT_SUCCESS_RATE = 90  # Success rate threshold for excellent performance
+GOOD_SUCCESS_RATE = 70      # Success rate threshold for good performance
+HIGH_ACCURACY_R2 = 0.8      # R² threshold for high accuracy
+MODERATE_ACCURACY_R2 = 0.6  # R² threshold for moderate accuracy
+LOW_ERROR_MAPE = 15         # MAPE threshold for low errors
+MODERATE_ERROR_MAPE = 25    # MAPE threshold for moderate errors
+POOR_PERFORMANCE_R2 = 0.5   # R² threshold for poor performance
+
 
 class ModelValidator:
     """
@@ -205,7 +216,7 @@ class ModelValidator:
         try:
             # Get test data
             test_data = self.data_processor.get_combined_data(installation_id)
-            if test_data is None or len(test_data) < 100:
+            if test_data is None or len(test_data) < MIN_TEST_DATA_POINTS:
                 return {
                     "error": "Insufficient test data",
                     "predictions": None,
@@ -216,7 +227,7 @@ class ModelValidator:
             test_start = test_data.index.max() - timedelta(days=30)
             test_period = test_data[test_data.index >= test_start]
 
-            if len(test_period) < 24:  # Need at least one day
+            if len(test_period) < MIN_DAILY_DATA_HOURS:  # Need at least one day
                 return {
                     "error": "Insufficient test period data",
                     "predictions": None,
@@ -394,11 +405,11 @@ class ModelValidator:
             avg_mape = overall.get("avg_mape", 100)
 
             # Success rate recommendations
-            if success_rate >= 90:
+            if success_rate >= EXCELLENT_SUCCESS_RATE:
                 recommendations.append(
                     "✅ Excellent validation success rate - models are robust"
                 )
-            elif success_rate >= 70:
+            elif success_rate >= GOOD_SUCCESS_RATE:
                 recommendations.append(
                     "⚠️ Good validation success rate - minor improvements possible"
                 )
@@ -408,11 +419,11 @@ class ModelValidator:
                 )
 
             # Accuracy recommendations
-            if avg_r2 >= 0.8:
+            if avg_r2 >= HIGH_ACCURACY_R2:
                 recommendations.append(
                     "✅ High prediction accuracy - models perform well across locations"
                 )
-            elif avg_r2 >= 0.6:
+            elif avg_r2 >= MODERATE_ACCURACY_R2:
                 recommendations.append(
                     "⚠️ Moderate prediction accuracy - consider feature engineering improvements"
                 )
@@ -422,11 +433,11 @@ class ModelValidator:
                 )
 
             # Error rate recommendations
-            if avg_mape <= 15:
+            if avg_mape <= LOW_ERROR_MAPE:
                 recommendations.append(
                     "✅ Low prediction errors - suitable for production use"
                 )
-            elif avg_mape <= 25:
+            elif avg_mape <= MODERATE_ERROR_MAPE:
                 recommendations.append(
                     "⚠️ Moderate prediction errors - acceptable for most use cases"
                 )
@@ -441,7 +452,7 @@ class ModelValidator:
                 loc
                 for loc, result in location_results.items()
                 if "location_metrics" in result
-                and result["location_metrics"].get("r2", 0) < 0.5
+                and result["location_metrics"].get("r2", 0) < POOR_PERFORMANCE_R2
             ]
 
             if poor_locations:

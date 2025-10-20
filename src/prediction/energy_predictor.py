@@ -18,6 +18,9 @@ from src.utils.energy_ranking import calculate_specific_energy_ranking
 
 logger = logging.getLogger(__name__)
 
+# Training constants
+MINIMUM_TRAINING_SAMPLES = 50  # Minimum samples required for model training
+
 
 class EnergyPredictor:
     """Energy production prediction model for Lisbon PV installations"""
@@ -192,7 +195,7 @@ class EnergyPredictor:
         X = X[valid_indices]
         y = y[valid_indices]
 
-        if len(X) < 50:  # Minimum samples for training
+        if len(X) < MINIMUM_TRAINING_SAMPLES:
             logger.warning("Insufficient training samples")
             return {}
 

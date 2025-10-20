@@ -435,7 +435,6 @@ class LisbonDataProcessor:
 
         # Get historical data around the same time of year
         target_month = target_date.month
-        target_date.timetuple().tm_yday
 
         # Filter data within the same month ± 1 month
         month_window = [target_month - 1, target_month, target_month + 1]

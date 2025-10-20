@@ -13,6 +13,10 @@ import requests
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+# Solar radiation constants
+DAYLIGHT_START_HOUR = 8  # Hour when solar radiation begins
+DAYLIGHT_END_HOUR = 18   # Hour when solar radiation ends
+
 
 class WeatherClient:
     """Weather API client for retrieving current and forecast weather data"""
@@ -278,7 +282,7 @@ class WeatherClient:
                 "wind_speed_10m (km/h)": [10.0] * len(dates),
                 "wind_direction_10m (°)": [180.0] * len(dates),
                 "shortwave_radiation (W/m²)": [
-                    200.0 if 8 <= date.hour <= 18 else 0.0 for date in dates
+                    200.0 if DAYLIGHT_START_HOUR <= date.hour <= DAYLIGHT_END_HOUR else 0.0 for date in dates
                 ],
             }
         )

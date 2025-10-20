@@ -27,6 +27,10 @@ KNN_NEIGHBOR_DIVISOR = 10
 
 logger = logging.getLogger(__name__)
 
+# Solar radiation time constants
+NIGHT_START_HOUR = 6   # Hour when night begins (solar radiation becomes very low)
+NIGHT_END_HOUR = 19    # Hour when night ends (solar radiation becomes very low)
+
 
 class WeatherSimulator:
     """
@@ -486,7 +490,7 @@ class WeatherSimulator:
         # Solar radiation should have more natural daily patterns
         if "shortwave_radiation" in smoothed_df.columns:
             # Ensure nighttime values are zero or very low
-            night_mask = (smoothed_df.index.hour < 6) | (smoothed_df.index.hour > 19)
+            night_mask = (smoothed_df.index.hour < NIGHT_START_HOUR) | (smoothed_df.index.hour > NIGHT_END_HOUR)
             smoothed_df.loc[night_mask, "shortwave_radiation"] = np.random.uniform(
                 0, 10, night_mask.sum()
             )

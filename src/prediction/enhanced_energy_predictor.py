@@ -31,8 +31,6 @@ from ..weather_simulation.weather_simulator import (
     WeatherSimulator,
 )
 
-# from ..utils.ranking_system import RankingSystem, EnergyRank  # Temporary disabled
-
 logger = logging.getLogger(__name__)
 
 # Training and prediction constants
@@ -61,7 +59,6 @@ class EnhancedEnergyPredictor:
         self.data_processor = data_processor
         self.weather_simulator = weather_simulator
         self.use_cache = use_cache
-        # self.ranking_system = RankingSystem()  # Temporary disabled
 
         # Get cache manager from data processor
         self.cache_manager = getattr(data_processor, "cache_manager", None)
@@ -551,7 +548,7 @@ class EnhancedEnergyPredictor:
             raise
 
     def _compute_solar_elevation(
-        self, timestamps: pd.DatetimeIndex, latitude: float, longitude: float
+        self, timestamps: pd.DatetimeIndex, latitude: float, _longitude: float
     ) -> np.ndarray:
         """Compute solar elevation angle for timestamps."""
         # Use the same method as in comprehensive_data_processor
