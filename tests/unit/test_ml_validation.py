@@ -2,12 +2,13 @@
 Advanced ML model validation and testing.
 """
 
-import os
-import sys
 
 import numpy as np
 import pytest
+import time
+from sklearn.ensemble import RandomForestRegressor
 from sklearn.metrics import mean_absolute_error, r2_score
+from sklearn.model_selection import cross_val_score, train_test_split
 
 # Use proper package imports - no sys.path manipulation needed
 
@@ -15,8 +16,6 @@ from sklearn.metrics import mean_absolute_error, r2_score
 @pytest.mark.ml
 def test_model_performance_validation():
     """Test ML model performance meets minimum requirements."""
-    from sklearn.ensemble import RandomForestRegressor
-    from sklearn.model_selection import train_test_split
 
     # Generate synthetic solar energy data
     np.random.seed(42)  # For reproducible tests
@@ -70,7 +69,6 @@ def test_model_performance_validation():
 @pytest.mark.ml
 def test_model_feature_importance():
     """Test that ML models identify important features correctly."""
-    from sklearn.ensemble import RandomForestRegressor
 
     np.random.seed(42)
     n_samples = 500
@@ -101,7 +99,6 @@ def test_model_feature_importance():
 @pytest.mark.ml
 def test_model_robustness():
     """Test model robustness to different data conditions."""
-    from sklearn.ensemble import RandomForestRegressor
 
     # Test with different data scenarios
     scenarios = [
@@ -145,8 +142,6 @@ def test_model_robustness():
 @pytest.mark.ml
 def test_cross_validation_stability():
     """Test model stability across different train/test splits."""
-    from sklearn.ensemble import RandomForestRegressor
-    from sklearn.model_selection import cross_val_score
 
     np.random.seed(42)
     n_samples = 400
@@ -173,9 +168,6 @@ def test_cross_validation_stability():
 @pytest.mark.slow
 def test_model_scalability():
     """Test model performance with larger datasets."""
-    import time
-
-    from sklearn.ensemble import RandomForestRegressor
 
     # Test different dataset sizes
     sizes = [100, 500, 1000, 2000]
@@ -210,7 +202,6 @@ def test_model_scalability():
 @pytest.mark.ml
 def test_model_data_validation():
     """Test model handles various data validation scenarios."""
-    from sklearn.ensemble import RandomForestRegressor
 
     model = RandomForestRegressor(n_estimators=10, random_state=42)
 
