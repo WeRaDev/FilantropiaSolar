@@ -18,9 +18,13 @@ SRC_PATH = Path(__file__).parent / "src"
 sys.path.insert(0, str(SRC_PATH))
 
 # Import modules that will be used in timing tests
-from src.data_processing.comprehensive_data_processor import ComprehensiveDataProcessor  # noqa: E402
+from src.data_processing.comprehensive_data_processor import (
+    ComprehensiveDataProcessor,
+)
 from src.data_processing.data_cache_manager import DataCacheManager  # noqa: E402
-from src.prediction.enhanced_energy_predictor import EnhancedEnergyPredictor  # noqa: E402
+from src.prediction.enhanced_energy_predictor import (
+    EnhancedEnergyPredictor,
+)
 from src.weather_simulation.weather_simulator import WeatherSimulator  # noqa: E402
 
 # Performance target constants
