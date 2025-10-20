@@ -1,0 +1,25 @@
+#!/bin/bash
+
+# Pre-push hook to ensure code quality
+# Install: ln -sf ../../.githooks/pre-push .git/hooks/pre-push
+
+echo "🔍 Running pre-push checks..."
+
+# Run ruff format
+echo "📝 Running ruff format..."
+if ! ruff format --check .; then
+    echo "❌ Code formatting issues detected. Running ruff format..."
+    ruff format .
+    echo "✅ Code formatted. Please stage and commit the changes."
+    exit 1
+fi
+
+# Run ruff check
+echo "🔎 Running ruff lint check..."
+if ! ruff check .; then
+    echo "❌ Lint errors detected. Please fix them before pushing."
+    exit 1
+fi
+
+echo "✅ All pre-push checks passed!"
+echo "🚀 Pushing to remote..."
