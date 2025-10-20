@@ -5,8 +5,8 @@ Implements location-based cross-validation by excluding one installation from tr
 and using it for model validation against real historical data.
 """
 
-import logging
 from datetime import datetime, timedelta
+import logging
 from typing import Any
 
 import numpy as np

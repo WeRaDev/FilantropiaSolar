@@ -5,9 +5,9 @@ Extends EnhancedEnergyPredictor with intelligent ML model caching
 for instant loading and improved performance.
 """
 
+from collections.abc import Callable
 import logging
 import time
-from collections.abc import Callable
 from typing import Any
 
 import numpy as np

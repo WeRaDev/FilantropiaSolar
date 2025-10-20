@@ -6,12 +6,12 @@ Tests and measures performance improvements from smart caching implementation.
 Compares startup times with and without cache for validation.
 """
 
+from contextlib import contextmanager
 import logging
+from pathlib import Path
 import sys
 import tempfile
 import time
-from contextlib import contextmanager
-from pathlib import Path
 
 # Add src to path
 SRC_PATH = Path(__file__).parent / "src"

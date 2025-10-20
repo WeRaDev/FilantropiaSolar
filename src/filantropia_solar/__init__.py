@@ -5,12 +5,12 @@ A comprehensive solar energy prediction and analysis tool for Portuguese PV inst
 Built with modern Python practices, type safety, and clean architecture principles.
 """
 
+from datetime import datetime
 import os
+from pathlib import Path
 import platform
 import sys
 import warnings
-from datetime import datetime
-from pathlib import Path
 
 # Package metadata
 __version__ = "1.0.0"

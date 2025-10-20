@@ -5,20 +5,20 @@ This module provides structured logging, multiple formatters, handlers,
 and performance tracking capabilities.
 """
 
-import functools
-import json
-import logging
-import logging.handlers
-import sys
-import threading
-import time
-import traceback
 from collections.abc import Callable
 from contextlib import contextmanager
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from enum import Enum
+import functools
+import json
+import logging
+import logging.handlers
 from pathlib import Path
+import sys
+import threading
+import time
+import traceback
 from typing import Any, ClassVar, Optional
 
 from .config import get_settings
