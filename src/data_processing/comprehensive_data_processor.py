@@ -278,10 +278,15 @@ class ComprehensiveDataProcessor:
 
     def _try_load_installation_from_cache(self, installation_id: str) -> bool:
         """Try to load single installation data from cache."""
-        if not (self.cache_manager and self.cache_manager.is_cached("energy_data", installation_id)):
+        if not (
+            self.cache_manager
+            and self.cache_manager.is_cached("energy_data", installation_id)
+        ):
             return False
 
-        cached_data = self.cache_manager.load_cached_data("energy_data", installation_id)
+        cached_data = self.cache_manager.load_cached_data(
+            "energy_data", installation_id
+        )
         if cached_data is not None:
             self.energy_data[installation_id] = cached_data
             logger.info(

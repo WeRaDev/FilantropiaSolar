@@ -143,7 +143,9 @@ class FilantropiaPerformanceBenchmark:
 
         try:
             # Clear Python module cache to simulate fresh startup
-            modules_to_clear = [name for name in list(sys.modules) if name.startswith("src.")]
+            modules_to_clear = [
+                name for name in list(sys.modules) if name.startswith("src.")
+            ]
             for module_name in modules_to_clear:
                 if module_name in sys.modules:
                     del sys.modules[module_name]

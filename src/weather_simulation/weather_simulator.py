@@ -138,7 +138,9 @@ class WeatherSimulator:
                 # Create KNN model for each weather parameter
                 models = {}
                 for col in targets.columns:
-                    if targets[col].notna().sum() > (MIN_FEATURES_RECORDS // 2):  # Minimum valid data points
+                    if targets[col].notna().sum() > (
+                        MIN_FEATURES_RECORDS // 2
+                    ):  # Minimum valid data points
                         n_neighbors = min(
                             MAX_NEIGHBORS,
                             max(1, len(features) // KNN_NEIGHBOR_DIVISOR),
@@ -248,13 +250,21 @@ class WeatherSimulator:
             window = SIMILAR_DAYS_WINDOW
             similar_days_mask = (
                 (np.abs(historical_df.index.dayofyear - ref_day_of_year) <= window)
-                | (np.abs(historical_df.index.dayofyear - ref_day_of_year + 365) <= window)
-                | (np.abs(historical_df.index.dayofyear - ref_day_of_year - 365) <= window)
+                | (
+                    np.abs(historical_df.index.dayofyear - ref_day_of_year + 365)
+                    <= window
+                )
+                | (
+                    np.abs(historical_df.index.dayofyear - ref_day_of_year - 365)
+                    <= window
+                )
             )
 
             similar_data = historical_df[similar_days_mask]
 
-            if len(similar_data) < MIN_SIMILAR_DATA_HOURS:  # Need at least one day of data
+            if (
+                len(similar_data) < MIN_SIMILAR_DATA_HOURS
+            ):  # Need at least one day of data
                 logger.warning(
                     "Insufficient similar data for reference date, using general simulation"
                 )
