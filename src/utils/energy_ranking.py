@@ -8,10 +8,10 @@ import pandas as pd
 
 # Energy ranking thresholds (kWh/kWp)
 RANK_1_MIN_THRESHOLD = 0.1  # Poor performance minimum
-RANK_2_THRESHOLD = 0.2      # Fair performance start
-RANK_3_THRESHOLD = 0.4      # Good performance start  
-RANK_4_THRESHOLD = 0.6      # Very Good performance start
-RANK_5_THRESHOLD = 0.8      # Excellent performance start
+RANK_2_THRESHOLD = 0.2  # Fair performance start
+RANK_3_THRESHOLD = 0.4  # Good performance start
+RANK_4_THRESHOLD = 0.6  # Very Good performance start
+RANK_5_THRESHOLD = 0.8  # Excellent performance start
 OPTIMAL_RANK_THRESHOLD = 4  # Minimum rank considered optimal
 
 
@@ -154,7 +154,9 @@ def generate_ranking_summary(df):
         "average_ranking": round(rankings.mean(), 2),
         "median_ranking": rankings.median(),
         "ranking_distribution": rankings.value_counts().sort_index().to_dict(),
-        "optimal_hours_count": len(rankings[rankings >= OPTIMAL_RANK_THRESHOLD]),  # Rank 4 and 5
+        "optimal_hours_count": len(
+            rankings[rankings >= OPTIMAL_RANK_THRESHOLD]
+        ),  # Rank 4 and 5
         "total_hours": len(rankings),
     }
 
