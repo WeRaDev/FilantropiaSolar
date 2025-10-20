@@ -2360,69 +2360,6 @@ class FilantropiaSolarApp:
                 color="red",
             )
 
-            # Plot Temperature (Line, left y-axis)
-            if "temperature_2m" in available_vars:
-                temp_data = pd.to_numeric(
-                    productive_hours["temperature_2m"], errors="coerce"
-                ).fillna(20)
-                self.hourly_weather_ax.plot(
-                    hours,
-                    temp_data,
-                    "ro-",
-                    linewidth=3,
-                    markersize=6,
-                    label="Temperature (°C)",
-                    alpha=0.8,
-                )
-                self.hourly_weather_ax.set_ylabel(
-                    "Temperature (°C)", color="red", fontsize=12
-                )
-                self.hourly_weather_ax.tick_params(axis="y", labelcolor="red")
-
-            # Plot Humidity (Line, right y-axis)
-            if "relative_humidity_2m" in available_vars:
-                humidity_data = pd.to_numeric(
-                    productive_hours["relative_humidity_2m"], errors="coerce"
-                ).fillna(50)
-                ax2.plot(
-                    hours,
-                    humidity_data,
-                    "b^-",
-                    linewidth=2,
-                    markersize=5,
-                    label="Humidity (%)",
-                    alpha=0.7,
-                )
-
-            # Plot Cloud Cover (Bars, right y-axis)
-            if "cloud_cover" in available_vars:
-                cloud_data = pd.to_numeric(
-                    productive_hours["cloud_cover"], errors="coerce"
-                ).fillna(50)
-                ax2.bar(
-                    hours,
-                    cloud_data,
-                    alpha=0.4,
-                    color="lightgray",
-                    label="Cloud Cover (%)",
-                    width=0.8,
-                )
-
-            # Plot Wind Speed (Line, right y-axis)
-            if "wind_speed_10m" in available_vars:
-                wind_data = pd.to_numeric(
-                    productive_hours["wind_speed_10m"], errors="coerce"
-                ).fillna(5)
-                ax2.plot(
-                    hours,
-                    wind_data,
-                    "g*-",
-                    linewidth=2,
-                    markersize=5,
-                    label="Wind Speed (m/s)",
-                    alpha=0.7,
-                )
-
     def _prepare_daily_overview_axes(self):
         """Clear and prepare axes for daily overview chart."""
         self.daily_overview_ax.clear()
