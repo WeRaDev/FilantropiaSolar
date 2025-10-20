@@ -15,7 +15,7 @@ import pytest
 def test_data_processor_integration():
     """Test complete data processing pipeline integration."""
     try:
-        from src.data_processing.lisbon_data_processor import LisbonDataProcessor
+        from src.data_processing.lisbon_data_processor import LisbonDataProcessor  # noqa: PLC0415
 
         # Create mock data similar to expected structure
         pd.DataFrame(
@@ -43,7 +43,7 @@ def test_data_processor_integration():
 def test_weather_api_integration():
     """Test weather API integration workflow."""
     try:
-        from src.weather_api.weather_client import WeatherClient
+        from src.weather_api.weather_client import WeatherClient  # noqa: PLC0415
 
         client = WeatherClient()
 
@@ -73,7 +73,7 @@ def test_weather_api_integration():
 def test_prediction_pipeline_integration():
     """Test complete prediction pipeline integration."""
     try:
-        from src.prediction.energy_predictor import EnergyPredictor
+        from src.prediction.energy_predictor import EnergyPredictor  # noqa: PLC0415
 
         predictor = EnergyPredictor()
 
@@ -103,7 +103,7 @@ def test_gui_components_integration():
     """Test GUI components integration (headless)."""
     try:
         # Test imports only (GUI requires display)
-        from src.gui.main_app import FilantropiaSolarApp
+        from src.gui.main_app import FilantropiaSolarApp  # noqa: PLC0415
 
         # Test that GUI components can be imported
         assert FilantropiaSolarApp is not None
@@ -124,9 +124,9 @@ def test_end_to_end_workflow():
     """Test complete end-to-end workflow integration."""
     try:
         # Test that all major components can work together
-        from src.data_processing.lisbon_data_processor import LisbonDataProcessor
-        from src.prediction.energy_predictor import EnergyPredictor
-        from src.weather_api.weather_client import WeatherClient
+        from src.data_processing.lisbon_data_processor import LisbonDataProcessor  # noqa: PLC0415
+        from src.prediction.energy_predictor import EnergyPredictor  # noqa: PLC0415
+        from src.weather_api.weather_client import WeatherClient  # noqa: PLC0415
 
         # Initialize components
         processor = LisbonDataProcessor()
