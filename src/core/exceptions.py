@@ -346,7 +346,7 @@ class CircuitBreaker:
 class ErrorRecoveryStrategy:
     """Base class for error recovery strategies"""
 
-    def can_recover(self, error: Exception, context: ErrorContext) -> bool:
+    def can_recover(self, _error: Exception, _context: ErrorContext) -> bool:
         """Check if error can be recovered"""
         return False
 
@@ -358,7 +358,7 @@ class ErrorRecoveryStrategy:
 class DataRecoveryStrategy(ErrorRecoveryStrategy):
     """Recovery strategy for data-related errors"""
 
-    def can_recover(self, error: Exception, context: ErrorContext) -> bool:
+    def can_recover(self, error: Exception, _context: ErrorContext) -> bool:
         """Check if data error can be recovered"""
         return isinstance(error, (DataProcessingError, InsufficientDataError))
 
@@ -374,12 +374,12 @@ class DataRecoveryStrategy(ErrorRecoveryStrategy):
             case _:
                 raise error
 
-    def _generate_synthetic_data(self, context: ErrorContext) -> Any:
+    def _generate_synthetic_data(self, _context: ErrorContext) -> Any:
         """Generate synthetic data as fallback"""
         # Implementation would generate realistic synthetic data
         return None
 
-    def _get_cached_data(self, context: ErrorContext) -> Any:
+    def _get_cached_data(self, _context: ErrorContext) -> Any:
         """Retrieve cached data as fallback"""
         # Implementation would retrieve from cache
         return None
@@ -388,16 +388,16 @@ class DataRecoveryStrategy(ErrorRecoveryStrategy):
 class WeatherRecoveryStrategy(ErrorRecoveryStrategy):
     """Recovery strategy for weather API errors"""
 
-    def can_recover(self, error: Exception, context: ErrorContext) -> bool:
+    def can_recover(self, error: Exception, _context: ErrorContext) -> bool:
         """Check if weather error can be recovered"""
         return isinstance(error, WeatherAPIError)
 
-    def recover(self, error: Exception, context: ErrorContext) -> Any:
+    def recover(self, _error: Exception, context: ErrorContext) -> Any:
         """Attempt to recover from weather API error"""
         logger.warning(f"Using fallback weather data for {context.operation}")
         return self._get_fallback_weather_data(context)
 
-    def _get_fallback_weather_data(self, context: ErrorContext) -> Any:
+    def _get_fallback_weather_data(self, _context: ErrorContext) -> Any:
         """Get fallback weather data"""
         # Implementation would return historical averages or cached data
         return None
