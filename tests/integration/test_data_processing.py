@@ -26,7 +26,7 @@ def test_data_processor_integration():
                 "energy_kwh": np.random.uniform(0, 10, 100),
                 "specific_energy": np.random.uniform(0, 1, 100),
                 "installation_id": ["test_installation"] * 100,
-            }
+            },
         )
 
         processor = LisbonDataProcessor()
@@ -150,16 +150,16 @@ def test_end_to_end_workflow():
                     {
                         "energy": [1, 2, 3, 4, 5],
                         "specific_energy": [0.1, 0.2, 0.3, 0.4, 0.5],
-                    }
-                )
+                    },
+                ),
             ),
             process_weather_data=Mock(
                 return_value=pd.DataFrame(
                     {
                         "temperature": [20, 21, 22, 23, 24],
                         "solar_radiation": [800, 850, 900, 950, 1000],
-                    }
-                )
+                    },
+                ),
             ),
         ):
             # Test data loading
@@ -188,7 +188,7 @@ def test_large_dataset_processing():
                 "specific_energy": np.random.uniform(0, 1.2, 10000),
                 "temperature": np.random.uniform(10, 35, 10000),
                 "solar_radiation": np.random.uniform(0, 1200, 10000),
-            }
+            },
         )
 
         # Test basic operations on large dataset

@@ -85,7 +85,8 @@ class WeatherRankingSystem:
 
             # Solar radiation is the most important factor
             radiation = pd.to_numeric(
-                weather_row.get("shortwave_radiation", 0), errors="coerce"
+                weather_row.get("shortwave_radiation", 0),
+                errors="coerce",
             )
             if pd.isna(radiation):
                 radiation = 0
@@ -101,7 +102,8 @@ class WeatherRankingSystem:
 
             # Cloud cover (inverse correlation)
             cloud_cover = pd.to_numeric(
-                weather_row.get("cloud_cover", CLOUD_DEFAULT_PERCENT), errors="coerce"
+                weather_row.get("cloud_cover", CLOUD_DEFAULT_PERCENT),
+                errors="coerce",
             )
             if pd.isna(cloud_cover):
                 cloud_cover = CLOUD_DEFAULT_PERCENT
@@ -110,7 +112,8 @@ class WeatherRankingSystem:
 
             # Temperature (optimal around 25°C for solar panels)
             temp = pd.to_numeric(
-                weather_row.get("temperature_2m", TEMP_DEFAULT_C), errors="coerce"
+                weather_row.get("temperature_2m", TEMP_DEFAULT_C),
+                errors="coerce",
             )
             if pd.isna(temp):
                 temp = TEMP_DEFAULT_C
@@ -120,7 +123,8 @@ class WeatherRankingSystem:
                 )
             else:
                 temp_bonus = max(
-                    0, TEMP_MAX_POINTS - abs(temp - TEMP_OPTIMAL_C) / 3
+                    0,
+                    TEMP_MAX_POINTS - abs(temp - TEMP_OPTIMAL_C) / 3,
                 )  # Penalty for extreme temps
             score += temp_bonus * self.weather_factors["temperature_2m"] / 0.15
 
@@ -146,7 +150,8 @@ class WeatherRankingSystem:
 
             # Wind (slight positive for cooling)
             wind = pd.to_numeric(
-                weather_row.get("wind_speed_10m", WIND_DEFAULT_MS), errors="coerce"
+                weather_row.get("wind_speed_10m", WIND_DEFAULT_MS),
+                errors="coerce",
             )
             if pd.isna(wind):
                 wind = WIND_DEFAULT_MS
@@ -191,7 +196,9 @@ class WeatherRankingSystem:
             return 1  # Poor
 
     def rank_hourly_weather_conditions(
-        self, hourly_data: pd.DataFrame, selected_date: date
+        self,
+        hourly_data: pd.DataFrame,
+        selected_date: date,
     ) -> pd.DataFrame:
         """
         Rank hourly weather conditions based on their energy production potential.
@@ -215,7 +222,7 @@ class WeatherRankingSystem:
             if day_data.empty:
                 logger.warning(f"No hourly data for {selected_date}")
                 logger.info(
-                    f"Available date range: {hourly_data.index.min()} to {hourly_data.index.max()}"
+                    f"Available date range: {hourly_data.index.min()} to {hourly_data.index.max()}",
                 )
                 return pd.DataFrame()
 
@@ -236,7 +243,7 @@ class WeatherRankingSystem:
             day_data["weather_ranking"] = weather_rankings
 
             logger.info(
-                f"Ranked {len(day_data)} hours for {selected_date}, avg score: {np.mean(weather_scores):.1f}"
+                f"Ranked {len(day_data)} hours for {selected_date}, avg score: {np.mean(weather_scores):.1f}",
             )
 
             return day_data
@@ -246,7 +253,9 @@ class WeatherRankingSystem:
             return pd.DataFrame()
 
     def rank_daily_weather_conditions(
-        self, hourly_data: pd.DataFrame, daily_dates: list[date]
+        self,
+        hourly_data: pd.DataFrame,
+        daily_dates: list[date],
     ) -> dict[date, dict]:
         """
         Rank daily weather conditions based on average hourly weather potential.
@@ -272,7 +281,7 @@ class WeatherRankingSystem:
 
                 if day_data.empty:
                     logger.debug(
-                        f"No weather data for {target_date}, using default ranking"
+                        f"No weather data for {target_date}, using default ranking",
                     )
                     daily_rankings[target_date] = {
                         "weather_ranking": 3,
@@ -301,22 +310,28 @@ class WeatherRankingSystem:
                 # Collect daily statistics
                 daily_stats = {
                     "avg_temperature": day_data.get(
-                        "temperature_2m", pd.Series([20])
+                        "temperature_2m",
+                        pd.Series([20]),
                     ).mean(),
                     "avg_humidity": day_data.get(
-                        "relative_humidity_2m", pd.Series([50])
+                        "relative_humidity_2m",
+                        pd.Series([50]),
                     ).mean(),
                     "avg_cloud_cover": day_data.get(
-                        "cloud_cover", pd.Series([50])
+                        "cloud_cover",
+                        pd.Series([50]),
                     ).mean(),
                     "avg_wind_speed": day_data.get(
-                        "wind_speed_10m", pd.Series([5])
+                        "wind_speed_10m",
+                        pd.Series([5]),
                     ).mean(),
                     "total_radiation": day_data.get(
-                        "shortwave_radiation", pd.Series([0])
+                        "shortwave_radiation",
+                        pd.Series([0]),
                     ).sum(),
                     "peak_radiation_hour": day_data.get(
-                        "shortwave_radiation", pd.Series([0])
+                        "shortwave_radiation",
+                        pd.Series([0]),
                     )
                     .idxmax()
                     .hour

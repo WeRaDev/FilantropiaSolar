@@ -18,7 +18,9 @@ class AsyncWeatherClient:
     """Asynchronous weather API client for retrieving current and forecast weather data"""
 
     def __init__(
-        self, api_key: str | None = None, session: aiohttp.ClientSession | None = None
+        self,
+        api_key: str | None = None,
+        session: aiohttp.ClientSession | None = None,
     ):
         """
         Initialize Async Weather Client
@@ -70,7 +72,7 @@ class AsyncWeatherClient:
         """
         if location not in self.locations:
             raise ValueError(
-                f"Location '{location}' not supported. Available: {list(self.locations.keys())}"
+                f"Location '{location}' not supported. Available: {list(self.locations.keys())}",
             )
 
         coordinates = self.locations[location]
@@ -110,7 +112,9 @@ class AsyncWeatherClient:
             return self._get_default_weather(location)
 
     async def get_weather_forecast(
-        self, location: str = "Lisbon", days_ahead: int = 7
+        self,
+        location: str = "Lisbon",
+        days_ahead: int = 7,
     ) -> pd.DataFrame:
         """
         Get weather forecast for specified location
@@ -124,7 +128,7 @@ class AsyncWeatherClient:
         """
         if location not in self.locations:
             raise ValueError(
-                f"Location '{location}' not supported. Available: {list(self.locations.keys())}"
+                f"Location '{location}' not supported. Available: {list(self.locations.keys())}",
             )
 
         coordinates = self.locations[location]
@@ -165,7 +169,7 @@ class AsyncWeatherClient:
                     "wind_speed_10m": hourly.get("wind_speed_10m", []),
                     "wind_direction_10m": hourly.get("wind_direction_10m", []),
                     "shortwave_radiation": hourly.get("shortwave_radiation", []),
-                }
+                },
             )
 
             if df.empty:
@@ -180,7 +184,10 @@ class AsyncWeatherClient:
             return self._get_default_forecast_df(location, days_ahead)
 
     async def get_historical_weather(
-        self, location: str, start_date: str, end_date: str
+        self,
+        location: str,
+        start_date: str,
+        end_date: str,
     ) -> pd.DataFrame:
         """
         Get historical weather data for specified location
@@ -195,7 +202,7 @@ class AsyncWeatherClient:
         """
         if location not in self.locations:
             raise ValueError(
-                f"Location '{location}' not supported. Available: {list(self.locations.keys())}"
+                f"Location '{location}' not supported. Available: {list(self.locations.keys())}",
             )
 
         coordinates = self.locations[location]
@@ -235,7 +242,7 @@ class AsyncWeatherClient:
                     "wind_speed_10m": hourly.get("wind_speed_10m", []),
                     "wind_direction_10m": hourly.get("wind_direction_10m", []),
                     "shortwave_radiation": hourly.get("shortwave_radiation", []),
-                }
+                },
             )
 
             # Add location metadata
@@ -249,7 +256,9 @@ class AsyncWeatherClient:
             return pd.DataFrame()
 
     async def get_weather_for_multiple_locations(
-        self, locations: list[str], days_ahead: int = 7
+        self,
+        locations: list[str],
+        days_ahead: int = 7,
     ) -> dict[str, pd.DataFrame]:
         """
         Get weather forecasts for multiple locations concurrently
@@ -283,7 +292,8 @@ class AsyncWeatherClient:
                 if isinstance(result, Exception):
                     logger.error(f"Error fetching weather for {location}: {result}")
                     forecasts[location] = self._get_default_forecast_df(
-                        location, days_ahead
+                        location,
+                        days_ahead,
                     )
                 else:
                     forecasts[location] = result
@@ -295,7 +305,9 @@ class AsyncWeatherClient:
             return {}
 
     async def _make_request_with_retry(
-        self, url: str, params: dict[str, Any]
+        self,
+        url: str,
+        params: dict[str, Any],
     ) -> dict[str, Any]:
         """
         Make HTTP request with retry logic
@@ -322,10 +334,10 @@ class AsyncWeatherClient:
                 last_exception = e
                 if attempt < self.max_retries - 1:
                     await asyncio.sleep(
-                        self.retry_delay * (2**attempt)
+                        self.retry_delay * (2**attempt),
                     )  # Exponential backoff
                     logger.warning(
-                        f"Request failed (attempt {attempt + 1}/{self.max_retries}): {e}"
+                        f"Request failed (attempt {attempt + 1}/{self.max_retries}): {e}",
                     )
                 else:
                     logger.error(f"All retry attempts failed: {e}")
@@ -366,7 +378,7 @@ class AsyncWeatherClient:
                 "wind_direction_10m": [180.0] * hours,
                 "shortwave_radiation": [200.0] * hours,
                 "location": [location] * hours,
-            }
+            },
         )
 
 
@@ -386,7 +398,8 @@ async def get_current_weather_async(location: str = "Lisbon") -> dict[str, Any]:
 
 
 async def get_weather_forecast_async(
-    location: str = "Lisbon", days_ahead: int = 7
+    location: str = "Lisbon",
+    days_ahead: int = 7,
 ) -> pd.DataFrame:
     """
     Convenience function to get weather forecast asynchronously
@@ -403,7 +416,8 @@ async def get_weather_forecast_async(
 
 
 async def get_multiple_locations_weather_async(
-    locations: list[str], days_ahead: int = 7
+    locations: list[str],
+    days_ahead: int = 7,
 ) -> dict[str, pd.DataFrame]:
     """
     Convenience function to get weather for multiple locations concurrently

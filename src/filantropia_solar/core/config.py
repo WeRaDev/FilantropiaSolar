@@ -148,7 +148,8 @@ class Settings(BaseSettings):
     # Logging settings
     log_level: LogLevel = Field(default=LogLevel.INFO, env="LOG_LEVEL")
     log_format: str = Field(
-        default="%(asctime)s - %(name)s - %(levelname)s - %(message)s", env="LOG_FORMAT"
+        default="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+        env="LOG_FORMAT",
     )
     log_file: str | None = Field(default=None, env="LOG_FILE")
     log_rotation: bool = Field(default=True, env="LOG_ROTATION")

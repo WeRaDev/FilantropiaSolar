@@ -112,7 +112,8 @@ class OptimizedDataProcessor(ComprehensiveDataProcessor):
 
             # Load installations metadata
             cached_installations = self.cache_manager.load_cached_data(
-                "installations_metadata", "installations"
+                "installations_metadata",
+                "installations",
             )
             if cached_installations:
                 self.installations = cached_installations
@@ -121,7 +122,8 @@ class OptimizedDataProcessor(ComprehensiveDataProcessor):
 
             # Load energy data
             cached_energy = self.cache_manager.load_cached_data(
-                "energy_data", "all_installations"
+                "energy_data",
+                "all_installations",
             )
             if cached_energy:
                 self.energy_data = cached_energy
@@ -130,7 +132,8 @@ class OptimizedDataProcessor(ComprehensiveDataProcessor):
 
             # Load weather data
             cached_weather = self.cache_manager.load_cached_data(
-                "weather_data", "all_locations"
+                "weather_data",
+                "all_locations",
             )
             if cached_weather:
                 self.weather_data = cached_weather
@@ -139,7 +142,8 @@ class OptimizedDataProcessor(ComprehensiveDataProcessor):
 
             # Load combined data
             cached_combined = self.cache_manager.load_cached_data(
-                "combined_data", "all_installations"
+                "combined_data",
+                "all_installations",
             )
             if cached_combined:
                 self.combined_data = cached_combined
@@ -160,7 +164,7 @@ class OptimizedDataProcessor(ComprehensiveDataProcessor):
 
             load_time = time.time() - start_time
             logger.info(
-                f"Successfully loaded all data from cache in {load_time:.2f} seconds"
+                f"Successfully loaded all data from cache in {load_time:.2f} seconds",
             )
 
         except Exception as e:
@@ -355,7 +359,7 @@ class OptimizedDataProcessor(ComprehensiveDataProcessor):
         data_quality = self.performance_metrics.get("data_quality_score", 0)
         if data_quality < GOOD_DATA_QUALITY_THRESHOLD:
             suggestions.append(
-                "🔍 Data quality could be improved - check for missing values"
+                "🔍 Data quality could be improved - check for missing values",
             )
         elif data_quality > EXCELLENT_DATA_QUALITY_THRESHOLD:
             suggestions.append("✅ Excellent data quality")
@@ -363,7 +367,7 @@ class OptimizedDataProcessor(ComprehensiveDataProcessor):
         memory_usage = self.performance_metrics.get("memory_efficiency_mb", 0)
         if memory_usage > MEMORY_USAGE_WARNING_MB:
             suggestions.append(
-                "🧠 Consider implementing lazy loading for large datasets"
+                "🧠 Consider implementing lazy loading for large datasets",
             )
 
         return suggestions
@@ -382,7 +386,9 @@ class OptimizedDataProcessor(ComprehensiveDataProcessor):
             logger.info(f"Cache invalidated: {data_type or 'all'}")
 
     def add_new_installation_data(
-        self, installation_file: str, metadata: dict[str, Any]
+        self,
+        installation_file: str,
+        metadata: dict[str, Any],
     ) -> bool:
         """
         Add new installation data incrementally.
@@ -448,7 +454,7 @@ class OptimizedDataProcessor(ComprehensiveDataProcessor):
                 return True
             else:
                 raise ValueError(
-                    f"Invalid location or missing weather data: {location}"
+                    f"Invalid location or missing weather data: {location}",
                 )
 
         except Exception as e:
@@ -456,7 +462,9 @@ class OptimizedDataProcessor(ComprehensiveDataProcessor):
             return False
 
     def _combine_installation_weather(
-        self, energy_data: pd.DataFrame, location: str
+        self,
+        energy_data: pd.DataFrame,
+        location: str,
     ) -> pd.DataFrame:
         """Combine installation energy data with weather data for specific location."""
         if location not in self.weather_data:
@@ -472,7 +480,8 @@ class OptimizedDataProcessor(ComprehensiveDataProcessor):
         for col in weather_df.columns:
             if col != "time":
                 combined[col] = weather_df[col].reindex(
-                    combined.index, method="nearest"
+                    combined.index,
+                    method="nearest",
                 )
 
         # Add derived features (same as parent class)

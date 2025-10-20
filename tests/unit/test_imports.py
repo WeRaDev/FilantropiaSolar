@@ -63,7 +63,7 @@ class TestBasicImports:
             assert gui is not None
         except ImportError:
             pytest.skip(
-                "gui module not available - GUI integrated into main.py in v1.0.0"
+                "gui module not available - GUI integrated into main.py in v1.0.0",
             )
 
     def test_main_application_import(self):

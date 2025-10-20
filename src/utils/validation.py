@@ -176,7 +176,10 @@ class ValidationSchema:
         return results
 
     def _apply_rule(
-        self, value: Any, rule: ValidationRule, field_name: str
+        self,
+        value: Any,
+        rule: ValidationRule,
+        field_name: str,
     ) -> ValidationResult:
         """Apply single validation rule."""
         result = ValidationResult(is_valid=True, sanitized_value=value)
@@ -214,7 +217,10 @@ class ValidationSchema:
         return result
 
     def _validate_type(
-        self, value: Any, rule: ValidationRule, _field_name: str
+        self,
+        value: Any,
+        rule: ValidationRule,
+        _field_name: str,
     ) -> ValidationResult:
         """Validate value type."""
         result = ValidationResult(is_valid=True, sanitized_value=value)
@@ -245,7 +251,10 @@ class ValidationSchema:
         return result
 
     def _validate_range(
-        self, value: Any, rule: ValidationRule, field_name: str
+        self,
+        value: Any,
+        rule: ValidationRule,
+        field_name: str,
     ) -> ValidationResult:
         """Validate numeric range."""
         result = ValidationResult(is_valid=True, sanitized_value=value)
@@ -254,7 +263,7 @@ class ValidationSchema:
             numeric_value = float(value)
         except (ValueError, TypeError):
             result.add_error(
-                f"Cannot validate range for non-numeric value in {field_name}"
+                f"Cannot validate range for non-numeric value in {field_name}",
             )
             return result
 
@@ -270,7 +279,10 @@ class ValidationSchema:
         return result
 
     def _validate_format(
-        self, value: Any, rule: ValidationRule, _field_name: str
+        self,
+        value: Any,
+        rule: ValidationRule,
+        _field_name: str,
     ) -> ValidationResult:
         """Validate specific formats."""
         result = ValidationResult(is_valid=True, sanitized_value=value)
@@ -286,7 +298,8 @@ class ValidationSchema:
         elif format_type == "date":
             try:
                 datetime.strptime(
-                    str_value, rule.parameters.get("date_format", "%Y-%m-%d")
+                    str_value,
+                    rule.parameters.get("date_format", "%Y-%m-%d"),
                 )
             except ValueError:
                 result.add_error(rule.error_message)
@@ -305,7 +318,10 @@ class ValidationSchema:
         return result
 
     def _validate_length(
-        self, value: Any, rule: ValidationRule, field_name: str
+        self,
+        value: Any,
+        rule: ValidationRule,
+        field_name: str,
     ) -> ValidationResult:
         """Validate length constraints."""
         result = ValidationResult(is_valid=True, sanitized_value=value)
@@ -328,7 +344,10 @@ class ValidationSchema:
         return result
 
     def _validate_pattern(
-        self, value: Any, rule: ValidationRule, _field_name: str
+        self,
+        value: Any,
+        rule: ValidationRule,
+        _field_name: str,
     ) -> ValidationResult:
         """Validate against regex pattern."""
         result = ValidationResult(is_valid=True, sanitized_value=value)
@@ -345,7 +364,10 @@ class ValidationSchema:
         return result
 
     def _validate_enum(
-        self, value: Any, rule: ValidationRule, _field_name: str
+        self,
+        value: Any,
+        rule: ValidationRule,
+        _field_name: str,
     ) -> ValidationResult:
         """Validate against enumerated values."""
         result = ValidationResult(is_valid=True, sanitized_value=value)
@@ -357,7 +379,10 @@ class ValidationSchema:
         return result
 
     def _validate_custom(
-        self, value: Any, rule: ValidationRule, _field_name: str
+        self,
+        value: Any,
+        rule: ValidationRule,
+        _field_name: str,
     ) -> ValidationResult:
         """Apply custom validation function."""
         result = ValidationResult(is_valid=True, sanitized_value=value)
@@ -411,7 +436,9 @@ class InputValidator:
         if value is None:
             if not allow_empty:
                 raise ValidationError(
-                    f"{field_name} cannot be None", field=field_name, value=value
+                    f"{field_name} cannot be None",
+                    field=field_name,
+                    value=value,
                 )
             return ""
 
@@ -423,7 +450,9 @@ class InputValidator:
         # Check empty constraint
         if not allow_empty and not str_value:
             raise ValidationError(
-                f"{field_name} cannot be empty", field=field_name, value=str_value
+                f"{field_name} cannot be empty",
+                field=field_name,
+                value=str_value,
             )
 
         # Check length constraints
@@ -453,7 +482,9 @@ class InputValidator:
 
     @staticmethod
     def _convert_to_numeric(
-        value: Any, field_name: str, allow_none: bool
+        value: Any,
+        field_name: str,
+        allow_none: bool,
     ) -> int | float | None:
         """Helper method to convert value to numeric type."""
         if isinstance(value, str):
@@ -462,7 +493,9 @@ class InputValidator:
                 if allow_none:
                     return None
                 raise ValidationError(
-                    f"{field_name} cannot be empty", field=field_name, value=value
+                    f"{field_name} cannot be empty",
+                    field=field_name,
+                    value=value,
                 )
 
             # Try to detect if it should be int or float
@@ -525,13 +558,17 @@ class InputValidator:
             if allow_none:
                 return None
             raise ValidationError(
-                f"{field_name} cannot be None", field=field_name, value=value
+                f"{field_name} cannot be None",
+                field=field_name,
+                value=value,
             )
 
         # Try to convert to numeric
         try:
             numeric_value = InputValidator._convert_to_numeric(
-                value, field_name, allow_none
+                value,
+                field_name,
+                allow_none,
             )
             if numeric_value is None:
                 return None
@@ -553,7 +590,10 @@ class InputValidator:
 
         # Check range constraints
         InputValidator._validate_numeric_range(
-            numeric_value, min_value, max_value, field_name
+            numeric_value,
+            min_value,
+            max_value,
+            field_name,
         )
 
         # Convert to requested type
@@ -600,7 +640,9 @@ class InputValidator:
             if allow_none:
                 return None
             raise ValidationError(
-                f"{field_name} cannot be None", field=field_name, value=value
+                f"{field_name} cannot be None",
+                field=field_name,
+                value=value,
             )
 
         # Handle different input types
@@ -668,7 +710,9 @@ class InputValidator:
         """
         if value is None:
             raise ValidationError(
-                f"{field_name} cannot be None", field=field_name, value=value
+                f"{field_name} cannot be None",
+                field=field_name,
+                value=value,
             )
 
         # Convert to Path object
@@ -676,7 +720,9 @@ class InputValidator:
             path_value = Path(value)
         except Exception as e:
             raise ValidationError(
-                f"{field_name} must be a valid file path", field=field_name, value=value
+                f"{field_name} must be a valid file path",
+                field=field_name,
+                value=value,
             ) from e
 
         # Check if file exists

@@ -10,7 +10,9 @@ def test_determine_energy_column_for_mode_predicted():
     app = main.FilantropiaSolarApp()
     df = pd.DataFrame({"predicted_total_energy": [1, 2, 3]})
     col, label = app._determine_energy_column_for_mode(
-        df, "simulation", {"used_simulation": True}
+        df,
+        "simulation",
+        {"used_simulation": True},
     )
     assert col == "predicted_total_energy"
     assert label == "PREDICTED"

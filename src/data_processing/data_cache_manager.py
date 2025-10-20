@@ -118,7 +118,8 @@ class DataCacheManager:
         with sqlite3.connect(self.db_path) as conn:
             cursor = conn.cursor()
             cursor.execute(
-                "SELECT file_path FROM data_cache WHERE cache_key = ?", (cache_key,)
+                "SELECT file_path FROM data_cache WHERE cache_key = ?",
+                (cache_key,),
             )
             result = cursor.fetchone()
 
@@ -129,7 +130,11 @@ class DataCacheManager:
         return False
 
     def cache_data(
-        self, data: Any, data_type: str, identifier: str, metadata: dict | None = None
+        self,
+        data: Any,
+        data_type: str,
+        identifier: str,
+        metadata: dict | None = None,
     ) -> bool:
         """Cache data with metadata."""
         try:
@@ -174,7 +179,8 @@ class DataCacheManager:
             with sqlite3.connect(self.db_path) as conn:
                 cursor = conn.cursor()
                 cursor.execute(
-                    "SELECT file_path FROM data_cache WHERE cache_key = ?", (cache_key,)
+                    "SELECT file_path FROM data_cache WHERE cache_key = ?",
+                    (cache_key,),
                 )
                 result = cursor.fetchone()
 
@@ -232,12 +238,12 @@ class DataCacheManager:
 
                 # Get recent activity
                 cursor.execute(
-                    "SELECT COUNT(*) FROM data_cache WHERE last_accessed > datetime('now', '-1 day')"
+                    "SELECT COUNT(*) FROM data_cache WHERE last_accessed > datetime('now', '-1 day')",
                 )
                 recent_data_access = cursor.fetchone()[0]
 
                 cursor.execute(
-                    "SELECT COUNT(*) FROM model_cache WHERE last_used > datetime('now', '-1 day')"
+                    "SELECT COUNT(*) FROM model_cache WHERE last_used > datetime('now', '-1 day')",
                 )
                 recent_model_access = cursor.fetchone()[0]
 
@@ -315,7 +321,7 @@ class DataCacheManager:
                     if not Path(file_path).exists():
                         validation_results["missing_files"] += 1
                         validation_results["issues"].append(
-                            f"Missing file for {cache_key}: {file_path}"
+                            f"Missing file for {cache_key}: {file_path}",
                         )
                     else:
                         validation_results["valid_entries"] += 1
@@ -326,13 +332,13 @@ class DataCacheManager:
                     if not Path(file_path).exists():
                         validation_results["missing_files"] += 1
                         validation_results["issues"].append(
-                            f"Missing model file for {model_key}: {file_path}"
+                            f"Missing model file for {model_key}: {file_path}",
                         )
                     else:
                         validation_results["valid_entries"] += 1
 
                 logger.info(
-                    f"Cache validation completed: {validation_results['valid_entries']} valid, {validation_results['invalid_entries'] + validation_results['missing_files']} issues"
+                    f"Cache validation completed: {validation_results['valid_entries']} valid, {validation_results['invalid_entries'] + validation_results['missing_files']} issues",
                 )
 
         except Exception as e:
@@ -450,7 +456,8 @@ class DataCacheManager:
 
                 # Remove database entries
                 cursor.execute(
-                    "DELETE FROM data_cache WHERE last_accessed < ?", (cutoff_date,)
+                    "DELETE FROM data_cache WHERE last_accessed < ?",
+                    (cutoff_date,),
                 )
                 conn.commit()
 
@@ -462,7 +469,9 @@ class DataCacheManager:
             return 0
 
     def invalidate_cache(
-        self, data_type: str | None = None, identifier: str | None = None
+        self,
+        data_type: str | None = None,
+        identifier: str | None = None,
     ):
         """Invalidate cache entries."""
         try:
@@ -480,7 +489,8 @@ class DataCacheManager:
                     if result:
                         Path(result[0]).unlink(missing_ok=True)
                         cursor.execute(
-                            "DELETE FROM data_cache WHERE cache_key = ?", (cache_key,)
+                            "DELETE FROM data_cache WHERE cache_key = ?",
+                            (cache_key,),
                         )
                         logger.info(f"Invalidated cache entry: {cache_key}")
                 elif data_type:
@@ -493,7 +503,8 @@ class DataCacheManager:
                     for (file_path,) in files:
                         Path(file_path).unlink(missing_ok=True)
                     cursor.execute(
-                        "DELETE FROM data_cache WHERE data_type = ?", (data_type,)
+                        "DELETE FROM data_cache WHERE data_type = ?",
+                        (data_type,),
                     )
                     logger.info(f"Invalidated all cache entries of type: {data_type}")
                 else:

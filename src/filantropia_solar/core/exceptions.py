@@ -463,7 +463,11 @@ class FileNotFoundError(FileSystemError):
     """Exception raised when a required file is not found."""
 
     def __init__(
-        self, message: str, file_path: str, file_type: str | None = None, **kwargs
+        self,
+        message: str,
+        file_path: str,
+        file_type: str | None = None,
+        **kwargs,
     ):
         details = kwargs.get("details", {})
         details["file_path"] = file_path
@@ -567,7 +571,8 @@ def handle_exception(
 
 
 def create_error_response(
-    error: FilantropiaSolarError, include_traceback: bool = False
+    error: FilantropiaSolarError,
+    include_traceback: bool = False,
 ) -> dict[str, Any]:
     """
     Create standardized error response dictionary.
@@ -592,7 +597,9 @@ def create_error_response(
 
     if include_traceback and error.__traceback__:
         response["error"]["traceback"] = traceback.format_exception(
-            type(error), error, error.__traceback__
+            type(error),
+            error,
+            error.__traceback__,
         )
 
     return response

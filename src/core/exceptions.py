@@ -178,12 +178,12 @@ def retry_sync(
 
                         logger.warning(
                             f"Attempt {attempt + 1}/{config.max_attempts} failed for {func.__name__}: {e}. "
-                            f"Retrying in {delay:.2f}s..."
+                            f"Retrying in {delay:.2f}s...",
                         )
                         time.sleep(delay)
                     else:
                         logger.error(
-                            f"All {config.max_attempts} attempts failed for {func.__name__}"
+                            f"All {config.max_attempts} attempts failed for {func.__name__}",
                         )
 
                 except Exception as e:
@@ -241,12 +241,12 @@ def retry_async(
 
                         logger.warning(
                             f"Attempt {attempt + 1}/{config.max_attempts} failed for {func.__name__}: {e}. "
-                            f"Retrying in {delay:.2f}s..."
+                            f"Retrying in {delay:.2f}s...",
                         )
                         await asyncio.sleep(delay)
                     else:
                         logger.error(
-                            f"All {config.max_attempts} attempts failed for {func.__name__}"
+                            f"All {config.max_attempts} attempts failed for {func.__name__}",
                         )
 
                 except Exception as e:
@@ -334,7 +334,7 @@ class CircuitBreaker:
         if self.failure_count >= self.config.failure_threshold:
             self.state = CircuitBreakerState.OPEN
             logger.warning(
-                f"Circuit breaker opened after {self.failure_count} failures"
+                f"Circuit breaker opened after {self.failure_count} failures",
             )
 
     def _reset(self):
@@ -431,7 +431,7 @@ class ErrorHandler:
             if strategy.can_recover(error, context):
                 try:
                     logger.info(
-                        f"Attempting recovery using {strategy.__class__.__name__}"
+                        f"Attempting recovery using {strategy.__class__.__name__}",
                     )
                     return strategy.recover(error, context)
                 except Exception as recovery_error:
@@ -451,7 +451,10 @@ class error_context:
 
     def __init__(self, operation: str, component: str, **kwargs):
         self.context = ErrorContext(
-            operation=operation, component=component, timestamp=time.time(), **kwargs
+            operation=operation,
+            component=component,
+            timestamp=time.time(),
+            **kwargs,
         )
 
     def __enter__(self):
@@ -497,13 +500,15 @@ retry_weather_api = retry_async(
         max_attempts=3,
         base_delay=2.0,
         retry_on_exceptions=(WeatherAPIError, ConnectionError, TimeoutError),
-    )
+    ),
 )
 
 retry_data_processing = retry_sync(
     RetryConfig(
-        max_attempts=2, base_delay=1.0, retry_on_exceptions=(DataProcessingError,)
-    )
+        max_attempts=2,
+        base_delay=1.0,
+        retry_on_exceptions=(DataProcessingError,),
+    ),
 )
 
 

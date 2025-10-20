@@ -55,7 +55,8 @@ class ModelValidator:
         logger.info("Model validator initialized")
 
     def run_cross_validation(
-        self, exclude_location: str | None = None
+        self,
+        exclude_location: str | None = None,
     ) -> dict[str, Any]:
         """
         Run comprehensive cross-validation testing.
@@ -70,7 +71,7 @@ class ModelValidator:
 
         installations = list(self.data_processor.installations.keys())
         locations = list(
-            {info.location for info in self.data_processor.installations.values()}
+            {info.location for info in self.data_processor.installations.values()},
         )
 
         if exclude_location:
@@ -110,10 +111,10 @@ class ModelValidator:
 
         # Calculate overall metrics
         validation_results["overall_metrics"] = self._calculate_overall_metrics(
-            validation_results["location_results"]
+            validation_results["location_results"],
         )
         validation_results["recommendations"] = self._generate_recommendations(
-            validation_results
+            validation_results,
         )
 
         self.validation_results = validation_results
@@ -122,7 +123,9 @@ class ModelValidator:
         return validation_results
 
     def _validate_location(
-        self, test_location: str, test_installations: list[str]
+        self,
+        test_location: str,
+        test_installations: list[str],
     ) -> dict[str, Any]:
         """Validate models by excluding one location from training."""
         try:
@@ -134,7 +137,7 @@ class ModelValidator:
             ]
 
             logger.info(
-                f"Training with {len(training_installations)} installations, testing with {len(test_installations)}"
+                f"Training with {len(training_installations)} installations, testing with {len(test_installations)}",
             )
 
             # Train models on remaining installations
@@ -154,7 +157,9 @@ class ModelValidator:
 
             for test_installation in test_installations:
                 installation_result = self._test_installation(
-                    excluded_predictor, test_installation, test_location
+                    excluded_predictor,
+                    test_installation,
+                    test_location,
                 )
                 location_results["installation_results"][test_installation] = (
                     installation_result
@@ -167,7 +172,8 @@ class ModelValidator:
             # Calculate location-wide metrics
             if all_predictions and all_actual:
                 location_results["location_metrics"] = self._calculate_metrics(
-                    all_actual, all_predictions
+                    all_actual,
+                    all_predictions,
                 )
 
             return location_results
@@ -177,7 +183,8 @@ class ModelValidator:
             return {"error": str(e)}
 
     def _train_excluded_models(
-        self, training_installations: list[str]
+        self,
+        training_installations: list[str],
     ) -> EnhancedEnergyPredictor:
         """Train models excluding specific installations."""
         # Create temporary data processor with only training installations
@@ -204,13 +211,17 @@ class ModelValidator:
 
         # Train predictor on reduced dataset
         excluded_predictor = EnhancedEnergyPredictor(
-            temp_processor, self.weather_simulator
+            temp_processor,
+            self.weather_simulator,
         )
 
         return excluded_predictor
 
     def _test_installation(
-        self, predictor: EnhancedEnergyPredictor, installation_id: str, location: str
+        self,
+        predictor: EnhancedEnergyPredictor,
+        installation_id: str,
+        location: str,
     ) -> dict[str, Any]:
         """Test model performance on excluded installation."""
         try:
@@ -241,7 +252,9 @@ class ModelValidator:
             predictions = []
 
             for date in pd.date_range(
-                start=test_start.date(), end=test_data.index.max().date(), freq="D"
+                start=test_start.date(),
+                end=test_data.index.max().date(),
+                freq="D",
             ):
                 try:
                     # Predict using historical weather data
@@ -292,7 +305,9 @@ class ModelValidator:
             return {"error": str(e), "predictions": None, "actual": None}
 
     def _calculate_metrics(
-        self, actual: list[float], predictions: list[float]
+        self,
+        actual: list[float],
+        predictions: list[float],
     ) -> dict[str, float]:
         """Calculate comprehensive performance metrics."""
         try:
@@ -314,7 +329,7 @@ class ModelValidator:
                 "r2": float(r2_score(actual_clean, pred_clean)),
                 "mape": float(
                     np.mean(np.abs((actual_clean - pred_clean) / (actual_clean + 1e-8)))
-                    * 100
+                    * 100,
                 ),
                 "data_points": len(actual_clean),
                 "actual_mean": float(np.mean(actual_clean)),
@@ -396,7 +411,7 @@ class ModelValidator:
 
             if "error" in overall:
                 recommendations.append(
-                    "❌ Validation failed - check data quality and model training"
+                    "❌ Validation failed - check data quality and model training",
                 )
                 return recommendations
 
@@ -407,43 +422,43 @@ class ModelValidator:
             # Success rate recommendations
             if success_rate >= EXCELLENT_SUCCESS_RATE:
                 recommendations.append(
-                    "✅ Excellent validation success rate - models are robust"
+                    "✅ Excellent validation success rate - models are robust",
                 )
             elif success_rate >= GOOD_SUCCESS_RATE:
                 recommendations.append(
-                    "⚠️ Good validation success rate - minor improvements possible"
+                    "⚠️ Good validation success rate - minor improvements possible",
                 )
             else:
                 recommendations.append(
-                    "❌ Low validation success rate - review data quality and model architecture"
+                    "❌ Low validation success rate - review data quality and model architecture",
                 )
 
             # Accuracy recommendations
             if avg_r2 >= HIGH_ACCURACY_R2:
                 recommendations.append(
-                    "✅ High prediction accuracy - models perform well across locations"
+                    "✅ High prediction accuracy - models perform well across locations",
                 )
             elif avg_r2 >= MODERATE_ACCURACY_R2:
                 recommendations.append(
-                    "⚠️ Moderate prediction accuracy - consider feature engineering improvements"
+                    "⚠️ Moderate prediction accuracy - consider feature engineering improvements",
                 )
             else:
                 recommendations.append(
-                    "❌ Low prediction accuracy - models need significant improvement"
+                    "❌ Low prediction accuracy - models need significant improvement",
                 )
 
             # Error rate recommendations
             if avg_mape <= LOW_ERROR_MAPE:
                 recommendations.append(
-                    "✅ Low prediction errors - suitable for production use"
+                    "✅ Low prediction errors - suitable for production use",
                 )
             elif avg_mape <= MODERATE_ERROR_MAPE:
                 recommendations.append(
-                    "⚠️ Moderate prediction errors - acceptable for most use cases"
+                    "⚠️ Moderate prediction errors - acceptable for most use cases",
                 )
             else:
                 recommendations.append(
-                    "❌ High prediction errors - not recommended for critical applications"
+                    "❌ High prediction errors - not recommended for critical applications",
                 )
 
             # Specific improvements
@@ -457,7 +472,7 @@ class ModelValidator:
 
             if poor_locations:
                 recommendations.append(
-                    f"🔍 Focus improvement efforts on: {', '.join(poor_locations)}"
+                    f"🔍 Focus improvement efforts on: {', '.join(poor_locations)}",
                 )
 
             return recommendations

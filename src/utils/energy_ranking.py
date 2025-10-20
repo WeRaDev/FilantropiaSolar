@@ -155,7 +155,7 @@ def generate_ranking_summary(df):
         "median_ranking": rankings.median(),
         "ranking_distribution": rankings.value_counts().sort_index().to_dict(),
         "optimal_hours_count": len(
-            rankings[rankings >= OPTIMAL_RANK_THRESHOLD]
+            rankings[rankings >= OPTIMAL_RANK_THRESHOLD],
         ),  # Rank 4 and 5
         "total_hours": len(rankings),
     }
@@ -163,7 +163,8 @@ def generate_ranking_summary(df):
     # Calculate percentage of optimal hours
     if summary["total_hours"] > 0:
         summary["optimal_hours_percentage"] = round(
-            (summary["optimal_hours_count"] / summary["total_hours"]) * 100, 1
+            (summary["optimal_hours_count"] / summary["total_hours"]) * 100,
+            1,
         )
 
     return summary

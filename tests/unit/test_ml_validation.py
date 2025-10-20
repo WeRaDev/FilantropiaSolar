@@ -29,7 +29,7 @@ def test_model_performance_validation():
             np.random.uniform(30, 90, n_samples),  # humidity
             np.random.uniform(0, 100, n_samples),  # cloud_cover
             np.random.randint(0, 24, n_samples),  # hour
-        ]
+        ],
     )
 
     # Target: energy production with realistic relationship to features
@@ -43,7 +43,10 @@ def test_model_performance_validation():
 
     # Split data
     X_train, X_test, y_train, y_test = train_test_split(
-        X, y, test_size=0.2, random_state=42
+        X,
+        y,
+        test_size=0.2,
+        random_state=42,
     )
 
     # Train model
@@ -118,7 +121,9 @@ def test_model_robustness():
         # Add outliers if specified
         if scenario["outliers"] > 0:
             outlier_indices = np.random.choice(
-                n_samples, scenario["outliers"], replace=False
+                n_samples,
+                scenario["outliers"],
+                replace=False,
             )
             y[outlier_indices] += np.random.choice([-10, 10], scenario["outliers"])
 

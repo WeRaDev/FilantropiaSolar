@@ -127,7 +127,7 @@ class WeatherClient:
                     "wind_speed_10m (km/h)": hourly.get("wind_speed_10m", []),
                     "wind_direction_10m (°)": hourly.get("wind_direction_10m", []),
                     "shortwave_radiation (W/m²)": hourly.get("shortwave_radiation", []),
-                }
+                },
             )
 
             if df.empty:
@@ -191,7 +191,7 @@ class WeatherClient:
                     "wind_speed_10m (km/h)": hourly.get("wind_speed_10m", []),
                     "wind_direction_10m (°)": hourly.get("wind_direction_10m", []),
                     "shortwave_radiation (W/m²)": hourly.get("shortwave_radiation", []),
-                }
+                },
             )
 
             return df
@@ -287,7 +287,7 @@ class WeatherClient:
                     else 0.0
                     for date in dates
                 ],
-            }
+            },
         )
 
     def get_weather_data(self, _location=None, start_date=None, end_date=None):

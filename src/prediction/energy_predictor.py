@@ -36,7 +36,8 @@ class EnergyPredictor:
         self.models = {
             "random_forest": RandomForestRegressor(n_estimators=100, random_state=42),
             "gradient_boost": GradientBoostingRegressor(
-                n_estimators=100, random_state=42
+                n_estimators=100,
+                random_state=42,
             ),
             "linear": LinearRegression(),
         }
@@ -90,10 +91,10 @@ class EnergyPredictor:
             features_df["SinMonth"] = np.sin(2 * np.pi * features_df["Month"] / 12)
             features_df["CosMonth"] = np.cos(2 * np.pi * features_df["Month"] / 12)
             features_df["SinDayOfYear"] = np.sin(
-                2 * np.pi * features_df["DayOfYear"] / 365
+                2 * np.pi * features_df["DayOfYear"] / 365,
             )
             features_df["CosDayOfYear"] = np.cos(
-                2 * np.pi * features_df["DayOfYear"] / 365
+                2 * np.pi * features_df["DayOfYear"] / 365,
             )
 
         # Interaction features
@@ -201,7 +202,10 @@ class EnergyPredictor:
 
         # Split data
         X_train, X_test, y_train, y_test = train_test_split(
-            X, y, test_size=0.2, random_state=42
+            X,
+            y,
+            test_size=0.2,
+            random_state=42,
         )
 
         # Scale features
@@ -239,7 +243,8 @@ class EnergyPredictor:
 
         if valid_results:
             self.best_model_name = min(
-                valid_results.keys(), key=lambda k: valid_results[k]["mae"]
+                valid_results.keys(),
+                key=lambda k: valid_results[k]["mae"],
             )
             self.best_model = valid_results[self.best_model_name]["model"]
             self.model_performance = valid_results[self.best_model_name]
@@ -310,7 +315,7 @@ class EnergyPredictor:
                 predictions / installed_capacity_kwp
             )
             results_df["Ranking"] = calculate_specific_energy_ranking(
-                results_df["Specific Energy (kWh/kWp)"]
+                results_df["Specific Energy (kWh/kWp)"],
             )
 
             # Add confidence intervals (simple approach using model performance)
@@ -365,7 +370,7 @@ class EnergyPredictor:
                     "cloud_cover (%)": "mean"
                     if "cloud_cover (%)" in predictions_df.columns
                     else lambda _: np.nan,
-                }
+                },
             )
             .round(2)
         )
@@ -449,7 +454,7 @@ class EnergyPredictor:
                     {
                         "feature": self.feature_columns,
                         "importance": self.best_model.feature_importances_,
-                    }
+                    },
                 ).sort_values("importance", ascending=False)
 
                 return importance_df

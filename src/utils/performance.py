@@ -98,7 +98,8 @@ class PerformanceMonitor:
             self._metrics[function_name].update(execution_time)
 
     def get_metrics(
-        self, function_name: str | None = None
+        self,
+        function_name: str | None = None,
     ) -> dict[str, Any] | dict[str, dict[str, Any]]:
         """Get performance metrics."""
         with self._lock:
@@ -122,7 +123,9 @@ class PerformanceMonitor:
         """Get slowest functions by average execution time."""
         with self._lock:
             sorted_metrics = sorted(
-                self._metrics.values(), key=lambda m: m.avg_time, reverse=True
+                self._metrics.values(),
+                key=lambda m: m.avg_time,
+                reverse=True,
             )
             return [m.to_dict() for m in sorted_metrics[:limit]]
 
@@ -351,7 +354,8 @@ class BatchProcessor:
 
         self._stop_event.clear()
         self._processing_thread = threading.Thread(
-            target=self._background_processor, daemon=True
+            target=self._background_processor,
+            daemon=True,
         )
         self._processing_thread.start()
 
@@ -462,7 +466,7 @@ class MemoryOptimizer:
 
         logger.info(
             f"DataFrame memory optimized: {original_memory:,} -> {optimized_memory:,} bytes "
-            f"({reduction_ratio:.1%} reduction)"
+            f"({reduction_ratio:.1%} reduction)",
         )
 
         return df
@@ -497,7 +501,7 @@ def profile_memory_usage(func: F) -> F:
             if "rss" in before_memory and "rss" in after_memory:
                 memory_diff = after_memory["rss"] - before_memory["rss"]
                 logger.debug(
-                    f"Memory usage for {func.__name__}: {memory_diff:+,} bytes"
+                    f"Memory usage for {func.__name__}: {memory_diff:+,} bytes",
                 )
 
     return wrapper
@@ -539,7 +543,11 @@ def chunked_processing(
 
 @performance_monitor
 def benchmark_function(
-    func: Callable, *args, iterations: int = 100, warmup_iterations: int = 10, **kwargs
+    func: Callable,
+    *args,
+    iterations: int = 100,
+    warmup_iterations: int = 10,
+    **kwargs,
 ) -> dict[str, float]:
     """
     Benchmark a function's performance.

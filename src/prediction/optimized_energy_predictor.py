@@ -119,12 +119,14 @@ class OptimizedEnergyPredictor(EnhancedEnergyPredictor):
             for i, installation_id in enumerate(installations):
                 progress = (i / total_installations) * 100
                 self._report_progress(
-                    f"Loading model for {installation_id}...", progress
+                    f"Loading model for {installation_id}...",
+                    progress,
                 )
 
                 # Load best model
                 best_model = self.cache_manager.load_cached_model(
-                    installation_id, "best_model"
+                    installation_id,
+                    "best_model",
                 )
                 if best_model:
                     # Maintain compatibility with EnhancedEnergyPredictor structure
@@ -141,7 +143,8 @@ class OptimizedEnergyPredictor(EnhancedEnergyPredictor):
 
                 # Load performance metrics (stored as model)
                 performance = self.cache_manager.load_cached_model(
-                    installation_id, "performance"
+                    installation_id,
+                    "performance",
                 )
                 if performance:
                     self.model_performance[installation_id] = performance
@@ -150,7 +153,7 @@ class OptimizedEnergyPredictor(EnhancedEnergyPredictor):
 
             load_time = time.time() - start_time
             logger.info(
-                f"Successfully loaded all ML models from cache in {load_time:.2f} seconds"
+                f"Successfully loaded all ML models from cache in {load_time:.2f} seconds",
             )
 
         except Exception as e:
@@ -204,7 +207,8 @@ class OptimizedEnergyPredictor(EnhancedEnergyPredictor):
                 if "best_model" in self.models[installation_id]:
                     best_model = self.models[installation_id]["best_model"]
                     performance_metrics = self.model_performance.get(
-                        installation_id, {}
+                        installation_id,
+                        {},
                     )
 
                     self.cache_manager.cache_model(
@@ -317,7 +321,8 @@ class OptimizedEnergyPredictor(EnhancedEnergyPredictor):
                     "capacity_kwp": capacity,
                     "performance_metrics": performance,
                     "model_cached": self.cache_manager.load_cached_model(
-                        installation_id, "best_model"
+                        installation_id,
+                        "best_model",
                     )
                     is not None
                     if self.cache_manager
@@ -346,7 +351,7 @@ class OptimizedEnergyPredictor(EnhancedEnergyPredictor):
                     continue
 
                 installation_info = self.data_processor.installations.get(
-                    installation_id
+                    installation_id,
                 )
                 if not installation_info:
                     continue
@@ -376,7 +381,7 @@ class OptimizedEnergyPredictor(EnhancedEnergyPredictor):
 
                     # Capacity correlation
                     capacity_performance.append(
-                        (installation_info.installed_power_kwp, best_r2)
+                        (installation_info.installed_power_kwp, best_r2),
                     )
 
             # Performance distribution
@@ -428,11 +433,11 @@ class OptimizedEnergyPredictor(EnhancedEnergyPredictor):
             # Training time suggestions
             if training_time < SLOW_TRAINING_THRESHOLD_SECONDS:
                 suggestions.append(
-                    "✅ Excellent model loading performance (cached models)"
+                    "✅ Excellent model loading performance (cached models)",
                 )
             elif training_time > VERY_SLOW_TRAINING_THRESHOLD_SECONDS:
                 suggestions.append(
-                    "⚠️ Consider enabling model caching to reduce training time"
+                    "⚠️ Consider enabling model caching to reduce training time",
                 )
 
             # Model accuracy suggestions
@@ -440,15 +445,15 @@ class OptimizedEnergyPredictor(EnhancedEnergyPredictor):
                 suggestions.append("✅ Outstanding model accuracy across installations")
             elif avg_r2 > GOOD_R2_THRESHOLD:
                 suggestions.append(
-                    "✅ Good model accuracy - suitable for production use"
+                    "✅ Good model accuracy - suitable for production use",
                 )
             elif avg_r2 > MODERATE_R2_THRESHOLD:
                 suggestions.append(
-                    "⚠️ Moderate model accuracy - consider feature engineering"
+                    "⚠️ Moderate model accuracy - consider feature engineering",
                 )
             else:
                 suggestions.append(
-                    "❌ Low model accuracy - review data quality and model architecture"
+                    "❌ Low model accuracy - review data quality and model architecture",
                 )
 
             # Performance analysis suggestions
@@ -461,7 +466,7 @@ class OptimizedEnergyPredictor(EnhancedEnergyPredictor):
                 ]
                 if poor_locations:
                     suggestions.append(
-                        f"🔍 Focus improvement on locations: {', '.join(poor_locations)}"
+                        f"🔍 Focus improvement on locations: {', '.join(poor_locations)}",
                     )
 
             # Cache suggestions

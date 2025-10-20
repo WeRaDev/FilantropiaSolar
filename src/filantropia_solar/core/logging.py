@@ -217,8 +217,8 @@ class LoggingManager:
         if settings.debug:
             console_handler.setFormatter(
                 ColoredFormatter(
-                    fmt="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
-                )
+                    fmt="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+                ),
             )
         else:
             console_handler.setFormatter(logging.Formatter(settings.log_format))
@@ -256,7 +256,7 @@ class LoggingManager:
         # Log startup
         self.app_logger.info(
             f"Logging initialized - Level: {settings.log_level.value}, "
-            f"Environment: {settings.environment.value}"
+            f"Environment: {settings.environment.value}",
         )
 
     def get_logger(self, name: str) -> logging.Logger:
@@ -422,7 +422,9 @@ def log_user_action(user_id: str, action: str, details: dict[str, Any]) -> None:
 
 
 def log_model_operation(
-    operation: str, model_name: str, performance: dict[str, Any]
+    operation: str,
+    model_name: str,
+    performance: dict[str, Any],
 ) -> None:
     """Log ML model operations."""
     logger = get_logger("ml")
@@ -460,7 +462,11 @@ def log_api_request(
 
 
 def log_data_processing(
-    operation: str, dataset: str, record_count: int, duration: float, success: bool
+    operation: str,
+    dataset: str,
+    record_count: int,
+    duration: float,
+    success: bool,
 ) -> None:
     """Log data processing operations."""
     logger = get_logger("data")

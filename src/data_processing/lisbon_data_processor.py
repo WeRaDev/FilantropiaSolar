@@ -86,7 +86,7 @@ class LisbonDataProcessor:
                         # Add ranking
                         if "Specific Energy (kWh/kWp)" in df.columns:
                             df["Ranking"] = calculate_specific_energy_ranking(
-                                df["Specific Energy (kWh/kWp)"]
+                                df["Specific Energy (kWh/kWp)"],
                             )
 
                         # Add hour column for analysis
@@ -100,7 +100,7 @@ class LisbonDataProcessor:
 
                     except Exception as e:
                         logger.error(
-                            f"Error loading {installation} from sheet {sheet_name}: {e}"
+                            f"Error loading {installation} from sheet {sheet_name}: {e}",
                         )
 
         except Exception as e:
@@ -122,13 +122,16 @@ class LisbonDataProcessor:
             file_path = self.data_path / weather_file
 
             self.weather_data = pd.read_csv(
-                file_path, delimiter=",", on_bad_lines="skip"
+                file_path,
+                delimiter=",",
+                on_bad_lines="skip",
             )
 
             # Ensure time column is datetime
             if "time" in self.weather_data.columns:
                 self.weather_data["time"] = pd.to_datetime(
-                    self.weather_data["time"], errors="coerce"
+                    self.weather_data["time"],
+                    errors="coerce",
                 )
                 self.weather_data = self.weather_data.dropna(subset=["time"])
 
@@ -247,7 +250,7 @@ class LisbonDataProcessor:
             if len(season_data) > MINIMUM_CORRELATION_SAMPLES:
                 correlation_features = available_weather + available_energy
                 correlation_data = season_data[correlation_features].select_dtypes(
-                    include="number"
+                    include="number",
                 )
 
                 if not correlation_data.empty:
@@ -294,7 +297,7 @@ class LisbonDataProcessor:
                     "cloud_cover (%)": "mean"
                     if "cloud_cover (%)" in merged_df.columns
                     else [],
-                }
+                },
             )
             .round(2)
         )
@@ -403,7 +406,7 @@ class LisbonDataProcessor:
 
             summaries["combined"] = {
                 "total_installations": len(
-                    [k for k in self.pv_data if k in self.lisbon_installations]
+                    [k for k in self.pv_data if k in self.lisbon_installations],
                 ),
                 "total_records": total_records,
                 "total_energy_kwh": total_energy,
@@ -460,16 +463,16 @@ class LisbonDataProcessor:
                 historical_data["Date"] - pd.Timestamp("1970-01-01")
             ).dt.days
             historical_data["SinHour"] = np.sin(
-                2 * np.pi * historical_data["Hour"] / 24
+                2 * np.pi * historical_data["Hour"] / 24,
             )
             historical_data["CosHour"] = np.cos(
-                2 * np.pi * historical_data["Hour"] / 24
+                2 * np.pi * historical_data["Hour"] / 24,
             )
             historical_data["SinMonth"] = np.sin(
-                2 * np.pi * historical_data["Month"] / 12
+                2 * np.pi * historical_data["Month"] / 12,
             )
             historical_data["CosMonth"] = np.cos(
-                2 * np.pi * historical_data["Month"] / 12
+                2 * np.pi * historical_data["Month"] / 12,
             )
 
         return historical_data.tail(days_window * 24)  # Last N days of hourly data

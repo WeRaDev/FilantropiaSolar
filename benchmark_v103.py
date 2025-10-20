@@ -117,7 +117,8 @@ class FilantropiaPerformanceBenchmark:
                 with measure_time("ML Model Training (Fresh)"):
                     weather_simulator = WeatherSimulator("weather_files")
                     _predictor = EnhancedEnergyPredictor(
-                        data_processor, weather_simulator
+                        data_processor,
+                        weather_simulator,
                     )
                     fresh_model_time = time.time()
 
@@ -131,7 +132,7 @@ class FilantropiaPerformanceBenchmark:
                 }
 
                 logger.info(
-                    "✅ Fresh startup test completed - cache built successfully"
+                    "✅ Fresh startup test completed - cache built successfully",
                 )
 
             except Exception as e:
@@ -161,7 +162,9 @@ class FilantropiaPerformanceBenchmark:
             with measure_time("ML Model Load (Cached)"):
                 weather_simulator = WeatherSimulator("weather_files")
                 _ = EnhancedEnergyPredictor(
-                    data_processor, weather_simulator, use_cache=True
+                    data_processor,
+                    weather_simulator,
+                    use_cache=True,
                 )
                 cached_model_time = time.time()
 
@@ -177,7 +180,7 @@ class FilantropiaPerformanceBenchmark:
                 "cache_hits": len(
                     data_processor.cache_manager.get_cache_status()
                     .get("data_cache", {})
-                    .get("cached_items", 0)
+                    .get("cached_items", 0),
                 )
                 if data_processor.cache_manager
                 else 0,
@@ -290,7 +293,7 @@ class FilantropiaPerformanceBenchmark:
         target_met = cached.get("total_time", 999) < TARGET_LOADING_TIME_SECONDS
         status_text = "✅ MET" if target_met else "❌ NOT MET"
         logger.info(
-            f"   Target: <{TARGET_LOADING_TIME_SECONDS} seconds     Status: {status_text}"
+            f"   Target: <{TARGET_LOADING_TIME_SECONDS} seconds     Status: {status_text}",
         )
         logger.info("   Memory: Lazy loading    Status: ✅ IMPLEMENTED")
         logger.info("   Cache: Auto-validation  Status: ✅ IMPLEMENTED")

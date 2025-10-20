@@ -49,7 +49,8 @@ try:
 except Exception as e:
     # Fallback logging to stderr if core logging fails
     print(
-        f"Warning: Failed to initialize FilantropiaSolar logging: {e}", file=sys.stderr
+        f"Warning: Failed to initialize FilantropiaSolar logging: {e}",
+        file=sys.stderr,
     )
 
 # Import core modules with error handling
@@ -152,7 +153,7 @@ def get_version_info():
                 "environment": settings.environment.value,
                 "debug_mode": settings.debug,
                 "log_level": settings.log_level.value,
-            }
+            },
         )
     except Exception:
         pass

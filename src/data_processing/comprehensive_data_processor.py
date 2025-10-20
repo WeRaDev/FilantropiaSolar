@@ -105,12 +105,13 @@ class ComprehensiveDataProcessor:
         # Try to load from cache first
         if self.cache_manager and self.cache_manager.is_cached("metadata", cache_key):
             cached_installations = self.cache_manager.load_cached_data(
-                "metadata", cache_key
+                "metadata",
+                cache_key,
             )
             if cached_installations:
                 self.installations = cached_installations
                 logger.info(
-                    f"Loaded {len(self.installations)} installations from cache"
+                    f"Loaded {len(self.installations)} installations from cache",
                 )
                 return
 
@@ -151,7 +152,7 @@ class ComprehensiveDataProcessor:
                     self.installations[installation.installation_id] = installation
                     logger.info(
                         f"Loaded installation: {installation.installation_id} "
-                        f"({installation.installed_power_kwp} kWp in {installation.location})"
+                        f"({installation.installed_power_kwp} kWp in {installation.location})",
                     )
 
                 except Exception as e:
@@ -169,7 +170,7 @@ class ComprehensiveDataProcessor:
                     metadata={
                         "total_installations": len(self.installations),
                         "locations": list(
-                            {inst.location for inst in self.installations.values()}
+                            {inst.location for inst in self.installations.values()},
                         ),
                     },
                 )
@@ -204,13 +205,14 @@ class ComprehensiveDataProcessor:
         logger.info("Loading all energy data from cache")
         for installation_id in self.installations:
             cached_data = self.cache_manager.load_cached_data(
-                "energy_data", installation_id
+                "energy_data",
+                installation_id,
             )
             if cached_data is not None:
                 self.energy_data[installation_id] = cached_data
 
         logger.info(
-            f"Loaded energy data for {len(self.energy_data)} installations from cache"
+            f"Loaded energy data for {len(self.energy_data)} installations from cache",
         )
         return True
 
@@ -231,11 +233,14 @@ class ComprehensiveDataProcessor:
             # Load data for each installation
             for installation_id, installation in self.installations.items():
                 self._load_single_installation_energy_data(
-                    installation_id, installation, datasets_file, sheet_names
+                    installation_id,
+                    installation,
+                    datasets_file,
+                    sheet_names,
                 )
 
             logger.info(
-                f"Successfully loaded energy data for {len(self.energy_data)} installations"
+                f"Successfully loaded energy data for {len(self.energy_data)} installations",
             )
 
         except Exception as e:
@@ -257,14 +262,17 @@ class ComprehensiveDataProcessor:
         sheet_name = installation.serial_number
         if sheet_name not in sheet_names:
             logger.warning(
-                f"No data sheet found for installation {installation_id} (sheet: {sheet_name})"
+                f"No data sheet found for installation {installation_id} (sheet: {sheet_name})",
             )
             return
 
         try:
             # Load and process the sheet data
             df = self._process_energy_sheet_data(
-                datasets_file, sheet_name, installation_id, installation
+                datasets_file,
+                sheet_name,
+                installation_id,
+                installation,
             )
 
             self.energy_data[installation_id] = df
@@ -285,12 +293,13 @@ class ComprehensiveDataProcessor:
             return False
 
         cached_data = self.cache_manager.load_cached_data(
-            "energy_data", installation_id
+            "energy_data",
+            installation_id,
         )
         if cached_data is not None:
             self.energy_data[installation_id] = cached_data
             logger.info(
-                f"Loaded {len(cached_data)} energy records for {installation_id} from cache"
+                f"Loaded {len(cached_data)} energy records for {installation_id} from cache",
             )
             return True
         return False
@@ -332,7 +341,10 @@ class ComprehensiveDataProcessor:
         return df
 
     def _cache_installation_energy_data(
-        self, df: pd.DataFrame, installation_id: str, installation: InstallationInfo
+        self,
+        df: pd.DataFrame,
+        installation_id: str,
+        installation: InstallationInfo,
     ):
         """Cache energy data for an installation."""
         if self.cache_manager:
@@ -390,11 +402,13 @@ class ComprehensiveDataProcessor:
         # Try primary format first (most common)
         try:
             df["datetime"] = pd.to_datetime(
-                df["time"], format="%m/%d/%y %I:%M %p", errors="raise"
+                df["time"],
+                format="%m/%d/%y %I:%M %p",
+                errors="raise",
             )
         except (ValueError, TypeError):
             logger.info(
-                f"Primary datetime format failed for {location}, trying fallback formats"
+                f"Primary datetime format failed for {location}, trying fallback formats",
             )
 
             # Try common alternative formats
@@ -408,7 +422,9 @@ class ComprehensiveDataProcessor:
             for fmt in fallback_formats:
                 try:
                     df["datetime"] = pd.to_datetime(
-                        df["time"], format=fmt, errors="raise"
+                        df["time"],
+                        format=fmt,
+                        errors="raise",
                     )
                     logger.info(f"Successfully parsed datetime using format: {fmt}")
                     break
@@ -417,7 +433,7 @@ class ComprehensiveDataProcessor:
             else:
                 # Final fallback with infer_datetime_format=True to suppress warning
                 logger.warning(
-                    f"All explicit formats failed for {location}, using infer_datetime_format"
+                    f"All explicit formats failed for {location}, using infer_datetime_format",
                 )
                 df["datetime"] = pd.to_datetime(df["time"], infer_datetime_format=True)
 
@@ -429,7 +445,9 @@ class ComprehensiveDataProcessor:
         return df
 
     def _validate_weather_columns(
-        self, df: pd.DataFrame, location: str
+        self,
+        df: pd.DataFrame,
+        location: str,
     ) -> pd.DataFrame:
         """Validate and filter weather data columns."""
         required_cols = [
@@ -462,7 +480,10 @@ class ComprehensiveDataProcessor:
 
                     # Merge on datetime index
                     combined = energy_df.merge(
-                        weather_df, left_index=True, right_index=True, how="inner"
+                        weather_df,
+                        left_index=True,
+                        right_index=True,
+                        how="inner",
                     )
 
                     # Add additional computed features
@@ -470,12 +491,12 @@ class ComprehensiveDataProcessor:
 
                     self.combined_data[installation_id] = combined
                     logger.info(
-                        f"Combined {len(combined)} records for {installation_id}"
+                        f"Combined {len(combined)} records for {installation_id}",
                     )
 
                 else:
                     logger.warning(
-                        f"No weather data available for location: {location}"
+                        f"No weather data available for location: {location}",
                     )
                     # Store energy data only
                     self.combined_data[installation_id] = energy_df.copy()
@@ -485,7 +506,9 @@ class ComprehensiveDataProcessor:
             raise
 
     def _add_computed_features(
-        self, df: pd.DataFrame, installation: InstallationInfo
+        self,
+        df: pd.DataFrame,
+        installation: InstallationInfo,
     ) -> pd.DataFrame:
         """Add computed features to the combined dataset."""
         try:
@@ -498,7 +521,9 @@ class ComprehensiveDataProcessor:
 
             # Solar elevation approximation
             df["solar_elevation"] = self._compute_solar_elevation(
-                df.index, installation.latitude, installation.longitude
+                df.index,
+                installation.latitude,
+                installation.longitude,
             )
 
             # Weather-energy interaction features
@@ -533,7 +558,8 @@ class ComprehensiveDataProcessor:
                     0,
                 )
                 df["power_efficiency"] = df["power_efficiency"].clip(
-                    0, 1
+                    0,
+                    1,
                 )  # Cap at 100% efficiency
 
             return df
@@ -543,7 +569,10 @@ class ComprehensiveDataProcessor:
             return df
 
     def _compute_solar_elevation(
-        self, timestamps: pd.DatetimeIndex, latitude: float, _longitude: float
+        self,
+        timestamps: pd.DatetimeIndex,
+        latitude: float,
+        _longitude: float,
     ) -> np.ndarray:
         """Compute approximate solar elevation angle."""
         try:
@@ -554,8 +583,8 @@ class ComprehensiveDataProcessor:
             # Solar declination angle
             declination = SOLAR_DECLINATION_AMPLITUDE * np.sin(
                 np.radians(
-                    360 * (SOLAR_DECLINATION_OFFSET + day_of_year) / DAYS_IN_YEAR
-                )
+                    360 * (SOLAR_DECLINATION_OFFSET + day_of_year) / DAYS_IN_YEAR,
+                ),
             )
 
             # Hour angle
@@ -568,7 +597,7 @@ class ComprehensiveDataProcessor:
 
             elevation = np.arcsin(
                 np.sin(lat_rad) * np.sin(dec_rad)
-                + np.cos(lat_rad) * np.cos(dec_rad) * np.cos(hour_rad)
+                + np.cos(lat_rad) * np.cos(dec_rad) * np.cos(hour_rad),
             )
 
             return np.degrees(elevation)
@@ -600,11 +629,12 @@ class ComprehensiveDataProcessor:
     def get_locations(self) -> list[str]:
         """Get list of all available locations."""
         return list(
-            {installation.location for installation in self.installations.values()}
+            {installation.location for installation in self.installations.values()},
         )
 
     def get_installations_by_location(
-        self, location: str
+        self,
+        location: str,
     ) -> list[tuple[str, InstallationInfo]]:
         """Get all installations for a specific location."""
         return [
@@ -672,5 +702,5 @@ if __name__ == "__main__":
     print("\nAvailable Installations:")
     for inst_id, inst_info in processor.get_installation_list():
         print(
-            f"  {inst_id}: {inst_info.installed_power_kwp} kWp in {inst_info.location}"
+            f"  {inst_id}: {inst_info.installed_power_kwp} kWp in {inst_info.location}",
         )

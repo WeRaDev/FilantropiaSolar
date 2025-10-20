@@ -122,6 +122,6 @@ __all__ = tuple(
             "log_startup",
             "log_user_action",
             "setup_logging",
-        ]
-    )
+        ],
+    ),
 )

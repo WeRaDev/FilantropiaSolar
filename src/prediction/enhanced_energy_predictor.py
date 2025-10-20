@@ -65,11 +65,13 @@ class EnhancedEnergyPredictor:
 
         # Model storage
         self.models: dict[
-            str, dict[str, Any]
+            str,
+            dict[str, Any],
         ] = {}  # {installation_id: {model_type: model}}
         self.scalers: dict[str, StandardScaler] = {}  # {installation_id: scaler}
         self.model_performance: dict[
-            str, dict[str, float]
+            str,
+            dict[str, float],
         ] = {}  # {installation_id: {metric: value}}
 
         # Model configuration
@@ -120,14 +122,14 @@ class EnhancedEnergyPredictor:
                         self._load_cached_models(installation_id)
                     except Exception as e:
                         logger.error(
-                            f"Error loading cached models for {installation_id}: {e}"
+                            f"Error loading cached models for {installation_id}: {e}",
                         )
                         all_cached = False
                         break
 
                 if all_cached:
                     logger.info(
-                        f"Successfully loaded models for {len(self.models)} installations from cache"
+                        f"Successfully loaded models for {len(self.models)} installations from cache",
                     )
                     return
 
@@ -142,7 +144,9 @@ class EnhancedEnergyPredictor:
                 logger.error(f"Error training models for {installation_id}: {e}")
 
     def _train_installation_models(
-        self, installation_id: str, _installation_info: InstallationInfo
+        self,
+        installation_id: str,
+        _installation_info: InstallationInfo,
     ):
         """Train prediction models for a specific installation."""
         logger.info(f"Training models for {installation_id}")
@@ -151,7 +155,7 @@ class EnhancedEnergyPredictor:
         data = self.data_processor.get_combined_data(installation_id)
         if data is None or len(data) < MINIMUM_TRAINING_SAMPLES:
             logger.warning(
-                f"Insufficient data for {installation_id}: {len(data) if data is not None else 0} records"
+                f"Insufficient data for {installation_id}: {len(data) if data is not None else 0} records",
             )
             return
 
@@ -163,7 +167,11 @@ class EnhancedEnergyPredictor:
 
         # Split data
         X_train, X_test, y_train, y_test = train_test_split(
-            features, target, test_size=0.2, random_state=42, shuffle=True
+            features,
+            target,
+            test_size=0.2,
+            random_state=42,
+            shuffle=True,
         )
 
         # Scale features
@@ -192,7 +200,7 @@ class EnhancedEnergyPredictor:
                 performance[model_name] = {"mae": mae, "r2": r2}
 
                 logger.info(
-                    f"{installation_id} - {model_name}: MAE={mae:.3f}, R²={r2:.3f}"
+                    f"{installation_id} - {model_name}: MAE={mae:.3f}, R²={r2:.3f}",
                 )
 
             except Exception as e:
@@ -201,7 +209,8 @@ class EnhancedEnergyPredictor:
         # Select best model based on R²
         if models:
             best_model_name = max(
-                performance.keys(), key=lambda k: performance[k]["r2"]
+                performance.keys(),
+                key=lambda k: performance[k]["r2"],
             )
 
             self.models[installation_id] = {
@@ -238,7 +247,7 @@ class EnhancedEnergyPredictor:
                 self.model_performance[installation_id] = cached_performance
 
                 logger.info(
-                    f"Loaded cached models for {installation_id} - Best: {cached_models.get('best_model_name', 'unknown')}"
+                    f"Loaded cached models for {installation_id} - Best: {cached_models.get('best_model_name', 'unknown')}",
                 )
                 return True
 
@@ -258,7 +267,8 @@ class EnhancedEnergyPredictor:
             model_metadata = {
                 "installation_id": installation_id,
                 "best_model": self.models[installation_id].get(
-                    "best_model_name", "unknown"
+                    "best_model_name",
+                    "unknown",
                 ),
                 "model_count": len(self.models[installation_id].get("all_models", {})),
                 "performance": self.model_performance[installation_id],
@@ -266,7 +276,10 @@ class EnhancedEnergyPredictor:
 
             success = True
             success &= self.cache_manager.cache_data(
-                self.models[installation_id], "models", model_key, model_metadata
+                self.models[installation_id],
+                "models",
+                model_key,
+                model_metadata,
             )
             success &= self.cache_manager.cache_data(
                 self.scalers[installation_id],
@@ -294,7 +307,8 @@ class EnhancedEnergyPredictor:
             return False
 
     def _prepare_training_data(
-        self, data: pd.DataFrame
+        self,
+        data: pd.DataFrame,
     ) -> tuple[np.ndarray | None, np.ndarray | None]:
         """Prepare training data from combined dataset."""
         try:
@@ -342,7 +356,7 @@ class EnhancedEnergyPredictor:
                 return None, None
 
             logger.debug(
-                f"Prepared {len(features)} training samples with {len(all_features)} features"
+                f"Prepared {len(features)} training samples with {len(all_features)} features",
             )
             return features.values, target.values
 
@@ -351,7 +365,10 @@ class EnhancedEnergyPredictor:
             return None, None
 
     def predict_15day_period(
-        self, installation_id: str, center_date: datetime, use_simulation: bool = False
+        self,
+        installation_id: str,
+        center_date: datetime,
+        use_simulation: bool = False,
     ) -> dict[str, Any]:
         """
         Predict energy production for a 15-day period around a center date.
@@ -367,7 +384,7 @@ class EnhancedEnergyPredictor:
         try:
             # Get installation info
             installation_info = self.data_processor.get_installation_by_id(
-                installation_id
+                installation_id,
             )
             if not installation_info:
                 raise ValueError(f"Installation not found: {installation_id}")
@@ -375,7 +392,7 @@ class EnhancedEnergyPredictor:
             # Get model
             if installation_id not in self.models:
                 raise ValueError(
-                    f"No trained model for installation: {installation_id}"
+                    f"No trained model for installation: {installation_id}",
                 )
 
             model_info = self.models[installation_id]
@@ -384,11 +401,17 @@ class EnhancedEnergyPredictor:
             # Define 15-day period (7 days before + center day + 7 days after = 15 days)
             # Start from 00:00:00 of first day to ensure complete day coverage
             start_date = (center_date - timedelta(days=7)).replace(
-                hour=0, minute=0, second=0, microsecond=0
+                hour=0,
+                minute=0,
+                second=0,
+                microsecond=0,
             )
             # End at 23:59:59 of last day to ensure complete day coverage
             end_date = (center_date + timedelta(days=7)).replace(
-                hour=23, minute=59, second=59, microsecond=999999
+                hour=23,
+                minute=59,
+                second=59,
+                microsecond=999999,
             )
 
             # Get or simulate weather data
@@ -402,12 +425,15 @@ class EnhancedEnergyPredictor:
 
             # Prepare prediction features
             prediction_features = self._prepare_prediction_features(
-                weather_data, installation_info
+                weather_data,
+                installation_info,
             )
 
             # Make predictions
             predictions = self._make_predictions(
-                model_info, scaler, prediction_features
+                model_info,
+                scaler,
+                prediction_features,
             )
 
             # Assign rankings
@@ -455,7 +481,7 @@ class EnhancedEnergyPredictor:
 
                 if coverage_ratio >= WEATHER_COVERAGE_THRESHOLD:
                     logger.info(
-                        f"Using historical weather data for {location} (coverage: {coverage_ratio:.2%})"
+                        f"Using historical weather data for {location} (coverage: {coverage_ratio:.2%})",
                     )
                     return historical_period
 
@@ -463,18 +489,21 @@ class EnhancedEnergyPredictor:
             if use_simulation and self.weather_simulator:
                 logger.info(f"Using simulated weather data for {location}")
                 simulated_weather = self.weather_simulator.simulate_weather(
-                    location, start_date, end_date, center_date
+                    location,
+                    start_date,
+                    end_date,
+                    center_date,
                 )
                 return simulated_weather
             # Fallback to available historical data or raise error
             elif historical_weather is not None and len(historical_period) > 0:
                 logger.warning(
-                    f"Using partial historical data for {location} (coverage: {coverage_ratio:.2%})"
+                    f"Using partial historical data for {location} (coverage: {coverage_ratio:.2%})",
                 )
                 return historical_period
             else:
                 raise ValueError(
-                    f"No weather data available for {location} and simulation not enabled"
+                    f"No weather data available for {location} and simulation not enabled",
                 )
 
         except Exception as e:
@@ -482,7 +511,9 @@ class EnhancedEnergyPredictor:
             raise
 
     def _prepare_prediction_features(
-        self, weather_data: pd.DataFrame, installation_info: InstallationInfo
+        self,
+        weather_data: pd.DataFrame,
+        installation_info: InstallationInfo,
     ) -> np.ndarray:
         """Prepare features for prediction from weather data."""
         try:
@@ -548,7 +579,10 @@ class EnhancedEnergyPredictor:
             raise
 
     def _compute_solar_elevation(
-        self, timestamps: pd.DatetimeIndex, latitude: float, _longitude: float
+        self,
+        timestamps: pd.DatetimeIndex,
+        latitude: float,
+        _longitude: float,
     ) -> np.ndarray:
         """Compute solar elevation angle for timestamps."""
         # Use the same method as in comprehensive_data_processor
@@ -569,7 +603,7 @@ class EnhancedEnergyPredictor:
 
             elevation = np.arcsin(
                 np.sin(lat_rad) * np.sin(dec_rad)
-                + np.cos(lat_rad) * np.cos(dec_rad) * np.cos(hour_rad)
+                + np.cos(lat_rad) * np.cos(dec_rad) * np.cos(hour_rad),
             )
 
             return np.degrees(elevation)
@@ -579,7 +613,10 @@ class EnhancedEnergyPredictor:
             return np.zeros(len(timestamps))
 
     def _make_predictions(
-        self, model_info: dict[str, Any], scaler: StandardScaler, features: np.ndarray
+        self,
+        model_info: dict[str, Any],
+        scaler: StandardScaler,
+        features: np.ndarray,
     ) -> np.ndarray:
         """Make energy production predictions."""
         try:
@@ -602,7 +639,9 @@ class EnhancedEnergyPredictor:
             raise
 
     def _assign_rankings(
-        self, predictions: np.ndarray, installation_id: str
+        self,
+        predictions: np.ndarray,
+        installation_id: str,
     ) -> list[int]:
         """Assign rankings to predictions (simple version)."""
         try:
@@ -661,7 +700,7 @@ class EnhancedEnergyPredictor:
             # *** CRITICAL FIX: Add historical data when available ***
             # Get historical energy data from the data processor
             historical_data = self.data_processor.get_combined_data(
-                installation_info.installation_id
+                installation_info.installation_id,
             )
             if (
                 historical_data is not None
@@ -682,10 +721,13 @@ class EnhancedEnergyPredictor:
                     # Only merge rows that have matching timestamps
                     historical_subset = historical_data[available_historical_cols]
                     results_df = results_df.merge(
-                        historical_subset, left_index=True, right_index=True, how="left"
+                        historical_subset,
+                        left_index=True,
+                        right_index=True,
+                        how="left",
                     )
                     logger.info(
-                        f"Successfully merged historical energy data: {len(results_df[results_df['Produced Energy (kWh)'].notna()])} historical records found"
+                        f"Successfully merged historical energy data: {len(results_df[results_df['Produced Energy (kWh)'].notna()])} historical records found",
                     )
                 else:
                     logger.warning("Historical data columns not found in combined data")
@@ -728,7 +770,7 @@ class EnhancedEnergyPredictor:
                         "ranking": lambda x: x.mode().iloc[0]
                         if len(x.mode()) > 0
                         else 3,
-                    }
+                    },
                 )
                 .round(2)
             )
@@ -737,15 +779,15 @@ class EnhancedEnergyPredictor:
             period_stats = {
                 "total_energy_kwh": float(results_df["predicted_total_energy"].sum()),
                 "average_specific_energy": float(
-                    results_df["predicted_specific_energy"].mean()
+                    results_df["predicted_specific_energy"].mean(),
                 ),
                 "peak_hour_energy": float(
-                    results_df["predicted_specific_energy"].max()
+                    results_df["predicted_specific_energy"].max(),
                 ),
                 "peak_hour_time": str(
                     results_df.loc[
                         results_df["predicted_specific_energy"].idxmax()
-                    ].name
+                    ].name,
                 ),
                 "average_temperature": float(results_df["temperature_2m"].mean())
                 if "temperature_2m" in results_df.columns
@@ -787,7 +829,8 @@ class EnhancedEnergyPredictor:
                         "best_model_name"
                     ],
                     "model_performance": self.model_performance.get(
-                        installation_info.installation_id, {}
+                        installation_info.installation_id,
+                        {},
                     ),
                 },
             }
@@ -867,14 +910,16 @@ if __name__ == "__main__":
         test_date = datetime(2025, 6, 15)
 
         results = predictor.predict_15day_period(
-            test_installation, test_date, use_simulation=True
+            test_installation,
+            test_date,
+            use_simulation=True,
         )
 
         print(f"Prediction results for {test_installation}:")
         print(f"Period: {results['prediction_period']}")
         print(
-            f"Total energy: {results['period_statistics']['total_energy_kwh']:.2f} kWh"
+            f"Total energy: {results['period_statistics']['total_energy_kwh']:.2f} kWh",
         )
         print(
-            f"Average specific energy: {results['period_statistics']['average_specific_energy']:.2f} kWh/kWp"
+            f"Average specific energy: {results['period_statistics']['average_specific_energy']:.2f} kWh/kWp",
         )

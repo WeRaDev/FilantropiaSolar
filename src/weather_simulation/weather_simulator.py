@@ -90,13 +90,13 @@ class WeatherSimulator:
                     ]
                     if missing_cols:
                         logger.warning(
-                            f"Missing columns for {location}: {missing_cols}"
+                            f"Missing columns for {location}: {missing_cols}",
                         )
                         continue
 
                     self.weather_data[location] = df[required_cols].copy()
                     logger.info(
-                        f"Loaded weather data for {location}: {len(df)} records"
+                        f"Loaded weather data for {location}: {len(df)} records",
                     )
 
                 except Exception as e:
@@ -124,14 +124,14 @@ class WeatherSimulator:
 
                 # Remove invalid data
                 mask = np.isfinite(features).all(axis=1) & np.isfinite(targets).all(
-                    axis=1
+                    axis=1,
                 )
                 features = features[mask]
                 targets = targets[mask]
 
                 if len(features) < MIN_FEATURES_RECORDS:  # Need minimum data
                     logger.warning(
-                        f"Insufficient data for {location}: {len(features)} records"
+                        f"Insufficient data for {location}: {len(features)} records",
                     )
                     continue
 
@@ -156,7 +156,8 @@ class WeatherSimulator:
                         valid_mask = targets[col].notna()
                         if valid_mask.sum() > MIN_VALID_POINTS:
                             knn.fit(
-                                features_scaled[valid_mask], targets[col][valid_mask]
+                                features_scaled[valid_mask],
+                                targets[col][valid_mask],
                             )
                             models[col] = knn
 
@@ -203,7 +204,7 @@ class WeatherSimulator:
                 month_cos,
                 temp_lag,
                 humidity_lag,
-            ]
+            ],
         )
 
         return features
@@ -241,7 +242,10 @@ class WeatherSimulator:
             return self._simulate_general(location, date_range)
 
     def _simulate_with_reference(
-        self, location: str, date_range: pd.DatetimeIndex, reference_date: datetime
+        self,
+        location: str,
+        date_range: pd.DatetimeIndex,
+        reference_date: datetime,
     ) -> pd.DataFrame:
         """Simulate weather based on patterns from a reference date."""
         try:
@@ -270,7 +274,7 @@ class WeatherSimulator:
                 len(similar_data) < MIN_SIMILAR_DATA_HOURS
             ):  # Need at least one day of data
                 logger.warning(
-                    "Insufficient similar data for reference date, using general simulation"
+                    "Insufficient similar data for reference date, using general simulation",
                 )
                 return self._simulate_general(location, date_range)
 
@@ -309,7 +313,7 @@ class WeatherSimulator:
                         else:
                             # Fallback to model prediction
                             weather_point[param] = models[param].predict(
-                                features_scaled
+                                features_scaled,
                             )[0]
 
                 # Handle derived parameters
@@ -324,7 +328,9 @@ class WeatherSimulator:
             return self._simulate_general(location, date_range)
 
     def _simulate_general(
-        self, location: str, date_range: pd.DatetimeIndex
+        self,
+        location: str,
+        date_range: pd.DatetimeIndex,
     ) -> pd.DataFrame:
         """General weather simulation using KNN models."""
         try:
@@ -343,7 +349,8 @@ class WeatherSimulator:
                 for param, model in models.items():
                     prediction = model.predict(features_scaled)[0]
                     weather_point[param] = self._apply_parameter_bounds(
-                        param, prediction
+                        param,
+                        prediction,
                     )
 
                 # Compute derived parameters
@@ -374,7 +381,8 @@ class WeatherSimulator:
         # Use seasonal averages for lagged features
         temp_seasonal = self._get_seasonal_average("temperature_2m", timestamp)
         humidity_seasonal = self._get_seasonal_average(
-            "relative_humidity_2m", timestamp
+            "relative_humidity_2m",
+            timestamp,
         )
 
         return np.array(
@@ -387,7 +395,7 @@ class WeatherSimulator:
                 month_cos,
                 temp_seasonal,
                 humidity_seasonal,
-            ]
+            ],
         )
 
     def _get_seasonal_average(self, parameter: str, timestamp: datetime) -> float:
@@ -400,7 +408,7 @@ class WeatherSimulator:
             base_temp = 15.0  # Average temperature
             amplitude = 10.0  # Seasonal variation
             temp = base_temp + amplitude * np.sin(
-                2 * np.pi * (day_of_year - 81) / 365.25
+                2 * np.pi * (day_of_year - 81) / 365.25,
             )
             return temp
         elif parameter == "relative_humidity_2m":
@@ -408,7 +416,7 @@ class WeatherSimulator:
             base_humidity = 70.0
             amplitude = 15.0
             humidity = base_humidity - amplitude * np.sin(
-                2 * np.pi * (day_of_year - 81) / 365.25
+                2 * np.pi * (day_of_year - 81) / 365.25,
             )
             return max(30, min(95, humidity))
 
@@ -434,7 +442,8 @@ class WeatherSimulator:
         return value
 
     def _compute_derived_parameters(
-        self, weather_point: dict[str, float]
+        self,
+        weather_point: dict[str, float],
     ) -> dict[str, float]:
         """Compute derived weather parameters."""
         # Compute dew point if not present
@@ -451,7 +460,8 @@ class WeatherSimulator:
             alpha = ((a * temp) / (b + temp)) + np.log(rh / 100.0)
             dew_point = (b * alpha) / (a - alpha)
             weather_point["dew_point_2m"] = self._apply_parameter_bounds(
-                "dew_point_2m", dew_point
+                "dew_point_2m",
+                dew_point,
             )
 
         # Compute apparent temperature if not present
@@ -494,7 +504,9 @@ class WeatherSimulator:
                 smoothed_df.index.hour > NIGHT_END_HOUR
             )
             smoothed_df.loc[night_mask, "shortwave_radiation"] = np.random.uniform(
-                0, 10, night_mask.sum()
+                0,
+                10,
+                night_mask.sum(),
             )
 
             # Apply gentle smoothing to daytime values
@@ -518,7 +530,9 @@ class WeatherSimulator:
 
 
 def simulate_weather_for_period(
-    location: str, center_date: datetime, weather_data_dir: str = "weather_files"
+    location: str,
+    center_date: datetime,
+    weather_data_dir: str = "weather_files",
 ) -> pd.DataFrame:
     """
     Convenience function to simulate weather for a 15-day period around a center date.
@@ -536,11 +550,17 @@ def simulate_weather_for_period(
     # Define 15-day period (7 days before + center day + 7 days after = 15 days)
     # Start from 00:00:00 of first day to ensure complete day coverage
     start_date = (center_date - timedelta(days=7)).replace(
-        hour=0, minute=0, second=0, microsecond=0
+        hour=0,
+        minute=0,
+        second=0,
+        microsecond=0,
     )
     # End at 23:59:59 of last day to ensure complete day coverage
     end_date = (center_date + timedelta(days=7)).replace(
-        hour=23, minute=59, second=59, microsecond=999999
+        hour=23,
+        minute=59,
+        second=59,
+        microsecond=999999,
     )
 
     return simulator.simulate_weather(location, start_date, end_date, center_date)
