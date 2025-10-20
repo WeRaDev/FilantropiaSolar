@@ -2,9 +2,6 @@
 Machine Learning integration tests.
 """
 
-import os
-import sys
-
 import pytest
 
 # Use proper package imports - no sys.path manipulation needed
@@ -25,7 +22,7 @@ def test_sklearn_available():
 def test_prediction_module_structure():
     """Test that prediction module has expected structure."""
     try:
-        import src.prediction as prediction
+        from src import prediction
 
         # Basic structural tests
         assert prediction is not None

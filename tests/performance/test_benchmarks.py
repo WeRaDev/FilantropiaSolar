@@ -4,9 +4,6 @@ Performance benchmark tests for FilantropiaSolar.
 These tests measure performance of key application components.
 """
 
-import os
-import sys
-
 import pytest
 
 # Use proper package imports - no sys.path manipulation needed
@@ -21,7 +18,7 @@ def test_data_import_speed(benchmark):
 
     def import_data_processing():
         try:
-            import src.data_processing as data_processing
+            from src import data_processing
 
             return data_processing
         except ImportError:
@@ -54,7 +51,7 @@ def test_ml_model_import_speed(benchmark):
 
     def import_prediction_module():
         try:
-            import src.prediction as prediction
+            from src import prediction
 
             return prediction
         except ImportError:
