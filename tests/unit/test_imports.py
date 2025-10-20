@@ -3,7 +3,7 @@ Test basic imports and module availability.
 """
 
 import importlib.util
-import os
+from pathlib import Path
 
 import matplotlib
 import numpy as np
@@ -70,18 +70,18 @@ class TestBasicImports:
         """Test that the main application module can be accessed (v1.0.0)."""
 
         # Use project root for main.py path
-        project_root = os.path.join(os.path.dirname(__file__), "..", "..")
+        project_root = Path(__file__).parent / ".." / ".."
 
         try:
             # Test that main.py exists and can be imported as a module
-            main_path = os.path.join(project_root, "main.py")
+            main_path = project_root / "main.py"
 
-            assert os.path.exists(main_path), (
+            assert main_path.exists(), (
                 "main.py should exist as the primary application entry point"
             )
 
             # Try to load main.py as a module
-            spec = importlib.util.spec_from_file_location("main", main_path)
+            spec = importlib.util.spec_from_file_location("main", str(main_path))
             main_module = importlib.util.module_from_spec(spec)
 
             assert main_module is not None
