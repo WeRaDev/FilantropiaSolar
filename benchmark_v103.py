@@ -23,6 +23,9 @@ from src.data_processing.data_cache_manager import DataCacheManager
 from src.prediction.enhanced_energy_predictor import EnhancedEnergyPredictor
 from src.weather_simulation.weather_simulator import WeatherSimulator
 
+# Performance target constants
+TARGET_LOADING_TIME_SECONDS = 10  # Performance target for cached loading
+
 # Configure logging for benchmark
 logging.basicConfig(
     level=logging.INFO,
@@ -266,9 +269,9 @@ class FilantropiaPerformanceBenchmark:
 
         # Performance Targets
         logger.info("🎯 PERFORMANCE TARGETS:")
-        target_met = cached.get("total_time", 999) < 10
+        target_met = cached.get("total_time", 999) < TARGET_LOADING_TIME_SECONDS
         logger.info(
-            f"   Target: <10 seconds     Status: {'✅ MET' if target_met else '❌ NOT MET'}"
+            f"   Target: <{TARGET_LOADING_TIME_SECONDS} seconds     Status: {'✅ MET' if target_met else '❌ NOT MET'}"
         )
         logger.info("   Memory: Lazy loading    Status: ✅ IMPLEMENTED")
         logger.info("   Cache: Auto-validation  Status: ✅ IMPLEMENTED")
@@ -276,7 +279,7 @@ class FilantropiaPerformanceBenchmark:
 
         # Recommendations
         logger.info("💡 RECOMMENDATIONS:")
-        if cached.get("total_time", 999) > 10:
+        if cached.get("total_time", 999) > TARGET_LOADING_TIME_SECONDS:
             logger.info("   - Consider SSD storage for cache directory")
             logger.info("   - Verify all data is being cached properly")
         else:

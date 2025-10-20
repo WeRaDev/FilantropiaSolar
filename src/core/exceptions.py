@@ -508,12 +508,15 @@ retry_data_processing = retry_sync(
 
 
 if __name__ == "__main__":
+    # Test configuration constants
+    TEST_FAILURE_PROBABILITY = 0.7  # Probability of failure in example test functions
+    
     # Example usage
     @retry_sync()
     def example_sync_function():
         """Example sync function with retry"""
 
-        if random.random() < 0.7:
+        if random.random() < TEST_FAILURE_PROBABILITY:
             raise DataProcessingError("Random failure for testing")
         return "Success!"
 
@@ -521,7 +524,7 @@ if __name__ == "__main__":
     async def example_async_function():
         """Example async function with retry"""
 
-        if random.random() < 0.7:
+        if random.random() < TEST_FAILURE_PROBABILITY:
             raise WeatherAPIError("Random API failure for testing")
         return "Async Success!"
 
