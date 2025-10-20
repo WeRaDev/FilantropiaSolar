@@ -208,6 +208,7 @@ select = [
 ]
 ignore = [
     "E501",     # line too long, handled by formatter
+    "E402",     # module level import not at top of file
     "B008",     # do not perform function calls in argument defaults
     "PLR0913",  # too many arguments to function call
     "PLR0911",  # too many return statements
@@ -226,6 +227,7 @@ line-ending = "auto"
 [tool.ruff.lint.per-file-ignores]
 "tests/**/*.py" = ["S101", "PLR2004", "ARG001", "PLC0415"]
 "src/**/__init__.py" = ["F401"]
+"benchmark_v103.py" = ["E402"]  # Imports must be after sys.path manipulation
 
 [tool.ruff.lint.isort]
 known-first-party = ["filantropia_solar"]
