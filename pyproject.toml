@@ -207,10 +207,14 @@ select = [
     "RUF", # Ruff-specific rules
 ]
 ignore = [
-    "E501",  # line too long, handled by formatter
-    "B008",  # do not perform function calls in argument defaults
+    "E501",     # line too long, handled by formatter
+    "B008",     # do not perform function calls in argument defaults
     "PLR0913",  # too many arguments to function call
     "PLR0911",  # too many return statements
+    "PLR0912",  # too many branches
+    "PLR0915",  # too many statements
+    "PLC0415",  # import should be placed at top of module
+    "B025",     # duplicate exception handlers (handled manually)
 ]
 
 [tool.ruff.format]

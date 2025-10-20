@@ -227,14 +227,24 @@ class FilantropiaPerformanceBenchmark:
         logger.info("📊 PERFORMANCE BENCHMARK REPORT")
         logger.info("=" * 80)
 
-        # Startup Performance Comparison
+        # Report sections
+        self._report_startup_comparison()
+        self._report_cache_statistics()
+        self._report_performance_targets()
+        self._report_recommendations()
+
+        logger.info("")
+        logger.info("🏁 BENCHMARK COMPLETED SUCCESSFULLY")
+        logger.info("=" * 80)
+
+    def _report_startup_comparison(self):
+        """Report startup time comparison section."""
         fresh = self.results.get("fresh_startup", {})
         cached = self.results.get("cached_startup", {})
 
         if fresh and cached and "error" not in fresh and "error" not in cached:
-            fresh_total = fresh.get("total_time", 180)  # Default estimate
-            cached_total = cached.get("total_time", 8)  # From actual measurement
-
+            fresh_total = fresh.get("total_time", 180)
+            cached_total = cached.get("total_time", 8)
             improvement = ((fresh_total - cached_total) / fresh_total) * 100
 
             logger.info("🚀 STARTUP TIME COMPARISON:")
@@ -245,43 +255,49 @@ class FilantropiaPerformanceBenchmark:
 
             # Detailed breakdown
             logger.info("📋 DETAILED BREAKDOWN:")
-            logger.info(
-                f"   Data Loading:   {fresh.get('data_loading_time', 60):.1f}s → {cached.get('data_loading_time', 3):.1f}s"
-            )
-            logger.info(
-                f"   Model Loading:  {fresh.get('model_training_time', 120):.1f}s → {cached.get('model_loading_time', 1):.1f}s"
-            )
+            data_fresh = fresh.get("data_loading_time", 60)
+            data_cached = cached.get("data_loading_time", 3)
+            logger.info(f"   Data Loading:   {data_fresh:.1f}s → {data_cached:.1f}s")
+
+            model_fresh = fresh.get("model_training_time", 120)
+            model_cached = cached.get("model_loading_time", 1)
+            logger.info(f"   Model Loading:  {model_fresh:.1f}s → {model_cached:.1f}s")
             logger.info("")
 
-        # Cache Statistics
+    def _report_cache_statistics(self):
+        """Report cache statistics section."""
         cache_ops = self.results.get("cache_operations", {})
         if cache_ops and "error" not in cache_ops:
             status = cache_ops.get("cache_status", {})
             validation = cache_ops.get("validation_results", {})
 
             logger.info("💾 CACHE STATISTICS:")
-            logger.info(
-                f"   Data Cache:     {status.get('data_cache', {}).get('cached_items', 0)} items"
-            )
-            logger.info(
-                f"   Model Cache:    {status.get('model_cache', {}).get('cached_models', 0)} models"
-            )
+            data_items = status.get("data_cache", {}).get("cached_items", 0)
+            logger.info(f"   Data Cache:     {data_items} items")
+
+            model_items = status.get("model_cache", {}).get("cached_models", 0)
+            logger.info(f"   Model Cache:    {model_items} models")
             logger.info(f"   Total Size:     {status.get('total_size_mb', 0):.1f} MB")
             logger.info(f"   Valid Entries:  {validation.get('valid_entries', 0)}")
             logger.info(f"   Issues Found:   {validation.get('issues_found', 0)}")
             logger.info("")
 
-        # Performance Targets
+    def _report_performance_targets(self):
+        """Report performance targets section."""
+        cached = self.results.get("cached_startup", {})
         logger.info("🎯 PERFORMANCE TARGETS:")
         target_met = cached.get("total_time", 999) < TARGET_LOADING_TIME_SECONDS
+        status_text = "✅ MET" if target_met else "❌ NOT MET"
         logger.info(
-            f"   Target: <{TARGET_LOADING_TIME_SECONDS} seconds     Status: {'✅ MET' if target_met else '❌ NOT MET'}"
+            f"   Target: <{TARGET_LOADING_TIME_SECONDS} seconds     Status: {status_text}"
         )
         logger.info("   Memory: Lazy loading    Status: ✅ IMPLEMENTED")
         logger.info("   Cache: Auto-validation  Status: ✅ IMPLEMENTED")
         logger.info("")
 
-        # Recommendations
+    def _report_recommendations(self):
+        """Report recommendations section."""
+        cached = self.results.get("cached_startup", {})
         logger.info("💡 RECOMMENDATIONS:")
         if cached.get("total_time", 999) > TARGET_LOADING_TIME_SECONDS:
             logger.info("   - Consider SSD storage for cache directory")
@@ -289,10 +305,6 @@ class FilantropiaPerformanceBenchmark:
         else:
             logger.info("   - Performance targets exceeded! 🎉")
             logger.info("   - System is optimally configured")
-
-        logger.info("")
-        logger.info("🏁 BENCHMARK COMPLETED SUCCESSFULLY")
-        logger.info("=" * 80)
 
 
 def main():

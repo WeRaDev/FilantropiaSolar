@@ -2,8 +2,9 @@
 """
 FilantropiaSolar - Advanced Solar Energy Analysis Application
 
-A comprehensive solar energy prediction and analysis tool for Portuguese PV installations
-featuring interactive charts, historical analysis, and future simulation capabilities.
+A comprehensive solar energy prediction and analysis tool for Portuguese PV
+installations featuring interactive charts, historical analysis, and future
+simulation capabilities.
 
 Data Source Citation:
 Sarmas, Elissaios; Matias, Nuno; Pereira, Catarina; Antunes, Ana Rita (2025),
