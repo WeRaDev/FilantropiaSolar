@@ -605,11 +605,11 @@ class FilantropiaSolarApp:
         self._create_date_selection_section(container)
         self._create_options_and_buttons_section(container)
         self._create_status_section(container)
-        
+
         # Initialize interface
         self._on_mode_change()
         self._on_installation_change()
-        
+
     def _create_header_section(self, container):
         """Create the header section with title."""
         title_label = ttk.Label(
@@ -617,7 +617,7 @@ class FilantropiaSolarApp:
             font=("Arial", 16, "bold")
         )
         title_label.pack(pady=(0, 20))
-        
+
     def _create_mode_selection_section(self, container):
         """Create the analysis mode selection section."""
         mode_frame = ttk.LabelFrame(container, text="Analysis Mode", padding="15")
@@ -634,7 +634,7 @@ class FilantropiaSolarApp:
             mode_frame, text="🔮 Future Simulation (predict any date)",
             variable=self.mode_var, value="simulation", command=self._on_mode_change
         ).pack(anchor=tk.W)
-        
+
     def _create_installation_selection_section(self, container):
         """Create the installation selection section."""
         install_frame = ttk.LabelFrame(container, text="Installation Selection", padding="15")
@@ -657,9 +657,12 @@ class FilantropiaSolarApp:
         )
         installation_combo.pack(fill=tk.X, pady=(5, 0))
         installation_combo.bind("<<ComboboxSelected>>", self._on_installation_change)
-        
+
     def _create_date_selection_section(self, container):
         """Create the date selection section."""
+        self.date_frame = ttk.LabelFrame(container, text="Date Selection", padding="15")
+        self.date_frame.pack(fill=tk.X, pady=(0, 15))
+
         # Historical date selection frame
         self.historical_date_frame = ttk.Frame(self.date_frame)
         self.historical_date_frame.pack(fill=tk.X)
@@ -678,21 +681,21 @@ class FilantropiaSolarApp:
         )
         self.historical_date_combo.pack(anchor=tk.W, pady=(5, 0))
 
-        # Simulation date selection frame  
+        # Simulation date selection frame
         self.simulation_date_frame = ttk.Frame(self.date_frame)
-        
+
         ttk.Label(self.simulation_date_frame, text="Enter Date for Simulation:").pack(anchor=tk.W)
         self.simulation_date_var = tk.StringVar(value=datetime.now().strftime("%Y-%m-%d"))
         simulation_date_entry = ttk.Entry(
             self.simulation_date_frame, textvariable=self.simulation_date_var, width=20
         )
         simulation_date_entry.pack(anchor=tk.W, pady=(5, 0))
-        
+
         ttk.Label(
             self.simulation_date_frame, text="Format: YYYY-MM-DD (e.g., 2025-06-15)",
             font=("Arial", 9), foreground="gray"
         ).pack(anchor=tk.W, pady=(2, 0))
-        
+
     def _create_options_and_buttons_section(self, container):
         """Create the options and action buttons section."""
         # Analysis Options
@@ -723,13 +726,13 @@ class FilantropiaSolarApp:
             command=self._retrain_models, style="TButton"
         )
         retrain_button.pack(side=tk.LEFT)
-        
+
     def _create_status_section(self, container):
         """Create the system status and ready message section."""
         # Cache Status Display
         cache_frame = ttk.LabelFrame(container, text="System Status", padding="15")
         cache_frame.pack(fill=tk.X, pady=(15, 0))
-        
+
         self._create_cache_status_display(cache_frame)
 
         # Status Display
@@ -1291,16 +1294,16 @@ class FilantropiaSolarApp:
         overview_text = "FILANTROPIA SOLAR - ANALYSIS RESULTS\n" + "=" * 60 + "\n\n"
         analysis_type = "HISTORICAL ANALYSIS" if mode == "historical" else "FUTURE SIMULATION"
         overview_text += f"Analysis Type: {analysis_type}\n\n"
-        
+
         inst_info = results["installation_info"]
         overview_text += f"Installation: {inst_info['location']} (Serial: {inst_info['serial_number']})\n"
         overview_text += f"Capacity: {inst_info['capacity_kwp']} kWp\n\n"
-        
+
         period = results["prediction_period"]
         overview_text += f"Analysis Period: {period['start'].date()} to {period['end'].date()}\n"
         overview_text += f"Center Date: {period['center_date'].date()}\n"
         overview_text += f"Total Hours Analyzed: {period['total_hours']}\n\n"
-        
+
         return overview_text
 
     def _build_performance_metrics(self, results: dict[str, Any]) -> str:
@@ -1323,12 +1326,12 @@ class FilantropiaSolarApp:
         text += "DOI: 10.17632/dbh93b6vp8.3\n"
         text += f"Weather: {'Simulated' if source.get('used_simulation') else 'Historical'}\n"
         text += f"ML Model: {source.get('model_used', '').replace('_', ' ').title()}\n"
-        
+
         if "model_performance" in source and source.get("model_used") in source["model_performance"]:
             perf = source["model_performance"][source["model_used"]]
             text += f"Model R²: {perf.get('r2', 0):.3f}\n"
             text += f"Model MAE: {perf.get('mae', 0):.3f} kWh/kWp\n"
-            
+
         text += "\nEXPLORE: Use Interactive Charts tab for detailed analysis!"
         return text
 
@@ -1346,7 +1349,7 @@ class FilantropiaSolarApp:
                 results, mode
             )
             overview_text += daily_overview
-            
+
         overview_text += self._build_data_source_info(results)
         return overview_text, hourly_text
 
@@ -1374,23 +1377,23 @@ class FilantropiaSolarApp:
         for i, (date, row) in enumerate(daily.iterrows()):
             day_num = i + 1
             day_hourly = self._get_day_hourly(hourly_df, date)
-            
+
             # Calculate energy and peak values
             energy = self._calculate_daily_energy(day_hourly, row, mode, energy_column)
             peak_energy = self._calculate_peak_energy(day_hourly, row, mode, energy_column)
-            
+
             temp = row.get("temperature_2m", 0)
             cloud = row.get("cloud_cover", 0)
             ranking = row.get("ranking", 3)
             rating = rating_map.get(ranking, "Unknown")
             marker = " <-" if i == self.current_day_index else ""
-            
+
             # Add daily summary line
             overview_text += f"{day_num:<4} {str(date)[:10]:<12} {energy:<12.2f} {peak_energy:<8.2f} {temp:<6.1f} {cloud:<6.0f} {rating:<12}{marker}\n"
 
             # Add hourly breakdown
             hourly_text += self._build_hourly_day_section(day_num, date, day_hourly, energy_column)
-            
+
         return overview_text, hourly_text
 
     def _calculate_daily_energy(self, day_hourly: pd.DataFrame, row, mode: str, energy_column: str) -> float:
@@ -1402,8 +1405,8 @@ class FilantropiaSolarApp:
                 return row.get("predicted_total_energy", 0)
         else:
             return row.get("predicted_total_energy", 0)
-            
-    def _calculate_peak_energy(self, day_hourly: pd.DataFrame, row, mode: str, energy_column: str) -> float:
+
+    def _calculate_peak_energy(self, day_hourly: pd.DataFrame, _row, mode: str, energy_column: str) -> float:
         """Calculate peak hourly energy based on mode and available data."""
         try:
             if not day_hourly.empty:
@@ -1414,14 +1417,14 @@ class FilantropiaSolarApp:
         except Exception:
             pass
         return 0
-        
+
     def _build_hourly_day_section(self, day_num: int, date, day_hourly: pd.DataFrame, energy_column: str) -> str:
         """Build the hourly breakdown section for a single day."""
         text = f"DAY {day_num}: {date.strftime('%Y-%m-%d')} ({date.strftime('%A')})\n"
         text += "-" * 60 + "\n"
         text += f"{'Hour':<6} {'Energy':<10} {'Temp°C':<8} {'Cloud%':<8} {'Wind':<8} {'Solar':<10} {'Humid%':<8}\n"
         text += "-" * 60 + "\n"
-        
+
         if not day_hourly.empty:
             for _, hour_row in day_hourly.iterrows():
                 hour = hour_row.name.hour
@@ -1974,12 +1977,12 @@ class FilantropiaSolarApp:
     def _prepare_weather_chart_axes(self):
         """Clear and prepare axes for weather chart."""
         self.hourly_weather_ax.clear()
-        
+
         # Remove existing secondary axis if it exists
         if hasattr(self, "_weather_ax2") and self._weather_ax2 is not None:
             self._weather_ax2.remove()
             self._weather_ax2 = None
-            
+
     def _validate_weather_data(self, current_day_hourly, productive_hour_min, productive_hour_max):
         """Validate and filter weather data for productive hours."""
         if current_day_hourly.empty:
@@ -2016,9 +2019,9 @@ class FilantropiaSolarApp:
                 transform=self.hourly_weather_ax.transAxes, fontsize=12, alpha=0.6
             )
             return None, None, None
-            
+
         return productive_hours, productive_hours.index.hour, available_vars
-        
+
     def _plot_weather_variables(self, productive_hours, hours, available_vars, ax2):
         """Plot all available weather variables on the chart."""
         # Plot Temperature (Line, left y-axis)
@@ -2062,11 +2065,11 @@ class FilantropiaSolarApp:
                 hours, radiation_data / 10, "md-", linewidth=2, markersize=4,
                 label="Solar Radiation (W/m²/10)", alpha=0.7, color="orange"
             )
-            
+
     def _format_weather_chart(self, ax2, target_date, productive_hour_min, productive_hour_max):
         """Format the weather chart with titles, labels, and legend."""
         hour_range_str = f"{productive_hour_min}:00-{productive_hour_max}:00"
-        
+
         self.hourly_weather_ax.set_title(
             f"Chart 2: Hourly Weather Conditions ({hour_range_str}) - {target_date.strftime('%Y-%m-%d')}",
             fontsize=11, fontweight="bold", pad=15
@@ -2099,14 +2102,14 @@ class FilantropiaSolarApp:
         # Grid and axis limits for dynamic productive hours with padding
         self.hourly_weather_ax.grid(True, alpha=0.3)
         self.hourly_weather_ax.set_xlim(productive_hour_min - 0.5, productive_hour_max + 0.5)
-        
+
         # Set x-axis ticks dynamically
         tick_range = productive_hour_max - productive_hour_min + 1
         tick_step = max(1, tick_range // 8)  # Aim for ~8 ticks max
         self.hourly_weather_ax.set_xticks(
             range(productive_hour_min, productive_hour_max + 1, tick_step)
         )
-        
+
     def _create_hourly_weather_chart(
         self, current_day_hourly, target_date, productive_hour_min=6, productive_hour_max=20
     ):
@@ -2114,24 +2117,24 @@ class FilantropiaSolarApp:
         try:
             # Prepare axes
             self._prepare_weather_chart_axes()
-            
+
             # Validate and filter data
             productive_hours, hours, available_vars = self._validate_weather_data(
                 current_day_hourly, productive_hour_min, productive_hour_max
             )
             if productive_hours is None:
                 return
-                
+
             # Create secondary axis
             self._weather_ax2 = self.hourly_weather_ax.twinx()
             ax2 = self._weather_ax2
-            
+
             # Plot all weather variables
             self._plot_weather_variables(productive_hours, hours, available_vars, ax2)
-            
+
             # Format chart
             self._format_weather_chart(ax2, target_date, productive_hour_min, productive_hour_max)
-            
+
         except Exception as e:
             logger.error(f"Error creating hourly weather chart: {e}")
             self.hourly_weather_ax.text(
@@ -2204,99 +2207,16 @@ class FilantropiaSolarApp:
                     alpha=0.7,
                 )
 
-            # Plot Solar Radiation (Line, right y-axis)
-            if "shortwave_radiation" in available_vars:
-                radiation_data = pd.to_numeric(
-                    productive_hours["shortwave_radiation"], errors="coerce"
-                ).fillna(200)
-                ax2.plot(
-                    hours,
-                    radiation_data / 10,  # Scale down for better visualization
-                    "md-",
-                    linewidth=2,
-                    markersize=4,
-                    label="Solar Radiation (W/m²/10)",
-                    alpha=0.7,
-                    color="orange",
-                )
-
-            # Formatting with dynamic hour range
-            hour_range_str = f"{productive_hour_min}:00-{productive_hour_max}:00"
-            self.hourly_weather_ax.set_title(
-                f"Chart 2: Hourly Weather Conditions ({hour_range_str}) - {target_date.strftime('%Y-%m-%d')}",
-                fontsize=11,  # Reduced font size
-                fontweight="bold",
-                pad=15,
-            )
-            self.hourly_weather_ax.set_xlabel(
-                f"Hour of Day (Productive Hours {hour_range_str})", fontsize=12
-            )
-
-            # Right y-axis formatting
-            ax2.set_ylabel(
-                "Humidity (%) / Cloud Cover (%) / Wind (m/s) / Solar (W/m²/10)",
-                color="blue",
-                fontsize=11,  # Slightly smaller to fit longer text
-            )
-            ax2.tick_params(axis="y", labelcolor="blue")
-            ax2.set_ylim(0, 100)  # 0-100% scale for humidity and cloud cover
-
-            # Add compact legend to avoid overlap
-            lines1, labels1 = self.hourly_weather_ax.get_legend_handles_labels()
-            lines2, labels2 = ax2.get_legend_handles_labels()
-
-            # Only show legend if we have data to display (moved outside)
-            if lines1 or lines2:
-                self.hourly_weather_ax.legend(
-                    lines1 + lines2,
-                    labels1 + labels2,
-                    loc="center left",
-                    fontsize=8,  # Smaller font
-                    ncol=1,  # Single column outside chart
-                    frameon=True,
-                    fancybox=False,  # Simpler frame
-                    shadow=False,  # No shadow
-                    framealpha=0.9,
-                    bbox_to_anchor=(1.08, 0.5),  # Moved further right
-                    handlelength=0.8,
-                    handletextpad=0.3,
-                    borderaxespad=0.2,
-                )
-
-            # Grid and axis limits for dynamic productive hours with padding
-            self.hourly_weather_ax.grid(True, alpha=0.3)
-            self.hourly_weather_ax.set_xlim(
-                productive_hour_min - 0.5, productive_hour_max + 0.5
-            )
-            # Set x-axis ticks dynamically
-            tick_range = productive_hour_max - productive_hour_min + 1
-            tick_step = max(1, tick_range // 8)  # Aim for ~8 ticks max
-            self.hourly_weather_ax.set_xticks(
-                range(productive_hour_min, productive_hour_max + 1, tick_step)
-            )
-
-        except Exception as e:
-            logger.error(f"Error creating hourly weather chart: {e}")
-            self.hourly_weather_ax.text(
-                0.5,
-                0.5,
-                f"Error creating chart:\n{e!s}",
-                horizontalalignment="center",
-                verticalalignment="center",
-                transform=self.hourly_weather_ax.transAxes,
-                fontsize=10,
-                color="red",
-            )
 
     def _prepare_daily_overview_axes(self):
         """Clear and prepare axes for daily overview chart."""
         self.daily_overview_ax.clear()
-        
+
         # Remove existing secondary axis if it exists
         if hasattr(self, "_daily_ax2") and self._daily_ax2 is not None:
             self._daily_ax2.remove()
             self._daily_ax2 = None
-            
+
     def _get_daily_energy_data(self, daily_summary):
         """Extract and clean daily energy data."""
         energy_col = (
@@ -2308,7 +2228,7 @@ class FilantropiaSolarApp:
             energy_col, pd.Series([0] * len(daily_summary))
         )
         return pd.to_numeric(daily_energy, errors="coerce").fillna(0)
-        
+
     def _calculate_daily_weather_averages(self, hourly_data, daily_dates):
         """Calculate daily weather averages for all dates."""
         daily_temperatures = []
@@ -2345,9 +2265,9 @@ class FilantropiaSolarApp:
                 daily_temperatures.append(20)
                 daily_humidity.append(50)
                 daily_clouds.append(50)
-                
+
         return daily_temperatures, daily_humidity, daily_clouds
-        
+
     def _create_energy_bars(self, daily_energy, daily_dates):
         """Create the main energy bars with color gradient."""
         x_positions = range(len(daily_dates))
@@ -2373,7 +2293,7 @@ class FilantropiaSolarApp:
             label="Daily Energy (kWh)",
         )
         return bars, x_positions
-        
+
     def _highlight_selected_day(self, bars, daily_energy):
         """Add red frame and label to highlight currently selected day."""
         if 0 <= self.current_day_index < len(bars):
@@ -2423,32 +2343,32 @@ class FilantropiaSolarApp:
                 },
                 arrowprops={"arrowstyle": "->", "color": "red", "lw": 2},
             )
-            
+
     def _create_daily_overview_chart(self, daily_summary, hourly_data, daily_dates):
         """Chart 3: Daily Energy & Weather Overview with Moving Red Frame."""
         try:
             # Prepare axes
             self._prepare_daily_overview_axes()
-            
+
             # Get energy data
             daily_energy = self._get_daily_energy_data(daily_summary)
-            
+
             # Calculate weather averages
-            daily_temperatures, daily_humidity, daily_clouds = self._calculate_daily_weather_averages(
+            _daily_temperatures, daily_humidity, daily_clouds = self._calculate_daily_weather_averages(
                 hourly_data, daily_dates
             )
-            
+
             # Create energy bars
             bars, x_positions = self._create_energy_bars(daily_energy, daily_dates)
-            
+
             # Highlight selected day
             self._highlight_selected_day(bars, daily_energy)
-            
+
             # Add weather lines and format chart
             self._add_weather_lines_and_format_chart(
                 x_positions, daily_humidity, daily_clouds, daily_dates, daily_energy
             )
-            
+
         except Exception as e:
             logger.error(f"Error creating daily overview chart: {e}")
             logger.error(f"Traceback: {traceback.format_exc()}")
@@ -2458,7 +2378,7 @@ class FilantropiaSolarApp:
                 transform=self.daily_overview_ax.transAxes,
                 fontsize=10, color="red"
             )
-            
+
     def _add_weather_lines_and_format_chart(self, x_positions, daily_humidity, daily_clouds, daily_dates, daily_energy):
         """Add weather data lines and format the daily overview chart."""
         # Create new secondary y-axis and store reference
