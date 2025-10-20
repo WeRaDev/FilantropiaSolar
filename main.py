@@ -1466,72 +1466,93 @@ class FilantropiaSolarApp:
             self.results_hourly_text.insert(tk.END, hourly_text)
             self.results_hourly_text.config(state="disabled")
 
+    def _determine_energy_column(self, hourly_data: pd.DataFrame, mode: str, data_source: dict) -> str:
+        """Determine the correct energy column based on mode and available data."""
+        # Priority:
+        # 1. If explicitly in simulation mode, use predicted data
+        # 2. If historical mode and historical data available, use historical data
+        # 3. Otherwise, use best available data
+        if mode == "simulation" or data_source.get("used_simulation", False):
+            if "predicted_total_energy" in hourly_data.columns:
+                logger.info("Using predicted energy data for charts (simulation mode)")
+                return "predicted_total_energy"
+            elif "Produced Energy (kWh)" in hourly_data.columns:
+                logger.info("Using historical energy data for charts (predicted not available)")
+                return "Produced Energy (kWh)"
+            else:
+                logger.warning("No energy columns found, using predicted_total_energy as fallback")
+                return "predicted_total_energy"  # fallback
+        elif mode == "historical" and "Produced Energy (kWh)" in hourly_data.columns:
+            logger.info("Using historical energy data for charts (historical mode)")
+            return "Produced Energy (kWh)"
+        # Fallback: use whatever is available
+        elif "predicted_total_energy" in hourly_data.columns:
+            logger.info("Using predicted energy data for charts (fallback)")
+            return "predicted_total_energy"
+        else:
+            logger.info("Using historical energy data for charts (fallback)")
+            return "Produced Energy (kWh)"
+
+    def _get_weather_rankings(self, hourly_data: pd.DataFrame, target_date, daily_summary: pd.DataFrame) -> tuple:
+        """Get weather rankings for hourly and daily data."""
+        # Check if weather ranking system is available
+        if not hasattr(self, "weather_ranking_system") or self.weather_ranking_system is None:
+            logger.error("Weather ranking system not initialized")
+            return pd.DataFrame(), {}
+
+        try:
+            # Debug: Check available weather columns
+            weather_cols = [
+                "temperature_2m", "relative_humidity_2m", "cloud_cover",
+                "wind_speed_10m", "shortwave_radiation"
+            ]
+            available_weather_cols = [col for col in weather_cols if col in hourly_data.columns]
+            logger.info(f"Available weather columns: {available_weather_cols}")
+
+            # Get weather rankings for this day
+            weather_ranked_hourly = self.weather_ranking_system.rank_hourly_weather_conditions(
+                hourly_data, target_date
+            )
+
+            # Get daily weather rankings for all days
+            daily_dates = [d.date() if hasattr(d, "date") else d for d in daily_summary.index]
+            daily_weather_rankings = self.weather_ranking_system.rank_daily_weather_conditions(
+                hourly_data, daily_dates
+            )
+
+            logger.info(f"Weather ranked hourly data shape: {weather_ranked_hourly.shape}")
+            logger.info(f"Daily weather rankings count: {len(daily_weather_rankings)}")
+            
+            return weather_ranked_hourly, daily_weather_rankings
+        except Exception as e:
+            logger.error(f"Error in weather ranking system: {e}")
+            logger.error(f"Weather ranking traceback: {traceback.format_exc()}")
+            return pd.DataFrame(), {}
+
     def _update_charts(self, results: dict[str, Any], mode: str = "simulation"):
         """Update all charts with analysis results using weather-based ranking system."""
         if not hasattr(self, "hourly_energy_ax"):
             return
 
         try:
-            # Determine correct energy column based on mode and available data
-            hourly_data_preview = results.get("hourly_data", pd.DataFrame())
+            # Extract data
+            hourly_data = results["hourly_data"]
+            daily_summary = results["daily_summary"]
             data_source = results.get("data_source", {})
-
-            # Priority:
-            # 1. If explicitly in simulation mode, use predicted data
-            # 2. If historical mode and historical data available, use historical data
-            # 3. Otherwise, use best available data
-            if mode == "simulation" or data_source.get("used_simulation", False):
-                if "predicted_total_energy" in hourly_data_preview.columns:
-                    energy_column_for_charts = "predicted_total_energy"
-                    logger.info(
-                        "Using predicted energy data for charts (simulation mode)"
-                    )
-                elif "Produced Energy (kWh)" in hourly_data_preview.columns:
-                    energy_column_for_charts = "Produced Energy (kWh)"
-                    logger.info(
-                        "Using historical energy data for charts (predicted not available)"
-                    )
-                else:
-                    energy_column_for_charts = "predicted_total_energy"  # fallback
-                    logger.warning(
-                        "No energy columns found, using predicted_total_energy as fallback"
-                    )
-            elif (
-                mode == "historical"
-                and "Produced Energy (kWh)" in hourly_data_preview.columns
-            ):
-                energy_column_for_charts = "Produced Energy (kWh)"
-                logger.info("Using historical energy data for charts (historical mode)")
-            # Fallback: use whatever is available
-            elif "predicted_total_energy" in hourly_data_preview.columns:
-                energy_column_for_charts = "predicted_total_energy"
-                logger.info("Using predicted energy data for charts (fallback)")
-            else:
-                energy_column_for_charts = "Produced Energy (kWh)"
-                logger.info("Using historical energy data for charts (fallback)")
+            
+            # Determine correct energy column
+            energy_column_for_charts = self._determine_energy_column(hourly_data, mode, data_source)
             # Clear existing plots
-            for ax in [
-                self.hourly_energy_ax,
-                self.hourly_weather_ax,
-                self.daily_overview_ax,
-            ]:
+            for ax in [self.hourly_energy_ax, self.hourly_weather_ax, self.daily_overview_ax]:
                 ax.clear()
 
-            # Extract data
-            daily_summary = results["daily_summary"]
-            hourly_data = results["hourly_data"]
-
-            logger.info(
-                f"Chart update - Hourly data columns: {list(hourly_data.columns)}"
-            )
+            logger.info(f"Chart update - Hourly data columns: {list(hourly_data.columns)}")
             logger.info(f"Chart update - Daily summary shape: {daily_summary.shape}")
             logger.info(f"Chart update - Hourly data shape: {hourly_data.shape}")
 
             # Get data for currently selected day
             current_date = daily_summary.index[self.current_day_index]
-            target_date = (
-                current_date.date() if hasattr(current_date, "date") else current_date
-            )
+            target_date = current_date.date() if hasattr(current_date, "date") else current_date
 
             # Filter hourly data for the current day
             try:
@@ -1543,63 +1564,10 @@ class FilantropiaSolarApp:
                 logger.warning(f"No hourly data found for {target_date}")
                 return
 
-            # ===== WEATHER RANKING SYSTEM INTEGRATION =====
-
-            # Check if weather ranking system is available
-            if (
-                not hasattr(self, "weather_ranking_system")
-                or self.weather_ranking_system is None
-            ):
-                logger.error("Weather ranking system not initialized")
-                # Use fallback ranking
-                weather_ranked_hourly = pd.DataFrame()
-                daily_weather_rankings = {}
-            else:
-                try:
-                    # Debug: Check available weather columns
-                    weather_cols = [
-                        "temperature_2m",
-                        "relative_humidity_2m",
-                        "cloud_cover",
-                        "wind_speed_10m",
-                        "shortwave_radiation",
-                    ]
-                    available_weather_cols = [
-                        col for col in weather_cols if col in hourly_data.columns
-                    ]
-                    logger.info(f"Available weather columns: {available_weather_cols}")
-
-                    # Get weather rankings for this day
-                    weather_ranked_hourly = (
-                        self.weather_ranking_system.rank_hourly_weather_conditions(
-                            hourly_data, target_date
-                        )
-                    )
-
-                    # Get daily weather rankings for all days
-                    daily_dates = [
-                        d.date() if hasattr(d, "date") else d
-                        for d in daily_summary.index
-                    ]
-                    daily_weather_rankings = (
-                        self.weather_ranking_system.rank_daily_weather_conditions(
-                            hourly_data, daily_dates
-                        )
-                    )
-
-                    logger.info(
-                        f"Weather ranked hourly data shape: {weather_ranked_hourly.shape}"
-                    )
-                    logger.info(
-                        f"Daily weather rankings count: {len(daily_weather_rankings)}"
-                    )
-
-                except Exception as e:
-                    logger.error(f"Error in weather ranking system: {e}")
-                    logger.error(f"Weather ranking traceback: {traceback.format_exc()}")
-                    # Use fallback ranking
-                    weather_ranked_hourly = pd.DataFrame()
-                    daily_weather_rankings = {}
+            # Get weather rankings
+            weather_ranked_hourly, daily_weather_rankings = self._get_weather_rankings(
+                hourly_data, target_date, daily_summary
+            )
 
             # ===== CALCULATE DYNAMIC PRODUCTIVE HOURS RANGE =====
             # Determine the productive hours range across all 15 days using the correct energy column
@@ -1612,57 +1580,11 @@ class FilantropiaSolarApp:
                 f"Dynamic productive hours range: {productive_hour_min}:00 - {productive_hour_max}:00"
             )
 
-            # ===== CREATE THE 3 CHARTS =====
-            logger.info(
-                f"Creating charts for day {self.current_day_index + 1}: {target_date}"
+            # Create all charts and update display
+            self._create_and_update_charts(
+                current_day_hourly, daily_summary, hourly_data, target_date,
+                productive_hour_min, productive_hour_max, energy_column_for_charts
             )
-
-            # Chart 1: Hourly Energy Production (Ranked Bars)
-            self._create_hourly_energy_chart(
-                current_day_hourly,
-                target_date,
-                productive_hour_min,
-                productive_hour_max,
-                energy_column_for_charts,
-            )
-
-            # Chart 2: Hourly Weather Conditions
-            self._create_hourly_weather_chart(
-                current_day_hourly,
-                target_date,
-                productive_hour_min,
-                productive_hour_max,
-            )
-
-            # Chart 3: Daily Overview with Moving Red Frame
-            daily_dates = [
-                d.date() if hasattr(d, "date") else d for d in daily_summary.index
-            ]
-            self._create_daily_overview_chart(daily_summary, hourly_data, daily_dates)
-
-            # Refresh canvas
-            self.canvas.draw()
-
-            # Update day information display using correct energy column
-            current_day_energy = current_day_hourly.get(
-                energy_column_for_charts, pd.Series([0])
-            )
-            if not current_day_energy.empty:
-                avg_energy = current_day_energy.mean()
-                total_energy = current_day_energy.sum()
-                peak_energy = current_day_energy.max()
-
-                data_type = (
-                    "Historical"
-                    if energy_column_for_charts == "Produced Energy (kWh)"
-                    else "Predicted"
-                )
-                info_text = f"📅 Day {self.current_day_index + 1} of 15: {target_date.strftime('%Y-%m-%d')} | {data_type} - Total: {total_energy:.2f} kWh | Peak: {peak_energy:.2f} kWh | Avg: {avg_energy:.2f} kWh"
-            else:
-                info_text = f"📅 Day {self.current_day_index + 1} of 15: {target_date.strftime('%Y-%m-%d')} | No energy data available"
-
-            if hasattr(self, "day_info_label"):
-                self.day_info_label.config(text=info_text)
 
         except Exception as e:
             logger.error(f"Error updating charts: {e}")
@@ -1689,6 +1611,53 @@ class FilantropiaSolarApp:
                 )
 
             self.canvas.draw()
+
+    def _create_and_update_charts(self, current_day_hourly, daily_summary, hourly_data,
+                                  target_date, productive_hour_min, productive_hour_max,
+                                  energy_column_for_charts):
+        """Create all charts and update day information display."""
+        logger.info(f"Creating charts for day {self.current_day_index + 1}: {target_date}")
+
+        # Chart 1: Hourly Energy Production (Ranked Bars)
+        self._create_hourly_energy_chart(
+            current_day_hourly, target_date, productive_hour_min,
+            productive_hour_max, energy_column_for_charts
+        )
+
+        # Chart 2: Hourly Weather Conditions
+        self._create_hourly_weather_chart(
+            current_day_hourly, target_date, productive_hour_min, productive_hour_max
+        )
+
+        # Chart 3: Daily Overview with Moving Red Frame
+        daily_dates = [d.date() if hasattr(d, "date") else d for d in daily_summary.index]
+        self._create_daily_overview_chart(daily_summary, hourly_data, daily_dates)
+
+        # Refresh canvas
+        self.canvas.draw()
+
+        # Update day information display
+        self._update_day_info_display(current_day_hourly, target_date, energy_column_for_charts)
+
+    def _update_day_info_display(self, current_day_hourly, target_date, energy_column_for_charts):
+        """Update the day information display with energy statistics."""
+        current_day_energy = current_day_hourly.get(energy_column_for_charts, pd.Series([0]))
+        
+        if not current_day_energy.empty:
+            avg_energy = current_day_energy.mean()
+            total_energy = current_day_energy.sum()
+            peak_energy = current_day_energy.max()
+            
+            data_type = "Historical" if energy_column_for_charts == "Produced Energy (kWh)" else "Predicted"
+            info_text = (f"📅 Day {self.current_day_index + 1} of 15: {target_date.strftime('%Y-%m-%d')} | "
+                        f"{data_type} - Total: {total_energy:.2f} kWh | Peak: {peak_energy:.2f} kWh | "
+                        f"Avg: {avg_energy:.2f} kWh")
+        else:
+            info_text = (f"📅 Day {self.current_day_index + 1} of 15: {target_date.strftime('%Y-%m-%d')} | "
+                        "No energy data available")
+            
+        if hasattr(self, "day_info_label"):
+            self.day_info_label.config(text=info_text)
 
     def _calculate_dynamic_productive_hours(self, hourly_data, energy_col=None):
         """Calculate the dynamic productive hours range based on energy production across all days."""
