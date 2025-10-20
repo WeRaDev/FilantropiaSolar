@@ -10,18 +10,17 @@ import numpy as np
 import pandas as pd
 import pytest
 
-# Add src to path for imports
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "src"))
+# Use proper package imports - no sys.path manipulation needed
 
 
 @pytest.mark.integration
 def test_data_processor_integration():
     """Test complete data processing pipeline integration."""
     try:
-        from data_processing.lisbon_data_processor import LisbonDataProcessor
+        from src.data_processing.lisbon_data_processor import LisbonDataProcessor
 
         # Create mock data similar to expected structure
-        mock_data = pd.DataFrame(
+        pd.DataFrame(
             {
                 "datetime": pd.date_range("2020-01-01", periods=100, freq="h"),
                 "energy_kwh": np.random.uniform(0, 10, 100),
@@ -46,7 +45,7 @@ def test_data_processor_integration():
 def test_weather_api_integration():
     """Test weather API integration workflow."""
     try:
-        from weather_api.weather_client import WeatherClient
+        from src.weather_api.weather_client import WeatherClient
 
         client = WeatherClient()
 
@@ -76,7 +75,7 @@ def test_weather_api_integration():
 def test_prediction_pipeline_integration():
     """Test complete prediction pipeline integration."""
     try:
-        from prediction.energy_predictor import EnergyPredictor
+        from src.prediction.energy_predictor import EnergyPredictor
 
         predictor = EnergyPredictor()
 
@@ -106,7 +105,7 @@ def test_gui_components_integration():
     """Test GUI components integration (headless)."""
     try:
         # Test imports only (GUI requires display)
-        from gui.main_app import FilantropiaSolarApp
+        from src.gui.main_app import FilantropiaSolarApp
 
         # Test that GUI components can be imported
         assert FilantropiaSolarApp is not None
@@ -127,9 +126,9 @@ def test_end_to_end_workflow():
     """Test complete end-to-end workflow integration."""
     try:
         # Test that all major components can work together
-        from data_processing.lisbon_data_processor import LisbonDataProcessor
-        from prediction.energy_predictor import EnergyPredictor
-        from weather_api.weather_client import WeatherClient
+        from src.data_processing.lisbon_data_processor import LisbonDataProcessor
+        from src.prediction.energy_predictor import EnergyPredictor
+        from src.weather_api.weather_client import WeatherClient
 
         # Initialize components
         processor = LisbonDataProcessor()

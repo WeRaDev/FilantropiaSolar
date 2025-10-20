@@ -9,8 +9,7 @@ import sys
 
 import pytest
 
-# Add src to path for imports
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "src"))
+# Use proper package imports - no sys.path manipulation needed
 
 # Pytest-benchmark is required for these tests
 pytest_plugins = ["pytest_benchmark"]
@@ -22,7 +21,7 @@ def test_data_import_speed(benchmark):
 
     def import_data_processing():
         try:
-            import data_processing
+            import src.data_processing as data_processing
 
             return data_processing
         except ImportError:
@@ -55,7 +54,7 @@ def test_ml_model_import_speed(benchmark):
 
     def import_prediction_module():
         try:
-            import prediction
+            import src.prediction as prediction
 
             return prediction
         except ImportError:

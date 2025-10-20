@@ -45,14 +45,12 @@ venv: ## Create virtual environment
 install: ## Install dependencies
 	@echo "$(BLUE)Installing dependencies...$(RESET)"
 	@$(PIP) install --upgrade pip setuptools wheel
-	@$(PIP) install -r requirements-dev.txt
-	@$(PIP) install -e .
+	@$(PIP) install -e .[dev]
 	@echo "$(GREEN)Dependencies installed$(RESET)"
 
 install-prod: ## Install production dependencies only
 	@echo "$(BLUE)Installing production dependencies...$(RESET)"
 	@$(PIP) install --upgrade pip
-	@$(PIP) install -r requirements.txt
 	@$(PIP) install -e .
 	@echo "$(GREEN)Production dependencies installed$(RESET)"
 

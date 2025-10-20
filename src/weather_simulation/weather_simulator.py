@@ -17,6 +17,14 @@ from sklearn.preprocessing import StandardScaler
 
 warnings.filterwarnings("ignore")
 
+# Lint/clarity constants
+SIMILAR_DAYS_WINDOW = 15
+MIN_SIMILAR_DATA_HOURS = 24
+MIN_FEATURES_RECORDS = 100
+MIN_VALID_POINTS = 10
+MAX_NEIGHBORS = 10
+KNN_NEIGHBOR_DIVISOR = 10
+
 logger = logging.getLogger(__name__)
 
 
@@ -31,7 +39,7 @@ class WeatherSimulator:
     def __init__(self, weather_data_dir: str):
         """Initialize the weather simulator with historical weather data."""
         self.weather_data_dir = Path(weather_data_dir)
-        self.weather_data = {}
+        self.weather_data: dict[str, pd.DataFrame] = {}
         self.location_mapping = {
             "Lisbon": "Lisbon_weather.csv",
             "Setubal": "Setubal_weather.csv",
@@ -40,8 +48,8 @@ class WeatherSimulator:
             "Tavira": "Tavira_weather.csv",
             "Loule": "Loule_weather.csv",
         }
-        self.scalers = {}
-        self.models = {}
+        self.scalers: dict[str, StandardScaler] = {}
+        self.models: dict[str, dict[str, KNeighborsRegressor]] = {}
         self._load_historical_data()
         self._prepare_simulation_models()
 
@@ -117,7 +125,7 @@ class WeatherSimulator:
                 features = features[mask]
                 targets = targets[mask]
 
-                if len(features) < 100:  # Need minimum data
+                if len(features) < MIN_FEATURES_RECORDS:  # Need minimum data
                     logger.warning(
                         f"Insufficient data for {location}: {len(features)} records"
                     )
@@ -130,12 +138,19 @@ class WeatherSimulator:
                 # Create KNN model for each weather parameter
                 models = {}
                 for col in targets.columns:
-                    if targets[col].notna().sum() > 50:  # Minimum valid data points
+                    if targets[col].notna().sum() > (
+                        MIN_FEATURES_RECORDS // 2
+                    ):  # Minimum valid data points
+                        n_neighbors = min(
+                            MAX_NEIGHBORS,
+                            max(1, len(features) // KNN_NEIGHBOR_DIVISOR),
+                        )
                         knn = KNeighborsRegressor(
-                            n_neighbors=min(10, len(features) // 10), weights="distance"
+                            n_neighbors=n_neighbors,
+                            weights="distance",
                         )
                         valid_mask = targets[col].notna()
-                        if valid_mask.sum() > 10:
+                        if valid_mask.sum() > MIN_VALID_POINTS:
                             knn.fit(
                                 features_scaled[valid_mask], targets[col][valid_mask]
                             )
@@ -230,17 +245,26 @@ class WeatherSimulator:
             models = self.models[location]
             scaler = self.scalers[location]
 
-            # Find similar historical periods (same day of year ± 15 days)
+            # Find similar historical periods (same day of year ± window)
             ref_day_of_year = reference_date.timetuple().tm_yday
+            window = SIMILAR_DAYS_WINDOW
             similar_days_mask = (
-                (np.abs(historical_df.index.dayofyear - ref_day_of_year) <= 15)
-                | (np.abs(historical_df.index.dayofyear - ref_day_of_year + 365) <= 15)
-                | (np.abs(historical_df.index.dayofyear - ref_day_of_year - 365) <= 15)
+                (np.abs(historical_df.index.dayofyear - ref_day_of_year) <= window)
+                | (
+                    np.abs(historical_df.index.dayofyear - ref_day_of_year + 365)
+                    <= window
+                )
+                | (
+                    np.abs(historical_df.index.dayofyear - ref_day_of_year - 365)
+                    <= window
+                )
             )
 
             similar_data = historical_df[similar_days_mask]
 
-            if len(similar_data) < 24:  # Need at least one day of data
+            if (
+                len(similar_data) < MIN_SIMILAR_DATA_HOURS
+            ):  # Need at least one day of data
                 logger.warning(
                     "Insufficient similar data for reference date, using general simulation"
                 )

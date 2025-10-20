@@ -5,6 +5,7 @@ This module defines custom exceptions with proper error handling patterns,
 error codes, and detailed error information for better debugging and user experience.
 """
 
+from collections.abc import Callable
 from datetime import datetime
 from enum import Enum
 import traceback
@@ -523,11 +524,11 @@ class EnergyPredictionError(BusinessLogicError):
 
 # Error handling utilities
 def handle_exception(
-    func: callable,
+    func: Callable,
     exception_mapping: dict[type, ErrorCode] | None = None,
     default_error_code: ErrorCode = ErrorCode.UNKNOWN_ERROR,
     context: dict[str, Any] | None = None,
-) -> callable:
+) -> Callable:
     """
     Decorator to handle exceptions and convert them to FilantropiaSolar errors.
 
@@ -578,7 +579,7 @@ def create_error_response(
     Returns:
         Standardized error response dictionary
     """
-    response = {
+    response: dict[str, Any] = {
         "success": False,
         "error": {
             "code": error.error_code.value,

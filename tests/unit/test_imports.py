@@ -7,8 +7,7 @@ import sys
 
 import pytest
 
-# Add src to path for imports
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "src"))
+# Use proper package imports - no sys.path manipulation needed
 
 
 class TestBasicImports:
@@ -17,7 +16,7 @@ class TestBasicImports:
     def test_data_processing_import(self):
         """Test that data_processing module can be imported."""
         try:
-            import data_processing
+            import src.data_processing as data_processing
 
             assert data_processing is not None
         except ImportError:
@@ -26,7 +25,7 @@ class TestBasicImports:
     def test_weather_api_import(self):
         """Test that weather_api module can be imported."""
         try:
-            import weather_api
+            import src.weather_api as weather_api
 
             assert weather_api is not None
         except ImportError:
@@ -35,7 +34,7 @@ class TestBasicImports:
     def test_prediction_import(self):
         """Test that prediction module can be imported."""
         try:
-            import prediction
+            import src.prediction as prediction
 
             assert prediction is not None
         except ImportError:
@@ -44,7 +43,7 @@ class TestBasicImports:
     def test_utils_import(self):
         """Test that utils module can be imported."""
         try:
-            import utils
+            import src.utils as utils
 
             assert utils is not None
         except ImportError:
@@ -53,7 +52,7 @@ class TestBasicImports:
     def test_gui_import(self):
         """Test that gui module can be imported (v1.0.0 - compatibility only)."""
         try:
-            import gui
+            import src.gui as gui
 
             # In v1.0.0, GUI functionality is integrated into main.py
             # This test ensures the module can be imported for compatibility
@@ -68,9 +67,8 @@ class TestBasicImports:
         import os
         import sys
 
-        # Add project root to path
+        # Use project root for main.py path
         project_root = os.path.join(os.path.dirname(__file__), "..", "..")
-        sys.path.insert(0, project_root)
 
         try:
             # Test that main.py exists and can be imported as a module

@@ -36,34 +36,30 @@ jobs:
       uses: actions/cache@v4
       with:
         path: ~/.cache/pip
-        key: ${{ runner.os }}-pip-quality-${{ hashFiles('**/requirements-dev-simple.txt') }}
+        key: ${{ runner.os }}-pip-quality-${{ hashFiles('pyproject.toml') }}
         restore-keys: |
           ${{ runner.os }}-pip-quality-
           
-    - name: Install dependencies
+    - name: Install dependencies (dev extras)
       run: |
         python -m pip install --upgrade pip
-        pip install -r requirements-dev-simple.txt
+        pip install -e .[dev]
         
     - name: Run Ruff linting (all source modules)
       run: |
         ruff check --output-format=github src/ --ignore=PLR2004,PLC0415,ARG002,ARG005,ERA001,PTH123,E402,B018,SIM102,F401,E721,PLR0912
-      continue-on-error: true  # Allow linting issues for v1.0.0
         
     - name: Run Ruff formatting check
       run: |
         ruff format --check .
-      continue-on-error: true  # Allow formatting issues for v1.0.0
         
     - name: Run MyPy type checking
       run: |
         mypy src/ --config-file=pyproject.toml
-      continue-on-error: true  # Allow type hint issues for v1.0.0
         
     - name: Run Bandit security scan
       run: |
         bandit -r src/ -f json -o bandit-report.json
-      continue-on-error: true
         
     - name: Upload security scan results
       uses: actions/upload-artifact@v4
@@ -135,7 +131,7 @@ jobs:
           ~/.cache/pip
           ~/Library/Caches/pip
           %APPDATA%\pip\Cache
-        key: ${{ runner.os }}-pip-test-${{ matrix.python-version }}-${{ hashFiles('**/requirements-dev-simple.txt') }}
+        key: ${{ runner.os }}-pip-test-${{ matrix.python-version }}-${{ hashFiles('pyproject.toml') }}
         restore-keys: |
           ${{ runner.os }}-pip-test-${{ matrix.python-version }}-
           
@@ -145,20 +141,20 @@ jobs:
         sudo apt-get update
         sudo apt-get install -y python3-tk
         
-    - name: Install dependencies
+    - name: Install dependencies (dev extras)
       run: |
         python -m pip install --upgrade pip
-        pip install -r requirements-dev-simple.txt
+        pip install -e .[dev]
         
     - name: Create test data directory
       run: |
         mkdir -p tests/fixtures
         
     - name: Run unit tests
-      run: pytest tests/unit/ -v --cov=src --cov-report=xml --cov-report=html --cov-report=term-missing --junitxml=pytest.xml
+      run: pytest -v tests/unit/ --junitxml=pytest.xml
           
     - name: Run integration tests
-      run: pytest tests/integration/ -v --cov=src --cov-append --cov-report=xml -m "integration"
+      run: pytest -v -m "integration" tests/integration/
           
     - name: Upload coverage reports to Codecov
       uses: codecov/codecov-action@v4
@@ -202,20 +198,19 @@ jobs:
       uses: actions/cache@v4
       with:
         path: ~/.cache/pip
-        key: ${{ runner.os }}-pip-perf-${{ hashFiles('**/requirements-dev-simple.txt') }}
+        key: ${{ runner.os }}-pip-perf-${{ hashFiles('pyproject.toml') }}
         
-    - name: Install dependencies
+    - name: Install dependencies (dev extras)
       run: |
         python -m pip install --upgrade pip
-        pip install -r requirements-dev-simple.txt
+        pip install -e .[dev]
         
     - name: Run performance benchmarks
       run: pytest tests/performance/ -v --benchmark-only --benchmark-json=benchmark.json --benchmark-min-rounds=3
       continue-on-error: true  # Allow benchmark failures for v1.0.0
           
     - name: Run ML model validation tests
-      run: pytest tests/ -v -m "ml" --timeout=300
-      continue-on-error: true  # Allow ML test failures for v1.0.0
+      run: pytest -v -m "ml" --timeout=300
         
     - name: Upload benchmark results
       uses: actions/upload-artifact@v4
@@ -295,9 +290,8 @@ jobs:
         image-ref: filantropia-solar:test
         format: 'sarif'
         output: 'trivy-results.sarif'
-        severity: 'CRITICAL,HIGH'  # Focus on critical/high security issues
-        exit-code: '0'  # Fail if critical/high vulnerabilities found
-        continue-on-error: true
+        severity: 'CRITICAL,HIGH'
+        exit-code: '1'
         trivyignores: '.trivyignore'  # Use our ignore file for accepted risks
         
     - name: Upload Trivy scan results
@@ -308,21 +302,38 @@ jobs:
       continue-on-error: true
 
   # ============================================
-  # Release (only on tags)
+  # SBOM generation
+  # ============================================
+  sbom:
+    name: SBOM
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    - name: Generate SBOM (SPDX)
+      uses: anchore/sbom-action@v0
+      with:
+        path: .
+        format: spdx-json
+        output-file: sbom.spdx.json
+    - name: Upload SBOM
+      uses: actions/upload-artifact@v4
+      with:
+        name: sbom
+        path: sbom.spdx.json
+
+  # ============================================
+  # Release (GitHub only, on tags)
   # ============================================
   release:
-    name: Release
-    needs: [quality, test, performance, build, container, docs]
+    name: GitHub Release
+    needs: [quality, test, performance, build, container, docs, sbom]
     runs-on: ubuntu-latest
     if: startsWith(github.ref, 'refs/tags/v')
     timeout-minutes: 10
     
-    environment:
-      name: release
-      url: https://pypi.org/p/filantropia-solar/
-      
     permissions:
-      id-token: write  # For trusted publishing to PyPI
       contents: write  # For GitHub releases
       
     steps:
@@ -331,16 +342,17 @@ jobs:
       with:
         name: dist
         path: dist/
-        
-    - name: Publish to PyPI
-      uses: pypa/gh-action-pypi-publish@release/v1
+    - name: Download SBOM artifact
+      uses: actions/download-artifact@v4
       with:
-        skip-existing: true
-      continue-on-error: true  # Don't fail if PyPI is unavailable
+        name: sbom
+        path: sbom/
         
     - name: Create GitHub Release
       uses: softprops/action-gh-release@v2
       with:
-        files: dist/*
+        files: |
+          dist/*
+          sbom/*
         generate_release_notes: true
         make_latest: true

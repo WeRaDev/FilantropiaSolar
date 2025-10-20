@@ -69,7 +69,7 @@ git clone https://github.com/your-username/FilantropiaSolar.git
 cd FilantropiaSolar
 
 # Install dependencies
-pip install -r requirements.txt
+pip install -e .
 
 # Run the application
 python main.py
@@ -420,14 +420,14 @@ Application logs are stored in `logs/application.log` for debugging.
 ### Development Setup
 ```bash
 # Install development dependencies
-pip install -r requirements-dev.txt
+pip install -e .[dev]
 
 # Run tests
 python -m pytest tests/
 
 # Code formatting
-black src/
-flake8 src/
+ruff format .
+ruff check .
 ```
 
 ### Contribution Guidelines

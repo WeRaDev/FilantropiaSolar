@@ -138,7 +138,7 @@ class DataCacheManager:
             file_path = self.data_cache_dir / f"{cache_key}.pkl"
 
             # Save data
-            with open(file_path, "wb") as f:
+            with Path(file_path).open("wb") as f:
                 pickle.dump(data, f, protocol=pickle.HIGHEST_PROTOCOL)
 
             # Update database
@@ -189,7 +189,7 @@ class DataCacheManager:
                         conn.commit()
 
                         # Load data
-                        with open(file_path, "rb") as f:
+                        with Path(file_path).open("rb") as f:
                             data = pickle.load(f)
 
                         logger.info(f"Loaded cached data: {cache_key}")
@@ -265,7 +265,7 @@ class DataCacheManager:
         """Clear cache data."""
         try:
             with sqlite3.connect(self.db_path) as conn:
-                if cache_type == "all" or cache_type == "data":
+                if cache_type in {"all", "data"}:
                     # Clear data cache files
                     for file_path in self.data_cache_dir.rglob("*.pkl"):
                         file_path.unlink()
@@ -274,7 +274,7 @@ class DataCacheManager:
                     conn.execute("DELETE FROM data_cache")
                     logger.info("Cleared data cache")
 
-                if cache_type == "all" or cache_type == "models":
+                if cache_type in {"all", "models"}:
                     # Clear model cache files
                     for file_path in self.model_cache_dir.rglob("*"):
                         if file_path.is_file():
@@ -418,57 +418,7 @@ class DataCacheManager:
             logger.error(f"Error loading cached model {model_key}: {e}")
             return None
 
-    def get_cache_status(self) -> dict[str, Any]:
-        """Get comprehensive cache status."""
-        try:
-            with sqlite3.connect(self.db_path) as conn:
-                cursor = conn.cursor()
-
-                # Data cache stats
-                cursor.execute(
-                    "SELECT COUNT(*), SUM(LENGTH(data_hash)) FROM data_cache"
-                )
-                data_count, data_size = cursor.fetchone()
-
-                # Model cache stats
-                cursor.execute(
-                    "SELECT COUNT(*), installation_id FROM model_cache GROUP BY installation_id"
-                )
-                model_stats = cursor.fetchall()
-
-                # Installation stats
-                cursor.execute(
-                    "SELECT COUNT(*), SUM(record_count) FROM installation_metadata"
-                )
-                installation_count, total_records = cursor.fetchone()
-
-                return {
-                    "data_cache": {
-                        "cached_items": data_count or 0,
-                        "approximate_size_mb": (data_size or 0) / (1024 * 1024),
-                    },
-                    "model_cache": {
-                        "cached_models": len(model_stats),
-                        "installations_with_models": len(
-                            {stat[1] for stat in model_stats}
-                        ),
-                    },
-                    "installations": {
-                        "total_installations": installation_count or 0,
-                        "total_records": total_records or 0,
-                    },
-                    "cache_directory": str(self.cache_dir),
-                    "disk_usage_mb": sum(
-                        f.stat().st_size
-                        for f in self.cache_dir.rglob("*")
-                        if f.is_file()
-                    )
-                    / (1024 * 1024),
-                }
-
-        except Exception as e:
-            logger.error(f"Error getting cache status: {e}")
-            return {"error": str(e)}
+    # Orphaned code removed - was causing duplicate exception handler (B025)
 
     def cleanup_old_cache(self, days_old: int = 30) -> int:
         """Clean up old cache entries."""

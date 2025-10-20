@@ -114,8 +114,8 @@ class FilantropiaPerformanceBenchmark:
                     )
 
                     weather_simulator = WeatherSimulator("weather_files")
-                    predictor = EnhancedEnergyPredictor(
-                        data_processor, weather_simulator, use_cache=True
+                    _predictor = EnhancedEnergyPredictor(
+                        data_processor, weather_simulator
                     )
                     fresh_model_time = time.time()
 
@@ -144,7 +144,7 @@ class FilantropiaPerformanceBenchmark:
         try:
             # Clear Python module cache to simulate fresh startup
             modules_to_clear = [
-                name for name in sys.modules.keys() if name.startswith("src.")
+                name for name in list(sys.modules) if name.startswith("src.")
             ]
             for module_name in modules_to_clear:
                 if module_name in sys.modules:
@@ -167,7 +167,7 @@ class FilantropiaPerformanceBenchmark:
                 from src.weather_simulation.weather_simulator import WeatherSimulator
 
                 weather_simulator = WeatherSimulator("weather_files")
-                predictor = EnhancedEnergyPredictor(
+                _ = EnhancedEnergyPredictor(
                     data_processor, weather_simulator, use_cache=True
                 )
                 cached_model_time = time.time()
@@ -209,12 +209,12 @@ class FilantropiaPerformanceBenchmark:
             # Test cache status retrieval
             with measure_time("Cache Status Retrieval"):
                 status = cache_manager.get_cache_status()
-                status_time = time.time()
+                _status_time = time.time()
 
             # Test cache validation
             with measure_time("Cache Validation"):
                 validation_results = cache_manager.validate_cache()
-                validation_time = time.time()
+                _validation_time = time.time()
 
             self.results["cache_operations"] = {
                 "status_retrieval_time": 0.1,  # Approximate from context

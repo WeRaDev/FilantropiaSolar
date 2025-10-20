@@ -7,8 +7,7 @@ import sys
 
 import pytest
 
-# Add src to path for imports
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "src"))
+# Use proper package imports - no sys.path manipulation needed
 
 
 @pytest.mark.ml
@@ -26,7 +25,7 @@ def test_sklearn_available():
 def test_prediction_module_structure():
     """Test that prediction module has expected structure."""
     try:
-        import prediction
+        import src.prediction as prediction
 
         # Basic structural tests
         assert prediction is not None

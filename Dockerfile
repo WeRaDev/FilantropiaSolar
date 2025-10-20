@@ -121,16 +121,13 @@ WORKDIR /app
 
 # Copy and install the built wheel from builder stage
 COPY --from=builder /app/dist/*.whl /tmp/
-COPY requirements.txt ./
 
 # Install the application with security best practices
 RUN set -ex && \
     pip install --upgrade pip==24.2 && \
-    # Install runtime dependencies first
-    pip install -r requirements.txt && \
-    # Install our application (no network dependencies)
-    pip install --no-deps /tmp/*.whl && \
-    # Security cleanup  
+    # Install our application and its dependencies from the wheel
+    pip install /tmp/*.whl && \
+    # Security cleanup  \
     (pip cache purge 2>/dev/null || echo "Cache already disabled") && \
     rm -rf /tmp/*.whl /root/.cache /home/appuser/.cache
 
