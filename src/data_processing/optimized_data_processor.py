@@ -8,6 +8,7 @@ for dramatic performance improvements.
 from collections.abc import Callable
 import logging
 from pathlib import Path
+import sys
 import time
 from typing import Any
 
@@ -259,8 +260,6 @@ class OptimizedDataProcessor(ComprehensiveDataProcessor):
     def _estimate_memory_usage(self) -> float:
         """Estimate current memory usage in MB."""
         try:
-            import sys
-
             total_size = 0
 
             # Estimate size of major data structures
