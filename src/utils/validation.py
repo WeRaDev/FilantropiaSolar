@@ -10,6 +10,7 @@ from dataclasses import dataclass, field
 from datetime import date, datetime
 from decimal import InvalidOperation
 from enum import Enum
+import inspect
 import math
 from pathlib import Path
 import re
@@ -777,8 +778,6 @@ def validate_input(**validation_rules) -> Callable:
     def decorator(func: Callable) -> Callable:
         def wrapper(*args, **kwargs):
             # Get function signature
-            import inspect
-
             sig = inspect.signature(func)
             bound_args = sig.bind(*args, **kwargs)
             bound_args.apply_defaults()

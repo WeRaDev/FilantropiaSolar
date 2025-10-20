@@ -11,6 +11,8 @@ import time
 from typing import Any
 
 import numpy as np
+from sklearn.ensemble import GradientBoostingRegressor, RandomForestRegressor
+from sklearn.linear_model import LinearRegression
 
 from ..data_processing.optimized_data_processor import OptimizedDataProcessor
 from ..weather_simulation.weather_simulator import WeatherSimulator
@@ -166,8 +168,6 @@ class OptimizedEnergyPredictor(EnhancedEnergyPredictor):
 
     def _get_random_forest_template(self):
         """Get Random Forest template."""
-        from sklearn.ensemble import RandomForestRegressor
-
         return RandomForestRegressor(
             n_estimators=100,
             max_depth=15,
@@ -179,8 +179,6 @@ class OptimizedEnergyPredictor(EnhancedEnergyPredictor):
 
     def _get_gradient_boost_template(self):
         """Get Gradient Boosting template."""
-        from sklearn.ensemble import GradientBoostingRegressor
-
         return GradientBoostingRegressor(
             n_estimators=100,
             max_depth=8,
@@ -191,8 +189,6 @@ class OptimizedEnergyPredictor(EnhancedEnergyPredictor):
 
     def _get_linear_template(self):
         """Get Linear Regression template."""
-        from sklearn.linear_model import LinearRegression
-
         return LinearRegression()
 
     def _cache_all_models(self):

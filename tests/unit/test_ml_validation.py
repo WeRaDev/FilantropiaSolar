@@ -239,7 +239,7 @@ def test_model_data_validation():
 def test_energy_ranking_validation():
     """Test energy ranking system validation."""
     try:
-        from src.utils.energy_ranking import get_energy_rank, get_rank_color
+        from src.utils.energy_ranking import get_energy_rank, get_rank_color  # noqa: PLC0415
 
         # Test ranking function
         test_energies = [0.05, 0.15, 0.3, 0.5, 0.7, 0.9]

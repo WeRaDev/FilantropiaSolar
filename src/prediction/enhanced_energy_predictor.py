@@ -15,6 +15,7 @@ import numpy as np
 import pandas as pd
 
 # Machine learning imports
+from sklearn.base import clone
 from sklearn.ensemble import GradientBoostingRegressor, RandomForestRegressor
 from sklearn.linear_model import LinearRegression
 from sklearn.metrics import mean_absolute_error, r2_score
@@ -171,8 +172,6 @@ class EnhancedEnergyPredictor:
         for model_name, model_template in self.model_types.items():
             try:
                 # Clone the model template
-                from sklearn.base import clone
-
                 model = clone(model_template)
 
                 # Train the model
