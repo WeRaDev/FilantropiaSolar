@@ -15,7 +15,7 @@ import pytest
 def test_data_processor_integration():
     """Test complete data processing pipeline integration."""
     try:
-        from src.data_processing.lisbon_data_processor import (
+        from src.data_processing.lisbon_data_processor import (  # noqa: PLC0415
             LisbonDataProcessor,
         )
 
@@ -126,7 +126,7 @@ def test_end_to_end_workflow():
     """Test complete end-to-end workflow integration."""
     try:
         # Test that all major components can work together
-        from src.data_processing.lisbon_data_processor import (
+        from src.data_processing.lisbon_data_processor import (  # noqa: PLC0415
             LisbonDataProcessor,
         )
         from src.prediction.energy_predictor import EnergyPredictor  # noqa: PLC0415

@@ -214,7 +214,7 @@ class ValidationSchema:
         return result
 
     def _validate_type(
-        self, value: Any, rule: ValidationRule, field_name: str
+        self, value: Any, rule: ValidationRule, _field_name: str
     ) -> ValidationResult:
         """Validate value type."""
         result = ValidationResult(is_valid=True, sanitized_value=value)
@@ -270,7 +270,7 @@ class ValidationSchema:
         return result
 
     def _validate_format(
-        self, value: Any, rule: ValidationRule, field_name: str
+        self, value: Any, rule: ValidationRule, _field_name: str
     ) -> ValidationResult:
         """Validate specific formats."""
         result = ValidationResult(is_valid=True, sanitized_value=value)
@@ -328,7 +328,7 @@ class ValidationSchema:
         return result
 
     def _validate_pattern(
-        self, value: Any, rule: ValidationRule, field_name: str
+        self, value: Any, rule: ValidationRule, _field_name: str
     ) -> ValidationResult:
         """Validate against regex pattern."""
         result = ValidationResult(is_valid=True, sanitized_value=value)
@@ -345,7 +345,7 @@ class ValidationSchema:
         return result
 
     def _validate_enum(
-        self, value: Any, rule: ValidationRule, field_name: str
+        self, value: Any, rule: ValidationRule, _field_name: str
     ) -> ValidationResult:
         """Validate against enumerated values."""
         result = ValidationResult(is_valid=True, sanitized_value=value)
@@ -357,7 +357,7 @@ class ValidationSchema:
         return result
 
     def _validate_custom(
-        self, value: Any, rule: ValidationRule, field_name: str
+        self, value: Any, rule: ValidationRule, _field_name: str
     ) -> ValidationResult:
         """Apply custom validation function."""
         result = ValidationResult(is_valid=True, sanitized_value=value)

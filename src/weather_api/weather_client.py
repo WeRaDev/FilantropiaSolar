@@ -287,7 +287,7 @@ class WeatherClient:
             }
         )
 
-    def get_weather_data(self, location=None, start_date=None, end_date=None):
+    def get_weather_data(self, _location=None, start_date=None, end_date=None):
         """
         Generic weather data retrieval method - for backward compatibility
 
