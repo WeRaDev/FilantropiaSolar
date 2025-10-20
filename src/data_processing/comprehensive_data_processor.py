@@ -356,100 +356,99 @@ class ComprehensiveDataProcessor:
             }
 
             for location in locations:
-                if location in self.weather_file_mapping:
-                    weather_file = (
-                        self.weather_dir / self.weather_file_mapping[location]
-                    )
-
-                    if weather_file.exists():
-                        try:
-                            df = pd.read_csv(weather_file)
-
-                            # Parse datetime with robust format handling to avoid UserWarning
-                            try:
-                                # Try primary format first (most common)
-                                df["datetime"] = pd.to_datetime(
-                                    df["time"],
-                                    format="%m/%d/%y %I:%M %p",
-                                    errors="raise",
-                                )
-                            except (ValueError, TypeError):
-                                logger.info(
-                                    f"Primary datetime format failed for {location}, trying fallback formats"
-                                )
-                                # Try common alternative formats
-                                for fmt in [
-                                    "%m/%d/%Y %I:%M %p",
-                                    "%Y-%m-%d %H:%M:%S",
-                                    "%m/%d/%y %H:%M",
-                                    "%m/%d/%Y %H:%M",
-                                ]:
-                                    try:
-                                        df["datetime"] = pd.to_datetime(
-                                            df["time"], format=fmt, errors="raise"
-                                        )
-                                        logger.info(
-                                            f"Successfully parsed datetime using format: {fmt}"
-                                        )
-                                        break
-                                    except (ValueError, TypeError):
-                                        continue
-                                else:
-                                    # Final fallback with infer_datetime_format=True to suppress warning
-                                    logger.warning(
-                                        f"All explicit formats failed for {location}, using infer_datetime_format"
-                                    )
-                                    df["datetime"] = pd.to_datetime(
-                                        df["time"], infer_datetime_format=True
-                                    )
-                            df = df.set_index("datetime")
-
-                            # Clean column names
-                            df.columns = [
-                                col.split(" (")[0] if " (" in col else col
-                                for col in df.columns
-                            ]
-
-                            # Ensure we have required columns
-                            required_cols = [
-                                "temperature_2m",
-                                "relative_humidity_2m",
-                                "dew_point_2m",
-                                "apparent_temperature",
-                                "cloud_cover",
-                                "wind_speed_10m",
-                                "wind_direction_10m",
-                                "shortwave_radiation",
-                            ]
-
-                            available_cols = [
-                                col for col in required_cols if col in df.columns
-                            ]
-                            if len(available_cols) < len(required_cols):
-                                missing = set(required_cols) - set(available_cols)
-                                logger.warning(
-                                    f"Missing weather columns for {location}: {missing}"
-                                )
-
-                            self.weather_data[location] = df[available_cols].copy()
-                            logger.info(
-                                f"Loaded {len(df)} weather records for {location}"
-                            )
-
-                        except Exception as e:
-                            logger.error(
-                                f"Error loading weather data for {location}: {e}"
-                            )
-                    else:
-                        logger.warning(
-                            f"Weather file not found for {location}: {weather_file}"
-                        )
-                else:
-                    logger.warning(f"No weather file mapping for location: {location}")
+                self._load_location_weather_data(location)
 
         except Exception as e:
             logger.error(f"Error loading weather data: {e}")
             raise
+
+    def _load_location_weather_data(self, location: str):
+        """Load weather data for a specific location."""
+        if location not in self.weather_file_mapping:
+            logger.warning(f"No weather file mapping for location: {location}")
+            return
+
+        weather_file = self.weather_dir / self.weather_file_mapping[location]
+        if not weather_file.exists():
+            logger.warning(f"Weather file not found for {location}: {weather_file}")
+            return
+
+        try:
+            df = pd.read_csv(weather_file)
+            df = self._parse_weather_datetime(df, location)
+            df = self._clean_weather_columns(df)
+            df = self._validate_weather_columns(df, location)
+
+            self.weather_data[location] = df
+            logger.info(f"Loaded {len(df)} weather records for {location}")
+
+        except Exception as e:
+            logger.error(f"Error loading weather data for {location}: {e}")
+
+    def _parse_weather_datetime(self, df: pd.DataFrame, location: str) -> pd.DataFrame:
+        """Parse datetime column in weather data with fallback formats."""
+        # Try primary format first (most common)
+        try:
+            df["datetime"] = pd.to_datetime(
+                df["time"], format="%m/%d/%y %I:%M %p", errors="raise"
+            )
+        except (ValueError, TypeError):
+            logger.info(
+                f"Primary datetime format failed for {location}, trying fallback formats"
+            )
+
+            # Try common alternative formats
+            fallback_formats = [
+                "%m/%d/%Y %I:%M %p",
+                "%Y-%m-%d %H:%M:%S",
+                "%m/%d/%y %H:%M",
+                "%m/%d/%Y %H:%M",
+            ]
+
+            for fmt in fallback_formats:
+                try:
+                    df["datetime"] = pd.to_datetime(
+                        df["time"], format=fmt, errors="raise"
+                    )
+                    logger.info(f"Successfully parsed datetime using format: {fmt}")
+                    break
+                except (ValueError, TypeError):
+                    continue
+            else:
+                # Final fallback with infer_datetime_format=True to suppress warning
+                logger.warning(
+                    f"All explicit formats failed for {location}, using infer_datetime_format"
+                )
+                df["datetime"] = pd.to_datetime(df["time"], infer_datetime_format=True)
+
+        return df.set_index("datetime")
+
+    def _clean_weather_columns(self, df: pd.DataFrame) -> pd.DataFrame:
+        """Clean weather data column names."""
+        df.columns = [col.split(" (")[0] if " (" in col else col for col in df.columns]
+        return df
+
+    def _validate_weather_columns(
+        self, df: pd.DataFrame, location: str
+    ) -> pd.DataFrame:
+        """Validate and filter weather data columns."""
+        required_cols = [
+            "temperature_2m",
+            "relative_humidity_2m",
+            "dew_point_2m",
+            "apparent_temperature",
+            "cloud_cover",
+            "wind_speed_10m",
+            "wind_direction_10m",
+            "shortwave_radiation",
+        ]
+
+        available_cols = [col for col in required_cols if col in df.columns]
+        if len(available_cols) < len(required_cols):
+            missing = set(required_cols) - set(available_cols)
+            logger.warning(f"Missing weather columns for {location}: {missing}")
+
+        return df[available_cols].copy()
 
     def _combine_data(self):
         """Combine energy production data with weather data based on location."""
