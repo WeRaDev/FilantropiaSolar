@@ -22,7 +22,7 @@ logger = logging.getLogger(__name__)
 
 # Performance thresholds and constants
 SLOW_LOADING_TIME_SECONDS = 60  # Loading time considered slow
-EXCELLENT_LOADING_TIME_SECONDS = 10  # Loading time considered excellent  
+EXCELLENT_LOADING_TIME_SECONDS = 10  # Loading time considered excellent
 GOOD_DATA_QUALITY_THRESHOLD = 80  # Data quality score threshold
 EXCELLENT_DATA_QUALITY_THRESHOLD = 95  # Excellent data quality threshold
 MEMORY_USAGE_WARNING_MB = 1000  # Memory usage warning threshold (1GB)
