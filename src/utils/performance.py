@@ -415,7 +415,6 @@ class MemoryOptimizer:
     def optimize_dataframe_memory(df) -> Any:
         """Optimize pandas DataFrame memory usage."""
         try:
-            import numpy as np
             import pandas as pd
 
             if not isinstance(df, pd.DataFrame):

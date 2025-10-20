@@ -114,9 +114,9 @@ class FilantropiaPerformanceBenchmark:
                     )
 
                     weather_simulator = WeatherSimulator("weather_files")
-                _predictor = EnhancedEnergyPredictor(
-                    data_processor, weather_simulator
-                )
+                    _predictor = EnhancedEnergyPredictor(
+                        data_processor, weather_simulator
+                    )
                     fresh_model_time = time.time()
 
                 # Record fresh startup results

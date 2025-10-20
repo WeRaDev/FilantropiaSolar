@@ -33,9 +33,11 @@ try:
     from filantropia_solar.data_processing.comprehensive_data_processor import (
         ComprehensiveDataProcessor,
     )
-    from filantropia_solar.weather_simulation.weather_simulator import WeatherSimulator
-    from filantropia_solar.prediction.enhanced_energy_predictor import EnhancedEnergyPredictor
+    from filantropia_solar.prediction.enhanced_energy_predictor import (
+        EnhancedEnergyPredictor,
+    )
     from filantropia_solar.prediction.weather_ranking_system import WeatherRankingSystem
+    from filantropia_solar.weather_simulation.weather_simulator import WeatherSimulator
 except Exception:
     ComprehensiveDataProcessor = None  # type: ignore[assignment]
     WeatherSimulator = None  # type: ignore[assignment]
@@ -1844,7 +1846,7 @@ class FilantropiaSolarApp:
         """Format energy chart axes and labels."""
         hour_range_str = f"{productive_hour_min}:00-{productive_hour_max}:00"
         title_suffix = f"({energy_data_type} DATA)"
-        
+
         self.hourly_energy_ax.set_title(
             f"Chart 1: {title_suffix} Hourly Energy Production ({hour_range_str}) - {target_date.strftime('%Y-%m-%d')}",
             fontsize=11, fontweight="bold", pad=15
@@ -1858,7 +1860,7 @@ class FilantropiaSolarApp:
         tick_range = productive_hour_max - productive_hour_min + 1
         tick_step = max(1, tick_range // 8)
         self.hourly_energy_ax.set_xticks(range(productive_hour_min, productive_hour_max + 1, tick_step))
-        
+
         if hourly_energy.max() > 0:
             self.hourly_energy_ax.set_ylim(0, hourly_energy.max() * 1.2)
 

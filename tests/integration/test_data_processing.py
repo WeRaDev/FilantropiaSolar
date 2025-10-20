@@ -21,7 +21,7 @@ def test_data_processor_integration():
         from data_processing.lisbon_data_processor import LisbonDataProcessor
 
         # Create mock data similar to expected structure
-        mock_data = pd.DataFrame(
+        pd.DataFrame(
             {
                 "datetime": pd.date_range("2020-01-01", periods=100, freq="h"),
                 "energy_kwh": np.random.uniform(0, 10, 100),
