@@ -90,16 +90,18 @@ Tip: create a dedicated Agent Profile for CLI usage and pre-approve the commands
 ---
 If you want the agent to adopt stricter gates (e.g., fail CI on lint/type), ask it to “enforce quality gates” and it will tighten the workflows accordingly.
 
-## Current status (2025-10-20)
+## Current status (2025-10-20 Final)
 - ✅ **CRITICAL FIXES COMPLETED**: Fixed F821 undefined name errors in enhanced_energy_predictor.py (missing Path, joblib imports) - model saving/loading now works.
 - ✅ **Complexity reduction**: Refactored _create_hourly_energy_chart in main.py, extracted 11+ helper methods, reduced PLR0912/0915 violations.
 - ✅ **Import cleanup**: Fixed I001 import formatting issues in main.py, cleaned up ARG002 unused argument issues.
-- ✅ **CI PIPELINE COMPLETELY FIXED**: Resolved all critical CI failures causing build breaks.
-- ✅ **Code hygiene perfect**: Zero ruff violations on all core rules; complete whitespace/format cleanup.
+- ⚠️ **CI PIPELINE CHALLENGING**: Persistent <11 second failures despite comprehensive fixes - local vs CI environment discrepancies.
+- ✅ **Code hygiene locally perfect**: Zero ruff violations on all core rules when tested locally; complete whitespace/format cleanup.
 - ✅ **Complex function refactoring**: Split comprehensive_data_processor._load_weather_data and benchmark_v103._generate_performance_report.
 - ✅ **App verification**: Application runs successfully, critical import fixes verified working.
-- CI/tooling: Both Enhanced CI/CD and Build workflows now pass cleanly with updated action versions.
+- CI/tooling: Local verification passes all checks, but CI environment has persistent issues requiring investigation.
 - Dependencies: pyproject.toml migration complete with Python 3.11+ alignment across all configs.
+
+**CI Challenge Summary**: Despite multiple comprehensive attempts (commits `73ae6bd`, `953f0fd`, `6963a39`, `ff44f5a`), CI workflows continue failing in <11 seconds on code hygiene checks. Local verification consistently passes all ruff/format checks, indicating environment or configuration differences between local and CI systems.
 
 ## Major CI/Tooling Achievements (2025-10-20)
 - ✅ **CI Workflow Modernization**: Updated all GitHub Actions to latest versions (setup-python@v5, trivy@0.28.0, etc.)
@@ -141,6 +143,36 @@ The agent applied a methodical 5-step process to resolve all CI failures:
 - `32a1fe7`: Duplicate weather plotting code cleanup  
 - `dde90f6`: Complex function refactoring in comprehensive_data_processor
 - `1d1a08b`: Final critical lint failures resolution
+- `73ae6bd`: Final CI configuration alignment
+- `953f0fd`: Comprehensive ruff violations fix (COM812 trailing commas)
+- `6963a39`: Import sorting and setup.py modernization
+- `ff44f5a`: Critical import sorting persistence fix
+
+## CI Troubleshooting Lessons Learned (2025-10-20)
+
+### Challenge: Local vs CI Environment Discrepancies
+**Problem**: Consistent <11 second CI failures despite local verification passing all checks
+**Investigation Approaches Tried**:
+1. **Configuration alignment** - Added E402 to global ignores, per-file ignores for tests
+2. **Import sorting fixes** - Applied ruff I001 --fix multiple times (21 files each attempt)
+3. **Comprehensive formatting** - ruff format across entire codebase
+4. **Cache elimination** - Used --no-cache flags to match CI behavior
+5. **Dependency reinstallation** - Fresh pip install to match CI environment
+6. **Build workflow modernization** - Removed setup.py dependencies for PEP 517/518
+
+### Potential Root Causes Identified
+- **Version differences**: CI might use different ruff version than local (0.14.1)
+- **Configuration parsing**: pyproject.toml vs ruff.toml precedence issues
+- **Import persistence**: Import sorting fixes not persisting across commits
+- **Environment isolation**: CI using different Python/dependency versions
+- **Workflow spending limits**: Recent failures due to GitHub Actions limits
+
+### Recommended Next Steps
+1. **Direct CI debugging**: Add debug steps to CI workflow to dump ruff version/config
+2. **Explicit configuration**: Consider switching to standalone ruff.toml instead of pyproject.toml
+3. **Manual import review**: Check specific files mentioned in CI logs vs local state
+4. **Version pinning**: Pin exact ruff version in pyproject.toml dev dependencies
+5. **Incremental approach**: Make smaller, atomic commits focusing on single file fixes
 
 ## Future Enhancements (Lower Priority)
 - Address remaining magic number constants (PLR2004) - 45+ violations but not CI-blocking.
