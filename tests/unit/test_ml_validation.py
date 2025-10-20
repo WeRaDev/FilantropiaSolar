@@ -2,10 +2,10 @@
 Advanced ML model validation and testing.
 """
 
+import time
 
 import numpy as np
 import pytest
-import time
 from sklearn.ensemble import RandomForestRegressor
 from sklearn.metrics import mean_absolute_error, r2_score
 from sklearn.model_selection import cross_val_score, train_test_split

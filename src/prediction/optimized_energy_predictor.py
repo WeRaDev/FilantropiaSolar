@@ -294,7 +294,8 @@ class OptimizedEnergyPredictor(EnhancedEnergyPredictor):
             "average_mae": avg_mae,
             "cache_enabled": self.cache_manager is not None,
             "training_method": "cached"
-            if self.training_start_time and total_training_time < FAST_TRAINING_THRESHOLD_SECONDS
+            if self.training_start_time
+            and total_training_time < FAST_TRAINING_THRESHOLD_SECONDS
             else "full_training",
         }
 
