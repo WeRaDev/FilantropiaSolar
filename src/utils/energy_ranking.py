@@ -6,6 +6,14 @@ Provides ranking functionality based on specific energy values (kWh/kWp)
 import numpy as np
 import pandas as pd
 
+# Energy ranking thresholds (kWh/kWp)
+RANK_1_MIN_THRESHOLD = 0.1  # Poor performance minimum
+RANK_2_THRESHOLD = 0.2      # Fair performance start
+RANK_3_THRESHOLD = 0.4      # Good performance start  
+RANK_4_THRESHOLD = 0.6      # Very Good performance start
+RANK_5_THRESHOLD = 0.8      # Excellent performance start
+OPTIMAL_RANK_THRESHOLD = 4  # Minimum rank considered optimal
+
 
 def calculate_specific_energy_ranking(specific_energy):
     """
@@ -32,15 +40,15 @@ def calculate_specific_energy_ranking(specific_energy):
 
 def _get_single_ranking(value):
     """Helper function to rank a single specific energy value"""
-    if pd.isna(value) or value < 0.1 or value < 0.2:
+    if pd.isna(value) or value < RANK_1_MIN_THRESHOLD or value < RANK_2_THRESHOLD:
         return 1
-    elif value < 0.4:
+    elif value < RANK_3_THRESHOLD:
         return 2
-    elif value < 0.6:
+    elif value < RANK_4_THRESHOLD:
         return 3
-    elif value < 0.8:
+    elif value < RANK_5_THRESHOLD:
         return 4
-    else:  # >= 0.8
+    else:  # >= RANK_5_THRESHOLD
         return 5
 
 
@@ -146,7 +154,7 @@ def generate_ranking_summary(df):
         "average_ranking": round(rankings.mean(), 2),
         "median_ranking": rankings.median(),
         "ranking_distribution": rankings.value_counts().sort_index().to_dict(),
-        "optimal_hours_count": len(rankings[rankings >= 4]),  # Rank 4 and 5
+        "optimal_hours_count": len(rankings[rankings >= OPTIMAL_RANK_THRESHOLD]),  # Rank 4 and 5
         "total_hours": len(rankings),
     }
 

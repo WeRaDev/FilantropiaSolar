@@ -2,8 +2,6 @@
 Integration tests for data processing workflows.
 """
 
-import os
-import sys
 from unittest.mock import Mock, patch
 
 import numpy as np
@@ -178,9 +176,6 @@ def test_end_to_end_workflow():
 def test_large_dataset_processing():
     """Test processing of larger datasets (performance test)."""
     try:
-        import numpy as np
-        import pandas as pd
-
         # Create larger synthetic dataset
         large_data = pd.DataFrame(
             {
