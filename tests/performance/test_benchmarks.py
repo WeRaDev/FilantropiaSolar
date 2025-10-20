@@ -18,7 +18,7 @@ def test_data_import_speed(benchmark):
 
     def import_data_processing():
         try:
-            from src import data_processing  # noqa: PLC0415
+            from src import data_processing
 
             return data_processing
         except ImportError:
@@ -51,7 +51,7 @@ def test_ml_model_import_speed(benchmark):
 
     def import_prediction_module():
         try:
-            from src import prediction  # noqa: PLC0415
+            from src import prediction
 
             return prediction
         except ImportError:

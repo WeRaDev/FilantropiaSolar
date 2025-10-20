@@ -20,7 +20,7 @@ class TestBasicImports:
     def test_data_processing_import(self):
         """Test that data_processing module can be imported."""
         try:
-            from src import data_processing  # noqa: PLC0415
+            from src import data_processing
 
             assert data_processing is not None
         except ImportError:
@@ -29,7 +29,7 @@ class TestBasicImports:
     def test_weather_api_import(self):
         """Test that weather_api module can be imported."""
         try:
-            from src import weather_api  # noqa: PLC0415
+            from src import weather_api
 
             assert weather_api is not None
         except ImportError:
@@ -38,7 +38,7 @@ class TestBasicImports:
     def test_prediction_import(self):
         """Test that prediction module can be imported."""
         try:
-            from src import prediction  # noqa: PLC0415
+            from src import prediction
 
             assert prediction is not None
         except ImportError:
@@ -47,7 +47,7 @@ class TestBasicImports:
     def test_utils_import(self):
         """Test that utils module can be imported."""
         try:
-            from src import utils  # noqa: PLC0415
+            from src import utils
 
             assert utils is not None
         except ImportError:
@@ -56,7 +56,7 @@ class TestBasicImports:
     def test_gui_import(self):
         """Test that gui module can be imported (v1.0.0 - compatibility only)."""
         try:
-            from src import gui  # noqa: PLC0415
+            from src import gui
 
             # In v1.0.0, GUI functionality is integrated into main.py
             # This test ensures the module can be imported for compatibility

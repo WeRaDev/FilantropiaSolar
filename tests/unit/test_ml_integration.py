@@ -23,7 +23,7 @@ def test_sklearn_available():
 def test_prediction_module_structure():
     """Test that prediction module has expected structure."""
     try:
-        from src import prediction  # noqa: PLC0415
+        from src import prediction
 
         # Basic structural tests
         assert prediction is not None

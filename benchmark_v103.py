@@ -18,6 +18,7 @@ SRC_PATH = Path(__file__).parent / "src"
 sys.path.insert(0, str(SRC_PATH))
 
 # Import modules that will be used in timing tests
+# Note: These imports must happen after path manipulation but before other code
 from src.data_processing.comprehensive_data_processor import (  # noqa: E402
     ComprehensiveDataProcessor,
 )
