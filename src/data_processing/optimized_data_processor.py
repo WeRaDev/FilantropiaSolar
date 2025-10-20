@@ -20,6 +20,14 @@ from .data_cache_manager import DataCacheManager
 
 logger = logging.getLogger(__name__)
 
+# Performance thresholds and constants
+SLOW_LOADING_TIME_SECONDS = 60  # Loading time considered slow
+EXCELLENT_LOADING_TIME_SECONDS = 10  # Loading time considered excellent  
+GOOD_DATA_QUALITY_THRESHOLD = 80  # Data quality score threshold
+EXCELLENT_DATA_QUALITY_THRESHOLD = 95  # Excellent data quality threshold
+MEMORY_USAGE_WARNING_MB = 1000  # Memory usage warning threshold (1GB)
+EXPECTED_DATA_YEARS = 4  # Expected years of historical data for coverage calculation
+
 
 class OptimizedDataProcessor(ComprehensiveDataProcessor):
     """
@@ -309,7 +317,7 @@ class OptimizedDataProcessor(ComprehensiveDataProcessor):
                 # Coverage score (date range coverage)
                 if len(data) > 0:
                     date_range = (data.index.max() - data.index.min()).days
-                    expected_range = 365 * 4  # Assuming 4 years expected
+                    expected_range = 365 * EXPECTED_DATA_YEARS
                     coverage = min(date_range / expected_range, 1.0) * 100
                 else:
                     coverage = 0.0
@@ -339,21 +347,21 @@ class OptimizedDataProcessor(ComprehensiveDataProcessor):
             suggestions.append("💡 Enable caching for 95% faster loading times")
 
         loading_time = self.performance_metrics.get("loading_time_seconds", 0)
-        if loading_time > 60:
+        if loading_time > SLOW_LOADING_TIME_SECONDS:
             suggestions.append("⚠️ Consider data optimization - loading time is high")
-        elif loading_time < 10:
+        elif loading_time < EXCELLENT_LOADING_TIME_SECONDS:
             suggestions.append("✅ Excellent loading performance")
 
         data_quality = self.performance_metrics.get("data_quality_score", 0)
-        if data_quality < 80:
+        if data_quality < GOOD_DATA_QUALITY_THRESHOLD:
             suggestions.append(
                 "🔍 Data quality could be improved - check for missing values"
             )
-        elif data_quality > 95:
+        elif data_quality > EXCELLENT_DATA_QUALITY_THRESHOLD:
             suggestions.append("✅ Excellent data quality")
 
         memory_usage = self.performance_metrics.get("memory_efficiency_mb", 0)
-        if memory_usage > 1000:  # > 1GB
+        if memory_usage > MEMORY_USAGE_WARNING_MB:
             suggestions.append(
                 "🧠 Consider implementing lazy loading for large datasets"
             )

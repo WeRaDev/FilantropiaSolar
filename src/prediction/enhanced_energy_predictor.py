@@ -35,6 +35,15 @@ from ..weather_simulation.weather_simulator import (
 
 logger = logging.getLogger(__name__)
 
+# Training and prediction constants
+MINIMUM_TRAINING_SAMPLES = 100  # Minimum samples required for model training
+WEATHER_COVERAGE_THRESHOLD = 0.9  # Required weather data coverage ratio (90%)
+RANKING_EXCELLENT_PERCENTILE = 90  # Percentile threshold for excellent ranking
+RANKING_GOOD_PERCENTILE = 75  # Percentile threshold for good ranking 
+RANKING_AVERAGE_PERCENTILE = 25  # Percentile threshold for average ranking
+RANKING_POOR_PERCENTILE = 10  # Percentile threshold for poor ranking
+DEFAULT_RANKING = 3  # Default ranking when no context available
+
 
 class EnhancedEnergyPredictor:
     """
@@ -143,7 +152,7 @@ class EnhancedEnergyPredictor:
 
         # Get combined data
         data = self.data_processor.get_combined_data(installation_id)
-        if data is None or len(data) < 100:
+        if data is None or len(data) < MINIMUM_TRAINING_SAMPLES:
             logger.warning(
                 f"Insufficient data for {installation_id}: {len(data) if data is not None else 0} records"
             )
@@ -447,7 +456,7 @@ class EnhancedEnergyPredictor:
                 expected_hours = int((end_date - start_date).total_seconds() / 3600) + 1
                 coverage_ratio = len(historical_period) / expected_hours
 
-                if coverage_ratio >= 0.9:  # 90% coverage is sufficient
+                if coverage_ratio >= WEATHER_COVERAGE_THRESHOLD:
                     logger.info(
                         f"Using historical weather data for {location} (coverage: {coverage_ratio:.2%})"
                     )
@@ -614,24 +623,24 @@ class EnhancedEnergyPredictor:
                 rankings = []
                 for pred in predictions:
                     percentile = (historical_values < pred).mean() * 100
-                    if percentile >= 90:
+                    if percentile >= RANKING_EXCELLENT_PERCENTILE:
                         rankings.append(5)  # Excellent
-                    elif percentile >= 75:
+                    elif percentile >= RANKING_GOOD_PERCENTILE:
                         rankings.append(4)  # Good
-                    elif percentile >= 25:
+                    elif percentile >= RANKING_AVERAGE_PERCENTILE:
                         rankings.append(3)  # Average
-                    elif percentile >= 10:
+                    elif percentile >= RANKING_POOR_PERCENTILE:
                         rankings.append(2)  # Below average
                     else:
                         rankings.append(1)  # Poor
                 return rankings
             else:
                 # Use default ranking if no historical context
-                return [3] * len(predictions)  # All average
+                return [DEFAULT_RANKING] * len(predictions)
 
         except Exception as e:
             logger.error(f"Error assigning rankings: {e}")
-            return [3] * len(predictions)
+            return [DEFAULT_RANKING] * len(predictions)
 
     def _combine_prediction_results(
         self,
