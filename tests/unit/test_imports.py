@@ -2,9 +2,14 @@
 Test basic imports and module availability.
 """
 
+import importlib.util
 import os
 
+import matplotlib
+import numpy as np
+import pandas as pd
 import pytest
+import sklearn
 
 # Use proper package imports - no sys.path manipulation needed
 
@@ -15,7 +20,7 @@ class TestBasicImports:
     def test_data_processing_import(self):
         """Test that data_processing module can be imported."""
         try:
-            from src import data_processing
+            from src import data_processing  # noqa: PLC0415
 
             assert data_processing is not None
         except ImportError:
@@ -24,7 +29,7 @@ class TestBasicImports:
     def test_weather_api_import(self):
         """Test that weather_api module can be imported."""
         try:
-            from src import weather_api
+            from src import weather_api  # noqa: PLC0415
 
             assert weather_api is not None
         except ImportError:
@@ -33,7 +38,7 @@ class TestBasicImports:
     def test_prediction_import(self):
         """Test that prediction module can be imported."""
         try:
-            from src import prediction
+            from src import prediction  # noqa: PLC0415
 
             assert prediction is not None
         except ImportError:
@@ -42,7 +47,7 @@ class TestBasicImports:
     def test_utils_import(self):
         """Test that utils module can be imported."""
         try:
-            from src import utils
+            from src import utils  # noqa: PLC0415
 
             assert utils is not None
         except ImportError:
@@ -51,7 +56,7 @@ class TestBasicImports:
     def test_gui_import(self):
         """Test that gui module can be imported (v1.0.0 - compatibility only)."""
         try:
-            from src import gui
+            from src import gui  # noqa: PLC0415
 
             # In v1.0.0, GUI functionality is integrated into main.py
             # This test ensures the module can be imported for compatibility
@@ -69,8 +74,6 @@ class TestBasicImports:
 
         try:
             # Test that main.py exists and can be imported as a module
-            import importlib.util
-
             main_path = os.path.join(project_root, "main.py")
 
             assert os.path.exists(main_path), (
@@ -93,24 +96,16 @@ class TestRequiredPackages:
 
     def test_pandas_available(self):
         """Test pandas is available."""
-        import pandas as pd
-
         assert pd.__version__ is not None
 
     def test_numpy_available(self):
         """Test numpy is available."""
-        import numpy as np
-
         assert np.__version__ is not None
 
     def test_sklearn_available(self):
         """Test scikit-learn is available."""
-        import sklearn
-
         assert sklearn.__version__ is not None
 
     def test_matplotlib_available(self):
         """Test matplotlib is available."""
-        import matplotlib
-
         assert matplotlib.__version__ is not None

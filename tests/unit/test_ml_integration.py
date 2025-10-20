@@ -2,7 +2,10 @@
 Machine Learning integration tests.
 """
 
+import numpy as np
 import pytest
+import sklearn
+from sklearn.ensemble import RandomForestRegressor
 
 # Use proper package imports - no sys.path manipulation needed
 
@@ -11,8 +14,6 @@ import pytest
 def test_sklearn_available():
     """Test that scikit-learn is available for ML operations."""
     try:
-        import sklearn
-
         assert sklearn.__version__ is not None
     except ImportError:
         pytest.skip("scikit-learn not available")
@@ -22,7 +23,7 @@ def test_sklearn_available():
 def test_prediction_module_structure():
     """Test that prediction module has expected structure."""
     try:
-        from src import prediction
+        from src import prediction  # noqa: PLC0415
 
         # Basic structural tests
         assert prediction is not None
@@ -35,9 +36,6 @@ def test_prediction_module_structure():
 def test_basic_ml_workflow():
     """Test basic ML workflow components."""
     try:
-        import numpy as np
-        from sklearn.ensemble import RandomForestRegressor
-
         # Create simple synthetic data
         X = np.random.rand(100, 5)
         y = np.random.rand(100)
