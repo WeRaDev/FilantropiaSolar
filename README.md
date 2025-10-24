@@ -1,4 +1,4 @@
-# FilantropiaSolar v1.0.3 - Smart Caching Edition
+# FilantropiaSolar v1.2.1 - Custom Simulation + 21-Day Analysis
 
 <div align="center">
 
@@ -7,12 +7,20 @@
 ![Python](https://img.shields.io/badge/python-v3.11%2B-blue.svg)
 ![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-green.svg)
 ![License](https://img.shields.io/badge/license-MIT-blue.svg)
-![Version](https://img.shields.io/badge/version-1.0.3-brightgreen.svg)
+![Version](https://img.shields.io/badge/version-1.2.1-brightgreen.svg)
 ![Performance](https://img.shields.io/badge/performance-93%25%20faster-orange.svg)
 
 </div>
 
 ---
+
+## 🆕 What’s New in v1.2.1
+
+- Custom Station Simulation: simulate energy production for a chosen location and user-provided capacity (kWp)
+- 21-Day Analysis Window: chosen date ±10 days across results and charts
+- Lisbon 4-year baseline overlay (min/avg/max) in the hourly chart, scaled by installation capacity
+- Improved weather coordinate resolution per installation (Excel fallback), simulator fallback
+- Windows installer build via GitHub Actions (PyInstaller + pynsist)
 
 ## 🚀 Performance Revolution - v1.0.3 Smart Caching Edition
 
@@ -58,9 +66,9 @@ FilantropiaSolar is an advanced solar energy analysis application designed speci
 
 #### Option 1: Windows Installer (Recommended)
 1. **Download** the Windows installer from [Releases](../../releases)
-2. **Run** `FilantropiaSolar-v1.0.3-Windows-Installer.exe`
-3. **Follow** the installation wizard
-4. **Launch** from desktop shortcut or Start Menu
+2. **Run** `FilantropiaSolar-1.2.1.exe`
+3. **Installer is non-admin and minimal-interaction**; shortcuts are created
+4. **Launch** from Start Menu or desktop shortcut
 
 #### Option 2: Cross-Platform Python
 ```bash
@@ -104,6 +112,11 @@ chmod +x FilantropiaSolar-v1.0.3-Linux.AppImage
 
 ### 1. Analysis Configuration Tab
 
+- In Simulation mode, you can choose either an existing installation OR enable "Custom Station (Simulation)" and provide:
+  - Location (predefined list or advanced coordinates internally)
+  - Capacity (kWp)
+- Custom station results and charts behave like any installation (capacity-scaled, baseline overlay shown).
+
 **Choose Analysis Mode:**
 - **📈 Historical Analysis**: Explore existing data from your installations
   - Select installation from dropdown
@@ -116,7 +129,7 @@ chmod +x FilantropiaSolar-v1.0.3-Linux.AppImage
   - Uses weather simulation for predictions
 
 **Generate Analysis:**
-- Click "🚀 Generate 15-Day Analysis"
+- Click "🚀 Generate 21-Day Analysis"
 - Wait for processing (30-60 seconds)
 - View success notification with key metrics
 
@@ -124,7 +137,7 @@ chmod +x FilantropiaSolar-v1.0.3-Linux.AppImage
 
 **Comprehensive Results Display:**
 - Analysis type and installation details
-- 15-day period summary and key metrics
+- 21-day period summary and key metrics
 - Daily performance breakdown with star ratings
 - Data source and ML model information
 - Performance insights and recommendations
@@ -143,7 +156,7 @@ chmod +x FilantropiaSolar-v1.0.3-Linux.AppImage
 - Visual correlation with energy production patterns
 
 **15-Day Summary Chart:**
-- Overview of all 15 days in analysis period
+- Overview of all 21 days in analysis period
 - Color-coded daily bars by performance rating
 - Selected day highlighting with arrow indicator
 
@@ -221,7 +234,7 @@ Cache Architecture:
 - **Incremental updates** - Only processes changed data
 - **Performance monitoring** - Tracks cache hit rates and performance gains
 
-### Project Structure
+### Project Structure (excerpt)
 ```
 FilantropiaSolar/
 ├── main.py                      # Main application entry point (v1.0.3)
@@ -237,11 +250,10 @@ FilantropiaSolar/
 │   │   └── enhanced_energy_predictor.py
 │   └── utils/
 │       └── energy_ranking.py
-├── windows_installer/           # Professional Windows installer (NEW)
-│   ├── installer.nsi           # NSIS installer script
-│   ├── FilantropiaSolar.spec   # PyInstaller specification
-│   └── build_installer.bat     # Automated build script
-├── cache/                      # Smart cache directory (NEW)
+├── installer.cfg               # pynsist installer configuration (Windows)
+├── filantropia_solar.spec      # PyInstaller spec (ignored by git; build locally or in CI)
+├── .github/workflows/windows-installer.yml  # CI to build installer on Windows
+├── cache/                      # Smart cache directory (dev). On Windows installer, cache lives in %LOCALAPPDATA%/FilantropiaSolar/cache
 ├── data/                       # Source datasets
 ├── weather_files/              # Weather data
 ├── models/                     # Legacy model storage
@@ -366,6 +378,20 @@ models = {
     'gradient_boost': GradientBoostingRegressor(learning_rate=0.1),
     'linear': LinearRegression()
 }
+```
+
+## 🪟 Windows Installer Build (CI)
+
+- GitHub Actions workflow builds the frozen app and an installer.exe (Windows 10+, 64-bit)
+- Trigger by tagging a release (vX.Y.Z) or via workflow_dispatch
+- Artifacts: FilantropiaSolar-<version>.exe under workflow run artifacts
+
+Local build (Windows):
+```powershell
+python -m pip install --upgrade pip wheel
+pip install pyinstaller pynsist openpyxl
+pyinstaller --noconfirm filantropia_solar.spec
+python -m nsist installer.cfg
 ```
 
 ## 📋 Troubleshooting
