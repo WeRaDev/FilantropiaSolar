@@ -5,6 +5,27 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.2.1] - 2025-10-24
+
+### Added
+- Custom Station Simulation: simulate energy production by choosing a location and inputting capacity (kWp); rendered alongside existing installations in Simulation mode.
+- 21-Day Analysis Window: extended range to chosen date ±10 days; charts, navigation, and summaries updated.
+
+### Changed
+- UX: Custom Station panel is only visible in Simulation mode (hidden for Historical).
+- GUI version bump to v1.2.1.
+
+### Fixed/Improved
+- Weather API coordinate resolution: uses installation metadata first; falls back to Data/PV Plants Metadata.xlsx (match by PV Serial Number, else Location), then simulator coords.
+- Installation-specific API calls prevent location-ambiguity gaps; main uses simulation fallback to avoid user-facing errors.
+
+### Technical Notes
+- main.py: added custom-station UI; 2-column installation section; 21-day constants; titles updated.
+- enhanced_energy_predictor.py: installation-specific weather lookup; Excel fallback; predict_period_for_custom(); generalized day-window; no persistence for custom.
+- Tests: 35 passed, 1 skipped.
+
+---
+
 ## [1.1.2] - 2025-10-24
 
 ### Added

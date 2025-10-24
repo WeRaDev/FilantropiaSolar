@@ -225,16 +225,15 @@ The agent applied a methodical 5-step process to resolve all CI failures:
 2. **Test Suite**: Confirm pytest runs without import failures
 3. **Update Documentation**: Record fixes and maintenance procedures
 
-## Release v1.1.2 (2025-10-24)
-- Baseline overlay: Added Lisbon 4-year hourly min/avg/max as a base layer in the Hourly Energy chart
-- Weather ranking API hardened: accepts date/datetime/str and normalizes inputs; fixed smoke script issue
-- Night radiation: enforced zero using sunrise/sunset elevation crossings plus compatibility clamp for tests
-- Heredoc rule: documented safe heredoc usage to avoid stuck shells
-- Utilities: added headless validation scripts (scripts/smoke_run.py, scripts/validate_overlay.py) and weather API probe
-- Tests: 35 passed, 1 skipped; performance benchmarks improved slightly
+## Release v1.2.1 (2025-10-24)
+- Custom Station Simulation: simulate energy for a user-provided capacity at a chosen location; shown alongside existing installations in Simulation mode
+- 21-Day Window: analysis and charts now cover chosen date ±10 days (was 15 days)
+- Installation-specific weather lookup with Excel fallback (Data/PV Plants Metadata.xlsx) and simulator fallback
+- GUI: custom panel hidden in Historical mode; version bumped to v1.2.1
+- Tests: 35 passed, 1 skipped
 
 ## Current Status (2025-10-24)
-✅ **APP LAUNCH SUCCESS**: FilantropiaSolar v1.1.2 GUI with baseline overlay active
+✅ **APP LAUNCH SUCCESS**: FilantropiaSolar v1.2.1 with custom-station simulation and 21-day analysis
 - All data files loaded (9 installations, 6 weather locations)
 - Cache system working, ML models loaded from cache
 - Weather simulation prepared for all locations
@@ -375,7 +374,7 @@ if str(ROOT) not in sys.path:
 - Remaining PLR2004 (magic numbers) are non-critical per project standards
 - Maintained existing code style and patterns
 
-### **Usage Instructions (Updated for v1.1.2)**
+### **Usage Instructions (Updated for v1.2.1)**
 
 ```bash
 # Set up development environment

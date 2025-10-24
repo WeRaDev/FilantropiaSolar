@@ -67,7 +67,7 @@ logger = logging.getLogger(__name__)
 
 # Lint/clarity constants
 MAX_ISSUES_PREVIEW = 5
-DEFAULT_DAY_INDEX_MAX = 14
+DEFAULT_DAY_INDEX_MAX = 20
 ENERGY_LABEL_THRESHOLD = 0.1
 DEFAULT_PROD_HOUR_MIN = 6
 DEFAULT_PROD_HOUR_MAX = 20
@@ -75,7 +75,7 @@ DEFAULT_PROD_HOUR_MAX = 20
 # GUI and Display constants
 LOADING_WINDOW_WIDTH = 520
 LOADING_WINDOW_HEIGHT = 320
-ANALYSIS_PERIOD_DAYS = 15
+ANALYSIS_PERIOD_DAYS = 21
 CHART_PLACEHOLDER_SIZE = 0.5
 CHART_Y_AXIS_PADDING = 1.2
 LEGEND_BBOX_ANCHOR_X = 1.08
@@ -136,7 +136,7 @@ class FilantropiaSolarApp:
         # Application state
         self.is_initialized = False
         self.current_results = None
-        self.current_day_index = 7  # Start with center date
+        self.current_day_index = ANALYSIS_PERIOD_DAYS // 2  # Start with center date
         self.available_dates = {}  # Store available dates per installation
         self.cache_manager = None  # Will be set after initialization
         self.current_analysis_mode = None  # Store current analysis mode
@@ -165,7 +165,7 @@ class FilantropiaSolarApp:
     def create_loading_gui(self):
         """Create the initial loading interface."""
         self.root = tk.Tk()
-self.root.title("FilantropiaSolar v1.1.2 - Loading...")
+        self.root.title("FilantropiaSolar v1.2.1 - Loading...")
         self.root.geometry(f"{LOADING_WINDOW_WIDTH}x{LOADING_WINDOW_HEIGHT}")
         self.root.resizable(False, False)
 
@@ -184,7 +184,7 @@ self.root.title("FilantropiaSolar v1.1.2 - Loading...")
         # Application title and branding
         title_label = ttk.Label(
             self.loading_frame,
-text="☀️ FilantropiaSolar v1.1.2",
+            text="☀️ FilantropiaSolar v1.2.1",
             font=("Arial", 20, "bold"),
         )
         title_label.pack(pady=(20, 5))
@@ -234,7 +234,7 @@ text="☀️ FilantropiaSolar v1.1.2",
         features_text.config(state="normal")
         features_text.insert(
             tk.END,
-"🔋 Loading comprehensive solar energy system v1.1.2...\n\n"
+"🔋 Loading comprehensive solar energy system v1.2.1...\n\n"
             "✓ 9 PV installations across Portugal\n"
             "✓ 315,567+ historical energy records\n"
             "✓ Hourly production analysis with weather correlation\n"
@@ -254,6 +254,13 @@ text="☀️ FilantropiaSolar v1.1.2",
             "Cancel loading and exit FilantropiaSolar?",
         ):
             self._cleanup_and_exit()
+
+    def _create_cache_status_section(self, parent):
+        """Create the System Status (cache status + controls) section inside parent."""
+        # Cache Status Display
+        cache_frame = ttk.LabelFrame(parent, text="System Status", padding="15")
+        cache_frame.pack(fill=tk.BOTH, expand=True, pady=(0, 0))
+        self._create_cache_status_display(cache_frame)
 
     def _create_cache_status_display(self, parent):
         """Create cache status display with management options."""
@@ -594,7 +601,7 @@ text="☀️ FilantropiaSolar v1.1.2",
             self.loading_frame.destroy()
 
             # Reconfigure main window
-self.root.title("FilantropiaSolar v1.1.2 - Advanced Solar Energy Analysis")
+            self.root.title("FilantropiaSolar v1.2.1 - Advanced Solar Energy Analysis")
             self.root.geometry("1400x900")
             self.root.resizable(True, True)
 
@@ -646,9 +653,32 @@ self.root.title("FilantropiaSolar v1.1.2 - Advanced Solar Energy Analysis")
         self._create_header_section(container)
         self._create_mode_selection_section(container)
         self._create_installation_selection_section(container)
-        self._create_date_selection_section(container)
+
+        # Row: Date Selection | System Status (side-by-side)
+        row_frame = ttk.Frame(container)
+        row_frame.pack(fill=tk.BOTH, expand=True)
+        row_frame.columnconfigure(0, weight=1)
+        row_frame.columnconfigure(1, weight=1)
+
+        left_frame = ttk.Frame(row_frame)
+        left_frame.grid(row=0, column=0, sticky="nsew", padx=(0, 10))
+        right_frame = ttk.Frame(row_frame)
+        right_frame.grid(row=0, column=1, sticky="nsew", padx=(10, 0))
+
+        self._create_date_selection_section(left_frame)
+        self._create_cache_status_section(right_frame)
+
+        # Options and action buttons
         self._create_options_and_buttons_section(container)
-        self._create_status_section(container)
+
+        # Ready/status message below
+        self.input_status_var = tk.StringVar(value="Ready to generate analysis")
+        status_label = ttk.Label(
+            container,
+            textvariable=self.input_status_var,
+            foreground="goldenrod",
+        )
+        status_label.pack(pady=(10, 0))
 
         # Initialize interface
         self._on_mode_change()
@@ -687,34 +717,78 @@ self.root.title("FilantropiaSolar v1.1.2 - Advanced Solar Energy Analysis")
         ).pack(anchor=tk.W)
 
     def _create_installation_selection_section(self, container):
-        """Create the installation selection section."""
-        install_frame = ttk.LabelFrame(
+        """Create the installation selection section with custom-station panel."""
+        frame = ttk.LabelFrame(
             container,
             text="Installation Selection",
             padding="15",
         )
-        install_frame.pack(fill=tk.X, pady=(0, 15))
+        frame.pack(fill=tk.X, pady=(0, 15))
 
-        ttk.Label(install_frame, text="Choose Installation:").pack(anchor=tk.W)
+        # Two-column layout: Existing | Custom Station
+        frame.columnconfigure(0, weight=1)
+        frame.columnconfigure(1, weight=1)
+
+        # Left: existing installations
+        left = ttk.Frame(frame)
+        left.grid(row=0, column=0, sticky="nsew", padx=(0, 8))
+        ttk.Label(left, text="Choose Installation:").pack(anchor=tk.W)
 
         installations = self.data_processor.get_installation_list()
         installation_options = [
             f"{info.location}_{info.serial_number} ({info.installed_power_kwp} kWp)"
             for _, info in installations
         ]
-
         self.installation_var = tk.StringVar(
             value=installation_options[0] if installation_options else "",
         )
         installation_combo = ttk.Combobox(
-            install_frame,
+            left,
             textvariable=self.installation_var,
             values=installation_options,
             state="readonly",
-            width=65,
+            width=60,
         )
         installation_combo.pack(fill=tk.X, pady=(5, 0))
         installation_combo.bind("<<ComboboxSelected>>", self._on_installation_change)
+
+        # Right: custom station simulation
+        right = ttk.LabelFrame(frame, text="Custom Station (Simulation)")
+        right.grid(row=0, column=1, sticky="nsew", padx=(8, 0))
+        # Keep a reference for show/hide based on mode
+        self.custom_panel_frame = right
+        self.custom_use_var = tk.BooleanVar(value=False)
+        use_cb = ttk.Checkbutton(
+            right,
+            text="Simulate as new station",
+            variable=self.custom_use_var,
+        )
+        use_cb.pack(anchor=tk.W)
+
+        # Locations from known set (from existing installations)
+        unique_locations = sorted({info.location for _, info in installations}) or [
+            "Lisbon",
+            "Setubal",
+            "Faro",
+            "Braga",
+            "Tavira",
+            "Loule",
+        ]
+        ttk.Label(right, text="Location:").pack(anchor=tk.W, pady=(6, 0))
+        self.custom_location_var = tk.StringVar(value=unique_locations[0])
+        loc_combo = ttk.Combobox(
+            right,
+            textvariable=self.custom_location_var,
+            values=unique_locations,
+            state="readonly",
+            width=30,
+        )
+        loc_combo.pack(anchor=tk.W, pady=(2, 4))
+
+        ttk.Label(right, text="Capacity (kWp):").pack(anchor=tk.W)
+        self.custom_capacity_var = tk.StringVar(value="5.0")
+        cap_entry = ttk.Entry(right, textvariable=self.custom_capacity_var, width=12)
+        cap_entry.pack(anchor=tk.W, pady=(2, 0))
 
     def _create_date_selection_section(self, container):
         """Create the date selection section."""
@@ -803,11 +877,10 @@ self.root.title("FilantropiaSolar v1.1.2 - Advanced Solar Energy Analysis")
         retrain_button.pack(side=tk.LEFT)
 
     def _create_status_section(self, container):
-        """Create the system status and ready message section."""
+        """Create the system status and ready message section (legacy layout)."""
         # Cache Status Display
         cache_frame = ttk.LabelFrame(container, text="System Status", padding="15")
         cache_frame.pack(fill=tk.X, pady=(15, 0))
-
         self._create_cache_status_display(cache_frame)
 
         # Status Display
@@ -826,12 +899,19 @@ self.root.title("FilantropiaSolar v1.1.2 - Advanced Solar Energy Analysis")
         if mode == "historical":
             self.historical_date_frame.pack(fill=tk.X)
             self.simulation_date_frame.pack_forget()
-            # Enable simulation for historical analysis when weather data is needed
-            # No manual simulation toggle; weather source is automatic
+            # Hide custom-station panel in historical mode
+            if hasattr(self, "custom_panel_frame") and self.custom_panel_frame.winfo_ismapped():
+                self.custom_panel_frame.grid_remove()
+            if hasattr(self, "custom_use_var"):
+                self.custom_use_var.set(False)
+            # Weather source automatic
             self.simulation_var.set(True)
         else:
             self.simulation_date_frame.pack(fill=tk.X)
             self.historical_date_frame.pack_forget()
+            # Show custom-station panel only in simulation mode
+            if hasattr(self, "custom_panel_frame") and not self.custom_panel_frame.winfo_ismapped():
+                self.custom_panel_frame.grid()
             self.simulation_var.set(True)
 
     def _on_installation_change(self, _event=None):
@@ -1255,11 +1335,26 @@ self.root.title("FilantropiaSolar v1.1.2 - Advanced Solar Energy Analysis")
 
             # Generate prediction using appropriate settings
             # Weather source selection is automatic inside predictor
-            results = self.energy_predictor.predict_15day_period(
-                installation_id,
-                center_date,
-                False,
-            )
+            if mode == "simulation" and getattr(self, "custom_use_var", None) and self.custom_use_var.get():
+                # Custom station path
+                try:
+                    capacity_kwp = float(self.custom_capacity_var.get())
+                except Exception:
+                    capacity_kwp = 5.0
+                location_name = self.custom_location_var.get() or "Lisbon"
+                results = self.energy_predictor.predict_period_for_custom(
+                    location_name,
+                    capacity_kwp,
+                    center_date,
+                    days=ANALYSIS_PERIOD_DAYS,
+                )
+            else:
+                results = self.energy_predictor.predict_15day_period(
+                    installation_id,
+                    center_date,
+                    True,
+                    days=ANALYSIS_PERIOD_DAYS,
+                )
 
             # Store results and analysis mode for consistent navigation
             self.current_results = results
@@ -1650,61 +1745,50 @@ self.root.title("FilantropiaSolar v1.1.2 - Advanced Solar Energy Analysis")
             self.results_hourly_text.config(state="disabled")
 
     def _load_validation_baseline(self):
-        """Load Lisbon 4-year hourly min/avg/max baseline from average_values.csv if available.
+        """Load Lisbon 4-year per-day/hour baseline from average_values.csv if available.
 
-        Expected columns (case-insensitive): hour, min|minimum, avg|average|mean, max|maximum
+        Expected columns (case-insensitive): PVMonth|Month, PVDay|Day, PVHour|Hour,
+        and MinkWh/AvgkWh/MaxkWh (or min/avg/max). Stored without aggregation; we
+        will select the matching month/day at render time for exact comparisons.
         """
         try:
             csv_path = Path("average_values.csv")
-            if csv_path.exists():
-                df = pd.read_csv(csv_path)
-                # Normalize columns
-                lower = {c.lower(): c for c in df.columns}
-                hour_col = (
-                    lower.get("hour")
-                    or lower.get("pvhour")
-                    or lower.get("hr")
-                )
-                # Identify min/avg/max columns (case-insensitive)
-                min_col = lower.get("min") or lower.get("minimum") or lower.get("minkwh")
-                avg_col = lower.get("avg") or lower.get("average") or lower.get("mean") or lower.get("avgkwh")
-                max_col = lower.get("max") or lower.get("maximum") or lower.get("maxkwh")
-
-                if not hour_col:
-                    raise ValueError("No hour column found in average_values.csv (expected 'PVHour' or 'Hour')")
-
-                # Coerce numeric types
-                df[hour_col] = pd.to_numeric(df[hour_col], errors="coerce")
-                for c in [min_col, avg_col, max_col]:
-                    if c and c in df.columns:
-                        df[c] = pd.to_numeric(df[c], errors="coerce")
-
-                # If data contains many rows (by day/month), aggregate to 24 hours
-                grouped = df.dropna(subset=[hour_col]).groupby(df[hour_col].astype(int))
-
-                # Define aggregations based on available columns; fallback to TotalkWh/AvgkWh if needed
-                if not avg_col and "totalkwh" in lower:
-                    avg_source = lower["totalkwh"]
-                else:
-                    avg_source = avg_col
-
-                agg_df = pd.DataFrame({"hour": list(range(0, 24))})
-                agg_df.set_index("hour", inplace=True)
-
-                if min_col and min_col in df.columns:
-                    agg_df["min"] = grouped[min_col].min()
-                if avg_source and avg_source in df.columns:
-                    agg_df["avg"] = grouped[avg_source].mean()
-                if max_col and max_col in df.columns:
-                    agg_df["max"] = grouped[max_col].max()
-
-                agg_df = agg_df.reset_index().dropna(how="all")
-                self.validation_baseline_df = agg_df
-                logger.info(
-                    f"Loaded validation baseline from {csv_path} with columns {list(self.validation_baseline_df.columns)}",
-                )
-            else:
+            if not csv_path.exists():
                 logger.warning("average_values.csv not found; baseline overlay disabled")
+                return
+
+            df = pd.read_csv(csv_path)
+            lower = {c.lower(): c for c in df.columns}
+
+            # Identify columns (case-insensitive aliases)
+            month_col = lower.get("pvmonth") or lower.get("month")
+            day_col = lower.get("pvday") or lower.get("day")
+            hour_col = lower.get("pvhour") or lower.get("hour") or lower.get("hr")
+            min_col = lower.get("minkwh") or lower.get("min") or lower.get("minimum")
+            avg_col = lower.get("avgkwh") or lower.get("avg") or lower.get("average") or lower.get("mean")
+            max_col = lower.get("maxkwh") or lower.get("max") or lower.get("maximum")
+
+            if not hour_col:
+                raise ValueError("No hour column found (expected 'PVHour' or 'Hour')")
+
+            # Build normalized DataFrame
+            keep = {"month": month_col, "day": day_col, "hour": hour_col, "min": min_col, "avg": avg_col, "max": max_col}
+            norm = {}
+            for k, src in keep.items():
+                if src and src in df.columns:
+                    norm[k] = pd.to_numeric(df[src], errors="coerce") if k in {"month","day","hour","min","avg","max"} else df[src]
+            base = pd.DataFrame(norm).dropna(subset=["hour"]).copy()
+            # Ensure ints for month/day/hour
+            if "month" in base:
+                base["month"] = base["month"].astype("Int64")
+            if "day" in base:
+                base["day"] = base["day"].astype("Int64")
+            base["hour"] = base["hour"].astype("Int64")
+
+            self.validation_baseline_df = base.reset_index(drop=True)
+            logger.info(
+                f"Loaded validation baseline from {csv_path} with columns {list(self.validation_baseline_df.columns)}",
+            )
         except Exception as e:
             logger.error(f"Failed to load validation baseline: {e}")
             self.validation_baseline_df = None
@@ -2084,51 +2168,7 @@ self.root.title("FilantropiaSolar v1.1.2 - Advanced Solar Energy Analysis")
             hourly_energy = self._extract_energy_data(productive_hours, energy_column)
             hours = productive_hours.index.hour
 
-            # BASELINE OVERLAY: Lisbon 4y min/avg/max as reference layer
-            try:
-                if self.validation_baseline_df is not None and not self.validation_baseline_df.empty:
-                    base = self.validation_baseline_df.copy()
-                    base_cols = {c.lower(): c for c in base.columns}
-                    # Standardize expected columns
-                    h_col = base_cols.get("hour") or base.columns[0]
-                    min_col = base_cols.get("min") or base_cols.get("minimum")
-                    avg_col = base_cols.get("avg") or base_cols.get("average") or base_cols.get("mean")
-                    max_col = base_cols.get("max") or base_cols.get("maximum")
-                    # Coerce types
-                    base[h_col] = pd.to_numeric(base[h_col], errors="coerce").astype("Int64")
-                    for col in [min_col, avg_col, max_col]:
-                        if col:
-                            base[col] = pd.to_numeric(base[col], errors="coerce")
-                    # Slice to productive hours
-                    mask = base[h_col].between(productive_hour_min, productive_hour_max)
-                    base_slice = base[mask].dropna(how="all")
-                    if not base_slice.empty and avg_col:
-                        x_hours = base_slice[h_col].astype(int).to_numpy()
-                        # Draw min-max band if available
-                        if min_col and max_col and min_col in base_slice and max_col in base_slice:
-                            y_min = base_slice[min_col].fillna(0).to_numpy()
-                            y_max = base_slice[max_col].fillna(0).to_numpy()
-                            self.hourly_energy_ax.fill_between(
-                                x_hours,
-                                y_min,
-                                y_max,
-                                color="lightgray",
-                                alpha=0.35,
-                                label="Lisbon min–max (4y)",
-                                step=None,
-                            )
-                        # Draw average line
-                        y_avg = base_slice[avg_col].fillna(0).to_numpy()
-                        self.hourly_energy_ax.plot(
-                            x_hours,
-                            y_avg,
-                            linestyle="--",
-                            linewidth=2,
-                            color="dimgray",
-                            label="Lisbon average (4y)",
-                        )
-            except Exception as e:
-                logger.warning(f"Baseline overlay failed: {e}")
+            # (Baseline overlay will be rendered on top, after bars)
 
             # Compute specific energy-based rankings (0-5); include rank 0 bars (faint gray)
             se_col = (
@@ -2154,6 +2194,54 @@ self.root.title("FilantropiaSolar v1.1.2 - Advanced Solar Energy Analysis")
                 energy_data_type,
                 hourly_energy,
             )
+            # Render baseline overlay (Lisbon 4y) on TOP using black vlines + 'x' for average
+            try:
+                if self.validation_baseline_df is not None and not self.validation_baseline_df.empty:
+                    base = self.validation_baseline_df.copy()
+                    # Filter for target month/day if available for exact matching
+                    try:
+                        t_month = target_date.month if hasattr(target_date, "month") else None
+                        t_day = target_date.day if hasattr(target_date, "day") else None
+                    except Exception:
+                        t_month, t_day = None, None
+
+                    if "month" in base.columns and "day" in base.columns and t_month and t_day:
+                        base = base[(base["month"] == t_month) & (base["day"] == t_day)]
+                        # Fallback to month-only if no exact rows
+                        if base.empty:
+                            base = self.validation_baseline_df.copy()
+                            base = base[base.get("month").astype("Int64") == t_month]
+
+                    # Now restrict to productive hours window
+                    if not base.empty:
+                        base = base[base["hour"].between(productive_hour_min, productive_hour_max)]
+
+                    if not base.empty:
+                        x_hours = base["hour"].astype(int).to_numpy()
+                        # Capacity scaling: baseline values are normalized to 18kWp
+                        try:
+                            capacity_kwp = float(
+                                self.current_results.get("installation_info", {}).get("capacity_kwp", 18.0),
+                            )
+                        except Exception:
+                            capacity_kwp = 18.0
+                        scale = capacity_kwp / 18.0 if capacity_kwp else 1.0
+
+                        y_min = (base.get("min").fillna(0).to_numpy() * scale) if "min" in base.columns else None
+                        y_max = (base.get("max").fillna(0).to_numpy() * scale) if "max" in base.columns else None
+                        y_avg = (base.get("avg").fillna(0).to_numpy() * scale) if "avg" in base.columns else None
+
+                        if y_min is not None and y_max is not None:
+                            self.hourly_energy_ax.vlines(
+                                x_hours, y_min, y_max, colors="black", linewidth=1.5, alpha=0.9, label="Lisbon min–max (4y)", zorder=5,
+                            )
+                        if y_avg is not None:
+                            self.hourly_energy_ax.scatter(
+                                x_hours, y_avg, marker="x", color="black", s=30, label="Lisbon avg (4y)", zorder=6,
+                            )
+            except Exception as e:
+                logger.warning(f"Baseline overlay failed: {e}")
+
             self._add_energy_legend()
 
         except Exception as e:
@@ -2884,7 +2972,7 @@ self.root.title("FilantropiaSolar v1.1.2 - Advanced Solar Energy Analysis")
 
         # Chart formatting
         self.daily_overview_ax.set_title(
-            "Chart 3: Daily Energy & Weather Overview (15-Day Analysis Period)",
+            f"Chart 3: Daily Energy & Weather Overview ({ANALYSIS_PERIOD_DAYS}-Day Analysis Period)",
             fontsize=11,
             fontweight="bold",
             pad=15,
@@ -2954,7 +3042,7 @@ self.root.title("FilantropiaSolar v1.1.2 - Advanced Solar Energy Analysis")
 
     def _center_day(self):
         """Navigate to the center day of the analysis period."""
-        self.current_day_index = 7
+        self.current_day_index = ANALYSIS_PERIOD_DAYS // 2
         self._refresh_day_display()
 
     def _refresh_day_display(self):
