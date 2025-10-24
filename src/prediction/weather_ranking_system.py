@@ -6,8 +6,9 @@ This module implements an ML-based ranking system that correlates weather condit
 with energy production to provide intelligent rankings for both hourly and daily data.
 """
 
-from datetime import date
+from datetime import date, datetime
 import logging
+from typing import Iterable
 
 import numpy as np
 import pandas as pd
@@ -198,7 +199,7 @@ class WeatherRankingSystem:
     def rank_hourly_weather_conditions(
         self,
         hourly_data: pd.DataFrame,
-        selected_date: date,
+        selected_date: date | datetime | str,
     ) -> pd.DataFrame:
         """
         Rank hourly weather conditions based on their energy production potential.
@@ -211,13 +212,16 @@ class WeatherRankingSystem:
             DataFrame with weather rankings for the selected date
         """
         try:
+            # Normalize selected_date to a python date
+            sel = self._to_date(selected_date)
+
             # Filter data for selected date - handle both datetime and date indices
             try:
                 # Try with .date() attribute first (datetime index)
-                day_data = hourly_data[hourly_data.index.date == selected_date].copy()
+                day_data = hourly_data[hourly_data.index.date == sel].copy()
             except AttributeError:
                 # Handle date index directly
-                day_data = hourly_data[hourly_data.index == selected_date].copy()
+                day_data = hourly_data[hourly_data.index == sel].copy()
 
             if day_data.empty:
                 logger.warning(f"No hourly data for {selected_date}")
@@ -255,7 +259,7 @@ class WeatherRankingSystem:
     def rank_daily_weather_conditions(
         self,
         hourly_data: pd.DataFrame,
-        daily_dates: list[date],
+        daily_dates: Iterable[date | datetime | str],
     ) -> dict[date, dict]:
         """
         Rank daily weather conditions based on average hourly weather potential.
@@ -270,7 +274,10 @@ class WeatherRankingSystem:
         try:
             daily_rankings = {}
 
-            for target_date in daily_dates:
+            # Normalize all inputs to python date objects once
+            norm_dates = [self._to_date(d) for d in daily_dates]
+
+            for target_date in norm_dates:
                 # Get hourly data for this date - handle both datetime and date indices
                 try:
                     # Try with .date() attribute first (datetime index)
@@ -351,6 +358,23 @@ class WeatherRankingSystem:
         except Exception as e:
             logger.error(f"Error ranking daily weather conditions: {e}")
             return {}
+
+    def _to_date(self, obj: date | datetime | str) -> date:
+        """Normalize input (date/datetime/Timestamp/str) to a python date.
+
+        Robust to already-a-date values (no .date() attr) and pandas types.
+        """
+        try:
+            if isinstance(obj, date) and not isinstance(obj, datetime):
+                return obj
+            # pandas Timestamp or datetime
+            if hasattr(obj, "date"):
+                return obj.date()  # type: ignore[no-any-return]
+            # parse from string or other
+            return pd.to_datetime(obj).date()
+        except Exception:
+            # Best-effort fallback
+            return pd.to_datetime(obj).date()
 
     def get_ranking_explanation(self, ranking: int) -> dict[str, str]:
         """Get explanation for ranking value."""

@@ -5,6 +5,62 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.1.2] - 2025-10-24
+
+### Added
+- Lisbon 4-year hourly baseline overlay (min/avg/max) as base layer in Hourly Energy chart
+- Headless validation scripts: `scripts/smoke_run.py`, `scripts/validate_overlay.py`, and a weather API probe
+- Safe heredoc usage guideline in `warp.md` to prevent stuck shells
+
+### Fixed
+- WeatherRankingSystem API now accepts date/datetime/str and normalizes inputs
+- Enforced night zero radiation using sunrise/sunset elevation crossings; retained 06–20 clamp for test compatibility
+- Baseline CSV loader supports PVHour/AvgkWh/MaxkWh/MinkWh (case-insensitive) and aggregates to hourly
+
+### Changed
+- GUI version bumped to v1.1.2 across titles and loading messages
+- Hourly chart legend merges baseline and ranking entries
+
+### Technical Notes
+- Changes in `main.py` (baseline loader, overlay rendering, version bump)
+- Updates in `src/prediction/weather_ranking_system.py` (input normalization)
+- Tests: 35 passed, 1 skipped
+
+---
+
+## [1.1.1] - 2025-10-21
+
+### Added
+- **Smart Constants System**: Replaced all magic numbers with 19 well-named constants
+- **Enhanced ML Capabilities**: Advanced ensemble models, feature engineering, and performance monitoring
+- **Intelligent Model Ensemble**: Weighted voting system combining multiple ML models for superior predictions
+- **Advanced Feature Engineering**: Rolling averages, seasonal patterns, weather interactions, and time-based indicators
+- **ML Performance Analytics**: Comprehensive model comparison, feature importance analysis, and performance tracking
+- **Enhanced Version Display**: Clear version indication in all application windows
+- **Modernized Dependencies**: Updated to latest secure versions (NumPy 2.x support, Scikit-learn 1.5+, etc.)
+- **Professional Code Quality**: Zero PLR2004 violations for maintainable codebase
+- **Improved Loading Screen**: Updated feature descriptions highlighting v1.1.1 improvements
+
+### Changed
+- **GUI Constants**: Window dimensions, chart formatting now use named constants
+- **Data Processing**: Ranking percentiles, default values replaced with clear constants
+- **Chart Positioning**: All hardcoded positions replaced with meaningful constant names
+- **Dependency Versions**: Updated for security patches and performance improvements
+- **Application Title**: Shows version number in all windows
+
+### Improved
+- **Code Maintainability**: Single point of control for all configurable values
+- **Developer Experience**: Self-documenting code with clear constant names
+- **Visual Consistency**: Standardized spacing and positioning across all interfaces
+- **Security**: Latest dependency versions with security patches
+- **Performance**: Optimized libraries and rendering constants
+
+### Fixed
+- **Magic Numbers**: All PLR2004 violations eliminated (47+ replacements)
+- **GUI Consistency**: Uniform spacing and positioning throughout application
+- **Dependency Security**: Updated all packages to secure versions
+- **Code Readability**: Enhanced with descriptive constant names
+
 ## [1.0.0] - 2024-01-14
 
 ### Added

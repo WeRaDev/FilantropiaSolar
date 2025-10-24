@@ -168,3 +168,15 @@ def generate_ranking_summary(df):
         )
 
     return summary
+
+
+# Backward-compatibility shims expected by tests
+
+def get_energy_rank(specific_energy):
+    """Alias for calculate_specific_energy_ranking for backward compatibility."""
+    return calculate_specific_energy_ranking(specific_energy)
+
+
+def get_rank_color(rank: int) -> str:
+    """Alias for get_ranking_color for backward compatibility."""
+    return get_ranking_color(rank)

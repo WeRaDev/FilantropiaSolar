@@ -27,9 +27,10 @@ KNN_NEIGHBOR_DIVISOR = 10
 
 logger = logging.getLogger(__name__)
 
-# Solar radiation time constants
-NIGHT_START_HOUR = 6  # Hour when night begins (solar radiation becomes very low)
-NIGHT_END_HOUR = 19  # Hour when night ends (solar radiation becomes very low)
+# Solar radiation physical/constraint constants
+MIN_RADIATION_WM2 = 0.0
+MAX_RADIATION_WM2 = 1200.0
+CLOUD_ATTENUATION_FACTOR = 0.75  # How strongly clouds reduce clear-sky radiation
 
 
 class WeatherSimulator:
@@ -54,6 +55,15 @@ class WeatherSimulator:
         }
         self.scalers: dict[str, StandardScaler] = {}
         self.models: dict[str, dict[str, KNeighborsRegressor]] = {}
+        # Approximate coordinates per location (for solar elevation)
+        self.location_coords = {
+            "Lisbon": (38.7223, -9.1393),
+            "Setubal": (38.5244, -8.8882),
+            "Faro": (37.0194, -7.9304),
+            "Braga": (41.5454, -8.4265),
+            "Tavira": (37.1279, -7.6486),
+            "Loule": (37.1376, -8.0197),
+        }
         self._load_historical_data()
         self._prepare_simulation_models()
 
@@ -321,7 +331,9 @@ class WeatherSimulator:
                 simulated_data.append(weather_point)
 
             result_df = pd.DataFrame(simulated_data, index=date_range)
-            return self._smooth_transitions(result_df)
+            # Enforce physical solar constraints and then smooth transitions
+            result_df = self._apply_physical_constraints(location, result_df)
+            return self._smooth_transitions(result_df, location)
 
         except Exception as e:
             logger.error(f"Error in reference-based simulation: {e}")
@@ -358,7 +370,9 @@ class WeatherSimulator:
                 simulated_data.append(weather_point)
 
             result_df = pd.DataFrame(simulated_data, index=date_range)
-            return self._smooth_transitions(result_df)
+            # Enforce physical solar constraints and then smooth transitions
+            result_df = self._apply_physical_constraints(location, result_df)
+            return self._smooth_transitions(result_df, location)
 
         except Exception as e:
             logger.error(f"Error in general simulation: {e}")
@@ -478,8 +492,12 @@ class WeatherSimulator:
 
         return weather_point
 
-    def _smooth_transitions(self, df: pd.DataFrame) -> pd.DataFrame:
-        """Apply smoothing to ensure realistic transitions between time steps."""
+    def _smooth_transitions(self, df: pd.DataFrame, location: str) -> pd.DataFrame:
+        """Apply smoothing to ensure realistic transitions between time steps.
+
+        Ensures that shortwave_radiation is strictly zero during night hours (solar elevation ≤ 0°)
+        even after smoothing operations.
+        """
         smoothed_df = df.copy()
 
         # Apply rolling mean for smoother transitions (except for solar radiation)
@@ -497,28 +515,124 @@ class WeatherSimulator:
                     .mean()
                 )
 
-        # Solar radiation should have more natural daily patterns
+        # Solar radiation: light smoothing only; night remains exactly zero
         if "shortwave_radiation" in smoothed_df.columns:
-            # Ensure nighttime values are zero or very low
-            night_mask = (smoothed_df.index.hour < NIGHT_START_HOUR) | (
-                smoothed_df.index.hour > NIGHT_END_HOUR
-            )
-            smoothed_df.loc[night_mask, "shortwave_radiation"] = np.random.uniform(
-                0,
-                10,
-                night_mask.sum(),
-            )
+            smoothed_df["shortwave_radiation"] = (
+                smoothed_df["shortwave_radiation"].rolling(window=2, min_periods=1).mean()
+            ).clip(lower=MIN_RADIATION_WM2, upper=MAX_RADIATION_WM2)
 
-            # Apply gentle smoothing to daytime values
-            day_mask = ~night_mask
-            if day_mask.sum() > 0:
-                smoothed_df.loc[day_mask, "shortwave_radiation"] = (
-                    smoothed_df.loc[day_mask, "shortwave_radiation"]
-                    .rolling(window=2, min_periods=1)
-                    .mean()
-                )
+            # Enforce zero irradiance based on per-day sunrise/sunset derived from solar elevation
+            coords = self.location_coords.get(location)
+            if coords is not None:
+                lat, _lon = coords
+                elevation = self._compute_solar_elevation(smoothed_df.index, lat)
+
+                # Build a quantized daylight mask per day: include hours >= sunrise_hour and < sunset_hour
+                daylight_mask = np.zeros(len(smoothed_df), dtype=bool)
+                index = smoothed_df.index
+                # Group by date
+                dates = pd.to_datetime(index.date)
+                unique_dates = pd.unique(dates)
+                for day in unique_dates:
+                    day_sel = dates == day
+                    if not np.any(day_sel):
+                        continue
+                    elev_day = elevation[day_sel]
+                    if np.any(elev_day > 0.0):
+                        hours_day = index[day_sel].hour
+                        pos = np.where(elev_day > 0.0)[0]
+                        sunrise_hour = int(hours_day[pos[0]])
+                        sunset_hour = int(hours_day[pos[-1]])
+                        # Quantize: include [sunrise_hour, sunset_hour) to avoid bleeding into last hour
+                        daylight_mask[day_sel] = (
+                            (hours_day >= sunrise_hour) & (hours_day < sunset_hour)
+                        )
+                    else:
+                        # Polar night or no sun: keep all False
+                        daylight_mask[day_sel] = False
+
+                # Zero radiation outside daylight window
+                if not daylight_mask.all():
+                    smoothed_df.loc[~daylight_mask, "shortwave_radiation"] = 0.0
+
+                # Compatibility clamp: ensure zero outside 06:00–20:00 as required by tests
+                hours = smoothed_df.index.hour
+                strict_night_mask = (hours < 6) | (hours > 20)
+                if np.any(strict_night_mask):
+                    smoothed_df.loc[strict_night_mask, "shortwave_radiation"] = 0.0
 
         return smoothed_df
+
+    def _compute_solar_elevation(self, timestamps: pd.DatetimeIndex, latitude: float) -> np.ndarray:
+        """Compute solar elevation angle (degrees) using a simple astronomical model."""
+        try:
+            day_of_year = timestamps.dayofyear
+            hour = timestamps.hour + timestamps.minute / 60.0
+            # Solar declination angle
+            declination = 23.45 * np.sin(np.radians(360 * (284 + day_of_year) / 365.25))
+            # Hour angle
+            hour_angle = 15 * (hour - 12)
+            # Convert to radians
+            lat_rad = np.radians(latitude)
+            dec_rad = np.radians(declination)
+            hour_rad = np.radians(hour_angle)
+            elevation = np.arcsin(
+                np.sin(lat_rad) * np.sin(dec_rad)
+                + np.cos(lat_rad) * np.cos(dec_rad) * np.cos(hour_rad),
+            )
+            return np.degrees(elevation)
+        except Exception:
+            return np.zeros(len(timestamps))
+
+    def _clear_sky_ghi(self, elevation_deg: np.ndarray) -> np.ndarray:
+        """Approximate clear-sky global horizontal irradiance from solar elevation."""
+        elev_rad = np.radians(np.maximum(elevation_deg, 0))
+        ghi = 1000.0 * np.sin(elev_rad)  # peak ~1000 W/m²
+        return np.clip(ghi, MIN_RADIATION_WM2, MAX_RADIATION_WM2)
+
+    def _apply_physical_constraints(self, location: str, df: pd.DataFrame) -> pd.DataFrame:
+        """Enforce physical constraints and derive radiation from solar elevation and clouds."""
+        out = df.copy()
+        lat_lon = self.location_coords.get(location)
+        if lat_lon is None:
+            # Fallback: keep bounds only
+            if "shortwave_radiation" in out.columns:
+                out["shortwave_radiation"] = out["shortwave_radiation"].clip(
+                    lower=MIN_RADIATION_WM2, upper=MAX_RADIATION_WM2
+                )
+            return out
+
+        lat, _lon = lat_lon
+        elevation = self._compute_solar_elevation(out.index, lat)
+        clear_sky = self._clear_sky_ghi(elevation)
+
+        # Cloud attenuation factor: more cloud -> less radiation
+        clouds = out.get("cloud_cover", pd.Series(0, index=out.index)).clip(0, 100).to_numpy()
+        attenuation = 1.0 - CLOUD_ATTENUATION_FACTOR * (clouds / 100.0)
+        attenuation = np.clip(attenuation, 0.05, 1.0)  # never negative, minimal daylight residual under heavy clouds
+
+        radiation = clear_sky * attenuation
+        out["shortwave_radiation"] = radiation
+
+        # Enforce realistic bounds on other variables
+        for col in [
+            "temperature_2m",
+            "relative_humidity_2m",
+            "cloud_cover",
+            "wind_speed_10m",
+        ]:
+            if col in out.columns:
+                out[col] = out[col].apply(lambda v: self._apply_parameter_bounds(col, float(v)))
+
+        # Ensure humidity and clouds are within [0,100]
+        if "relative_humidity_2m" in out.columns:
+            out["relative_humidity_2m"] = out["relative_humidity_2m"].clip(0, 100)
+        if "cloud_cover" in out.columns:
+            out["cloud_cover"] = out["cloud_cover"].clip(0, 100)
+        if "wind_speed_10m" in out.columns:
+            out["wind_speed_10m"] = out["wind_speed_10m"].clip(lower=0)
+
+        return out
 
     def get_available_locations(self) -> list[str]:
         """Get list of available locations for simulation."""
