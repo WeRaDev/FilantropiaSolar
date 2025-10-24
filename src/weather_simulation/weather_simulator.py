@@ -8,6 +8,7 @@ Inspired by SolarSim methodology for weather simulation.
 from datetime import datetime, timedelta
 import logging
 from pathlib import Path
+from src.utils.paths import get_resource_path
 import warnings
 
 import numpy as np
@@ -43,7 +44,11 @@ class WeatherSimulator:
 
     def __init__(self, weather_data_dir: str):
         """Initialize the weather simulator with historical weather data."""
-        self.weather_data_dir = Path(weather_data_dir)
+        # Resolve bundled resource directory (PyInstaller/meipass) or repo path during dev
+        try:
+            self.weather_data_dir = get_resource_path(weather_data_dir)
+        except Exception:
+            self.weather_data_dir = Path(weather_data_dir)
         self.weather_data: dict[str, pd.DataFrame] = {}
         self.location_mapping = {
             "Lisbon": "Lisbon_weather.csv",

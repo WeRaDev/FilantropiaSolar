@@ -23,6 +23,9 @@ import pandas as pd
 logger = logging.getLogger(__name__)
 
 
+from src.utils.paths import get_app_cache_dir
+
+
 class DataCacheManager:
     """
     Smart cache manager for solar energy data and ML models.
@@ -36,8 +39,16 @@ class DataCacheManager:
     """
 
     def __init__(self, cache_dir: str = "cache", db_name: str = "filantropia_cache.db"):
-        """Initialize the cache manager."""
-        self.cache_dir = Path(cache_dir)
+        """Initialize the cache manager.
+
+        On Windows, cache_dir is placed under %LOCALAPPDATA%/FilantropiaSolar by default for write access.
+        """
+        # Use user-writable cache directory
+        try:
+            base_cache = get_app_cache_dir()
+            self.cache_dir = base_cache if cache_dir == "cache" else Path(cache_dir)
+        except Exception:
+            self.cache_dir = Path(cache_dir)
         self.cache_dir.mkdir(exist_ok=True)
 
         self.db_path = self.cache_dir / db_name
@@ -205,6 +216,40 @@ class DataCacheManager:
 
         except Exception as e:
             logger.error(f"Error loading cached data {cache_key}: {e}")
+            # Auto-invalidate corrupt/stale cache entries
+            try:
+                self.invalidate_cache(data_type, identifier)
+            except Exception:
+                pass
+            return None
+
+    def get_data_cache_entry(self, data_type: str, identifier: str) -> dict[str, Any] | None:
+        """Return metadata row for a cached data entry if present."""
+        try:
+            cache_key = self._get_cache_key(data_type, identifier)
+            with sqlite3.connect(self.db_path) as conn:
+                cursor = conn.cursor()
+                cursor.execute(
+                    """
+                    SELECT cache_key, file_path, data_hash, created_at, last_accessed, data_type, metadata
+                    FROM data_cache WHERE cache_key = ?
+                    """,
+                    (cache_key,),
+                )
+                row = cursor.fetchone()
+                if row:
+                    return {
+                        "cache_key": row[0],
+                        "file_path": row[1],
+                        "data_hash": row[2],
+                        "created_at": row[3],
+                        "last_accessed": row[4],
+                        "data_type": row[5],
+                        "metadata": row[6],
+                    }
+            return None
+        except Exception as e:
+            logger.error(f"Error reading cache metadata for {cache_key}: {e}")
             return None
 
     def get_cache_status(self) -> dict[str, Any]:

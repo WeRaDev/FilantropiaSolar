@@ -1,0 +1,33 @@
+name: Windows Installer
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install build deps
+        run: |
+          python -m pip install --upgrade pip wheel
+          pip install pyinstaller pynsist openpyxl
+          pip install -e .
+      - name: Build frozen app (PyInstaller)
+        run: |
+          pyinstaller --noconfirm filantropia_solar.spec
+      - name: Build Windows installer (pynsist)
+        run: |
+          python -m nsist installer.cfg
+      - name: Upload installer artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: FilantropiaSolar-installer
+          path: build/nsist/FilantropiaSolar-*.exe
