@@ -14,6 +14,7 @@ from typing import Any
 import joblib
 import numpy as np
 import pandas as pd
+from src.utils.paths import get_resource_path
 
 # Machine learning imports
 from sklearn.base import clone
@@ -947,7 +948,6 @@ class EnhancedEnergyPredictor:
             # Excel fallback when coordinates are missing or zero
             if (not lat or not lon or lat == 0.0 or lon == 0.0):
                 try:
-from src.utils.paths import get_resource_path
                     meta_path = get_resource_path("Data/PV Plants Metadata.xlsx")
                     if meta_path.exists():
                         mdf = pd.read_excel(meta_path)

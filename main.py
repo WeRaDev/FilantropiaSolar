@@ -26,6 +26,7 @@ import traceback
 from typing import Any
 
 import pandas as pd
+from src.utils.paths import get_resource_path
 
 # Remove sys.path manipulation - use proper package imports instead
 
@@ -1752,7 +1753,6 @@ class FilantropiaSolarApp:
         will select the matching month/day at render time for exact comparisons.
         """
         try:
-from src.utils.paths import get_resource_path
             csv_path = get_resource_path("average_values.csv")
             if not csv_path.exists():
                 logger.warning("average_values.csv not found; baseline overlay disabled")
