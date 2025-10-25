@@ -19,7 +19,18 @@ def get_project_root() -> Path:
 def get_resource_base() -> Path:
     meipass = getattr(sys, "_MEIPASS", None)
     if meipass:
+        # PyInstaller one-file/one-dir bundle
         return Path(meipass)
+    # Pynsist: sys.prefix points to <AppDir>\Python; resources live in <AppDir>
+    try:
+        app_python = Path(sys.prefix)
+        app_dir = app_python.parent
+        # Heuristic: nsist layout contains a 'pkgs' dir next to 'Python'
+        if (app_dir / "pkgs").exists() and (app_dir / "Python").exists():
+            return app_dir
+    except Exception:
+        pass
+    # Dev fallback: project root
     return get_project_root()
 
 

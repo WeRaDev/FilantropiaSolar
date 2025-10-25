@@ -26,7 +26,7 @@ import traceback
 from typing import Any
 
 import pandas as pd
-from src.utils.paths import get_resource_path
+from src.utils.paths import get_resource_path, get_app_cache_dir
 
 # Remove sys.path manipulation - use proper package imports instead
 
@@ -149,8 +149,9 @@ class FilantropiaSolarApp:
 
     def _setup_logging(self):
         """Setup logging configuration for the application."""
-        log_dir = Path("logs")
-        log_dir.mkdir(exist_ok=True)
+        log_dir = get_app_cache_dir("logs")
+        # Directory ensured by helper, but keep mkdir for safety
+        log_dir.mkdir(parents=True, exist_ok=True)
 
         logging.basicConfig(
             level=logging.WARNING,
