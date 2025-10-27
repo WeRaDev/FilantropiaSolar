@@ -8,7 +8,7 @@ Inspired by SolarSim methodology for weather simulation.
 from datetime import datetime, timedelta
 import logging
 from pathlib import Path
-from src.utils.paths import get_resource_path
+from filantropia_solar.utils.paths import get_resource_path
 import warnings
 
 import numpy as np

@@ -26,7 +26,7 @@ import traceback
 from typing import Any
 
 import pandas as pd
-from src.utils.paths import get_resource_path, get_app_cache_dir
+from filantropia_solar.utils.paths import get_resource_path, get_app_cache_dir
 
 # Remove sys.path manipulation - use proper package imports instead
 

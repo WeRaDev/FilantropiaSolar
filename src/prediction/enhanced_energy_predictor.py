@@ -14,7 +14,7 @@ from typing import Any
 import joblib
 import numpy as np
 import pandas as pd
-from src.utils.paths import get_resource_path
+from filantropia_solar.utils.paths import get_resource_path
 
 # Machine learning imports
 from sklearn.base import clone
