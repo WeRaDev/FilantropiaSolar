@@ -23,7 +23,10 @@ import pandas as pd
 logger = logging.getLogger(__name__)
 
 
-from filantropia_solar.utils.paths import get_app_cache_dir
+try:
+    from filantropia_solar.utils.paths import get_app_cache_dir
+except Exception:  # dev fallback
+    from src.utils.paths import get_app_cache_dir
 
 
 class DataCacheManager:

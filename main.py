@@ -11,12 +11,11 @@ Sarmas, Elissaios; Matias, Nuno; Pereira, Catarina; Antunes, Ana Rita (2025),
 "Photovoltaic Power Production Dataset", Mendeley Data, V3, doi: 10.17632/dbh93b6vp8.3
 
 Author: FilantropiaSolar Team
-Version: 2.0 - Enhanced Edition
+Version: 1.2.1
 """
 
 from datetime import datetime, timedelta
 import logging
-from pathlib import Path
 import queue
 import sys
 import threading
@@ -26,11 +25,16 @@ import traceback
 from typing import Any
 
 import pandas as pd
-from filantropia_solar.utils.paths import get_resource_path, get_app_cache_dir
+
+# Robust import for path utilities (supports both package and src-level utils)
+try:  # packaged namespace (preferred)
+    from filantropia_solar.utils.paths import get_app_cache_dir, get_resource_path
+except Exception:
+    from utils.paths import get_app_cache_dir, get_resource_path  # dev fallback
 
 # Remove sys.path manipulation - use proper package imports instead
 
-# Project imports (using relative imports from package)
+# Project imports (prefer packaged namespace, fallback to src.* during dev)
 try:
     from filantropia_solar.data_processing.comprehensive_data_processor import (
         ComprehensiveDataProcessor,
@@ -41,10 +45,21 @@ try:
     from filantropia_solar.prediction.weather_ranking_system import WeatherRankingSystem
     from filantropia_solar.weather_simulation.weather_simulator import WeatherSimulator
 except Exception:
-    ComprehensiveDataProcessor = None  # type: ignore[assignment]
-    WeatherSimulator = None  # type: ignore[assignment]
-    EnhancedEnergyPredictor = None  # type: ignore[assignment]
-    WeatherRankingSystem = None  # type: ignore[assignment]
+    try:
+        from src.data_processing.comprehensive_data_processor import (
+            ComprehensiveDataProcessor,
+        )
+        from src.prediction.enhanced_energy_predictor import (
+            EnhancedEnergyPredictor,
+        )
+        from src.prediction.weather_ranking_system import WeatherRankingSystem
+        from src.weather_simulation.weather_simulator import WeatherSimulator
+    except Exception as _import_err:
+        logger.error(f"Critical import failure: {_import_err}")
+        ComprehensiveDataProcessor = None  # type: ignore[assignment]
+        WeatherSimulator = None  # type: ignore[assignment]
+        EnhancedEnergyPredictor = None  # type: ignore[assignment]
+        WeatherRankingSystem = None  # type: ignore[assignment]
 
 # Optional matplotlib imports
 try:
@@ -2241,6 +2256,24 @@ class FilantropiaSolarApp:
                             self.hourly_energy_ax.scatter(
                                 x_hours, y_avg, marker="x", color="black", s=30, label="Lisbon avg (4y)", zorder=6,
                             )
+
+                        # Ensure y-axis accommodates baseline overlay as well as bars
+                        try:
+                            overlay_peaks = []
+                            if y_min is not None and len(y_min):
+                                overlay_peaks.append(float(pd.Series(y_min).max()))
+                            if y_max is not None and len(y_max):
+                                overlay_peaks.append(float(pd.Series(y_max).max()))
+                            if y_avg is not None and len(y_avg):
+                                overlay_peaks.append(float(pd.Series(y_avg).max()))
+                            if overlay_peaks:
+                                current_top = self.hourly_energy_ax.get_ylim()[1]
+                                desired_top = max(current_top, max(overlay_peaks) * CHART_Y_AXIS_PADDING)
+                                # Only bump limits upward (never shrink here)
+                                if desired_top > current_top:
+                                    self.hourly_energy_ax.set_ylim(0, desired_top)
+                        except Exception as _ylim_err:
+                            logger.debug(f"Could not adjust y-limits for baseline overlay: {_ylim_err}")
             except Exception as e:
                 logger.warning(f"Baseline overlay failed: {e}")
 

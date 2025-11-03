@@ -14,7 +14,6 @@ from typing import Any
 import joblib
 import numpy as np
 import pandas as pd
-from filantropia_solar.utils.paths import get_resource_path
 
 # Machine learning imports
 from sklearn.base import clone
@@ -23,6 +22,11 @@ from sklearn.linear_model import LinearRegression
 from sklearn.metrics import mean_absolute_error, r2_score
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler
+
+try:
+    from filantropia_solar.utils.paths import get_resource_path
+except Exception:  # dev fallback
+    from src.utils.paths import get_resource_path
 
 # Local imports
 from ..data_processing.comprehensive_data_processor import (
