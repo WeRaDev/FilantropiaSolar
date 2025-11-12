@@ -25,12 +25,14 @@ import traceback
 from typing import Any
 
 import pandas as pd
-
-# Robust import for path utilities (supports both package and src-level utils)
-try:  # packaged namespace (preferred)
-    from filantropia_solar.utils.paths import get_app_cache_dir, get_resource_path
+# Robust import for path utilities (supports packaged and dev layouts)
+try:
+    from filantropia_solar.utils.paths import get_resource_path, get_app_cache_dir
 except Exception:
-    from utils.paths import get_app_cache_dir, get_resource_path  # dev fallback
+    try:
+        from src.utils.paths import get_resource_path, get_app_cache_dir
+    except Exception:
+        from utils.paths import get_resource_path, get_app_cache_dir
 
 # Remove sys.path manipulation - use proper package imports instead
 

@@ -8,6 +8,14 @@ Inspired by SolarSim methodology for weather simulation.
 from datetime import datetime, timedelta
 import logging
 from pathlib import Path
+# Path helper import (packaged first, then dev layouts)
+try:
+    from filantropia_solar.utils.paths import get_resource_path
+except Exception:
+    try:
+        from src.utils.paths import get_resource_path
+    except Exception:
+        from utils.paths import get_resource_path
 import warnings
 
 import numpy as np
@@ -15,10 +23,6 @@ import pandas as pd
 from sklearn.neighbors import KNeighborsRegressor
 from sklearn.preprocessing import StandardScaler
 
-try:
-    from filantropia_solar.utils.paths import get_resource_path
-except Exception:  # dev fallback
-    from src.utils.paths import get_resource_path
 
 warnings.filterwarnings("ignore")
 

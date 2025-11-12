@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Cross-platform resource and user-data path helpers.
+r"""Cross-platform resource and user-data path helpers.
 
 - get_resource_path: locate bundled resources (PyInstaller sys._MEIPASS) or repo-relative during dev
 - get_app_cache_dir: user-writable cache/models directory (Windows: %LOCALAPPDATA%\FilantropiaSolar)
@@ -7,8 +7,8 @@
 from __future__ import annotations
 
 import os
-import sys
 from pathlib import Path
+import sys
 
 
 def get_project_root() -> Path:
@@ -17,11 +17,16 @@ def get_project_root() -> Path:
 
 
 def get_resource_base() -> Path:
+    # PyInstaller one-file exposes _MEIPASS; one-folder sets sys.frozen with executable path
     meipass = getattr(sys, "_MEIPASS", None)
     if meipass:
-        # PyInstaller one-file/one-dir bundle
         return Path(meipass)
-    # Pynsist: sys.prefix points to <AppDir>\Python; resources live in <AppDir>
+    if getattr(sys, "frozen", False):
+        try:
+            return Path(sys.executable).parent
+        except Exception:
+            pass
+    # Pynsist: sys.prefix points to <AppDir>\\Python; resources live in <AppDir>
     try:
         app_python = Path(sys.prefix)
         app_dir = app_python.parent

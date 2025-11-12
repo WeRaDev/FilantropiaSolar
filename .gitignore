@@ -243,9 +243,13 @@ $RECYCLE.BIN/
 
 # Data files (large datasets)
 data/
+!data/
+!data/**
 !data/.gitkeep
 !data/README.md
 weather_files/
+!weather_files/
+!weather_files/**
 !weather_files/.gitkeep
 !weather_files/README.md
 
@@ -411,6 +415,10 @@ yarn-error.log*
 *.csv
 *.xlsx
 *.xls
+# Allow critical runtime data assets
+!average_values.csv
+!data/**/*.csv
+!weather_files/**/*.csv
 !data/sample_*.csv
 !tests/fixtures/*.csv
 
