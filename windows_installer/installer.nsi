@@ -7,17 +7,21 @@
 !include "FileFunc.nsh"
 !include "LogicLib.nsh"
 !include "x64.nsh"
+!include "WinVer.nsh"
 
 ;--------------------------------
 ; General Configuration
+Unicode True
 !define PRODUCT_NAME "FilantropiaSolar"
-!define PRODUCT_VERSION "1.0.3"
-!define PRODUCT_DISPLAY_VERSION "1.0.3 - Smart Caching Edition"
-!define PRODUCT_PUBLISHER "FilantropiaSolar Team"
+!define PRODUCT_VERSION "1.2.2"
+!define PRODUCT_DISPLAY_VERSION "1.2.2"
+!define PRODUCT_PUBLISHER "WeRaDev Team"
 !define PRODUCT_WEB_SITE "https://github.com/FilantropiaSolar"
 !define PRODUCT_DIR_REGKEY "Software\Microsoft\Windows\CurrentVersion\App Paths\main.exe"
 !define PRODUCT_UNINST_KEY "Software\Microsoft\Windows\CurrentVersion\Uninstall\${PRODUCT_NAME}"
 !define PRODUCT_UNINST_ROOT_KEY "HKLM"
+!define ROOT_DIR "${__FILEDIR__}\\.."
+Name "${PRODUCT_NAME} ${PRODUCT_VERSION}"
 
 ; Output file configuration
 OutFile "wininstaller.exe"
@@ -37,9 +41,9 @@ ShowUnInstDetails show
 SetCompressor /SOLID lzma
 
 ; Application information
-VIProductVersion "1.0.3.0"
+VIProductVersion "${PRODUCT_VERSION}.0"
 VIAddVersionKey "ProductName" "${PRODUCT_NAME}"
-VIAddVersionKey "Comments" "Advanced Solar Energy Analysis Application with Smart Caching"
+VIAddVersionKey "Comments" "Advanced Solar Energy Analysis Application"
 VIAddVersionKey "CompanyName" "${PRODUCT_PUBLISHER}"
 VIAddVersionKey "LegalTrademarks" ""
 VIAddVersionKey "LegalCopyright" "© 2025 ${PRODUCT_PUBLISHER}"
@@ -50,11 +54,11 @@ VIAddVersionKey "ProductVersion" "${PRODUCT_VERSION}"
 ;--------------------------------
 ; Modern UI Configuration
 !define MUI_ABORTWARNING
-!define MUI_ICON "resources\icon.ico"
-!define MUI_UNICON "resources\uninstall.ico"
+!define MUI_ICON "${__FILEDIR__}\\resources\\icon.ico"
+!define MUI_UNICON "${__FILEDIR__}\\resources\\uninstall.ico"
 !define MUI_HEADERIMAGE
-!define MUI_HEADERIMAGE_BITMAP "resources\header.bmp"
-!define MUI_WELCOMEFINISHPAGE_BITMAP "resources\wizard.bmp"
+!define MUI_HEADERIMAGE_BITMAP "${__FILEDIR__}\\resources\\header.bmp"
+!define MUI_WELCOMEFINISHPAGE_BITMAP "${__FILEDIR__}\\resources\\wizard.bmp"
 
 ; Welcome page configuration
 !define MUI_WELCOMEPAGE_TITLE "Welcome to ${PRODUCT_NAME} v${PRODUCT_VERSION} Setup"
@@ -87,7 +91,7 @@ VIAddVersionKey "ProductVersion" "${PRODUCT_VERSION}"
 ;--------------------------------
 ; Pages
 !insertmacro MUI_PAGE_WELCOME
-!insertmacro MUI_PAGE_LICENSE "LICENSE.txt"
+!insertmacro MUI_PAGE_LICENSE "${ROOT_DIR}\\LICENSE.txt"
 !insertmacro MUI_PAGE_COMPONENTS
 !insertmacro MUI_PAGE_DIRECTORY
 !insertmacro MUI_PAGE_INSTFILES
@@ -129,26 +133,26 @@ Section "!Core Application" SecCore
   CreateDirectory "$INSTDIR\logs"
   
   ; Copy main application files
-  SetOutPath "$INSTDIR\bin"
-  File /r "dist\FilantropiaSolar\*.*"
+  SetOutPath "$INSTDIR\\bin"
+  File /r "${ROOT_DIR}\\dist\\FilantropiaSolar\\*.*"
   
   ; Copy data files
-  SetOutPath "$INSTDIR\data"
-  File /r "..\data\*.*"
+  SetOutPath "$INSTDIR\\data"
+  File /r "${ROOT_DIR}\\data\\*.*"
   
   ; Copy weather files
-  SetOutPath "$INSTDIR\weather_files"
-  File /r "..\weather_files\*.*"
+  SetOutPath "$INSTDIR\\weather_files"
+  File /r "${ROOT_DIR}\\weather_files\\*.*"
   
   ; Copy documentation
   SetOutPath "$INSTDIR"
-  File "..\README.md"
-  File "..\CHANGELOG_v1.0.3.md"
-  File "..\LICENSE.txt"
+  File "${ROOT_DIR}\\README.md"
+  File "${ROOT_DIR}\\CHANGELOG.md"
+  File "${ROOT_DIR}\\LICENSE.txt"
   
   ; Create README.txt for Windows users
   FileOpen $0 "$INSTDIR\README.txt" w
-  FileWrite $0 "FilantropiaSolar v1.0.3 - Smart Caching Edition$\r$\n"
+  FileWrite $0 "FilantropiaSolar v${PRODUCT_VERSION}$\r$\n"
   FileWrite $0 "================================================$\r$\n$\r$\n"
   FileWrite $0 "Thank you for installing FilantropiaSolar!$\r$\n$\r$\n"
   FileWrite $0 "To start the application:$\r$\n"
@@ -159,7 +163,7 @@ Section "!Core Application" SecCore
   FileWrite $0 "- Initial startup takes 3-4 minutes (building cache)$\r$\n"
   FileWrite $0 "- Subsequent runs: 5-10 seconds (cached)$\r$\n$\r$\n"
   FileWrite $0 "For support and documentation:$\r$\n"
-  FileWrite $0 "- Check CHANGELOG_v1.0.3.md for version details$\r$\n"
+  FileWrite $0 "- Check CHANGELOG.md for version details$\r$\n"
   FileWrite $0 "- Visit: ${PRODUCT_WEB_SITE}$\r$\n"
   FileClose $0
 SectionEnd
@@ -296,7 +300,7 @@ Section Uninstall
   Delete "$INSTDIR\Uninstall.exe"
   Delete "$INSTDIR\README.txt"
   Delete "$INSTDIR\README.md"
-  Delete "$INSTDIR\CHANGELOG_v1.0.3.md"
+  Delete "$INSTDIR\\CHANGELOG.md"
   Delete "$INSTDIR\LICENSE.txt"
   
   ; Remove application files
