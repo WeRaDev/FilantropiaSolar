@@ -1451,11 +1451,15 @@ class EnhancedEnergyPredictor:
         try:
             # Create results DataFrame
             results_df = weather_data.copy()
-            # Align lengths defensively (handles DST 25-hour days or data gaps)
-            if len(predictions) != len(results_df):
-                min_len = min(len(predictions), len(results_df))
+            # Align lengths defensively (handles DST 23/25-hour days, gaps, feature drops)
+            min_len = min(len(results_df), len(predictions), len(rankings))
+            if len(results_df) != min_len:
+                results_df = results_df.iloc[:min_len].copy()
+            if len(predictions) != min_len:
                 predictions = predictions[:min_len]
-                results_df = results_df.iloc[:min_len]
+            if len(rankings) != min_len:
+                rankings = rankings[:min_len]
+            # Now lengths are consistent
             results_df["predicted_specific_energy"] = predictions
             results_df["predicted_total_energy"] = (
                 predictions * installation_info.installed_power_kwp
