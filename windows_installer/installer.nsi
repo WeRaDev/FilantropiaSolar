@@ -1,4 +1,4 @@
-; FilantropiaSolar v1.0.3 - NSIS Installer Script
+; FilantropiaSolar v1.2.2 - NSIS Installer Script
 ; Creates professional Windows installer with modern UI
 
 ;--------------------------------
@@ -57,8 +57,6 @@ VIAddVersionKey "ProductVersion" "${PRODUCT_VERSION}"
 !define MUI_ICON "${__FILEDIR__}\\resources\\icon.ico"
 !define MUI_UNICON "${__FILEDIR__}\\resources\\uninstall.ico"
 !define MUI_HEADERIMAGE
-!define MUI_HEADERIMAGE_BITMAP "${__FILEDIR__}\\resources\\header.bmp"
-!define MUI_WELCOMEFINISHPAGE_BITMAP "${__FILEDIR__}\\resources\\wizard.bmp"
 
 ; Welcome page configuration
 !define MUI_WELCOMEPAGE_TITLE "Welcome to ${PRODUCT_NAME} v${PRODUCT_VERSION} Setup"
