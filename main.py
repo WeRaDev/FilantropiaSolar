@@ -184,7 +184,7 @@ class FilantropiaSolarApp:
     def create_loading_gui(self):
         """Create the initial loading interface."""
         self.root = tk.Tk()
-self.root.title("FilantropiaSolar v1.2.2 - Loading...")
+        self.root.title("FilantropiaSolar v1.2.2 - Loading...")
         self.root.geometry(f"{LOADING_WINDOW_WIDTH}x{LOADING_WINDOW_HEIGHT}")
         self.root.resizable(False, False)
 
@@ -203,7 +203,7 @@ self.root.title("FilantropiaSolar v1.2.2 - Loading...")
         # Application title and branding
         title_label = ttk.Label(
             self.loading_frame,
-text="☀️ FilantropiaSolar v1.2.2",
+            text="☀️ FilantropiaSolar v1.2.2",
             font=("Arial", 20, "bold"),
         )
         title_label.pack(pady=(20, 5))
@@ -253,7 +253,7 @@ text="☀️ FilantropiaSolar v1.2.2",
         features_text.config(state="normal")
         features_text.insert(
             tk.END,
-"🔋 Loading comprehensive solar energy system v1.2.2...\n\n"
+            "🔋 Loading comprehensive solar energy system v1.2.2...\n\n"
             "✓ 9 PV installations across Portugal\n"
             "✓ 315,567+ historical energy records\n"
             "✓ Hourly production analysis with weather correlation\n"
@@ -620,7 +620,7 @@ text="☀️ FilantropiaSolar v1.2.2",
             self.loading_frame.destroy()
 
             # Reconfigure main window
-self.root.title("FilantropiaSolar v1.2.2 - Advanced Solar Energy Analysis")
+            self.root.title("FilantropiaSolar v1.2.2 - Advanced Solar Energy Analysis")
             self.root.geometry("1400x900")
             self.root.resizable(True, True)
 
