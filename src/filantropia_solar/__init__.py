@@ -13,7 +13,7 @@ import sys
 import warnings
 
 # Package metadata
-__version__ = "1.0.0"
+__version__ = "1.2.1"
 __author__ = "WeRaDev Team"
 __email__ = "contact@weradev.com"
 __description__ = (
@@ -69,38 +69,9 @@ except ImportError as e:
     warnings.warn(f"Failed to import core modules: {e}", stacklevel=2)
     core = None
 
-# Import main application modules with graceful degradation
-try:
-    from . import data, models, utils
-
-    _modules_available = ["data", "models", "utils"]
-except ImportError as e:
-    warnings.warn(f"Some modules failed to import: {e}", stacklevel=2)
-    _modules_available = []
-
-# Optional modules (may not be available in all environments)
-_optional_modules = []
-
-try:
-    from . import gui
-
-    _optional_modules.append("gui")
-except ImportError:
-    gui = None
-
-try:
-    from . import api
-
-    _optional_modules.append("api")
-except ImportError:
-    api = None
-
-try:
-    from . import monitoring
-
-    _optional_modules.append("monitoring")
-except ImportError:
-    monitoring = None
+# Avoid eager imports of subpackages to prevent circular imports during startup.
+# Subpackages (data, models, utils, gui, api, monitoring) should be imported
+# explicitly by callers as needed.
 
 # Define public API
 __all__ = [
@@ -121,13 +92,6 @@ __all__ = [
     "get_version_info",
     "log_performance",
 ]
-
-# Add available modules to __all__
-__all__.extend(_modules_available)
-__all__.extend(_optional_modules)
-
-# Clean up temporary variables
-del _modules_available, _optional_modules
 
 
 def get_version_info():

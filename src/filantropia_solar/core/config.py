@@ -18,6 +18,7 @@ from typing import Any
 from pydantic import Field, validator
 from pydantic_settings import BaseSettings
 import yaml
+from importlib.metadata import PackageNotFoundError, version as pkg_version
 
 # Constants
 MAX_PORT_NUMBER = 65535
@@ -126,6 +127,21 @@ class CacheConfig:
     key_prefix: str = "fs:"
 
 
+def _detect_app_version() -> str:
+    """Determine app version from installed package or package metadata."""
+    # Prefer distribution metadata when installed
+    try:
+        return pkg_version("filantropia-solar")
+    except PackageNotFoundError:
+        pass
+    # Fallback to package attribute
+    try:
+        from .. import __version__ as pkg_ver  # type: ignore
+        return str(pkg_ver)
+    except Exception:
+        return "1.2.1"
+
+
 class Settings(BaseSettings):
     """
     Application settings with environment variable support.
@@ -136,7 +152,7 @@ class Settings(BaseSettings):
 
     # Application settings
     app_name: str = Field(default="FilantropiaSolar", env="APP_NAME")
-    version: str = Field(default="1.0.0", env="APP_VERSION")
+    version: str = Field(default_factory=_detect_app_version, env="APP_VERSION")
     debug: bool = Field(default=False, env="DEBUG")
     environment: Environment = Field(default=Environment.DEVELOPMENT, env="ENVIRONMENT")
 
