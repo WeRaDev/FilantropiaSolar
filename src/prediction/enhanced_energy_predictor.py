@@ -956,7 +956,8 @@ class EnhancedEnergyPredictor:
             # Excel fallback when coordinates are missing or zero
             if (not lat or not lon or lat == 0.0 or lon == 0.0):
                 try:
-                    meta_path = get_resource_path("Data/PV Plants Metadata.xlsx")
+                    # Prefer lowercase 'data' directory; keep compatibility if packaging bundles resources differently
+                    meta_path = get_resource_path("data/PV Plants Metadata.xlsx")
                     if meta_path.exists():
                         mdf = pd.read_excel(meta_path)
                         cols = {c.lower(): c for c in mdf.columns}
@@ -1488,7 +1489,15 @@ class EnhancedEnergyPredictor:
 
                 if available_historical_cols:
                     # Only merge rows that have matching timestamps
-                    historical_subset = historical_data[available_historical_cols]
+                    historical_subset = historical_data[available_historical_cols].copy()
+                    # Deduplicate any ambiguous local-time duplicates (e.g., DST end 01:00 occurs twice)
+                    # Keep the first occurrence to maintain a single row per timestamp before merge
+                    if historical_subset.index.has_duplicates:
+                        dup_count = int(historical_subset.index.duplicated(keep="first").sum())
+                        historical_subset = historical_subset[~historical_subset.index.duplicated(keep="first")]
+                        logger.debug(
+                            f"Deduplicated {dup_count} duplicate historical timestamp rows before merge"
+                        )
                     results_df = results_df.merge(
                         historical_subset,
                         left_index=True,
@@ -1519,12 +1528,9 @@ class EnhancedEnergyPredictor:
                 5: "Excellent",
             }
 
-            results_df["ranking_color"] = [
-                color_map.get(rank, "#f1c40f") for rank in rankings
-            ]
-            results_df["ranking_description"] = [
-                desc_map.get(rank, "Average") for rank in rankings
-            ]
+            # Map colors/descriptions from the DataFrame's ranking column to avoid length mismatches after merge
+            results_df["ranking_color"] = results_df["ranking"].map(color_map).fillna("#f1c40f")
+            results_df["ranking_description"] = results_df["ranking"].map(desc_map).fillna("Average")
 
             # Calculate daily summaries
             daily_summary = (

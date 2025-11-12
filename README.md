@@ -1,4 +1,4 @@
-# FilantropiaSolar v1.2.1 - Custom Simulation + 21-Day Analysis
+# FilantropiaSolar v1.2.2 - DST Fix + Historical Merge Stability
 
 <div align="center">
 
@@ -7,14 +7,20 @@
 ![Python](https://img.shields.io/badge/python-v3.11%2B-blue.svg)
 ![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-green.svg)
 ![License](https://img.shields.io/badge/license-MIT-blue.svg)
-![Version](https://img.shields.io/badge/version-1.2.1-brightgreen.svg)
+![Version](https://img.shields.io/badge/version-1.2.2-brightgreen.svg)
 ![Performance](https://img.shields.io/badge/performance-93%25%20faster-orange.svg)
 
 </div>
 
 ---
 
-## 🆕 What’s New in v1.2.1
+## 🆕 What’s New in v1.2.2
+
+- Fixed historical-prediction merge length mismatch across DST boundary (Lisbon 2022-10-30) by deduplicating ambiguous timestamps before merging.
+- Updated internal resource path to use "data/" (was "Data/") for metadata fallback.
+- More robust ranking color/description assignment after merges.
+
+## What’s New in v1.2.1
 
 - Custom Station Simulation: simulate energy production for a chosen location and user-provided capacity (kWp)
 - 21-Day Analysis Window: chosen date ±10 days across results and charts
