@@ -177,7 +177,8 @@ try {
     }
     
     $exeSize = (Get-Item $exePath).Length / 1MB
-    Write-Host "  ✓ Executable found: FilantropiaSolar.exe ($([math]::Round($exeSize, 1)) MB)" -ForegroundColor Green
+    $exeSizeRounded = [math]::Round($exeSize, 1)
+    Write-Host "  ✓ Executable found: FilantropiaSolar.exe ($exeSizeRounded MB)" -ForegroundColor Green
     
     # Check for _internal directory
     $internalDir = Join-Path $distDir "_internal"
@@ -243,6 +244,7 @@ try {
     }
     
     $installerSize = (Get-Item $installerPath).Length / 1MB
+    $installerSizeRounded = [math]::Round($installerSize, 1)
     
     # Success banner
     Write-Host ""
@@ -253,7 +255,7 @@ try {
     Write-Host "Installer: " -NoNewline
     Write-Host "$installerPath" -ForegroundColor Cyan
     Write-Host "Size:      " -NoNewline
-    Write-Host "$([math]::Round($installerSize, 1)) MB" -ForegroundColor Cyan
+    Write-Host "$installerSizeRounded MB" -ForegroundColor Cyan
     Write-Host "Version:   " -NoNewline
     Write-Host "$version" -ForegroundColor Cyan
     Write-Host ""
