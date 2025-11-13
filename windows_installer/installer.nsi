@@ -137,12 +137,17 @@ Section "!Core Application" SecCore
   
   ; Copy main application files
   SetOutPath "$INSTDIR\\bin"
-!ifexist "${ROOT_DIR}\\dist\\FilantropiaSolar\\*.*"
+  ; Try FilantropiaSolar directory first (from filantropia_solar.spec or windows_installer/main.spec)
+!if /FileExists "${ROOT_DIR}\\dist\\FilantropiaSolar\\FilantropiaSolar.exe"
   File /r "${ROOT_DIR}\\dist\\FilantropiaSolar\\*.*"
-!elseifexist "${ROOT_DIR}\\dist\\main\\*.*"
+  ; Try main.exe in FilantropiaSolar directory (from windows_installer/main.spec)
+!else if /FileExists "${ROOT_DIR}\\dist\\FilantropiaSolar\\main.exe"
+  File /r "${ROOT_DIR}\\dist\\FilantropiaSolar\\*.*"
+  ; Try main directory (legacy or alternative build)
+!else if /FileExists "${ROOT_DIR}\\dist\\main\\main.exe"
   File /r "${ROOT_DIR}\\dist\\main\\*.*"
 !else
-  !error "PyInstaller dist not found. Expected dist\\FilantropiaSolar or dist\\main under ${ROOT_DIR}"
+  !error "PyInstaller dist not found. Run 'pyinstaller windows_installer/main.spec' or 'pyinstaller filantropia_solar.spec' first. Expected dist\\FilantropiaSolar\\*.exe or dist\\main\\main.exe under ${ROOT_DIR}"
 !endif
   
   ; Copy data files
