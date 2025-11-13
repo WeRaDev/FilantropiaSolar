@@ -9,6 +9,9 @@
 !include "x64.nsh"
 !include "WinVer.nsh"
 
+; Ensure all relative paths resolve from this script directory during compile
+!cd "${__FILEDIR__}"
+
 ;--------------------------------
 ; General Configuration
 Unicode True
@@ -20,7 +23,7 @@ Unicode True
 !define PRODUCT_DIR_REGKEY "Software\Microsoft\Windows\CurrentVersion\App Paths\main.exe"
 !define PRODUCT_UNINST_KEY "Software\Microsoft\Windows\CurrentVersion\Uninstall\${PRODUCT_NAME}"
 !define PRODUCT_UNINST_ROOT_KEY "HKLM"
-!define ROOT_DIR "${__FILEDIR__}\\.."
+!define ROOT_DIR ".."
 Name "${PRODUCT_NAME} ${PRODUCT_VERSION}"
 
 ; Output file configuration
@@ -54,9 +57,11 @@ VIAddVersionKey "ProductVersion" "${PRODUCT_VERSION}"
 ;--------------------------------
 ; Modern UI Configuration
 !define MUI_ABORTWARNING
-!define MUI_ICON "${__FILEDIR__}\\resources\\icon.ico"
-!define MUI_UNICON "${__FILEDIR__}\\resources\\uninstall.ico"
+!define MUI_ICON "resources\\icon.ico"
+!define MUI_UNICON "resources\\uninstall.ico"
 !define MUI_HEADERIMAGE
+!define MUI_HEADERIMAGE_BITMAP "resources\\header.bmp"
+!define MUI_WELCOMEFINISHPAGE_BITMAP "resources\\wizard.bmp"
 
 ; Welcome page configuration
 !define MUI_WELCOMEPAGE_TITLE "Welcome to ${PRODUCT_NAME} v${PRODUCT_VERSION} Setup"
@@ -132,7 +137,13 @@ Section "!Core Application" SecCore
   
   ; Copy main application files
   SetOutPath "$INSTDIR\\bin"
+!ifexist "${ROOT_DIR}\\dist\\FilantropiaSolar\\*.*"
   File /r "${ROOT_DIR}\\dist\\FilantropiaSolar\\*.*"
+!elseifexist "${ROOT_DIR}\\dist\\main\\*.*"
+  File /r "${ROOT_DIR}\\dist\\main\\*.*"
+!else
+  !error "PyInstaller dist not found. Expected dist\\FilantropiaSolar or dist\\main under ${ROOT_DIR}"
+!endif
   
   ; Copy data files
   SetOutPath "$INSTDIR\\data"
