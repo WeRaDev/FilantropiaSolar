@@ -16,7 +16,7 @@
 ; General Configuration
 Unicode True
 !define PRODUCT_NAME "FilantropiaSolar"
-!define PRODUCT_VERSION "1.2.2"
+!define PRODUCT_VERSION "1.2.3"
 !define PRODUCT_DISPLAY_VERSION "1.2.2"
 !define PRODUCT_PUBLISHER "WeRaDev Team"
 !define PRODUCT_WEB_SITE "https://github.com/FilantropiaSolar"

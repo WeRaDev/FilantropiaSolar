@@ -1,4 +1,4 @@
-# Windows Installer Build Instructions - FilantropiaSolar v1.2.2
+# Windows Installer Build Instructions - FilantropiaSolar v1.2.3
 
 ## Prerequisites
 

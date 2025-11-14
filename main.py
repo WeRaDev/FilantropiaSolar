@@ -11,7 +11,7 @@ Sarmas, Elissaios; Matias, Nuno; Pereira, Catarina; Antunes, Ana Rita (2025),
 "Photovoltaic Power Production Dataset", Mendeley Data, V3, doi: 10.17632/dbh93b6vp8.3
 
 Author: FilantropiaSolar Team
-Version: 1.2.2
+Version: 1.2.3
 """
 
 from datetime import datetime, timedelta
@@ -23,6 +23,9 @@ import tkinter as tk
 from tkinter import messagebox, ttk
 import traceback
 from typing import Any
+
+# Create logger early so import errors can be reported safely
+logger = logging.getLogger(__name__)
 
 import pandas as pd
 # Robust import for path utilities (supports packaged and dev layouts)
@@ -80,8 +83,7 @@ except Exception:
     Rectangle = None  # type: ignore[assignment]
     Patch = None  # type: ignore[assignment]
 
-# Configure logger
-logger = logging.getLogger(__name__)
+# Configure logger (handlers and levels are set in _setup_logging)
 
 # Lint/clarity constants
 MAX_ISSUES_PREVIEW = 5
@@ -184,7 +186,7 @@ class FilantropiaSolarApp:
     def create_loading_gui(self):
         """Create the initial loading interface."""
         self.root = tk.Tk()
-        self.root.title("FilantropiaSolar v1.2.2 - Loading...")
+self.root.title("FilantropiaSolar v1.2.3 - Loading...")
         self.root.geometry(f"{LOADING_WINDOW_WIDTH}x{LOADING_WINDOW_HEIGHT}")
         self.root.resizable(False, False)
 
@@ -201,9 +203,9 @@ class FilantropiaSolarApp:
         self.loading_frame.pack(fill=tk.BOTH, expand=True)
 
         # Application title and branding
-        title_label = ttk.Label(
+title_label = ttk.Label(
             self.loading_frame,
-            text="☀️ FilantropiaSolar v1.2.2",
+            text="☀️ FilantropiaSolar v1.2.3",
             font=("Arial", 20, "bold"),
         )
         title_label.pack(pady=(20, 5))
@@ -251,9 +253,9 @@ class FilantropiaSolarApp:
         features_text.pack()
 
         features_text.config(state="normal")
-        features_text.insert(
+features_text.insert(
             tk.END,
-            "🔋 Loading comprehensive solar energy system v1.2.2...\n\n"
+            "🔋 Loading comprehensive solar energy system v1.2.3...\n\n"
             "✓ 9 PV installations across Portugal\n"
             "✓ 315,567+ historical energy records\n"
             "✓ Hourly production analysis with weather correlation\n"
@@ -620,7 +622,7 @@ class FilantropiaSolarApp:
             self.loading_frame.destroy()
 
             # Reconfigure main window
-            self.root.title("FilantropiaSolar v1.2.2 - Advanced Solar Energy Analysis")
+self.root.title("FilantropiaSolar v1.2.3 - Advanced Solar Energy Analysis")
             self.root.geometry("1400x900")
             self.root.resizable(True, True)
 
