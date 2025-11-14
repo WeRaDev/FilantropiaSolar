@@ -186,7 +186,7 @@ class FilantropiaSolarApp:
     def create_loading_gui(self):
         """Create the initial loading interface."""
         self.root = tk.Tk()
-self.root.title("FilantropiaSolar v1.2.3 - Loading...")
+        self.root.title("FilantropiaSolar v1.2.3 - Loading...")
         self.root.geometry(f"{LOADING_WINDOW_WIDTH}x{LOADING_WINDOW_HEIGHT}")
         self.root.resizable(False, False)
 
