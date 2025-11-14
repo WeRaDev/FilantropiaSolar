@@ -15,10 +15,8 @@
 Unicode True
 SetCompressor /SOLID lzma
 RequestExecutionLevel admin
-; SetRegView 64  ; moved into .onInit / un.onInit
-
-; Enable logging
-LogSet on
+; SetRegView 64  ; configured in .onInit / un.onInit
+; LogSet on       ; configured in .onInit / un.onInit
 
 ;--------------------------------
 ; Defines (can be overridden via /D flags)
@@ -107,6 +105,7 @@ Var AvailableSpace
 ; Installer Functions
 Function .onInit
   SetRegView 64
+  LogSet on
   ; Deny silent installation
   IfSilent 0 +3
     MessageBox MB_OK|MB_ICONSTOP "Silent installation is not supported.$\r$\nPlease run the installer interactively."
@@ -250,6 +249,7 @@ SectionEnd
 ; Uninstaller Functions
 Function un.onInit
   SetRegView 64
+  LogSet on
   ; Deny silent uninstall
   IfSilent 0 +3
     MessageBox MB_OK|MB_ICONSTOP "Silent uninstall is not supported.$\r$\nPlease run the uninstaller interactively."
