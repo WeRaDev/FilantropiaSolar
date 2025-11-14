@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "filantropia-solar"
-version = "1.2.2"
+version = "1.2.3"
 description = "Advanced Solar Energy Analysis Application for Portuguese PV Installations"
 readme = "README.md"
 license = {text = "MIT"}

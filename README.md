@@ -1,4 +1,4 @@
-# FilantropiaSolar v1.2.2 - DST Fix + Historical Merge Stability
+# FilantropiaSolar v1.2.3 - Windows Installer Hardening + Baseline Fixes
 
 <div align="center">
 
@@ -7,14 +7,20 @@
 ![Python](https://img.shields.io/badge/python-v3.11%2B-blue.svg)
 ![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-green.svg)
 ![License](https://img.shields.io/badge/license-MIT-blue.svg)
-![Version](https://img.shields.io/badge/version-1.2.2-brightgreen.svg)
+![Version](https://img.shields.io/badge/version-1.2.3-brightgreen.svg)
 ![Performance](https://img.shields.io/badge/performance-93%25%20faster-orange.svg)
 
 </div>
 
 ---
 
-## 🆕 What’s New in v1.2.2
+## 🆕 What’s New in v1.2.3
+
+- Hardened Windows installer and PyInstaller build for SciPy/scikit-learn compatibility.
+- Bundled Lisbon baseline CSV (`average_values.csv`) into Windows EXE so chart overlays always load.
+- Fixed NSIS script compatibility with stock NSIS (SetRegView/LogSet placement).
+
+## What’s New in v1.2.2
 
 - Fixed historical-prediction merge length mismatch across DST boundary (Lisbon 2022-10-30) by deduplicating ambiguous timestamps before merging.
 - Updated internal resource path to use "data/" (was "Data/") for metadata fallback.

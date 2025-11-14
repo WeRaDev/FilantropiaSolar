@@ -72,12 +72,10 @@
 ### Version Management ✅
 - ✓ Version sourced from `pyproject.toml` automatically
 - ✓ Injected into NSIS metadata (VIProductVersion, DisplayVersion)
-- ✓ Installer filename includes version: `FilantropiaSolar-setup-1.2.2-x64.exe`
+- ✓ Installer filename includes version: `FilantropiaSolar-setup-1.2.3-x64.exe`
 
 ### Logging ✅
-- ✓ `LogSet on` in NSIS script
-- ✓ Supports `/LOG=path` command-line switch
-- ✓ Example: `FilantropiaSolar-setup-1.2.2-x64.exe /LOG=install.log`
+- ⚠️ NSIS logging disabled in current build (LogSet not available in stock NSIS)
 
 ## Build Process
 
@@ -106,12 +104,12 @@ pyinstaller --clean --noconfirm filantropia_solar.spec
 
 # Step 2: Build NSIS installer
 cd windows_installer
-makensis /DPRODUCT_VERSION=1.2.2 /DDIST_DIR=..\dist\FilantropiaSolar installer_v2.nsi
+makensis /DPRODUCT_VERSION=1.2.3 /DDIST_DIR=..\\dist\\FilantropiaSolar installer_v2.nsi
 ```
 
 ### Output
 ```
-windows_installer/FilantropiaSolar-setup-1.2.2-x64.exe
+windows_installer/FilantropiaSolar-setup-1.2.3-x64.exe
 ```
 
 ## What Was Fixed

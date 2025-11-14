@@ -1,6 +1,6 @@
-; FilantropiaSolar v1.2.2 - NSIS Installer Script
+; FilantropiaSolar v1.2.3 - NSIS Installer Script
 ; Professional Windows installer with system validation and data preservation
-; Build with: makensis /DPRODUCT_VERSION=1.2.2 /DDIST_DIR=..\dist\FilantropiaSolar installer_v2.nsi
+; Build with: makensis /DPRODUCT_VERSION=1.2.3 /DDIST_DIR=..\\dist\\FilantropiaSolar installer_v2.nsi
 
 ;--------------------------------
 ; Includes
@@ -20,7 +20,7 @@ RequestExecutionLevel admin
 ;--------------------------------
 ; Defines (can be overridden via /D flags)
 !ifndef PRODUCT_VERSION
-  !define PRODUCT_VERSION "1.2.2"
+  !define PRODUCT_VERSION "1.2.3"
 !endif
 
 !ifndef PRODUCT_NAME

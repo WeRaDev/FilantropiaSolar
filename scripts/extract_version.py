@@ -6,7 +6,7 @@ Usage:
     python scripts/extract_version.py
     
 Output:
-    1.2.2  (or current version as plain text)
+    1.2.3  (or current version as plain text)
 """
 
 import sys

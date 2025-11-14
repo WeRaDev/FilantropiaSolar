@@ -10,7 +10,7 @@ Professional NSIS-based Windows installer with system validation, data preservat
 # Build the installer (one command)
 .\windows_installer\make_installer.ps1
 
-# Output: windows_installer\FilantropiaSolar-setup-1.2.2-x64.exe
+# Output: windows_installer\\FilantropiaSolar-setup-1.2.3-x64.exe
 ```
 
 ## Build Requirements
@@ -84,7 +84,7 @@ python scripts\extract_version.py
 
 # Step 4: Build NSIS installer
 cd windows_installer
-makensis /DPRODUCT_VERSION=1.2.2 /DDIST_DIR=..\dist\FilantropiaSolar installer_v2.nsi
+makensis /DPRODUCT_VERSION=1.2.3 /DDIST_DIR=..\\dist\\FilantropiaSolar installer_v2.nsi
 ```
 
 ## Installer Features
@@ -130,7 +130,7 @@ makensis /DPRODUCT_VERSION=1.2.2 /DDIST_DIR=..\dist\FilantropiaSolar installer_v
 
 ```powershell
 # Standard installation (GUI)
-FilantropiaSolar-setup-1.2.2-x64.exe
+FilantropiaSolar-setup-1.2.3-x64.exe
 
 # With installation logging
 FilantropiaSolar-setup-1.2.2-x64.exe /LOG=C:\Temp\install.log
@@ -145,7 +145,7 @@ Version is sourced from `pyproject.toml` automatically:
 
 ```toml
 [project]
-version = "1.2.2"
+version = "1.2.3"
 ```
 
 The build script extracts this using `scripts/extract_version.py` and injects it into:
