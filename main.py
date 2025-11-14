@@ -203,7 +203,7 @@ class FilantropiaSolarApp:
         self.loading_frame.pack(fill=tk.BOTH, expand=True)
 
         # Application title and branding
-title_label = ttk.Label(
+        title_label = ttk.Label(
             self.loading_frame,
             text="☀️ FilantropiaSolar v1.2.3",
             font=("Arial", 20, "bold"),
@@ -253,7 +253,7 @@ title_label = ttk.Label(
         features_text.pack()
 
         features_text.config(state="normal")
-features_text.insert(
+        features_text.insert(
             tk.END,
             "🔋 Loading comprehensive solar energy system v1.2.3...\n\n"
             "✓ 9 PV installations across Portugal\n"
@@ -622,7 +622,7 @@ features_text.insert(
             self.loading_frame.destroy()
 
             # Reconfigure main window
-self.root.title("FilantropiaSolar v1.2.3 - Advanced Solar Energy Analysis")
+            self.root.title("FilantropiaSolar v1.2.3 - Advanced Solar Energy Analysis")
             self.root.geometry("1400x900")
             self.root.resizable(True, True)
 
