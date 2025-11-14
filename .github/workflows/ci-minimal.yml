@@ -1,10 +1,13 @@
-name: Minimal CI/CD Pipeline
+name: Minimal CI/CD Pipeline (DEPRECATED)
 
+# DEPRECATED as of v1.2.3: no automatic CI runs; use local minimal checks instead.
 on:
-  push:
-    branches: [ main ]
-  pull_request:
-    branches: [ main ]
+  workflow_dispatch:
+    inputs:
+      deprecated:
+        description: 'Deprecated minimal CI; run ruff/mkdocs/pytest locally.'
+        required: false
+        default: 'true'
 
 # Cancel previous runs when new commits are pushed
 concurrency:

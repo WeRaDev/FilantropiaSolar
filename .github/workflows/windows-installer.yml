@@ -1,10 +1,13 @@
-name: Windows Installer
+name: Windows Installer (DEPRECATED)
 
+# DEPRECATED as of v1.2.3: use windows_installer/make_installer.ps1 on a Windows machine instead.
 on:
   workflow_dispatch:
-  push:
-    tags:
-      - 'v*'
+    inputs:
+      deprecated:
+        description: 'Deprecated Windows installer workflow; use make_installer.ps1 locally.'
+        required: false
+        default: 'true'
 
 jobs:
   build-windows:

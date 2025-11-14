@@ -1,13 +1,13 @@
-name: Build FilantropiaSolar v1.0.3 Smart Caching Edition
+name: Build FilantropiaSolar v1.0.3 Smart Caching Edition (DEPRECATED)
 
+# DEPRECATED as of v1.2.3: kept for reference, no automatic triggers.
 on:
-  push:
-    branches: [ main, develop ]
-    tags: [ 'v*' ]
-  pull_request:
-    branches: [ main ]
-  release:
-    types: [ published ]
+  workflow_dispatch:
+    inputs:
+      deprecated:
+        description: 'Deprecated workflow (v1.0.3 build); use Windows installer script on a Windows machine instead.'
+        required: false
+        default: 'true'
 
 env:
   PYTHON_VERSION: '3.11'
