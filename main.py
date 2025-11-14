@@ -24,6 +24,9 @@ from tkinter import messagebox, ttk
 import traceback
 from typing import Any
 
+# Create logger early so import errors can be reported safely
+logger = logging.getLogger(__name__)
+
 import pandas as pd
 # Robust import for path utilities (supports packaged and dev layouts)
 try:
@@ -80,8 +83,7 @@ except Exception:
     Rectangle = None  # type: ignore[assignment]
     Patch = None  # type: ignore[assignment]
 
-# Configure logger
-logger = logging.getLogger(__name__)
+# Configure logger (handlers and levels are set in _setup_logging)
 
 # Lint/clarity constants
 MAX_ISSUES_PREVIEW = 5

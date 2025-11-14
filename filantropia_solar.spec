@@ -38,6 +38,10 @@ hidden += [
     'sklearn.utils._sorting',
     'sklearn.utils._vector_sentinel',
 ]
+# Ensure SciPy core is bundled (required by scikit-learn)
+hidden += [
+    'scipy',
+]
 # Pandas and NumPy internals
 hidden += [
     'pandas._libs.tslibs.timedeltas',
@@ -84,7 +88,7 @@ excludes = [
     'matplotlib.backends.backend_gtk3agg',
     'matplotlib.backends.backend_webagg',
     'PyQt5', 'PyQt6', 'PySide2', 'PySide6', 'wx',
-    'scipy', 'sympy', 'IPython', 'jupyter',
+    'sympy', 'IPython', 'jupyter',
     'tests', 'test', '.github',
 ]
 
