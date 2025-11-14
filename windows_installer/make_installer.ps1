@@ -71,7 +71,7 @@ try {
         Write-Host "        Please install NSIS from: https://nsis.sourceforge.io/" -ForegroundColor Red
         exit 1
     }
-    Write-Host "  ✓ NSIS found: $($nsisPath.Source)" -ForegroundColor Green
+    Write-Host "  [OK] NSIS found: $($nsisPath.Source)" -ForegroundColor Green
     
     # Check Python
     $pythonCmd = if (Get-Command py -ErrorAction SilentlyContinue) { "py" } else { "python" }
@@ -80,15 +80,15 @@ try {
         Write-Host "[ERROR] Python not found" -ForegroundColor Red
         exit 1
     }
-    Write-Host "  ✓ Python found: $($pythonPath.Source)" -ForegroundColor Green
+    Write-Host "  [OK] Python found: $($pythonPath.Source)" -ForegroundColor Green
     
     # Check venv if needed
     if (-not $SkipPyInstaller) {
         $venvPython = Join-Path $VenvPath "Scripts\python.exe"
         if (Test-Path $venvPython) {
-            Write-Host "  ✓ Virtual environment found: $VenvPath" -ForegroundColor Green
+            Write-Host "  [OK] Virtual environment found: $VenvPath" -ForegroundColor Green
         } else {
-            Write-Host "  ⚠ Virtual environment not found at $VenvPath" -ForegroundColor Yellow
+            Write-Host "  [WARN] Virtual environment not found at $VenvPath" -ForegroundColor Yellow
             Write-Host "    Will use system Python" -ForegroundColor Yellow
         }
     }
@@ -110,7 +110,7 @@ try {
         exit 1
     }
     
-    Write-Host "  ✓ Version: $version" -ForegroundColor Green
+    Write-Host "  [OK] Version: $version" -ForegroundColor Green
     Write-Host ""
     
     # Step 3: Clean old build artifacts
@@ -133,7 +133,7 @@ try {
         Remove-Item -Path $oldInstaller -Force
     }
     
-    Write-Host "  ✓ Cleanup complete" -ForegroundColor Green
+    Write-Host "  [OK] Cleanup complete" -ForegroundColor Green
     Write-Host ""
     
     # Step 4: Run PyInstaller
@@ -157,7 +157,7 @@ try {
             exit 1
         }
         
-        Write-Host "  ✓ PyInstaller build complete" -ForegroundColor Green
+        Write-Host "  [OK] PyInstaller build complete" -ForegroundColor Green
     } else {
         Write-Host "[4/7] Skipping PyInstaller build" -ForegroundColor Yellow
     }
@@ -178,14 +178,14 @@ try {
     
     $exeSize = (Get-Item $exePath).Length / 1MB
     $exeSizeRounded = [math]::Round($exeSize, 1)
-    Write-Host "  ✓ Executable found: FilantropiaSolar.exe ($exeSizeRounded MB)" -ForegroundColor Green
+    Write-Host "  [OK] Executable found: FilantropiaSolar.exe ($exeSizeRounded MB)" -ForegroundColor Green
     
     # Check for _internal directory
     $internalDir = Join-Path $distDir "_internal"
     if (Test-Path $internalDir) {
-        Write-Host "  ✓ Dependencies found: _internal/" -ForegroundColor Green
+        Write-Host "  [OK] Dependencies found: _internal/" -ForegroundColor Green
     } else {
-        Write-Host "  ⚠ _internal directory not found (may be one-file build)" -ForegroundColor Yellow
+        Write-Host "  [WARN] _internal directory not found (may be one-file build)" -ForegroundColor Yellow
     }
     
     Write-Host ""
@@ -195,9 +195,9 @@ try {
     
     $iconPath = Join-Path $ScriptDir "resources\icon.ico"
     if (Test-Path $iconPath) {
-        Write-Host "  ✓ Icon found: resources\icon.ico" -ForegroundColor Green
+        Write-Host "  [OK] Icon found: resources\icon.ico" -ForegroundColor Green
     } else {
-        Write-Host "  ⚠ Icon not found: resources\icon.ico (will use default)" -ForegroundColor Yellow
+        Write-Host "  [WARN] Icon not found: resources\icon.ico (will use default)" -ForegroundColor Yellow
     }
     
     Write-Host ""
@@ -233,7 +233,7 @@ try {
         exit 1
     }
     
-    Write-Host "  ✓ NSIS build complete" -ForegroundColor Green
+    Write-Host "  [OK] NSIS build complete" -ForegroundColor Green
     Write-Host ""
     
     # Step 8: Verify installer
