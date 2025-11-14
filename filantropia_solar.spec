@@ -93,9 +93,12 @@ excludes = [
 ]
 
 # Data files to bundle (optional - NSIS can install separately)
+# Note: average_values.csv is used for Lisbon 4-year baseline overlay in charts
+# and must live at the resource base so get_resource_path('average_values.csv') works.
 datas = [
     ('data', 'data'),
     ('weather_files', 'weather_files'),
+    ('average_values.csv', '.'),
 ]
 
 a = Analysis(
