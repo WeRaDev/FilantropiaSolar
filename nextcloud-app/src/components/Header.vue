@@ -3,14 +3,31 @@
         <!-- Left: App title and logo -->
         <div class="header-branding">
             <span class="app-logo">
-                <svg width="32" height="32" viewBox="0 0 24 24" fill="none">
-                    <circle cx="12" cy="12" r="5" fill="#F5A623"/>
-                    <path d="M12 2v4M12 18v4M2 12h4M18 12h4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83" 
-                          stroke="#F5A623" stroke-width="2" stroke-linecap="round"/>
+                <!-- Sun icon with glow effect matching brand -->
+                <svg width="28" height="28" viewBox="0 0 32 32" fill="none">
+                    <defs>
+                        <radialGradient id="sunGlow" cx="50%" cy="50%" r="50%">
+                            <stop offset="0%" stop-color="#FFF9E6"/>
+                            <stop offset="50%" stop-color="#F5D547"/>
+                            <stop offset="100%" stop-color="#C4A000"/>
+                        </radialGradient>
+                        <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
+                            <feGaussianBlur stdDeviation="1.5" result="blur"/>
+                            <feMerge>
+                                <feMergeNode in="blur"/>
+                                <feMergeNode in="SourceGraphic"/>
+                            </feMerge>
+                        </filter>
+                    </defs>
+                    <circle cx="16" cy="16" r="8" fill="url(#sunGlow)" filter="url(#glow)"/>
+                    <circle cx="16" cy="16" r="5" fill="none" stroke="#C4A000" stroke-width="1" opacity="0.5"/>
                 </svg>
             </span>
-            <h1 class="app-title">FilantropiaSolar</h1>
-            <span class="app-version">v3.0.3</span>
+            <div class="app-title-group">
+                <h1 class="app-title">FilantropiaSolar</h1>
+                <span class="app-tagline">built by <span class="wera-we">we</span><span class="wera-ra">ra</span></span>
+            </div>
+            <span class="app-version">v3.0.5</span>
         </div>
 
         <!-- Center: KPI cards -->
@@ -105,19 +122,45 @@ export default {
     display: flex;
 }
 
+.app-title-group {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+}
+
 .app-title {
-    font-size: 20px;
-    font-weight: 600;
+    font-family: Georgia, 'Times New Roman', serif;
+    font-style: italic;
+    font-size: 22px;
+    font-weight: 400;
     color: var(--color-main-text, #1a1a1a);
     margin: 0;
+    line-height: 1.1;
+}
+
+.app-tagline {
+    font-size: 10px;
+    color: var(--color-text-lighter, #767676);
+    margin-left: 2px;
+}
+
+.wera-we {
+    color: #A89D3F;
+    font-weight: 500;
+}
+
+.wera-ra {
+    color: #E8A020;
+    font-weight: 500;
 }
 
 .app-version {
-    font-size: 12px;
+    font-size: 11px;
     color: var(--color-text-lighter, #767676);
-    padding: 2px 8px;
+    padding: 2px 6px;
     background: var(--color-background-dark, #f5f5f5);
     border-radius: 4px;
+    align-self: flex-start;
 }
 
 /* KPI Container - cards 120px wide per spec */

@@ -1,7 +1,7 @@
 .app-filantropia_solar{width:100%;height:calc(100vh - 50px);background-color:#fdfbf5;overflow:hidden}
 
 /* Header: 80px height per spec Section 5.1 */
-.app-header[data-v-176f9ad8] {
+.app-header[data-v-8f7bb584] {
     height: 80px;
     display: flex;
     align-items: center;
@@ -13,37 +13,59 @@
 }
 
 /* Branding */
-.header-branding[data-v-176f9ad8] {
+.header-branding[data-v-8f7bb584] {
     display: flex;
     align-items: center;
     gap: 12px;
     flex-shrink: 0;
 }
-.app-logo[data-v-176f9ad8] {
+.app-logo[data-v-8f7bb584] {
     display: flex;
 }
-.app-title[data-v-176f9ad8] {
-    font-size: 20px;
-    font-weight: 600;
+.app-title-group[data-v-8f7bb584] {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+}
+.app-title[data-v-8f7bb584] {
+    font-family: Georgia, 'Times New Roman', serif;
+    font-style: italic;
+    font-size: 22px;
+    font-weight: 400;
     color: var(--color-main-text, #1a1a1a);
     margin: 0;
+    line-height: 1.1;
 }
-.app-version[data-v-176f9ad8] {
-    font-size: 12px;
+.app-tagline[data-v-8f7bb584] {
+    font-size: 10px;
     color: var(--color-text-lighter, #767676);
-    padding: 2px 8px;
+    margin-left: 2px;
+}
+.wera-we[data-v-8f7bb584] {
+    color: #A89D3F;
+    font-weight: 500;
+}
+.wera-ra[data-v-8f7bb584] {
+    color: #E8A020;
+    font-weight: 500;
+}
+.app-version[data-v-8f7bb584] {
+    font-size: 11px;
+    color: var(--color-text-lighter, #767676);
+    padding: 2px 6px;
     background: var(--color-background-dark, #f5f5f5);
     border-radius: 4px;
+    align-self: flex-start;
 }
 
 /* KPI Container - cards 120px wide per spec */
-.kpi-container[data-v-176f9ad8] {
+.kpi-container[data-v-8f7bb584] {
     display: flex;
     gap: 16px;
     flex: 1;
     justify-content: center;
 }
-.kpi-card[data-v-176f9ad8] {
+.kpi-card[data-v-8f7bb584] {
     min-width: 100px;
     width: 120px;
     padding: 8px 16px;
@@ -54,21 +76,21 @@
     transition: all 0.2s ease;
     border: 2px solid transparent;
 }
-.kpi-card[data-v-176f9ad8]:hover {
+.kpi-card[data-v-8f7bb584]:hover {
     background: var(--color-background-hover, #ededed);
 }
-.kpi-card.active[data-v-176f9ad8] {
+.kpi-card.active[data-v-8f7bb584] {
     border-color: var(--color-primary, #0082c9);
 }
 
 /* KPI Values - 28px bold per spec */
-.kpi-value[data-v-176f9ad8] {
+.kpi-value[data-v-8f7bb584] {
     display: block;
     font-size: 28px;
     font-weight: 700;
     line-height: 1.2;
 }
-.kpi-label[data-v-176f9ad8] {
+.kpi-label[data-v-8f7bb584] {
     display: block;
     font-size: 11px;
     color: var(--color-text-lighter, #767676);
@@ -77,39 +99,39 @@
 }
 
 /* Status-specific colors per spec Section 5.2 */
-.kpi-active .kpi-value[data-v-176f9ad8] { color: #22A559;
+.kpi-active .kpi-value[data-v-8f7bb584] { color: #22A559;
 }
-.kpi-warning .kpi-value[data-v-176f9ad8] { color: #F5A623;
+.kpi-warning .kpi-value[data-v-8f7bb584] { color: #F5A623;
 }
-.kpi-offline .kpi-value[data-v-176f9ad8] { color: #CC2020;
+.kpi-offline .kpi-value[data-v-8f7bb584] { color: #CC2020;
 }
-.kpi-capacity .kpi-value[data-v-176f9ad8] { color: var(--color-primary, #0082c9);
+.kpi-capacity .kpi-value[data-v-8f7bb584] { color: var(--color-primary, #0082c9);
 }
 
 /* Responsive */
 @media (max-width: 1200px) {
-.kpi-card[data-v-176f9ad8] {
+.kpi-card[data-v-8f7bb584] {
         min-width: 80px;
         width: 100px;
         padding: 6px 12px;
 }
-.kpi-value[data-v-176f9ad8] {
+.kpi-value[data-v-8f7bb584] {
         font-size: 22px;
 }
 }
 @media (max-width: 768px) {
-.app-header[data-v-176f9ad8] {
+.app-header[data-v-8f7bb584] {
         height: auto;
         flex-wrap: wrap;
         padding: 12px 16px;
 }
-.kpi-container[data-v-176f9ad8] {
+.kpi-container[data-v-8f7bb584] {
         order: 3;
         width: 100%;
         justify-content: space-between;
         margin-top: 12px;
 }
-.kpi-card[data-v-176f9ad8] {
+.kpi-card[data-v-8f7bb584] {
         flex: 1;
         min-width: auto;
 }

@@ -409,3 +409,229 @@ python main.py
 - Enhanced test coverage with pytest suite expansion.
 - Package layout migration to src/filantropia_solar structure (if desired).
 - Consider automatic cache invalidation with model retraining when feature mismatch detected.
+
+---
+
+# Nextcloud App Development (FilantropiaSolar v3.x)
+
+This section documents the Nextcloud web application component of FilantropiaSolar.
+
+## Architecture Overview
+- **Frontend**: Vue.js 3 with Composition API, Pinia store, Leaflet maps
+- **Backend**: PHP 8.x with Nextcloud app framework, Doctrine ORM
+- **Database**: SQLite/MySQL via Nextcloud's database abstraction
+- **Build**: Webpack with Vue loader, SCSS support
+
+## Directory Structure
+```
+nextcloud-app/
+  appinfo/info.xml       # App metadata and version
+  lib/
+    Controller/          # API endpoints
+    Db/                  # Entity classes and mappers
+    Migration/           # Database migrations
+    Service/             # Business logic
+  src/
+    components/          # Vue components
+    store/               # Pinia state management
+    views/               # Main view components
+    style/               # SCSS files
+  js/                    # Built JavaScript
+  css/                   # Built CSS
+```
+
+## Development Workflow
+
+### Build Commands
+```bash
+cd nextcloud-app
+npm install              # First time setup
+npm run build           # Production build
+npm run dev             # Development with watch
+```
+
+### After Code Changes
+1. Run `npm run build` to compile Vue/SCSS
+2. Refresh browser (Ctrl+Shift+R for cache bypass)
+3. Check browser console for errors
+
+### Database Migrations
+Migration files in `lib/Migration/` follow naming: `VersionXXXXXXDateYYYYMMDD.php`
+
+After adding migrations:
+```bash
+docker exec -u 33 filantropia-nextcloud php occ upgrade
+```
+
+## Key Patterns Learned (v3.0.5 Session)
+
+### PHP Entity Typed Properties
+**Problem**: PHP 8.x typed properties throw errors if not initialized
+**Solution**: Make DateTime properties nullable when ORM manages them
+```php
+// Bad: Will error on new entity
+private DateTime $createdAt;
+
+// Good: Allows null until ORM sets value
+private ?DateTime $createdAt = null;
+```
+
+### Database Boolean Columns
+**Problem**: Boolean columns with `'default' => true` fail in SQLite
+**Solution**: Use integer representation
+```php
+$table->addColumn('is_virtual', Types::BOOLEAN, [
+    'notnull' => false,
+    'default' => 0,  // Not 'false' or true
+]);
+```
+
+### Vue Component Event Handling
+**Problem**: Click handlers calling wrong methods after refactoring
+**Solution**: Always verify method names match between template and script
+```vue
+<!-- Template calls selectObject -->
+<div @click="selectObject(item)">
+
+<!-- Script must export selectObject, not openPopup -->
+const selectObject = (item) => { ... }
+return { selectObject }
+```
+
+### Map Coordinates
+**Problem**: Coordinates derived from location names were inaccurate
+**Solution**: Use actual latitude/longitude from API response
+```javascript
+// Bad: Lookup by name
+const coords = LOCATION_COORDS[installation.location]
+
+// Good: Use API values directly
+const lat = parseFloat(installation.latitude)
+const lng = parseFloat(installation.longitude)
+```
+
+### Lazy Loading Modals
+**Problem**: Large modal components increase initial bundle size
+**Solution**: Use defineAsyncComponent for heavy modals
+```javascript
+import { defineAsyncComponent } from 'vue'
+
+const AnalyticsModal = defineAsyncComponent(() =>
+    import('./components/AnalyticsModal.vue')
+)
+```
+
+### SVG Icons in Vue
+**Problem**: External image files may not load in Nextcloud context
+**Solution**: Inline SVG in component template
+```vue
+<svg width="20" height="20" viewBox="0 0 24 24">
+    <polygon points="12,2 15,9 22,9 17,14 19,22 12,17 5,22 7,14 2,9 9,9"
+             fill="#FFD700" stroke="#B8860B"/>
+</svg>
+```
+
+### Color Consistency
+**Problem**: Same ranking displayed with different colors in chart vs table
+**Solution**: Use shared color constants or computed properties
+```javascript
+const RANK_COLORS = {
+    'R5': '#22A559',  // Excellent - green
+    'R4': '#8BC34A',  // Good - light green
+    'R3': '#FFC107',  // Average - yellow
+    'R2': '#FF9800',  // Below avg - orange
+    'R1': '#F44336',  // Poor - red
+    'R0': '#9E9E9E',  // Excluded - gray
+}
+```
+
+## Ranking System (Normalized Specific Energy)
+
+Formula: `NSE = Y / (X * Z)`
+- Y = Energy produced (kWh)
+- X = Capacity (kWp)
+- Z = Active hours
+
+Thresholds:
+- R0: < 0.05 (Excluded - insufficient data)
+- R1: 0.05-0.15 (Poor)
+- R2: 0.15-0.30 (Below Average)
+- R3: 0.30-0.50 (Average)
+- R4: 0.50-0.70 (Good)
+- R5: >= 0.70 (Excellent)
+
+## Branding Guidelines
+
+### Brand Colors (from _golden-brand.scss)
+```scss
+$golden-olive: #A89D3F;    // Primary brand color, "we" in tagline
+$warm-orange: #E8A020;     // Accent color, "ra" in tagline
+$sun-glow: #C4A000;        // Sun icon accent
+$sun-center: #F5D547;      // Sun icon gradient
+```
+
+### Logo Elements
+- **Title**: "FilantropiaSolar" in Georgia/serif italic font
+- **Tagline**: "built by wera" - "we" in golden-olive, "ra" in warm-orange
+- **Icon**: Glowing sun SVG with radial gradient
+
+## v3.0.5 Release Notes (2026-02-05)
+
+### Bug Fixes
+1. **Duplicate info windows** - Merged popup into info card, removed InstallationPopup
+2. **Ranking calculation** - Implemented normalized specific energy formula
+3. **Daily Summary display** - Fixed to show hourly values in day timeframe
+4. **Map marker icon** - SVG star for virtual installations
+5. **500 error on virtual** - Fixed database schema and entity typed properties
+6. **List panel clicks** - Fixed method name mismatch
+7. **Map coordinates** - Use actual API lat/lng values
+8. **Ranking colors** - Consistent between chart and table
+
+### New Features
+1. **Weather data toggle** - Dropdown to show/hide Temperature, Cloud Cover, Humidity, Wind Speed
+2. **Virtual installations** - Create custom simulated installations with star marker
+3. **Lazy loading** - Async component loading for modals
+
+### Files Modified
+- `src/components/MapPanel.vue` - Enhanced info card
+- `src/components/AnalyticsModal.vue` - Weather toggle, ranking fixes
+- `src/components/ListPanel.vue` - Click handler fix
+- `src/components/CreateVirtualModal.vue` - Star SVG icon
+- `src/components/Header.vue` - Updated branding
+- `src/views/Dashboard.vue` - Removed popup, lazy loading
+- `src/store/app.js` - Coordinates mapping
+- `lib/Db/Installation.php` - Nullable DateTime properties
+- `lib/Migration/Version300001Date20260205.php` - is_virtual column
+- `appinfo/info.xml`, `package.json` - Version bump
+
+## Troubleshooting
+
+### "Update needed" after version change
+```bash
+docker exec -u 33 filantropia-nextcloud php occ upgrade
+```
+
+### Push to GitHub with HTTPS
+```bash
+git remote set-url origin https://github.com/WeRaDev/FilantropiaSolar.git
+gh auth setup-git
+git push
+```
+
+### Webpack performance warnings
+Add to webpack.config.js:
+```javascript
+performance: {
+    hints: false,
+    maxEntrypointSize: 512000,
+    maxAssetSize: 512000,
+}
+```
+
+### Sass deprecation warnings
+These are non-blocking warnings about @import syntax. Will need migration to @use/@forward in Dart Sass 3.0.
+
+## Uncommitted Changes (Current Session)
+- `nextcloud-app/src/components/Header.vue` - Branding update
+- `nextcloud-app/js/filantropia_solar-main.js` - Built JS
+- `nextcloud-app/css/filantropia_solar-main.css` - Built CSS
