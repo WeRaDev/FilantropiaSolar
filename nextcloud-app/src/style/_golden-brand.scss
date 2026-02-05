@@ -1,0 +1,149 @@
+/**
+ * FilantropiaSolar Golden Brand Color System
+ *
+ * Consistent color palette for the solar energy dashboard.
+ * Based on golden olive tones with warm accents.
+ */
+
+// Primary brand colors
+$golden-primary: #C4B552;      // Primary accent - production values, highlights
+$golden-secondary: #D4C563;    // Lighter golden - hover states, secondary highlights
+$golden-olive: #A89D3F;        // Borders, shadows, subtle accents
+$golden-dark: #8B8234;         // Dark variant for contrast
+
+// Semantic colors
+$warm-orange: #E8A94B;         // Consumption data, warnings
+$cream-bg: #FDFBF5;            // Main background
+$cream-card: #FAF8F2;          // Card backgrounds
+$charcoal: #2D2D2D;            // Body text
+$charcoal-light: #4A4A4A;      // Secondary text
+$weather-blue: #6B9BC3;        // Weather data
+
+// Transparent variants
+$golden-border: rgba(168, 157, 63, 0.3);
+$golden-shadow: rgba(196, 181, 82, 0.2);
+$golden-highlight: rgba(196, 181, 82, 0.15);
+
+// Semantic mappings for data visualization
+$color-production: $golden-primary;
+$color-consumption: $warm-orange;
+$color-savings: $golden-secondary;
+$color-weather: $weather-blue;
+
+// Chart colors (ordered for consistency)
+$chart-colors: (
+  production: $golden-primary,
+  consumption: $warm-orange,
+  weather: $weather-blue,
+  savings: $golden-secondary,
+  grid: #9E9E9E
+);
+
+// Status colors
+$status-online: #4CAF50;
+$status-offline: #F44336;
+$status-warning: $warm-orange;
+$status-info: $weather-blue;
+
+// Typography
+$font-family-base: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+$font-weight-normal: 400;
+$font-weight-medium: 500;
+$font-weight-bold: 600;
+
+// Spacing
+$spacing-xs: 4px;
+$spacing-sm: 8px;
+$spacing-md: 16px;
+$spacing-lg: 24px;
+$spacing-xl: 32px;
+
+// Border radius
+$border-radius-sm: 4px;
+$border-radius-md: 8px;
+$border-radius-lg: 12px;
+
+// Shadows
+$shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.1);
+$shadow-md: 0 4px 6px rgba(0, 0, 0, 0.1);
+$shadow-lg: 0 10px 20px rgba(0, 0, 0, 0.15);
+$shadow-golden: 0 4px 12px $golden-shadow;
+
+// Transitions
+$transition-fast: 150ms ease;
+$transition-normal: 250ms ease;
+$transition-slow: 400ms ease;
+
+// Mixins
+@mixin golden-accent {
+  border-left: 3px solid $golden-primary;
+}
+
+@mixin golden-glow {
+  box-shadow: 0 0 0 3px $golden-highlight;
+}
+
+@mixin golden-button {
+  background-color: $golden-primary;
+  color: $charcoal;
+  border: none;
+  border-radius: $border-radius-md;
+  padding: $spacing-sm $spacing-md;
+  font-weight: $font-weight-medium;
+  transition: background-color $transition-fast;
+
+  &:hover {
+    background-color: $golden-secondary;
+  }
+
+  &:active {
+    background-color: $golden-olive;
+  }
+}
+
+@mixin card-style {
+  background-color: $cream-card;
+  border-radius: $border-radius-lg;
+  box-shadow: $shadow-sm;
+  padding: $spacing-lg;
+}
+
+@mixin golden-card {
+  background-color: $cream-card;
+  border-radius: $border-radius-lg;
+  box-shadow: $shadow-sm;
+  border: 1px solid $golden-border;
+  padding: $spacing-lg;
+}
+
+@mixin golden-heading {
+  color: $charcoal;
+  font-weight: $font-weight-bold;
+  position: relative;
+  padding-bottom: $spacing-sm;
+  
+  &::after {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    width: 60px;
+    height: 3px;
+    background-color: $golden-primary;
+  }
+}
+
+@mixin metric-highlight {
+  color: $golden-primary;
+  font-weight: $font-weight-bold;
+}
+
+@mixin golden-badge {
+  display: inline-block;
+  padding: 2px 8px;
+  background: rgba($golden-primary, 0.15);
+  color: $golden-olive;
+  border-radius: $border-radius-sm;
+  font-size: 0.75rem;
+  font-weight: $font-weight-medium;
+}

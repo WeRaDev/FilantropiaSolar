@@ -1,0 +1,93 @@
+%% FilantropiaSolar v3.0.2 — UI Architecture (Mermaid minimal syntax for FigJam)
+%% If FigJam shows a blank canvas, a parse error occurred. This version avoids advanced features.
+
+%%{init: {"flowchart": {"nodeSpacing": 90, "rankSpacing": 160, "diagramPadding": 16, "htmlLabels": true}, "themeVariables": {"fontSize": "18px", "lineColor": "#333333", "primaryColor": "#ffffff", "primaryTextColor": "#1A1A1A", "primaryBorderColor": "#0082c9", "edgeLabelBackground": "#ffffff"}} }%%
+
+flowchart TD
+
+%% UI COMPOSITION
+subgraph Dashboard[Dashboard (root layout)]
+  direction LR
+  subgraph Header[Header 80px]
+    C_HeaderLogo[Logo]
+    C_HeaderKPIs[KPI Cards x5]
+    C_HeaderTime[Time Selector D | W | Mo | 21]
+  end
+
+  subgraph Main[Main Content]
+    direction LR
+    subgraph ListPanel[List Panel 32%]
+      C_ListSearch[Search Box]
+      C_ListFilters[Filter Chips: All | Active | Warning | Offline]
+      C_ListItems[Installation List (9)]
+    end
+
+    subgraph MapPanel[Map Panel 68%]
+      C_MapMap[Leaflet Map]
+      C_MapMarkers[Status Markers]
+      C_MapInfo[Info Card]
+      C_MapControls[Zoom / Reset]
+      C_MapLegend[Legend]
+    end
+  end
+
+  subgraph AnalyticsPanel[Analytics Panel 350px]
+    C_AnalyticTabs[Tabs: Energy | Weather | Overview]
+    C_AnalyticEnergyChart[Hourly Energy Bar Chart]
+    C_AnalyticRankLegend[Ranking Legend]
+    C_AnalyticStats[Today's Summary]
+    C_AnalyticOverview[Overview Metrics + Daily Table]
+  end
+end
+
+%% STATE (STORE)
+subgraph Store[Pinia Store]
+  S_SelectedInstallation[Selected Installation]
+  S_TimeWindow[Time Window]
+  S_StatusFilter[Status Filter]
+  S_HourlyData[Hourly Data]
+  S_DailyData[Daily Data]
+  S_PeriodStats[Period Stats]
+end
+
+%% API LAYER
+subgraph API[ML Service API]
+  A_GetAnalytics[/GET /analytics/]
+D_APIResponse[(period_statistics, daily_data[], hourly_data[], installation_info)]
+end
+
+%% EVENTS
+E_Select[Select Installation]
+E_TimeChange[Change Time Window]
+E_Filter[Apply Status Filter]
+E_MarkerClick[Map Marker Click]
+
+%% INTERACTIONS
+C_ListItems -- select --> S_SelectedInstallation
+C_HeaderTime -- change --> S_TimeWindow
+C_ListFilters -- filter --> S_StatusFilter
+C_MapMarkers -- click --> S_SelectedInstallation
+
+%% DATA FETCH
+S_SelectedInstallation -.-> A_GetAnalytics
+S_TimeWindow -.-> A_GetAnalytics
+A_GetAnalytics --> D_APIResponse
+D_APIResponse --> S_HourlyData
+D_APIResponse --> S_DailyData
+D_APIResponse --> S_PeriodStats
+
+%% UI DATA CONSUMPTION
+S_SelectedInstallation --> C_MapMarkers
+S_SelectedInstallation --> C_MapInfo
+S_SelectedInstallation --> C_AnalyticEnergyChart
+S_SelectedInstallation --> C_AnalyticOverview
+
+S_HourlyData --> C_AnalyticEnergyChart
+S_DailyData --> C_AnalyticOverview
+S_PeriodStats --> C_AnalyticOverview
+
+S_StatusFilter --> C_MapMarkers
+S_TimeWindow --> C_HeaderTime
+
+%% NAVIGATION
+C_MapInfo -- View Analysis --> AnalyticsPanel

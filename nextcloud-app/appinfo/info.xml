@@ -1,0 +1,65 @@
+<?xml version="1.0"?>
+<info xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+      xsi:noNamespaceSchemaLocation="https://apps.nextcloud.com/schema/apps/info.xsd">
+    <id>filantropia_solar</id>
+    <name>FilantropiaSolar</name>
+    <summary>Advanced Solar Energy Analysis for PV Installations</summary>
+    <description><![CDATA[
+# FilantropiaSolar
+
+A comprehensive solar energy prediction and analysis platform for photovoltaic installations.
+
+## Features
+
+- **Interactive Map View**: Geographic visualization of all PV installations with golden markers
+- **Energy Analysis**: 24-hour production/consumption charts with weather correlation
+- **ML Predictions**: Machine learning-powered energy forecasts using ensemble models
+- **Savings Calculator**: Track cost savings vs grid electricity prices
+- **Multi-Installation Support**: Manage multiple PV systems in one dashboard
+- **Weather Data Toggle**: Customizable chart layers for temperature, cloud cover, humidity, wind speed
+- **Virtual Installations**: Create and simulate custom PV installations at any location
+
+## Data Source
+
+Photovoltaic Power Production Dataset by Sarmas et al. (Mendeley Data, 2025)
+
+## Brand
+
+Golden olive color palette (#A89D3F, #C4B552, #D4C563) with warm cream backgrounds.
+]]></description>
+    <version>3.0.5</version>
+    <licence>AGPL-3.0-or-later</licence>
+    <author mail="contact@wera.global" homepage="https://wera.global">WeRa Global Team</author>
+    <namespace>FilantropiaSolar</namespace>
+
+    <category>tools</category>
+    <category>monitoring</category>
+
+    <website>https://github.com/WeRaDev/FilantropiaSolar</website>
+    <bugs>https://github.com/WeRaDev/FilantropiaSolar/issues</bugs>
+    <repository type="git">https://github.com/WeRaDev/FilantropiaSolar.git</repository>
+
+    <screenshot>https://raw.githubusercontent.com/WeRaDev/FilantropiaSolar/main/docs/screenshots/dashboard.png</screenshot>
+
+    <dependencies>
+        <php min-version="8.1" max-version="8.4"/>
+        <nextcloud min-version="28" max-version="31"/>
+    </dependencies>
+
+    <background-jobs>
+        <job>OCA\FilantropiaSolar\BackgroundJob\WeatherSyncJob</job>
+        <job>OCA\FilantropiaSolar\BackgroundJob\PredictionJob</job>
+    </background-jobs>
+
+    <navigation>
+        <route>filantropia_solar.page.index</route>
+        <name>FilantropiaSolar</name>
+        <order>10</order>
+        <icon>app.png</icon>
+    </navigation>
+
+    <settings>
+        <admin>OCA\FilantropiaSolar\Settings\AdminSettings</admin>
+        <admin-section>OCA\FilantropiaSolar\Settings\AdminSection</admin-section>
+    </settings>
+</info>
