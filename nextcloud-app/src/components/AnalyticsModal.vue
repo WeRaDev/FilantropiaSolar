@@ -277,43 +277,12 @@
 <script>
 import { ref, computed, watch, onMounted, onUnmounted, nextTick } from 'vue'
 import { useAppStore } from '../store/app.js'
-import { Chart, registerables } from 'chart.js'
-
-Chart.register(...registerables)
-
-// Ranking colors for v3.0.5 (based on normalized specific energy)
-// R0: excluded (negligible production), R1-R5 visible with distinct colors
-const RANKING_COLORS = {
-    0: '#B0B0B0', // R0: Zero/negligible (excluded from display)
-    1: '#DC143C', // R1: Poor (red)
-    2: '#FF8C00', // R2: Below Avg (orange)
-    3: '#FFD700', // R3: Average (yellow)
-    4: '#32CD32', // R4: Good (green)
-    5: '#87CEEB'  // R5: Excellent (light-blue)
-}
-
-// Ranking thresholds based on normalized specific energy: Y/(X*Z)
-// Y = energy (kWh), X = capacity (kWp), Z = active hours
-// For Portugal: typical daily yield is 4-5 kWh/kWp, peak hours ~6-8
-// So hourly normalized yield ~0.5-0.8 kWh/kWp/hour at peak
-// These thresholds are calibrated for hourly performance
-const RANK_THRESHOLDS = {
-    R0: 0.05,   // < 0.05 = R0 (excluded - negligible)
-    R1: 0.15,   // 0.05-0.15 = R1 (Poor - very low output)
-    R2: 0.30,   // 0.15-0.30 = R2 (Below avg - cloudy/suboptimal)
-    R3: 0.50,   // 0.30-0.50 = R3 (Average - normal conditions)
-    R4: 0.70,   // 0.50-0.70 = R4 (Good - favorable conditions)
-    // >= 0.70 = R5 (Excellent - optimal conditions)
-}
-
-const RANK_LABELS = {
-    0: 'N/P',     // Not productive
-    1: 'Poor',
-    2: 'Below',
-    3: 'Avg',
-    4: 'Good',
-    5: 'Excel'
-}
+import { useEnergyChart } from '../composables/useEnergyChart.js'
+import {
+    calculateNormalizedRank,
+    getRank,
+    getRatingLabel,
+} from '../utils/ranking.js'
 
 export default {
     name: 'AnalyticsModal',
@@ -340,8 +309,6 @@ export default {
             windSpeed: true
         })
         
-        // Chart instance
-        let combinedChart = null
 
         // Timeframe options
         const timeframes = [
@@ -594,37 +561,6 @@ export default {
         })
 
         // Methods
-        // Calculate normalized rank based on Y/(X*Z) formula
-        // Y = energy (kWh), X = capacity (kWp), Z = active hours
-        const calculateNormalizedRank = (energy, capacity, activeHours) => {
-            if (!energy || !capacity || !activeHours) return 0
-            // Normalized specific energy = Y / (X * Z)
-            const normalizedSpecificEnergy = energy / (capacity * activeHours)
-            
-            if (normalizedSpecificEnergy < RANK_THRESHOLDS.R0) return 0  // R0: excluded
-            if (normalizedSpecificEnergy < RANK_THRESHOLDS.R1) return 1  // R1: Poor
-            if (normalizedSpecificEnergy < RANK_THRESHOLDS.R2) return 2  // R2: Below avg
-            if (normalizedSpecificEnergy < RANK_THRESHOLDS.R3) return 3  // R3: Average
-            if (normalizedSpecificEnergy < RANK_THRESHOLDS.R4) return 4  // R4: Good
-            return 5  // R5: Excellent
-        }
-        
-        // Simple rank based on specific energy (kWh/kWp) - for backward compatibility
-        const getRank = (energy, capacity = null) => {
-            const cap = capacity || selectedObject.value?.capacity_kwp || 1
-            const specificEnergy = energy / cap
-            
-            if (specificEnergy < RANK_THRESHOLDS.R0) return 0  // R0: excluded
-            if (specificEnergy < RANK_THRESHOLDS.R1) return 1  // R1: Poor
-            if (specificEnergy < RANK_THRESHOLDS.R2) return 2  // R2: Below avg
-            if (specificEnergy < RANK_THRESHOLDS.R3) return 3  // R3: Average
-            if (specificEnergy < RANK_THRESHOLDS.R4) return 4  // R4: Good
-            return 5  // R5: Excellent
-        }
-
-        const getRatingLabel = (rank) => {
-            return RANK_LABELS[rank] || 'N/A'
-        }
 
         const closeModal = () => {
             store.closeAnalyticsModal()
@@ -739,336 +675,17 @@ export default {
             showWeatherDropdown.value = !showWeatherDropdown.value
         }
 
-        // Render combined energy + weather chart
-        const renderCombinedChart = () => {
-            if (!combinedChartRef.value || !hourlyData.value.length) return
-
-            // Destroy existing chart
-            if (combinedChart) {
-                combinedChart.destroy()
-            }
-
-            const ctx = combinedChartRef.value.getContext('2d')
-
-            // For 'day' timeframe: show hourly data for one day
-            // For other timeframes: show daily aggregates
-            if (currentTimeframe.value === 'day') {
-                renderHourlyChart(ctx)
-            } else {
-                renderDailyChart(ctx)
-            }
-        }
-
-        // Render hourly chart for single day view
-        const renderHourlyChart = (ctx) => {
-            const dates = [...new Set(hourlyData.value.map(p => (p.timestamp || '').split('T')[0]))].sort()
-            const currentDate = dates[currentDayIndex.value]
-            let dayData = hourlyData.value.filter(p => (p.timestamp || '').split('T')[0] === currentDate)
-
-            if (dayData.length === 0) return
-
-            // Sort by hour
-            dayData.sort((a, b) => (a.hour || 0) - (b.hour || 0))
-
-            // Filter to daylight hours (non-zero values or 6-20h)
-            dayData = dayData.filter(d => (d.production_kwh || 0) > 0 || (d.hour >= 6 && d.hour <= 20))
-
-            const labels = dayData.map(d => `${d.hour || 0}:00`)
-
-            // Build datasets array based on weather layer visibility
-            // For hourly data, activeHours = 1 (each bar represents 1 hour)
-            const datasets = [
-                {
-                    label: 'Energy (kWh)',
-                    type: 'bar',
-                    data: dayData.map(d => d.production_kwh || 0),
-                    backgroundColor: dayData.map(d => getRankingColor(d.production_kwh || 0, 1)),
-                    borderWidth: 1,
-                    yAxisID: 'y',
-                    order: 4
-                }
-            ]
-            
-            if (weatherLayers.value.temperature) {
-                datasets.push({
-                    label: 'Temperature (C)',
-                    type: 'line',
-                    data: dayData.map(d => d.temperature || 0),
-                    borderColor: '#FFA500',
-                    backgroundColor: 'rgba(255, 165, 0, 0.1)',
-                    tension: 0.4,
-                    fill: false,
-                    yAxisID: 'y1',
-                    order: 3
-                })
-            }
-            
-            if (weatherLayers.value.cloudCover) {
-                datasets.push({
-                    label: 'Cloud Cover (%)',
-                    type: 'line',
-                    data: dayData.map(d => d.cloud_cover || 0),
-                    borderColor: '#888888',
-                    backgroundColor: 'rgba(136, 136, 136, 0.2)',
-                    tension: 0.4,
-                    fill: true,
-                    yAxisID: 'y2',
-                    order: 0
-                })
-            }
-            
-            if (weatherLayers.value.humidity) {
-                datasets.push({
-                    label: 'Humidity (%)',
-                    type: 'line',
-                    data: dayData.map(d => d.humidity || 0),
-                    borderColor: '#4169E1',
-                    backgroundColor: 'rgba(65, 105, 225, 0.1)',
-                    tension: 0.4,
-                    fill: false,
-                    yAxisID: 'y2',
-                    order: 1,
-                    borderDash: [5, 5]
-                })
-            }
-            
-            if (weatherLayers.value.windSpeed) {
-                datasets.push({
-                    label: 'Wind Speed (m/s)',
-                    type: 'line',
-                    data: dayData.map(d => d.wind_speed || 0),
-                    borderColor: '#9B59B6',
-                    backgroundColor: 'rgba(155, 89, 182, 0.1)',
-                    tension: 0.4,
-                    fill: false,
-                    yAxisID: 'y3',
-                    order: 2
-                })
-            }
-
-            combinedChart = new Chart(ctx, {
-                type: 'bar',
-                data: { labels, datasets },
-                options: getChartOptions(`Hourly - ${currentDate}`)
-            })
-        }
-
-        // Render daily aggregates chart for week/month/21-day view
-        const renderDailyChart = (ctx) => {
-            // Aggregate hourly data by date, tracking active hours for ranking
-            const dailyAgg = {}
-            hourlyData.value.forEach(h => {
-                const date = (h.timestamp || '').split('T')[0]
-                if (!dailyAgg[date]) {
-                    dailyAgg[date] = { energy: 0, activeHours: 0, temps: [], clouds: [], humidities: [], winds: [] }
-                }
-                dailyAgg[date].energy += h.production_kwh || 0
-                // Count active hours (production > 0.01 kWh threshold)
-                if ((h.production_kwh || 0) > 0.01) dailyAgg[date].activeHours++
-                dailyAgg[date].temps.push(h.temperature || 0)
-                dailyAgg[date].clouds.push(h.cloud_cover || 0)
-                dailyAgg[date].humidities.push(h.humidity || 0)
-                dailyAgg[date].winds.push(h.wind_speed || 0)
-            })
-
-            const dates = Object.keys(dailyAgg).sort()
-            const energyData = dates.map(d => dailyAgg[d].energy)
-            const tempData = dates.map(d => 
-                dailyAgg[d].temps.reduce((a, b) => a + b, 0) / dailyAgg[d].temps.length
-            )
-            const cloudData = dates.map(d => 
-                dailyAgg[d].clouds.reduce((a, b) => a + b, 0) / dailyAgg[d].clouds.length
-            )
-            const humidityData = dates.map(d => 
-                dailyAgg[d].humidities.reduce((a, b) => a + b, 0) / dailyAgg[d].humidities.length
-            )
-            const windData = dates.map(d => 
-                dailyAgg[d].winds.reduce((a, b) => a + b, 0) / dailyAgg[d].winds.length
-            )
-
-            // Get active hours for each day for ranking calculation
-            const activeHoursData = dates.map(d => dailyAgg[d].activeHours || 1)
-            const labels = dates.map(d => d.slice(5)) // MM-DD format
-
-            // For large datasets (Year), use line instead of bar for better visibility
-            const isLarge = dates.length > 60
-            
-            // Build datasets array based on weather layer visibility
-            const datasets = [
-                {
-                    label: 'Daily Energy (kWh)',
-                    type: isLarge ? 'line' : 'bar',
-                    data: energyData,
-                    // Use same normalized ranking as Daily Summary: energy / (capacity * activeHours)
-                    backgroundColor: isLarge
-                        ? 'rgba(34, 165, 89, 0.2)'
-                        : energyData.map((e, i) => getRankingColor(e, activeHoursData[i])),
-                    borderColor: isLarge ? '#22A559' : undefined,
-                    borderWidth: isLarge ? 2 : 1,
-                    fill: isLarge,
-                    tension: isLarge ? 0.3 : 0,
-                    pointRadius: isLarge ? 0 : undefined,
-                    yAxisID: 'y',
-                    order: 4
-                }
-            ]
-            
-            if (weatherLayers.value.temperature) {
-                datasets.push({
-                    label: 'Avg Temperature (C)',
-                    type: 'line',
-                    data: tempData,
-                    borderColor: '#FFA500',
-                    backgroundColor: 'rgba(255, 165, 0, 0.1)',
-                    tension: 0.4,
-                    fill: false,
-                    yAxisID: 'y1',
-                    order: 3
-                })
-            }
-            
-            if (weatherLayers.value.cloudCover) {
-                datasets.push({
-                    label: 'Avg Cloud Cover (%)',
-                    type: 'line',
-                    data: cloudData,
-                    borderColor: '#888888',
-                    backgroundColor: 'rgba(136, 136, 136, 0.2)',
-                    tension: 0.4,
-                    fill: true,
-                    yAxisID: 'y2',
-                    order: 0
-                })
-            }
-            
-            if (weatherLayers.value.humidity) {
-                datasets.push({
-                    label: 'Avg Humidity (%)',
-                    type: 'line',
-                    data: humidityData,
-                    borderColor: '#4169E1',
-                    backgroundColor: 'rgba(65, 105, 225, 0.1)',
-                    tension: 0.4,
-                    fill: false,
-                    yAxisID: 'y2',
-                    order: 1,
-                    borderDash: [5, 5]
-                })
-            }
-            
-            if (weatherLayers.value.windSpeed) {
-                datasets.push({
-                    label: 'Avg Wind (m/s)',
-                    type: 'line',
-                    data: windData,
-                    borderColor: '#9B59B6',
-                    backgroundColor: 'rgba(155, 89, 182, 0.1)',
-                    tension: 0.4,
-                    fill: false,
-                    yAxisID: 'y3',
-                    order: 2
-                })
-            }
-
-            combinedChart = new Chart(ctx, {
-                type: 'bar',
-                data: { labels, datasets },
-                options: getChartOptions(`${totalDays.value}-Day Period`)
-            })
-        }
-
-        // Get ranking color based on normalized specific energy: Y/(X*Z)
-        // Y = energy (kWh), X = capacity (kWp), Z = active hours
-        // This ensures chart colors match the Daily Summary ratings
-        const getRankingColor = (energy, activeHours = 1) => {
-            const capacity = selectedObject.value?.capacity_kwp || 1
-            const normalizedSE = energy / (capacity * activeHours)
-            
-            // Use ranking thresholds based on normalized specific energy
-            if (normalizedSE < RANK_THRESHOLDS.R0) return RANKING_COLORS[0]  // R0: excluded
-            if (normalizedSE < RANK_THRESHOLDS.R1) return RANKING_COLORS[1]  // R1: Poor
-            if (normalizedSE < RANK_THRESHOLDS.R2) return RANKING_COLORS[2]  // R2: Below avg
-            if (normalizedSE < RANK_THRESHOLDS.R3) return RANKING_COLORS[3]  // R3: Average
-            if (normalizedSE < RANK_THRESHOLDS.R4) return RANKING_COLORS[4]  // R4: Good
-            return RANKING_COLORS[5]  // R5: Excellent
-        }
-
-        // Common chart options
-        const getChartOptions = (title) => {
-            // For large datasets (Year), limit x-axis labels and widen bars
-            const isLargeDataset = timeframeDays.value > 60
-            
-            return {
-                responsive: true,
-                maintainAspectRatio: false,
-                interaction: {
-                    mode: 'index',
-                    intersect: false
-                },
-                plugins: {
-                    legend: {
-                        display: true,
-                        position: 'top'
-                    },
-                    title: {
-                        display: true,
-                        text: title,
-                        font: { size: 14, weight: 'bold' }
-                    },
-                    tooltip: {
-                        callbacks: {
-                            label: function(context) {
-                                const label = context.dataset.label || ''
-                                const value = context.parsed.y
-                                if (label.includes('Energy')) return `${label}: ${value.toFixed(2)} kWh`
-                                if (label.includes('Temp')) return `${label}: ${value.toFixed(1)} C`
-                                if (label.includes('Cloud') || label.includes('Humidity')) return `${label}: ${value.toFixed(0)}%`
-                                if (label.includes('Wind')) return `${label}: ${value.toFixed(1)} m/s`
-                                return `${label}: ${value}`
-                            }
-                        }
-                    }
-                },
-                scales: {
-                    x: {
-                        ticks: {
-                            maxTicksLimit: isLargeDataset ? 24 : undefined,
-                            maxRotation: isLargeDataset ? 45 : 0,
-                            autoSkip: true
-                        }
-                    },
-                    y: {
-                        type: 'linear',
-                        position: 'left',
-                        beginAtZero: true,
-                        title: { display: true, text: 'Energy (kWh)' }
-                    },
-                    y1: {
-                        type: 'linear',
-                        position: 'right',
-                        title: { display: true, text: 'Temperature (C)' },
-                        grid: { drawOnChartArea: false }
-                    },
-                    y2: {
-                        type: 'linear',
-                        position: 'right',
-                        min: 0,
-                        max: 100,
-                        title: { display: false },
-                        grid: { drawOnChartArea: false },
-                        display: false
-                    },
-                    y3: {
-                        type: 'linear',
-                        position: 'right',
-                        min: 0,
-                        title: { display: false },
-                        grid: { drawOnChartArea: false },
-                        display: false
-                    }
-                }
-            }
-        }
+        // Chart composable - delegates all Chart.js rendering
+        const { renderChart: renderCombinedChart, destroyChart } = useEnergyChart({
+            canvasRef: combinedChartRef,
+            hourlyData,
+            currentTimeframe,
+            currentDayIndex,
+            totalDays,
+            timeframeDays,
+            selectedObject,
+            weatherLayers,
+        })
 
         // Keyboard handler for Escape
         const handleKeydown = (e) => {
@@ -1101,9 +718,7 @@ export default {
 
         onUnmounted(() => {
             document.removeEventListener('keydown', handleKeydown)
-            if (combinedChart) {
-                combinedChart.destroy()
-            }
+            destroyChart()
         })
 
         return {
