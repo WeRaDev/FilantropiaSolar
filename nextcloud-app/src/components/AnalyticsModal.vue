@@ -93,13 +93,34 @@
                                     </label>
                                     <label class="weather-option">
                                         <input type="checkbox" v-model="weatherLayers.windSpeed" @change="renderCombinedChart" />
-                                        <span class="weather-color" style="background: #20B2AA;"></span>
-                                        Wind Speed
+                        <span class="weather-color" style="background: #9B59B6;"></span>
+                        Wind Speed
                                     </label>
                                 </div>
                             </div>
                         </div>
                         <div class="header-right">
+                            <!-- ML Module Info button (v3.0.6) -->
+                            <div class="ml-info-wrapper">
+                                <button class="btn-info" @click="showMlInfo = !showMlInfo" title="ML Module Info">
+                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <circle cx="12" cy="12" r="10"/>
+                                        <path d="M12 16v-4M12 8h.01"/>
+                                    </svg>
+                                    <span>ML Info</span>
+                                </button>
+                                <div v-if="showMlInfo" class="ml-info-popover">
+                                    <h4>Data Source & Model Info</h4>
+                                    <div class="ml-info-row"><span class="ml-info-label">PV Data:</span> Sarmas et al. (2025)</div>
+                                    <div class="ml-info-row">Photovoltaic Power Production Dataset</div>
+                                    <div class="ml-info-row"><span class="ml-info-label">DOI:</span> 10.17632/dbh93b6vp8.3</div>
+                                    <div class="ml-info-row"><span class="ml-info-label">Weather Source:</span> {{ analysisData?.weather_source || 'synthetic' }}</div>
+                                    <div class="ml-info-row"><span class="ml-info-label">Data points:</span> {{ analysisData?.hourly_data?.length || 0 }} hourly, {{ analysisData?.daily_data?.length || 0 }} daily</div>
+                                    <div class="ml-info-row"><span class="ml-info-label">Prediction Method:</span> {{ analysisData?.weather_source === 'measured' ? 'Measured Data' : (analysisData?.model_info?.name || 'Physics-based Estimation') }}</div>
+                    <div class="ml-info-row"><span class="ml-info-label">Model R²:</span> {{ analysisData?.model_info?.r2 != null ? analysisData.model_info.r2.toFixed(4) : 'N/A (physics-based)' }}</div>
+                                    <div class="ml-info-row"><span class="ml-info-label">Model MAE:</span> {{ analysisData?.model_info?.mae != null ? analysisData.model_info.mae.toFixed(4) : 'N/A (physics-based)' }}</div>
+                                </div>
+                            </div>
                             <!-- Export Data button -->
                             <button 
                                 class="btn-export"
@@ -173,7 +194,7 @@
                                 </div>
                                 <!-- Data mode indicator -->
                                 <div class="data-mode-badge" :class="dataMode">
-                                    {{ dataMode === 'simulated' ? 'Simulated Data' : 'Historical Data' }}
+                                    {{ dataModeLabel }}
                                 </div>
                             </div>
 
@@ -191,9 +212,9 @@
                                             <span class="metric-value">{{ periodStats.avgDaily.toFixed(1) }}</span>
                                             <span class="metric-label">Avg Daily kWh</span>
                                         </div>
-                                        <div class="metric">
-                                            <span class="metric-value">{{ periodStats.specificEnergy.toFixed(2) }}</span>
-                                            <span class="metric-label">kWh/kWp/day</span>
+                                        <div class="metric metric-highlight">
+                                            <span class="metric-value">&euro;{{ periodStats.lightSaved.toFixed(2) }}</span>
+                                            <span class="metric-label">Light Saved</span>
                                         </div>
                                         <div class="metric">
                                             <span class="metric-value">{{ periodStats.peakHourEnergy.toFixed(2) }}</span>
@@ -220,7 +241,7 @@
                                                     <th>#</th>
                                                     <th>Date</th>
                                                     <th>kWh</th>
-                                                    <th>Peak</th>
+                                                    <th>&euro;</th>
                                                     <th>Temp</th>
                                                     <th>Rating</th>
                                                 </tr>
@@ -232,7 +253,7 @@
                                                     <td>{{ idx + 1 }}</td>
                                                     <td>{{ day.date }}</td>
                                                     <td>{{ day.energy.toFixed(1) }}</td>
-                                                    <td>{{ day.peak.toFixed(1) }}</td>
+                                                    <td>&euro;{{ (day.energy * 0.15).toFixed(2) }}</td>
                                                     <td>{{ day.temp.toFixed(0) }}</td>
                                                     <td>
                                                         <span class="rating" :class="'rank-' + day.rank">
@@ -303,11 +324,12 @@ export default {
         const combinedChartRef = ref(null)
         const dateInputRef = ref(null)
         const currentDayIndex = ref(0)
-        const currentTimeframe = ref('21day')
+        const currentTimeframe = ref('week')
         const isSimulating = ref(false)
         const isExporting = ref(false)
         const centerDate = ref(new Date().toISOString().split('T')[0])
-        const analysisMode = ref('historical')  // 'historical' or 'predicted'
+        const analysisMode = ref('predicted')  // 'historical' or 'predicted'
+        const showMlInfo = ref(false)
         const showWeatherDropdown = ref(false)
         
         // Weather layer visibility (all on by default)
@@ -326,7 +348,7 @@ export default {
             { label: 'Day', value: 'day', days: 1 },
             { label: 'Week', value: 'week', days: 7 },
             { label: 'Month', value: 'month', days: 30 },
-            { label: '21-Day', value: '21day', days: 21 }
+            { label: 'Year', value: 'year', days: 365 }
         ]
 
         // Computed
@@ -336,6 +358,22 @@ export default {
         const isLoading = computed(() => store.analysisLoading)
         const loadingMessage = computed(() => isSimulating.value ? 'Running simulation...' : 'Generating analysis...')
         const dataMode = computed(() => analysisData.value?.mode || 'historical')
+        
+        // Dynamic data mode label reflecting weather source
+        const dataModeLabel = computed(() => {
+            const mode = dataMode.value
+            const weatherSource = analysisData.value?.weather_source || ''
+            if (mode === 'historical' || analysisMode.value === 'historical') {
+                if (weatherSource === 'measured') return 'Historical Data (Measured)'
+                if (weatherSource === 'api') return 'Historical Data (API Weather)'
+                return 'Historical Data'
+            }
+            // Predicted / simulated
+            if (weatherSource === 'api') return 'Predicted (API Weather)'
+            if (weatherSource === 'synthetic') return 'Predicted (Simulated Weather)'
+            if (weatherSource === 'historical_file') return 'Predicted (Historical Weather)'
+            return 'Predicted Data'
+        })
         
         const timeframeDays = computed(() => {
             const tf = timeframes.find(t => t.value === currentTimeframe.value)
@@ -348,6 +386,11 @@ export default {
             return toDate || new Date().toISOString().split('T')[0]
         })
         
+        const minDate = computed(() => {
+            const fromDate = selectedObject.value?.customData?.fromDate?.split('T')[0]
+            return fromDate || null
+        })
+        
         // Effective max date based on analysis mode
         const effectiveMaxDate = computed(() => {
             if (analysisMode.value === 'predicted') {
@@ -358,6 +401,32 @@ export default {
             }
             return maxDate.value
         })
+        
+        // Clamp center date within historical data range, accounting for half-window
+        const clampCenterDate = () => {
+            if (analysisMode.value !== 'historical') return
+            
+            const halfDays = Math.floor(timeframeDays.value / 2)
+            const from = minDate.value
+            const to = maxDate.value
+            
+            if (to) {
+                // Ensure center - halfDays doesn't go before from_date
+                // and center + halfDays doesn't go after to_date
+                const toMs = new Date(to).getTime()
+                const maxCenter = new Date(toMs - halfDays * 86400000).toISOString().split('T')[0]
+                if (centerDate.value > maxCenter) {
+                    centerDate.value = maxCenter
+                }
+            }
+            if (from) {
+                const fromMs = new Date(from).getTime()
+                const minCenter = new Date(fromMs + halfDays * 86400000).toISOString().split('T')[0]
+                if (centerDate.value < minCenter) {
+                    centerDate.value = minCenter
+                }
+            }
+        }
 
         const chartTitle = computed(() => {
             if (currentTimeframe.value === 'day') {
@@ -408,9 +477,12 @@ export default {
                 ? Math.max(...hourlyData.value.map(h => h.production_kwh || 0))
                 : 0
             
+            const gridPrice = 0.15
+            
             return {
                 totalEnergy: total,
                 avgDaily: apiStats.avg_daily_kwh || total / days,
+                lightSaved: apiStats.total_savings_eur || total * gridPrice,
                 specificEnergy: total / capacity / days,
                 peakHourEnergy: peakHour / capacity,
                 avgTemperature: avgTemp,
@@ -561,10 +633,12 @@ export default {
         const setTimeframe = async (tf) => {
             currentTimeframe.value = tf
             store.setAnalyticsTimeframe(tf)
+            clampCenterDate()
             await generateAnalysis()
         }
 
         const onDateChange = async () => {
+            clampCenterDate()
             await generateAnalysis()
         }
 
@@ -578,13 +652,21 @@ export default {
         const setAnalysisMode = async (mode) => {
             if (analysisMode.value !== mode) {
                 analysisMode.value = mode
+                if (mode === 'historical') {
+                    // Set center date to middle of historical data range
+                    const to = maxDate.value
+                    if (to) {
+                        centerDate.value = to
+                    }
+                    clampCenterDate()
+                }
                 await generateAnalysis()
             }
         }
         
         const toggleAnalysisMode = async () => {
-            analysisMode.value = analysisMode.value === 'historical' ? 'predicted' : 'historical'
-            await generateAnalysis()
+            const newMode = analysisMode.value === 'historical' ? 'predicted' : 'historical'
+            await setAnalysisMode(newMode)
         }
 
         const generateAnalysis = async () => {
@@ -755,8 +837,8 @@ export default {
                     label: 'Wind Speed (m/s)',
                     type: 'line',
                     data: dayData.map(d => d.wind_speed || 0),
-                    borderColor: '#20B2AA',
-                    backgroundColor: 'rgba(32, 178, 170, 0.1)',
+                    borderColor: '#9B59B6',
+                    backgroundColor: 'rgba(155, 89, 182, 0.1)',
                     tension: 0.4,
                     fill: false,
                     yAxisID: 'y3',
@@ -808,15 +890,24 @@ export default {
             const activeHoursData = dates.map(d => dailyAgg[d].activeHours || 1)
             const labels = dates.map(d => d.slice(5)) // MM-DD format
 
+            // For large datasets (Year), use line instead of bar for better visibility
+            const isLarge = dates.length > 60
+            
             // Build datasets array based on weather layer visibility
             const datasets = [
                 {
                     label: 'Daily Energy (kWh)',
-                    type: 'bar',
+                    type: isLarge ? 'line' : 'bar',
                     data: energyData,
                     // Use same normalized ranking as Daily Summary: energy / (capacity * activeHours)
-                    backgroundColor: energyData.map((e, i) => getRankingColor(e, activeHoursData[i])),
-                    borderWidth: 1,
+                    backgroundColor: isLarge
+                        ? 'rgba(34, 165, 89, 0.2)'
+                        : energyData.map((e, i) => getRankingColor(e, activeHoursData[i])),
+                    borderColor: isLarge ? '#22A559' : undefined,
+                    borderWidth: isLarge ? 2 : 1,
+                    fill: isLarge,
+                    tension: isLarge ? 0.3 : 0,
+                    pointRadius: isLarge ? 0 : undefined,
                     yAxisID: 'y',
                     order: 4
                 }
@@ -870,8 +961,8 @@ export default {
                     label: 'Avg Wind (m/s)',
                     type: 'line',
                     data: windData,
-                    borderColor: '#20B2AA',
-                    backgroundColor: 'rgba(32, 178, 170, 0.1)',
+                    borderColor: '#9B59B6',
+                    backgroundColor: 'rgba(155, 89, 182, 0.1)',
                     tension: 0.4,
                     fill: false,
                     yAxisID: 'y3',
@@ -903,69 +994,81 @@ export default {
         }
 
         // Common chart options
-        const getChartOptions = (title) => ({
-            responsive: true,
-            maintainAspectRatio: false,
-            interaction: {
-                mode: 'index',
-                intersect: false
-            },
-            plugins: {
-                legend: {
-                    display: true,
-                    position: 'top'
+        const getChartOptions = (title) => {
+            // For large datasets (Year), limit x-axis labels and widen bars
+            const isLargeDataset = timeframeDays.value > 60
+            
+            return {
+                responsive: true,
+                maintainAspectRatio: false,
+                interaction: {
+                    mode: 'index',
+                    intersect: false
                 },
-                title: {
-                    display: true,
-                    text: title,
-                    font: { size: 14, weight: 'bold' }
-                },
-                tooltip: {
-                    callbacks: {
-                        label: function(context) {
-                            const label = context.dataset.label || ''
-                            const value = context.parsed.y
-                            if (label.includes('Energy')) return `${label}: ${value.toFixed(2)} kWh`
-                            if (label.includes('Temp')) return `${label}: ${value.toFixed(1)} C`
-                            if (label.includes('Cloud') || label.includes('Humidity')) return `${label}: ${value.toFixed(0)}%`
-                            if (label.includes('Wind')) return `${label}: ${value.toFixed(1)} m/s`
-                            return `${label}: ${value}`
+                plugins: {
+                    legend: {
+                        display: true,
+                        position: 'top'
+                    },
+                    title: {
+                        display: true,
+                        text: title,
+                        font: { size: 14, weight: 'bold' }
+                    },
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                const label = context.dataset.label || ''
+                                const value = context.parsed.y
+                                if (label.includes('Energy')) return `${label}: ${value.toFixed(2)} kWh`
+                                if (label.includes('Temp')) return `${label}: ${value.toFixed(1)} C`
+                                if (label.includes('Cloud') || label.includes('Humidity')) return `${label}: ${value.toFixed(0)}%`
+                                if (label.includes('Wind')) return `${label}: ${value.toFixed(1)} m/s`
+                                return `${label}: ${value}`
+                            }
                         }
                     }
-                }
-            },
-            scales: {
-                y: {
-                    type: 'linear',
-                    position: 'left',
-                    beginAtZero: true,
-                    title: { display: true, text: 'Energy (kWh)' }
                 },
-                y1: {
-                    type: 'linear',
-                    position: 'right',
-                    title: { display: true, text: 'Temperature (C)' },
-                    grid: { drawOnChartArea: false }
-                },
-                y2: {
-                    type: 'linear',
-                    position: 'right',
-                    min: 0,
-                    max: 100,
-                    title: { display: false },
-                    grid: { drawOnChartArea: false },
-                    display: false
-                },
-                y3: {
-                    type: 'linear',
-                    position: 'right',
-                    min: 0,
-                    title: { display: false },
-                    grid: { drawOnChartArea: false },
-                    display: false
+                scales: {
+                    x: {
+                        ticks: {
+                            maxTicksLimit: isLargeDataset ? 24 : undefined,
+                            maxRotation: isLargeDataset ? 45 : 0,
+                            autoSkip: true
+                        }
+                    },
+                    y: {
+                        type: 'linear',
+                        position: 'left',
+                        beginAtZero: true,
+                        title: { display: true, text: 'Energy (kWh)' }
+                    },
+                    y1: {
+                        type: 'linear',
+                        position: 'right',
+                        title: { display: true, text: 'Temperature (C)' },
+                        grid: { drawOnChartArea: false }
+                    },
+                    y2: {
+                        type: 'linear',
+                        position: 'right',
+                        min: 0,
+                        max: 100,
+                        title: { display: false },
+                        grid: { drawOnChartArea: false },
+                        display: false
+                    },
+                    y3: {
+                        type: 'linear',
+                        position: 'right',
+                        min: 0,
+                        title: { display: false },
+                        grid: { drawOnChartArea: false },
+                        display: false
+                    }
                 }
             }
-        })
+        }
 
         // Keyboard handler for Escape
         const handleKeydown = (e) => {
@@ -1045,7 +1148,10 @@ export default {
             showWeatherDropdown,
             weatherLayers,
             toggleWeatherDropdown,
-            renderCombinedChart
+            renderCombinedChart,
+            // v3.0.6: Dynamic data label + ML info
+            dataModeLabel,
+            showMlInfo
         }
     }
 }
@@ -1327,6 +1433,71 @@ input:checked + .toggle-slider:before {
     display: flex;
     align-items: center;
     gap: 12px;
+}
+
+/* ML Info Button & Popover (v3.0.6) */
+.ml-info-wrapper {
+    position: relative;
+}
+
+.btn-info {
+    padding: 8px 12px;
+    background: var(--color-background-dark, #f0f0f0);
+    color: var(--color-main-text, #333);
+    border: 1px solid var(--color-border, #ddd);
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 13px;
+    font-weight: 500;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    transition: all 0.2s;
+}
+
+.btn-info:hover {
+    background: var(--color-background-hover, #e8e8e8);
+    border-color: var(--color-primary, #0082c9);
+}
+
+.ml-info-popover {
+    position: absolute;
+    top: 100%;
+    right: 0;
+    margin-top: 8px;
+    background: var(--color-main-background, #fff);
+    border: 1px solid var(--color-border, #ccc);
+    border-radius: 8px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+    z-index: 200;
+    min-width: 320px;
+    padding: 16px;
+}
+
+.ml-info-popover h4 {
+    margin: 0 0 12px 0;
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--color-main-text, #333);
+    border-bottom: 1px solid var(--color-border, #e0e0e0);
+    padding-bottom: 8px;
+}
+
+.ml-info-row {
+    font-size: 12px;
+    color: var(--color-text-lighter, #666);
+    padding: 3px 0;
+    line-height: 1.5;
+}
+
+.ml-info-label {
+    font-weight: 600;
+    color: var(--color-main-text, #333);
+}
+
+/* Light Saved highlight */
+.metric-highlight .metric-value {
+    color: #22A559;
 }
 
 .btn-export {

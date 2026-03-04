@@ -73,7 +73,15 @@
                     <span class="info-value virtual-badge">Virtual</span>
                 </div>
             </div>
-            <button class="info-action" @click="viewDetails">View Analysis</button>
+            <div class="info-actions">
+                <button class="info-action" @click="viewDetails">View Analysis</button>
+                <button class="info-action-secondary" @click="hideInstallation" title="Remove from dashboard">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M18 6 6 18M6 6l12 12"/>
+                    </svg>
+                    Hide
+                </button>
+            </div>
         </div>
     </div>
 </template>
@@ -220,6 +228,22 @@ export default {
                 store.openAnalyticsModal(store.selectedObjectId)
             }
         }
+
+        // Hide installation from dashboard
+        const hideInstallation = async () => {
+            const obj = store.selectedObject
+            if (!obj) return
+            const msg = obj.customData?.isVirtual
+                ? `Delete "${obj.name}" permanently?`
+                : `Hide "${obj.name}" from your dashboard? You can restore it later.`
+            if (confirm(msg)) {
+                try {
+                    await store.deleteInstallation(obj.id)
+                } catch (e) {
+                    alert(e.message || 'Failed to remove')
+                }
+            }
+        }
         
         // Format helpers for info card
         const formatNumber = (num) => {
@@ -282,6 +306,7 @@ export default {
             resetView,
             clearSelection,
             viewDetails,
+            hideInstallation,
             formatNumber,
             formatPercent,
             getEfficiencyClass
@@ -478,9 +503,15 @@ export default {
     font-style: italic;
 }
 
+.info-actions {
+    display: flex;
+}
+
 .info-action {
-    display: block;
-    width: 100%;
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
     padding: 12px;
     background: var(--color-primary, #0082c9);
     color: #fff;
@@ -493,5 +524,24 @@ export default {
 
 .info-action:hover {
     background: #006ba7;
+}
+
+.info-action-secondary {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    padding: 12px 16px;
+    background: var(--color-background-dark, #f5f5f5);
+    color: #CC2020;
+    border: none;
+    border-left: 1px solid var(--color-border, #e0e0e0);
+    font-size: 12px;
+    cursor: pointer;
+    transition: background 0.2s ease;
+}
+
+.info-action-secondary:hover {
+    background: #fce8e8;
 }
 </style>

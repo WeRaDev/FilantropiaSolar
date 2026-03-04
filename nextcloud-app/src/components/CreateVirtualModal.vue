@@ -112,6 +112,36 @@
                                 <span class="input-hint">Used for savings calculations</span>
                             </div>
 
+                            <!-- Historical Data Upload (optional) -->
+                            <div class="form-group">
+                                <label for="dataFile">Historical Data (optional)</label>
+                                <div class="file-upload-area" @click="triggerFileInput" @dragover.prevent @drop.prevent="handleFileDrop">
+                                    <input
+                                        ref="fileInput"
+                                        id="dataFile"
+                                        type="file"
+                                        accept=".csv,.xlsx"
+                                        style="display: none;"
+                                        @change="handleFileSelect"
+                                    />
+                                    <span v-if="!form.dataFile" class="upload-placeholder">
+                                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                            <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M17 8l-5-5-5 5M12 3v12"/>
+                                        </svg>
+                                        Drop CSV/Excel or click to browse
+                                    </span>
+                                    <span v-else class="upload-selected">
+                                        {{ form.dataFile.name }} ({{ formatFileSize(form.dataFile.size) }})
+                                        <button type="button" class="btn-remove-file" @click.stop="form.dataFile = null">
+                                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                                <path d="M18 6 6 18M6 6l12 12"/>
+                                            </svg>
+                                        </button>
+                                    </span>
+                                </div>
+                                <span class="input-hint">CSV with columns: Date, Produced Energy (kWh). Optional.</span>
+                            </div>
+
                             <!-- Error message -->
                             <div v-if="error" class="error-message">
                                 {{ error }}
@@ -162,6 +192,7 @@ export default {
         
         const isSubmitting = ref(false)
         const error = ref(null)
+        const fileInput = ref(null)
 
         // Known locations with coordinates
         const locations = [
@@ -305,9 +336,35 @@ export default {
                 latitude: null,
                 longitude: null,
                 capacityKwp: null,
-                gridPriceKwh: 0.15
+                gridPriceKwh: 0.15,
+                dataFile: null
             }
             error.value = null
+        }
+
+        // File handling
+        const triggerFileInput = () => {
+            fileInput.value?.click()
+        }
+
+        const handleFileSelect = (event) => {
+            const file = event.target.files[0]
+            if (file) {
+                form.value.dataFile = file
+            }
+        }
+
+        const handleFileDrop = (event) => {
+            const file = event.dataTransfer.files[0]
+            if (file && (file.name.endsWith('.csv') || file.name.endsWith('.xlsx'))) {
+                form.value.dataFile = file
+            }
+        }
+
+        const formatFileSize = (bytes) => {
+            if (bytes < 1024) return bytes + ' B'
+            if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB'
+            return (bytes / (1024 * 1024)).toFixed(1) + ' MB'
         }
 
         const handleSubmit = async () => {
@@ -363,9 +420,14 @@ export default {
             isSubmitting,
             error,
             mapContainer,
+            fileInput,
             closeModal,
             handleSubmit,
-            updateMapMarker
+            updateMapMarker,
+            triggerFileInput,
+            handleFileSelect,
+            handleFileDrop,
+            formatFileSize
         }
     }
 }
@@ -515,6 +577,55 @@ export default {
 /* Fix Leaflet marker icon issue */
 :deep(.leaflet-default-icon-path) {
     background-image: url('https://unpkg.com/leaflet@1.7.1/dist/images/marker-icon.png');
+}
+
+/* File Upload Area */
+.file-upload-area {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 60px;
+    padding: 12px;
+    border: 2px dashed var(--color-border, #ddd);
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.2s;
+    background: var(--color-background-dark, #f9f9f9);
+}
+
+.file-upload-area:hover {
+    border-color: var(--color-primary, #0082c9);
+    background: rgba(0, 130, 201, 0.04);
+}
+
+.upload-placeholder {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: var(--color-text-lighter, #888);
+    font-size: 13px;
+}
+
+.upload-selected {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 13px;
+    color: var(--color-main-text, #333);
+}
+
+.btn-remove-file {
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 2px;
+    color: var(--color-text-lighter, #888);
+    border-radius: 4px;
+}
+
+.btn-remove-file:hover {
+    background: #ffebee;
+    color: #c62828;
 }
 
 /* Error Message */

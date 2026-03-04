@@ -11,6 +11,7 @@ export const useAppStore = defineStore('app', {
     state: () => ({
         // Objects data (installations)
         objects: [],
+        hiddenObjectIds: JSON.parse(localStorage.getItem('fs_hidden_installations') || '[]'),
         
         // UI State
         selectedObjectId: null,
@@ -35,10 +36,6 @@ export const useAppStore = defineStore('app', {
         // Create Virtual Modal state
         createVirtualModalOpen: false,
 
-        // Installation Info Popup state
-        installationPopupOpen: false,
-        installationPopupId: null,
-
         // Loading states
         isLoadingObjects: false,
         isLoadingAnalytics: false,
@@ -56,9 +53,14 @@ export const useAppStore = defineStore('app', {
             return state.objects.find(o => o.id === state.selectedObjectId) || null
         },
 
-        // Filter objects based on status and search
+        // Filter objects based on status, search, and hidden list
         filteredObjects: (state) => {
             let result = [...state.objects]
+
+            // Exclude hidden installations
+            if (state.hiddenObjectIds.length > 0) {
+                result = result.filter(o => !state.hiddenObjectIds.includes(o.id))
+            }
 
             // Filter by status
             if (state.filters.status.length > 0) {
@@ -132,7 +134,9 @@ export const useAppStore = defineStore('app', {
                         serialNumber: inst.serial_number,
                         fromDate: inst.from_date,
                         toDate: inst.to_date,
-                        isVirtual: inst.is_virtual || false
+                        isVirtual: inst.is_virtual || false,
+                        source: inst.source || 'dataset',
+                        dbId: inst.db_id || null
                     },
                     // Use actual API coordinates if available, otherwise fallback to location lookup
                     coordinates: (inst.latitude && inst.longitude)
@@ -144,7 +148,6 @@ export const useAppStore = defineStore('app', {
                     lastUpdate: new Date().toISOString()
                 }))
             } catch (error) {
-                console.error('Failed to fetch objects:', error)
                 this.error = error.message || 'Failed to load installations'
             } finally {
                 this.isLoadingObjects = false
@@ -253,7 +256,6 @@ export const useAppStore = defineStore('app', {
                 }
                 return response.data
             } catch (error) {
-                console.error('Failed to generate analysis:', error)
                 throw error
             } finally {
                 this.analysisLoading = false
@@ -265,7 +267,6 @@ export const useAppStore = defineStore('app', {
             this.analysisLoading = true
             
             try {
-                console.log('Requesting analysis:', { objectId, centerDate, days })
                 const response = await axios.post(
                     generateUrl('/apps/filantropia_solar/api/v1/predict/period'),
                     {
@@ -276,21 +277,11 @@ export const useAppStore = defineStore('app', {
                     }
                 )
 
-                console.log('Analysis API response:', {
-                    success: response.data.success,
-                    hourlyDataCount: response.data.hourly_data?.length || 0,
-                    dailyDataCount: response.data.daily_data?.length || 0,
-                    sampleHourly: response.data.hourly_data?.slice(0, 3),
-                    sampleDaily: response.data.daily_data?.slice(0, 3),
-                    periodStats: response.data.period_statistics
-                })
-
             if (response.data.success) {
                     this.analysisData = response.data
                 }
                 return response.data
             } catch (error) {
-                console.error('Failed to generate analysis:', error)
                 throw error
             } finally {
                 this.analysisLoading = false
@@ -303,28 +294,24 @@ export const useAppStore = defineStore('app', {
             
             try {
                 const obj = this.objects.find(o => o.id === objectId)
-                console.log('Requesting analysis with mode:', { objectId, centerDate, days, mode })
+                
+                // Virtual installations must use 'custom' mode - they don't exist
+                // in the backend's dataset, so 'historical'/'simulated' would 404
+                const isVirtual = obj?.customData?.isVirtual || String(objectId).startsWith('virtual_')
+                const effectiveMode = isVirtual ? 'custom' : mode
                 
                 const response = await axios.post(
                     generateUrl('/apps/filantropia_solar/api/v1/predict/period'),
                     {
-                        mode: mode,
+                        mode: effectiveMode,
                         installation_id: objectId,
                         center_date: centerDate,
                         days: days,
-                        // Include location/capacity for simulated mode
+                        // Include location/capacity for custom/simulated mode
                         location: obj?.location,
                         capacity_kwp: obj?.capacity_kwp
                     }
                 )
-
-                console.log('Analysis API response:', {
-                    success: response.data.success,
-                    mode: mode,
-                    hourlyDataCount: response.data.hourly_data?.length || 0,
-                    dailyDataCount: response.data.daily_data?.length || 0,
-                    periodStats: response.data.period_statistics
-                })
 
                 if (response.data.success) {
                     this.analysisData = {
@@ -334,7 +321,6 @@ export const useAppStore = defineStore('app', {
                 }
                 return response.data
             } catch (error) {
-                console.error('Failed to generate analysis:', error)
                 throw error
             } finally {
                 this.analysisLoading = false
@@ -370,18 +356,6 @@ export const useAppStore = defineStore('app', {
 
         closeCreateVirtualModal() {
             this.createVirtualModalOpen = false
-        },
-
-        // Installation Info Popup actions
-        openInstallationPopup(objectId) {
-            this.installationPopupId = objectId
-            this.installationPopupOpen = true
-            this.selectObject(objectId)
-        },
-
-        closeInstallationPopup() {
-            this.installationPopupOpen = false
-            this.installationPopupId = null
         },
 
         // Create a new virtual installation
@@ -428,7 +402,6 @@ export const useAppStore = defineStore('app', {
                 }
             } catch (error) {
                 // If backend fails, still add locally (virtual mode)
-                console.warn('Backend storage failed, adding virtual installation locally:', error.message)
             }
             
             // Always add to local objects array
@@ -468,7 +441,6 @@ export const useAppStore = defineStore('app', {
                 }
                 return response.data
             } catch (error) {
-                console.error('Failed to simulate:', error)
                 throw error
             } finally {
                 this.analysisLoading = false
@@ -478,29 +450,22 @@ export const useAppStore = defineStore('app', {
         // Export installation data to Nextcloud Files
         async exportInstallationData(objectId) {
             try {
-                console.log('Exporting installation data:', objectId)
                 const response = await axios.post(
                     generateUrl(`/apps/filantropia_solar/api/v1/installations/${objectId}/export`)
                 )
                 
-                console.log('Export response:', response.data)
-                
                 if (response.data.success) {
                     // Open Nextcloud Files to the export folder
                     const filesUrl = generateUrl('/apps/files/?dir=/' + encodeURIComponent(response.data.path))
-                    console.log('Opening Files at:', filesUrl)
                     window.open(filesUrl, '_blank')
                     return response.data
                 } else {
                     const errorMsg = response.data.error || 'Export failed'
-                    console.error('Export failed:', errorMsg)
                     alert('Export failed: ' + errorMsg)
                     throw new Error(errorMsg)
                 }
             } catch (error) {
-                console.error('Failed to export:', error)
                 if (error.response) {
-                    console.error('Response data:', error.response.data)
                     alert('Export failed: ' + (error.response.data?.error || error.message))
                 } else {
                     alert('Export failed: ' + error.message)
@@ -509,11 +474,66 @@ export const useAppStore = defineStore('app', {
             }
         },
 
+        // Hide any installation from the user's dashboard
+        async deleteInstallation(objectId) {
+            const obj = this.objects.find(o => o.id === objectId)
+            if (!obj) return
+
+            // For user-created (virtual) installations, also delete from DB
+            if (obj.customData?.source === 'user' || obj.customData?.isVirtual) {
+                const dbId = obj.customData?.dbId || objectId.replace('virtual_', '')
+                try {
+                    await axios.delete(
+                        generateUrl(`/apps/filantropia_solar/api/v1/installations/${dbId}`)
+                    )
+                } catch (error) {
+                    // If backend fails, still hide locally
+                }
+                // Remove from objects array entirely
+                this.objects = this.objects.filter(o => o.id !== objectId)
+            } else {
+                // For dataset installations, just hide from dashboard (no backend change)
+                this.hiddenObjectIds.push(objectId)
+                localStorage.setItem('fs_hidden_installations', JSON.stringify(this.hiddenObjectIds))
+            }
+
+            // Clear selection if this was selected
+            if (this.selectedObjectId === objectId) {
+                this.selectedObjectId = null
+            }
+        },
+
+        // Add a dataset installation to the user's dashboard (bookmark)
+        async addDatasetInstallation(obj) {
+            try {
+                await axios.post(
+                    generateUrl('/apps/filantropia_solar/api/v1/installations'),
+                    {
+                        name: obj.name,
+                        location: obj.location,
+                        latitude: obj.latitude || obj.coordinates?.lat,
+                        longitude: obj.longitude || obj.coordinates?.lng,
+                        capacityKwp: obj.capacity_kwp,
+                        serialNumber: obj.customData?.serialNumber || null,
+                        isVirtual: false
+                    }
+                )
+            } catch (error) {
+                // Best-effort persistence
+            }
+        },
+
+        // Restore dashboard: unhide all hidden installations and re-fetch
+        async restoreDashboard() {
+            this.hiddenObjectIds = []
+            localStorage.removeItem('fs_hidden_installations')
+            // Re-fetch all installations
+            await this.fetchObjects()
+        },
+
         // Export analysis report as CSV for the selected timeframe
         async exportAnalysisReport(installation, analysisData, centerDate, days) {
             try {
-                console.log('Exporting analysis report:', { installation: installation.name, centerDate, days })
-                
                 // Build CSV content from analysis data
                 const hourlyData = analysisData.hourly_data || []
                 const dailyData = analysisData.daily_data || []
@@ -589,11 +609,9 @@ export const useAppStore = defineStore('app', {
                 document.body.removeChild(link)
                 URL.revokeObjectURL(url)
                 
-                console.log('Report exported:', filename)
                 return { success: true, filename }
                 
             } catch (error) {
-                console.error('Failed to export report:', error)
                 alert('Export failed: ' + error.message)
                 throw error
             }

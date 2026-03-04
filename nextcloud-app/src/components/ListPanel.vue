@@ -105,18 +105,37 @@
                         <path d="m19 9-5 5-4-4-3 3"/>
                     </svg>
                 </button>
+
+                <!-- Delete button (hide from dashboard) -->
+                <button 
+                    class="item-action item-delete" 
+                    @click.stop="confirmDelete(obj)" 
+                    title="Remove from dashboard">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M18 6 6 18M6 6l12 12"/>
+                    </svg>
+                </button>
             </div>
         </div>
 
-        <!-- List footer with count and Add Virtual button -->
+        <!-- List footer with count and actions -->
         <div class="list-footer">
             <span>{{ filteredObjects.length }} of {{ totalObjects }} installations</span>
-            <button class="btn-add-virtual" @click="openCreateVirtual" title="Add Virtual Installation">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <path d="M12 5v14M5 12h14"/>
-                </svg>
-                Add Virtual
-            </button>
+            <div class="footer-actions">
+                <button v-if="hasHiddenInstallations" class="btn-restore" @click="restoreAll" title="Restore hidden installations">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M23 4v6h-6M1 20v-6h6"/>
+                        <path d="M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15"/>
+                    </svg>
+                    Restore
+                </button>
+                <button class="btn-add-virtual" @click="openCreateVirtual" title="Add Virtual Installation">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M12 5v14M5 12h14"/>
+                    </svg>
+                    Add Virtual
+                </button>
+            </div>
         </div>
     </div>
 </template>
@@ -188,6 +207,28 @@ export default {
             store.openCreateVirtualModal()
         }
 
+        // Whether there are hidden installations that can be restored
+        const hasHiddenInstallations = computed(() => store.hiddenObjectIds.length > 0)
+
+        // Delete installation with confirmation
+        const confirmDelete = async (obj) => {
+            const msg = obj.customData?.isVirtual
+                ? `Delete "${obj.name}" permanently?`
+                : `Hide "${obj.name}" from your dashboard? You can restore it later.`
+            if (confirm(msg)) {
+                try {
+                    await store.deleteInstallation(obj.id)
+                } catch (e) {
+                    alert(e.message || 'Failed to delete')
+                }
+            }
+        }
+
+        // Restore all hidden installations
+        const restoreAll = async () => {
+            await store.restoreDashboard()
+        }
+
         // Scroll selected item into view (FR2.6)
         watch(selectedId, (newId) => {
             if (newId && listRef.value) {
@@ -215,7 +256,10 @@ export default {
             clearAll,
             selectObject,
             viewAnalysis,
-            openCreateVirtual
+            openCreateVirtual,
+            confirmDelete,
+            hasHiddenInstallations,
+            restoreAll
         }
     }
 }
@@ -420,7 +464,7 @@ export default {
     border-radius: 4px;
     cursor: pointer;
     color: var(--color-text-lighter, #767676);
-    opacity: 0;
+    opacity: 0.4;
     transition: all 0.2s ease;
 }
 
@@ -432,6 +476,11 @@ export default {
     background: var(--color-primary, #0082c9);
     color: white;
     border-color: var(--color-primary, #0082c9);
+}
+
+.item-delete:hover {
+    background: #CC2020;
+    border-color: #CC2020;
 }
 
 /* Loading State */
@@ -497,6 +546,31 @@ export default {
     font-size: 12px;
     color: var(--color-text-lighter, #767676);
     border-top: 1px solid var(--color-border, #e0e0e0);
+}
+
+.footer-actions {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.btn-restore {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 6px 10px;
+    background: var(--color-main-background, #fff);
+    color: var(--color-primary, #0082c9);
+    border: 1px solid var(--color-primary, #0082c9);
+    border-radius: 4px;
+    font-size: 11px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.btn-restore:hover {
+    background: rgba(0, 130, 201, 0.08);
 }
 
 /* Add Virtual Button */

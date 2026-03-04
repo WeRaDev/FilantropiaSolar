@@ -73,7 +73,7 @@
                     <div v-if="!chartData" class="chart-placeholder">
                         <p>Click "Generate Analysis" to view energy data</p>
                         <button class="btn-generate" @click="generateAnalysis">
-                            Generate 21-Day Analysis
+                            Generate Analysis
                         </button>
                     </div>
                     <div v-else class="chart-wrapper">
@@ -106,9 +106,9 @@
                                     <span class="metric-label">Average Daily Energy</span>
                                     <span class="metric-value">{{ periodStats.avgDaily.toFixed(2) }} kWh/day</span>
                                 </div>
-                                <div class="metric-item">
-                                    <span class="metric-label">Average Specific Energy</span>
-                                    <span class="metric-value">{{ periodStats.specificEnergy.toFixed(2) }} kWh/kWp</span>
+                                <div class="metric-item metric-highlight">
+                                    <span class="metric-label">Light Saved</span>
+                                    <span class="metric-value">&euro;{{ periodStats.lightSaved.toFixed(2) }}</span>
                                 </div>
                                 <div class="metric-item">
                                     <span class="metric-label">Peak Hour Energy</span>
@@ -185,7 +185,7 @@
                     <div v-else class="chart-placeholder">
                         <p>Generate analysis to view overview</p>
                         <button class="btn-generate" @click="generateAnalysis">
-                            Generate 21-Day Analysis
+                            Generate Analysis
                         </button>
                     </div>
                 </div>
@@ -302,9 +302,12 @@ export default {
                 ? Math.max(...hourlyData.value.map(h => h.production_kwh || 0))
                 : 0
             
+            const gridPrice = 0.15
+            
             return {
                 totalEnergy: total,
                 avgDaily: apiStats.avg_daily_kwh || total / days,
+                lightSaved: apiStats.total_savings_eur || total * gridPrice,
                 specificEnergy: total / capacity / days,
                 peakHourEnergy: peakHour / capacity,
                 avgTemperature: avgTemp,

@@ -1,0 +1,58 @@
+# FilantropiaSolar Anti-Pattern Registry
+# Documents patterns to avoid and their remedies
+
+antipatterns:
+  - id: AP-001
+    name: "Magic number proliferation"
+    indicator: "PLR2004 violations > 50"
+    consequence: "Code harder to maintain, tune, and understand"
+    remedy: "Extract to named constants at module level (UPPER_CASE)"
+    current_status: "45 violations - tolerated but not blocking"
+    priority: low
+
+  - id: AP-002
+    name: "Function complexity creep"
+    indicator: "PLR0912 (too many branches) or PLR0915 (too many statements)"
+    consequence: "Difficult to test, debug, and maintain"
+    remedy: |
+      - Extract helper methods
+      - Apply single responsibility principle
+      - Split into focused functions
+    examples_fixed:
+      - "_create_hourly_energy_chart -> 11 helper methods"
+      - "_load_weather_data -> 4 focused methods"
+    current_status: "Resolved in main.py and comprehensive_data_processor.py"
+    priority: high
+
+  - id: AP-003
+    name: "Import disorder"
+    indicator: "I001 violations; E402 module-level import workarounds"
+    consequence: "Circular imports; initialization issues; CI inconsistency"
+    remedy: |
+      - Use TYPE_CHECKING guards for type-only imports
+      - Move all imports to top of file
+      - Restructure modules if circular dependencies exist
+    current_status: "E402 ignored globally; some dynamic imports remain"
+    priority: medium
+
+  - id: AP-004
+    name: "Training/inference pipeline drift"
+    indicator: "Feature dimension mismatches; model load failures"
+    consequence: "Models fail in production; silent prediction errors"
+    remedy: |
+      - Persist feature names with models
+      - Use identical feature engineering in both pipelines
+      - Validate dimensions on model load
+    current_status: "Resolved with feature_columns persistence"
+    priority: critical
+
+  - id: AP-005
+    name: "Test path assumptions"
+    indicator: "ModuleNotFoundError during pytest collection"
+    consequence: "Tests fail to run; CI red on valid code"
+    remedy: |
+      - Add conftest.py with sys.path setup
+      - Create __init__.py in source directories
+      - Use relative imports where possible
+    current_status: "Resolved with conftest.py"
+    priority: high

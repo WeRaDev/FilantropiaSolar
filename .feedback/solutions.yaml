@@ -1,0 +1,83 @@
+# FilantropiaSolar Problem-Solution Registry
+# Captures learnings from resolved issues for future reference
+# Format: Each solution documents problem, symptoms, root cause, fix, and prevention
+
+solutions:
+  - id: SOL-001
+    problem: "StandardScaler feature dimension mismatch"
+    symptoms:
+      - "X has N features, but StandardScaler is expecting M features as input"
+      - "ValueError during prediction phase"
+    root_cause: "Training pipeline used _enhance_features() with 26 features; inference used basic 11 features without enhancement"
+    solution: |
+      1. Added self.feature_columns dict to EnhancedEnergyPredictor
+      2. Persist feature_names in cache alongside models
+      3. Rewrote _prepare_prediction_features() to use identical engineering
+      4. Added feature dimension validation with helpful error messages
+    prevention: "Always capture and persist feature columns during training; validate dimensions on model load"
+    files_modified:
+      - "src/prediction/enhanced_energy_predictor.py"
+    date_discovered: "2025-10-23"
+    date_resolved: "2025-10-23"
+    occurrences: 1
+    status: resolved
+
+  - id: SOL-002
+    problem: "pytest import failures"
+    symptoms:
+      - "ModuleNotFoundError: No module named 'src'"
+      - "ModuleNotFoundError: No module named 'main'"
+      - "4 tests fail to collect"
+    root_cause: "src/ directory not on sys.path during pytest collection; tests use 'from src.' imports"
+    solution: |
+      1. Created src/__init__.py to make src a proper Python package
+      2. Added tests/conftest.py with sys.path insertion for project root
+      3. Preserved existing test imports without modification
+    prevention: "Ensure conftest.py exists in test roots with proper path setup"
+    files_modified:
+      - "src/__init__.py"
+      - "tests/conftest.py"
+    date_discovered: "2025-10-23"
+    date_resolved: "2025-10-23"
+    occurrences: 1
+    status: resolved
+
+  - id: SOL-003
+    problem: "CI vs local environment mismatch"
+    symptoms:
+      - "CI fails in <15 seconds while local verification passes"
+      - "Import sorting differences (I001)"
+      - "Inconsistent ruff behavior"
+    root_cause: "Different tool versions, configuration parsing differences, caching behavior"
+    solution: |
+      1. Added E402 to global ignores
+      2. Applied ruff --fix I001 repeatedly
+      3. Used --no-cache flags
+      4. Added debug steps to CI workflow
+    prevention: |
+      - Pin exact ruff version in pyproject.toml
+      - Match CI environment locally
+      - Version-lock all dev dependencies
+    files_modified:
+      - "pyproject.toml"
+      - ".github/workflows/*.yaml"
+    date_discovered: "2025-10-20"
+    date_resolved: "ongoing"
+    occurrences: 3
+    status: partially_resolved
+
+  - id: SOL-004
+    problem: "F821 undefined name errors in enhanced_energy_predictor.py"
+    symptoms:
+      - "F821: Undefined name 'Path'"
+      - "F821: Undefined name 'joblib'"
+      - "Model save/load operations fail"
+    root_cause: "Missing imports for Path (pathlib) and joblib at module top"
+    solution: "Added 'from pathlib import Path' and 'import joblib' to imports section"
+    prevention: "Run ruff check before committing; ensure all used names are imported"
+    files_modified:
+      - "src/prediction/enhanced_energy_predictor.py"
+    date_discovered: "2025-10-20"
+    date_resolved: "2025-10-20"
+    occurrences: 1
+    status: resolved

@@ -15,12 +15,13 @@
         <!-- Create Virtual Installation Modal -->
         <CreateVirtualModal />
         
-        <!-- InstallationPopup deprecated in v3.0.5 - info card in MapPanel now shows all details -->
+        <!-- ML Admin Panel -->
+        <MlAdminPanel :isOpen="showAdminPanel" @close="showAdminPanel = false" />
     </div>
 </template>
 
 <script>
-import { onMounted, defineAsyncComponent } from 'vue'
+import { onMounted, ref, defineAsyncComponent } from 'vue'
 import { useAppStore } from '../store/app.js'
 import Header from '../components/Header.vue'
 import ListPanel from '../components/ListPanel.vue'
@@ -33,6 +34,9 @@ const AnalyticsModal = defineAsyncComponent(() =>
 const CreateVirtualModal = defineAsyncComponent(() =>
     import('../components/CreateVirtualModal.vue')
 )
+const MlAdminPanel = defineAsyncComponent(() =>
+    import('../components/MlAdminPanel.vue')
+)
 
 export default {
     name: 'Dashboard',
@@ -41,17 +45,19 @@ export default {
         ListPanel,
         MapPanel,
         AnalyticsModal,
-        CreateVirtualModal
+        CreateVirtualModal,
+        MlAdminPanel
     },
     setup() {
         const store = useAppStore()
+        const showAdminPanel = ref(false)
 
         onMounted(async () => {
             // Fetch installations on mount
             await store.fetchObjects()
         })
 
-        return {}
+        return { showAdminPanel }
     }
 }
 </script>

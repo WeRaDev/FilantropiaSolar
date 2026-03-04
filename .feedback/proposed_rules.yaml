@@ -1,0 +1,50 @@
+# FilantropiaSolar Proposed Rules
+# Rules proposed based on pattern analysis - pending adoption
+
+proposed_rules:
+  - id: PR-001
+    trigger: "Same error encountered 3+ times"
+    action: "Add to solutions.yaml; create preventive check"
+    status: active
+    examples_applied:
+      - "SOL-003 CI mismatch -> pre-push hook added"
+
+  - id: PR-002
+    trigger: "Task takes 2x estimated time repeatedly"
+    action: "Decompose task type into subtasks template"
+    status: pending
+    notes: "Need to track task durations first"
+
+  - id: PR-003
+    trigger: "CI fails on same check 3+ times"
+    action: "Add pre-commit hook for that check"
+    status: active
+    examples_applied:
+      - "ruff format -> .githooks/pre-push"
+      - "ruff check -> .githooks/pre-push"
+
+  - id: PR-004
+    trigger: "New feature requires >5 files changed"
+    action: "Create implementation plan before coding"
+    status: active
+    notes: "Integrated into agent workflow"
+
+  - id: PR-005
+    trigger: "ML model behavior changes"
+    action: "Document feature list; update cache schema version"
+    status: active
+    examples_applied:
+      - "feature_names persistence in v1.1.1"
+
+pending_adoption:
+  - rule: "Require test for every bug fix"
+    blocker: "Test infrastructure needs setup"
+    target_date: "v3.0.0"
+
+  - rule: "Enforce mypy on all new code"
+    blocker: "Existing code not type-annotated"
+    target_date: "v3.0.0"
+
+  - rule: "Require PR review before merge"
+    blocker: "Single-developer workflow"
+    target_date: "v3.0.0"

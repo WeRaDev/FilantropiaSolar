@@ -1,0 +1,257 @@
+
+/* Modal Overlay */
+.virtual-modal-overlay[data-v-7e1740fa] {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.5);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 10000;
+    padding: 24px;
+}
+
+/* Modal Container */
+.virtual-modal[data-v-7e1740fa] {
+    background: var(--color-main-background, #fff);
+    border-radius: 12px;
+    width: 100%;
+    max-width: 500px;
+    max-height: 90vh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    box-shadow: 0 16px 48px rgba(0, 0, 0, 0.25);
+}
+
+/* Modal Header */
+.modal-header[data-v-7e1740fa] {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 16px 24px;
+    background: var(--color-background-dark, #f5f5f5);
+    border-bottom: 1px solid var(--color-border, #e0e0e0);
+}
+.modal-header h2[data-v-7e1740fa] {
+    margin: 0;
+    font-size: 18px;
+    font-weight: 600;
+}
+.btn-close[data-v-7e1740fa] {
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 4px;
+    color: var(--color-text-lighter, #666);
+    border-radius: 4px;
+}
+.btn-close[data-v-7e1740fa]:hover {
+    background: var(--color-background-hover, #e8e8e8);
+}
+
+/* Modal Body */
+.modal-body[data-v-7e1740fa] {
+    flex: 1;
+    overflow-y: auto;
+    padding: 24px;
+}
+.description[data-v-7e1740fa] {
+    margin: 0 0 24px 0;
+    color: var(--color-text-lighter, #666);
+    font-size: 14px;
+    line-height: 1.5;
+}
+
+/* Form */
+.form[data-v-7e1740fa] {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+.form-group[data-v-7e1740fa] {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+.form-group label[data-v-7e1740fa] {
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--color-main-text, #333);
+}
+.form-group input[data-v-7e1740fa],
+.form-group select[data-v-7e1740fa] {
+    padding: 10px 12px;
+    border: 1px solid var(--color-border, #ddd);
+    border-radius: 6px;
+    font-size: 14px;
+    background: var(--color-main-background, #fff);
+    transition: border-color 0.2s, box-shadow 0.2s;
+}
+.form-group input[data-v-7e1740fa]:focus,
+.form-group select[data-v-7e1740fa]:focus {
+    outline: none;
+    border-color: var(--color-primary, #0082c9);
+    box-shadow: 0 0 0 2px rgba(0, 130, 201, 0.15);
+}
+.input-hint[data-v-7e1740fa] {
+    font-size: 11px;
+    color: var(--color-text-lighter, #888);
+}
+.form-row[data-v-7e1740fa] {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+}
+
+/* Custom Location Section with Map (v3.0.4) */
+.custom-location-section[data-v-7e1740fa] {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+.map-hint[data-v-7e1740fa] {
+    margin: 0;
+    font-size: 12px;
+    color: var(--color-text-lighter, #666);
+}
+.location-map[data-v-7e1740fa] {
+    width: 100%;
+    height: 200px;
+    border-radius: 8px;
+    border: 1px solid var(--color-border, #ddd);
+    overflow: hidden;
+    background: #f0f0f0;
+}
+
+/* Fix Leaflet marker icon issue */
+[data-v-7e1740fa] .leaflet-default-icon-path {
+    background-image: url('https://unpkg.com/leaflet@1.7.1/dist/images/marker-icon.png');
+}
+
+/* File Upload Area */
+.file-upload-area[data-v-7e1740fa] {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 60px;
+    padding: 12px;
+    border: 2px dashed var(--color-border, #ddd);
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.2s;
+    background: var(--color-background-dark, #f9f9f9);
+}
+.file-upload-area[data-v-7e1740fa]:hover {
+    border-color: var(--color-primary, #0082c9);
+    background: rgba(0, 130, 201, 0.04);
+}
+.upload-placeholder[data-v-7e1740fa] {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: var(--color-text-lighter, #888);
+    font-size: 13px;
+}
+.upload-selected[data-v-7e1740fa] {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 13px;
+    color: var(--color-main-text, #333);
+}
+.btn-remove-file[data-v-7e1740fa] {
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 2px;
+    color: var(--color-text-lighter, #888);
+    border-radius: 4px;
+}
+.btn-remove-file[data-v-7e1740fa]:hover {
+    background: #ffebee;
+    color: #c62828;
+}
+
+/* Error Message */
+.error-message[data-v-7e1740fa] {
+    padding: 12px;
+    background: #ffebee;
+    color: #c62828;
+    border-radius: 6px;
+    font-size: 13px;
+}
+
+/* Form Actions */
+.form-actions[data-v-7e1740fa] {
+    display: flex;
+    justify-content: flex-end;
+    gap: 12px;
+    margin-top: 8px;
+}
+.btn-secondary[data-v-7e1740fa],
+.btn-primary[data-v-7e1740fa] {
+    padding: 10px 20px;
+    border-radius: 6px;
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+.btn-secondary[data-v-7e1740fa] {
+    background: var(--color-main-background, #fff);
+    border: 1px solid var(--color-border, #ddd);
+    color: var(--color-main-text, #333);
+}
+.btn-secondary[data-v-7e1740fa]:hover {
+    background: var(--color-background-hover, #f5f5f5);
+}
+.btn-primary[data-v-7e1740fa] {
+    background: var(--color-primary, #0082c9);
+    border: none;
+    color: white;
+}
+.btn-primary[data-v-7e1740fa]:hover:not(:disabled) {
+    background: var(--color-primary-hover, #0070b0);
+}
+.btn-primary[data-v-7e1740fa]:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+.spinner-sm[data-v-7e1740fa] {
+    width: 16px;
+    height: 16px;
+    border: 2px solid rgba(255,255,255,0.3);
+    border-top-color: white;
+    border-radius: 50%;
+    animation: spin-7e1740fa 1s linear infinite;
+}
+@keyframes spin-7e1740fa {
+to { transform: rotate(360deg);
+}
+}
+
+/* Modal Transitions */
+.modal-fade-enter-active[data-v-7e1740fa],
+.modal-fade-leave-active[data-v-7e1740fa] {
+    transition: opacity 0.2s ease;
+}
+.modal-fade-enter-active .virtual-modal[data-v-7e1740fa],
+.modal-fade-leave-active .virtual-modal[data-v-7e1740fa] {
+    transition: transform 0.2s ease;
+}
+.modal-fade-enter-from[data-v-7e1740fa],
+.modal-fade-leave-to[data-v-7e1740fa] {
+    opacity: 0;
+}
+.modal-fade-enter-from .virtual-modal[data-v-7e1740fa],
+.modal-fade-leave-to .virtual-modal[data-v-7e1740fa] {
+    transform: scale(0.95) translateY(-10px);
+}
+

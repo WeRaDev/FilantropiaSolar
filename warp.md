@@ -604,6 +604,50 @@ $sun-center: #F5D547;      // Sun icon gradient
 - `lib/Migration/Version300001Date20260205.php` - is_virtual column
 - `appinfo/info.xml`, `package.json` - Version bump
 
+## v3.0.6 Release Notes (2026-02-09)
+
+### UX Improvements
+1. **Default Predicted Mode** - Analytics opens in "Predicted" mode instead of "Historical"
+2. **Dynamic Data Labels** - Data mode badge shows weather source (API/synthetic/historical/measured)
+3. **"Light Saved" Metric** - EUR savings at 0.15 EUR/kWh replaces kWh/kWp/day metric
+4. **Year Timeframe** - Replaced 21-Day with Year (365 days); default timeframe is Week
+5. **ML Info Button** - Popover with data source citation, DOI, weather source, model info
+
+### Data Integrity
+6. **Historical Data Fix** - predict_period() now loads actual measured energy from Excel when mode=historical; falls back to physics estimation only for missing hours
+7. **Weather Source Tracking** - `weather_source` field in PeriodPredictionResponse traces data through API/historical_file/synthetic/measured pipeline
+
+### Installation Management
+8. **Upload Historical Data** - File upload (CSV/Excel) in CreateVirtualModal with drag-and-drop
+9. **Persist Installations** - PHP controller merges ML dataset + user DB installations
+10. **Delete & Restore** - Delete button on user-created installations; restore-dashboard endpoint
+
+### ML Admin Panel
+11. **MlAdminPanel.vue** - New admin component with cache status, model details, clear cache
+12. **Backend Endpoints** - GET /admin/cache, POST /admin/cache/clear, GET /admin/model/{id}, GET /model-info
+13. **Simulate-weather Limit** - Increased from 30 to 400 days for Year timeframe
+
+### Multi-Tenant
+14. **Merged Installation Sources** - fetchObjects and PHP index() merge ML dataset + user DB installations
+15. **addDatasetInstallation** - Users can bookmark dataset installations to their dashboard
+
+### Files Modified
+- `src/components/AnalyticsModal.vue` - Default mode, data labels, Light Saved, ML info button
+- `src/components/AnalyticsPanel.vue` - Light Saved metric, Year timeframe, button text
+- `src/components/ListPanel.vue` - Delete button for virtual installations
+- `src/components/CreateVirtualModal.vue` - File upload area for historical data
+- `src/components/MlAdminPanel.vue` - New: ML admin panel component
+- `src/views/Dashboard.vue` - MlAdminPanel integration
+- `src/store/app.js` - deleteInstallation, restoreDashboard, addDatasetInstallation, source tracking
+- `ml-service/main.py` - weather_source, model_info, historical data loading, admin endpoints, limit increase
+- `lib/Controller/InstallationApiController.php` - Merged ML+DB installations, restoreDashboard
+- `appinfo/routes.php` - New routes for restore-dashboard, installation stats
+
+### Build Info
+- Main bundle: 30.8 KiB (from 29 KiB - new MlAdminPanel chunk)
+- New async chunks: 820-*.js (6.24 KiB) for MlAdminPanel
+- No build errors; Sass deprecation warnings unchanged
+
 ## Troubleshooting
 
 ### "Update needed" after version change
@@ -631,7 +675,42 @@ performance: {
 ### Sass deprecation warnings
 These are non-blocking warnings about @import syntax. Will need migration to @use/@forward in Dart Sass 3.0.
 
-## Uncommitted Changes (Current Session)
-- `nextcloud-app/src/components/Header.vue` - Branding update
-- `nextcloud-app/js/filantropia_solar-main.js` - Built JS
-- `nextcloud-app/css/filantropia_solar-main.css` - Built CSS
+## Code Health & Maintenance Guidelines (2026-02-08)
+
+### Component Size Limits
+Target max ~400 lines per Vue SFC. Components above this need attention:
+- `AnalyticsModal.vue` (1,703 lines) - Split chart sections into `components/charts/` sub-components
+- `AnalyticsPanel.vue` (1,026 lines) - Extract reusable analysis widgets
+- `CreateVirtualModal.vue` (608 lines) - Extract form sections if it grows further
+
+### Store Architecture
+`store/app.js` (~550 lines) is monolithic. When adding features, consider splitting into:
+- `store/installations.js` - CRUD, filtering, coordinates
+- `store/analytics.js` - analysis data, loading states, export logic
+- `store/map.js` - center, zoom, view state
+
+Keep `store/app.js` as a thin orchestration layer if needed.
+
+### Dependency Hygiene
+- Runtime deps (`dependencies`): only packages needed at runtime (Vue, Pinia, Leaflet, Nextcloud libs, Chart.js)
+- Build-time deps (`devDependencies`): Babel, loaders, webpack, linters, test tools
+- Run `npm audit` periodically; Nextcloud libs update with NC releases
+
+### Code Quality Rules
+- No `console.log` in production code -- use Nextcloud's logger or remove debug logging before commit
+- No dead/deprecated files -- delete immediately, do not leave with "deprecated" comments
+- Verify unused views/components are not imported anywhere before deleting
+- Single route (`/` -> Dashboard.vue) is the current architecture; do not add dead views
+
+### Cleanup Applied (v3.0.6 Session)
+- Removed 9 `console.log` calls from `store/app.js`
+- Deleted deprecated `InstallationPopup.vue` and its state/actions from store
+- Deleted 6 unused view files (DashboardView, MainView, DetailView, ResultsView, ConfigurationView, UnifiedDashboard)
+- Moved build tools (@babel/*, loaders, mini-css-extract-plugin) from dependencies to devDependencies
+- Main bundle reduced from 30.7 KiB to 29 KiB
+
+### Next Refactoring Priorities
+1. Split `AnalyticsModal.vue` into chart sub-components (highest impact)
+2. Extract CSV export logic from `store/app.js` into a utility module
+3. Migrate Sass `@import` to `@use/@forward` before Dart Sass 3.0 removal
+4. Add frontend tests with vitest (configured but no tests written yet)

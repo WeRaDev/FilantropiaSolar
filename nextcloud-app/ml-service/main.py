@@ -342,8 +342,8 @@ async def simulate_weather(request: WeatherSimulationRequest):
     if end < start:
         raise HTTPException(400, "end_date must be after start_date")
     
-    if (end - start).days > 30:
-        raise HTTPException(400, "Maximum simulation period is 30 days")
+    if (end - start).days > 400:
+        raise HTTPException(400, "Maximum simulation period is 400 days")
     
     # Generate synthetic weather based on seasonal patterns
     # This is a simplified simulation - real implementation would use KNN from historical data
@@ -771,6 +771,8 @@ class PeriodPredictionResponse(BaseModel):
     period_statistics: dict
     daily_data: List[DailyData]
     hourly_data: List[HourlyData]
+    weather_source: Optional[str] = None  # 'api', 'historical_file', 'synthetic', 'measured'
+    model_info: Optional[dict] = None
     error: Optional[str] = None
 
 
@@ -981,6 +983,7 @@ async def generate_weather_for_period(
     
     if api_weather is not None and len(api_weather) >= days * 20:  # At least 20 hours per day
         logger.info(f"Using Open-Meteo API weather data for {location}")
+        api_weather.attrs["weather_source"] = "api"
         return api_weather
     
     # Try historical weather files
@@ -1027,11 +1030,15 @@ async def generate_weather_for_period(
         
         if result_data:
             logger.info(f"Using historical weather data for {location}")
-            return pd.DataFrame(result_data)
+            df_result = pd.DataFrame(result_data)
+            df_result.attrs["weather_source"] = "historical_file"
+            return df_result
     
     # Fallback to synthetic generation
     logger.info(f"Using synthetic weather data for {location}")
-    return generate_synthetic_weather(location, start_date, days)
+    df_synth = generate_synthetic_weather(location, start_date, days)
+    df_synth.attrs["weather_source"] = "synthetic"
+    return df_synth
 
 
 def predict_production_simple(
@@ -1114,38 +1121,74 @@ async def predict_period(request: PeriodPredictionRequest):
             # Load installation from Excel
             installations = load_installations_from_excel()
             if request.installation_id not in installations:
-                return PeriodPredictionResponse(
-                    success=False,
-                    installation_info={},
-                    period_statistics={},
-                    daily_data=[],
-                    hourly_data=[],
-                    error=f"Installation not found: {request.installation_id}",
-                )
-            
-            inst = installations[request.installation_id]
-            location = inst["location"]
-            capacity_kwp = inst["capacity_kwp"]
-            installation_info = {
-                "id": request.installation_id,
-                "name": inst["name"],
-                "location": location,
-                "capacity_kwp": capacity_kwp,
-                "serial_number": inst.get("serial_number", ""),
-            }
+                # Fallback: if location and capacity are provided (e.g. virtual installations),
+                # treat as a custom station instead of returning error
+                if request.location and request.capacity_kwp:
+                    location = request.location
+                    capacity_kwp = request.capacity_kwp
+                    installation_info = {
+                        "id": request.installation_id or "custom",
+                        "name": f"Custom Station ({location})",
+                        "location": location,
+                        "capacity_kwp": capacity_kwp,
+                        "serial_number": "VIRTUAL",
+                    }
+                else:
+                    return PeriodPredictionResponse(
+                        success=False,
+                        installation_info={},
+                        period_statistics={},
+                        daily_data=[],
+                        hourly_data=[],
+                        error=f"Installation not found: {request.installation_id}",
+                    )
+            else:
+                inst = installations[request.installation_id]
+                location = inst["location"]
+                capacity_kwp = inst["capacity_kwp"]
+                installation_info = {
+                    "id": request.installation_id,
+                    "name": inst["name"],
+                    "location": location,
+                    "capacity_kwp": capacity_kwp,
+                    "serial_number": inst.get("serial_number", ""),
+                }
         
         # Generate weather data for the period (async call to try API first)
         weather_df = await generate_weather_for_period(location, start_date, request.days)
+        weather_source = getattr(weather_df, 'attrs', {}).get('weather_source', 'synthetic')
+        
+        # For historical mode, try to load actual measured energy data
+        historical_energy = {}
+        if request.mode == 'historical' and request.installation_id:
+            energy_df = load_energy_data_for_installation(request.installation_id)
+            if not energy_df.empty and 'timestamp' in energy_df.columns and 'produced_kwh' in energy_df.columns:
+                for _, erow in energy_df.iterrows():
+                    ts = erow['timestamp']
+                    if hasattr(ts, 'isoformat'):
+                        key = ts.strftime('%Y-%m-%d %H')
+                        historical_energy[key] = float(erow['produced_kwh'])
+                if historical_energy:
+                    weather_source = 'measured'
+                    logger.info(f"Loaded {len(historical_energy)} historical energy readings for {request.installation_id}")
         
         # Generate predictions for each hour
         hourly_results = []
         for _, row in weather_df.iterrows():
-            production = predict_production_simple(
-                capacity_kwp,
-                row["shortwave_radiation"],
-                row["cloud_cover"],
-                row["temperature_2m"],
-            )
+            ts = row['timestamp']
+            ts_key = ts.strftime('%Y-%m-%d %H') if hasattr(ts, 'strftime') else ''
+            
+            # Use measured data if available, otherwise estimate
+            if ts_key in historical_energy:
+                production = historical_energy[ts_key]
+            else:
+                production = predict_production_simple(
+                    capacity_kwp,
+                    row["shortwave_radiation"],
+                    row["cloud_cover"],
+                    row["temperature_2m"],
+                )
+            
             hourly_results.append({
                 "timestamp": row["timestamp"],
                 "production_kwh": production,
@@ -1238,12 +1281,32 @@ async def predict_period(request: PeriodPredictionRequest):
             "center_date": request.center_date,
         }
         
+        # Model info for frontend
+        model_bundle = load_model(request.installation_id) if request.installation_id else None
+        model_info = None
+        if model_bundle and model_bundle.get('model'):
+            model_info = {
+                'name': type(model_bundle['model']).__name__,
+                'feature_count': len(model_bundle.get('feature_names', [])),
+                'r2': None,
+                'mae': None,
+            }
+        else:
+            model_info = {
+                'name': 'Physics-based Estimation',
+                'feature_count': 5,
+                'r2': None,
+                'mae': None,
+            }
+        
         return PeriodPredictionResponse(
             success=True,
             installation_info=installation_info,
             period_statistics=period_statistics,
             daily_data=daily_data,
             hourly_data=hourly_data,
+            weather_source=weather_source,
+            model_info=model_info,
         )
         
     except Exception as e:
@@ -1385,6 +1448,130 @@ async def get_installation_stats(installation_id: str):
             capacity_kwp=0,
             error=str(e),
         )
+
+
+# ===== Admin Endpoints (v3.0.6) =====
+
+@app.get("/admin/cache")
+async def admin_cache_status():
+    """Return cache status: loaded models, cached data, memory usage."""
+    import sys
+    
+    model_ids = list(_models_cache.keys())
+    energy_ids = list(_energy_data_cache.keys())
+    weather_ids = list(_weather_data_cache.keys())
+    
+    # Estimate memory usage
+    model_mem = sum(sys.getsizeof(m) for m in _models_cache.values())
+    energy_mem = sum(df.memory_usage(deep=True).sum() for df in _energy_data_cache.values() if not df.empty)
+    weather_mem = sum(df.memory_usage(deep=True).sum() for df in _weather_data_cache.values() if not df.empty)
+    
+    return {
+        "models": {
+            "count": len(model_ids),
+            "ids": model_ids,
+            "memory_bytes": model_mem,
+        },
+        "energy_data": {
+            "count": len(energy_ids),
+            "ids": energy_ids,
+            "memory_bytes": int(energy_mem),
+        },
+        "weather_data": {
+            "count": len(weather_ids),
+            "ids": weather_ids,
+            "memory_bytes": int(weather_mem),
+        },
+        "installations_loaded": len(_installations_cache),
+        "total_memory_bytes": model_mem + int(energy_mem) + int(weather_mem),
+    }
+
+
+@app.post("/admin/cache/clear")
+async def admin_clear_cache():
+    """Clear all model and data caches."""
+    global _models_cache, _scalers_cache, _feature_names_cache
+    global _installations_cache, _energy_data_cache, _weather_data_cache
+    
+    cleared = {
+        "models": len(_models_cache),
+        "energy_data": len(_energy_data_cache),
+        "weather_data": len(_weather_data_cache),
+    }
+    
+    _models_cache = {}
+    _scalers_cache = {}
+    _feature_names_cache = {}
+    _installations_cache = {}
+    _energy_data_cache = {}
+    _weather_data_cache = {}
+    
+    logger.info(f"Cache cleared: {cleared}")
+    return {"success": True, "cleared": cleared}
+
+
+@app.get("/admin/model/{installation_id}")
+async def admin_model_info(installation_id: str):
+    """Get model metadata for a specific installation."""
+    model_bundle = load_model(installation_id)
+    
+    if not model_bundle or not model_bundle.get('model'):
+        return {
+            "installation_id": installation_id,
+            "has_model": False,
+            "model_type": "Physics-based Estimation",
+            "feature_count": 5,
+        }
+    
+    model = model_bundle['model']
+    feature_names = model_bundle.get('feature_names', [])
+    
+    return {
+        "installation_id": installation_id,
+        "has_model": True,
+        "model_type": type(model).__name__,
+        "feature_count": len(feature_names),
+        "feature_names": feature_names[:10],  # First 10 for display
+        "has_scaler": model_bundle.get('scaler') is not None,
+    }
+
+
+@app.get("/model-info")
+async def model_info_aggregate():
+    """
+    Get aggregate model metadata for all installations.
+    Used by the ML Info button in the frontend.
+    """
+    installations = load_installations_from_excel()
+    models_available = []
+    models_missing = []
+    
+    for inst_id in installations:
+        bundle = load_model(inst_id)
+        if bundle and bundle.get('model'):
+            models_available.append({
+                "id": inst_id,
+                "model_type": type(bundle['model']).__name__,
+                "feature_count": len(bundle.get('feature_names', [])),
+            })
+        else:
+            models_missing.append(inst_id)
+    
+    return {
+        "total_installations": len(installations),
+        "models_available": len(models_available),
+        "models_missing": len(models_missing),
+        "models": models_available,
+        "missing_ids": models_missing,
+        "default_method": "Physics-based Estimation",
+        "dataset_citation": {
+            "authors": "Sarmas et al.",
+            "year": 2025,
+            "title": "Photovoltaic Power Production Dataset",
+            "doi": "10.17632/dbh93b6vp8.3",
+            "publisher": "Mendeley Data",
+        },
+    }
 
 
 # Load data on startup
