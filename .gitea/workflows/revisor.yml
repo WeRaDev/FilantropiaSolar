@@ -84,10 +84,10 @@ jobs:
               return "PASS" if o == "success" else "FAIL"
 
           checks = [
-              ("Lint (ruff)",             os.environ["LINT_RESULT"],     f"{os.environ.get(\'REVISOR_PREFIX\', \'/tmp/revisor\')}_lint.txt"),
-              ("Type check (mypy)",       os.environ["TYPECHECK_RESULT"],f"{os.environ.get(\'REVISOR_PREFIX\', \'/tmp/revisor\')}_mypy.txt"),
-              ("Unit tests (pytest)",     os.environ["TESTS_RESULT"],    f"{os.environ.get(\'REVISOR_PREFIX\', \'/tmp/revisor\')}_tests.txt"),
-              ("Security (bandit)",       os.environ["BANDIT_RESULT"],   f"{os.environ.get(\'REVISOR_PREFIX\', \'/tmp/revisor\')}_bandit.txt"),
+              ("Lint (ruff)",             os.environ["LINT_RESULT"],     f"{os.environ.get('REVISOR_PREFIX', '/tmp/revisor')}_lint.txt"),
+              ("Type check (mypy)",       os.environ["TYPECHECK_RESULT"],f"{os.environ.get('REVISOR_PREFIX', '/tmp/revisor')}_mypy.txt"),
+              ("Unit tests (pytest)",     os.environ["TESTS_RESULT"],    f"{os.environ.get('REVISOR_PREFIX', '/tmp/revisor')}_tests.txt"),
+              ("Security (bandit)",       os.environ["BANDIT_RESULT"],   f"{os.environ.get('REVISOR_PREFIX', '/tmp/revisor')}_bandit.txt"),
           ]
 
           all_pass   = all(o == "success" for _, o, _ in checks)
