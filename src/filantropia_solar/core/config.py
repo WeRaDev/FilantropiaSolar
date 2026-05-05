@@ -9,6 +9,8 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from enum import Enum
+from importlib.metadata import PackageNotFoundError
+from importlib.metadata import version as pkg_version
 import json
 import logging
 import os
@@ -18,7 +20,6 @@ from typing import Any
 from pydantic import Field, validator
 from pydantic_settings import BaseSettings
 import yaml
-from importlib.metadata import PackageNotFoundError, version as pkg_version
 
 # Constants
 MAX_PORT_NUMBER = 65535
