@@ -31,28 +31,28 @@ jobs:
         id: lint
         continue-on-error: true
         run: |
-          .revisor-venv/bin/ruff check src tests 2>&1 | tee /tmp/revisor_lint.txt
+          .revisor-venv/bin/ruff check src tests 2>&1 | tee /tmp/revisor_${GITHUB_RUN_ID}_lint.txt
           exit ${PIPESTATUS[0]}
 
       - name: Type check (mypy)
         id: typecheck
         continue-on-error: true
         run: |
-          .revisor-venv/bin/python -m mypy src --ignore-missing-imports 2>&1 | tee /tmp/revisor_mypy.txt
+          .revisor-venv/bin/python -m mypy src --ignore-missing-imports 2>&1 | tee /tmp/revisor_${GITHUB_RUN_ID}_mypy.txt
           exit ${PIPESTATUS[0]}
 
       - name: Unit tests (pytest)
         id: tests
         continue-on-error: true
         run: |
-          .revisor-venv/bin/python -m pytest -q tests/ 2>&1 | tee /tmp/revisor_tests.txt
+          .revisor-venv/bin/python -m pytest -q tests/ 2>&1 | tee /tmp/revisor_${GITHUB_RUN_ID}_tests.txt
           exit ${PIPESTATUS[0]}
 
       - name: Security static analysis (bandit)
         id: bandit
         continue-on-error: true
         run: |
-          .revisor-venv/bin/bandit -q -r src -s B404,B603,B310,B105 2>&1 | tee /tmp/revisor_bandit.txt
+          .revisor-venv/bin/bandit -q -r src -s B404,B603,B310,B105 2>&1 | tee /tmp/revisor_${GITHUB_RUN_ID}_bandit.txt
           exit ${PIPESTATUS[0]}
 
       - name: Post Revisor review comment
@@ -67,6 +67,7 @@ jobs:
           TESTS_RESULT: ${{ steps.tests.outcome }}
           BANDIT_RESULT: ${{ steps.bandit.outcome }}
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          REVISOR_PREFIX: /tmp/revisor_${{ github.run_id }}
         run: |
           python3 - <<'PY'
           import json, os, urllib.request
@@ -83,10 +84,10 @@ jobs:
               return "PASS" if o == "success" else "FAIL"
 
           checks = [
-              ("Lint (ruff)",             os.environ["LINT_RESULT"],     "/tmp/revisor_lint.txt"),
-              ("Type check (mypy)",       os.environ["TYPECHECK_RESULT"],"/tmp/revisor_mypy.txt"),
-              ("Unit tests (pytest)",     os.environ["TESTS_RESULT"],    "/tmp/revisor_tests.txt"),
-              ("Security (bandit)",       os.environ["BANDIT_RESULT"],   "/tmp/revisor_bandit.txt"),
+              ("Lint (ruff)",             os.environ["LINT_RESULT"],     f"{os.environ.get(\'REVISOR_PREFIX\', \'/tmp/revisor\')}_lint.txt"),
+              ("Type check (mypy)",       os.environ["TYPECHECK_RESULT"],f"{os.environ.get(\'REVISOR_PREFIX\', \'/tmp/revisor\')}_mypy.txt"),
+              ("Unit tests (pytest)",     os.environ["TESTS_RESULT"],    f"{os.environ.get(\'REVISOR_PREFIX\', \'/tmp/revisor\')}_tests.txt"),
+              ("Security (bandit)",       os.environ["BANDIT_RESULT"],   f"{os.environ.get(\'REVISOR_PREFIX\', \'/tmp/revisor\')}_bandit.txt"),
           ]
 
           all_pass   = all(o == "success" for _, o, _ in checks)
