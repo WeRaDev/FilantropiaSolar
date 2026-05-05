@@ -4,6 +4,7 @@ r"""Cross-platform resource and user-data path helpers.
 - get_resource_path: locate bundled resources (PyInstaller sys._MEIPASS) or repo-relative during dev
 - get_app_cache_dir: user-writable cache/models directory (Windows: %LOCALAPPDATA%\FilantropiaSolar)
 """
+
 from __future__ import annotations
 
 import os

@@ -9,7 +9,7 @@ import abc
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Generic, Protocol, TypeVar
+from typing import Any, ClassVar, Generic, Protocol, TypeVar
 
 import numpy as np
 import pandas as pd
@@ -25,8 +25,8 @@ from ..core import (
 )
 
 # Type variables for generic interfaces
-T = TypeVar('T')
-DataFrameType = TypeVar('DataFrameType', bound=pd.DataFrame)
+T = TypeVar("T")
+DataFrameType = TypeVar("DataFrameType", bound=pd.DataFrame)
 
 
 @dataclass
@@ -47,7 +47,7 @@ class DataQualityReport:
     @property
     def is_valid(self) -> bool:
         """Check if data meets quality thresholds."""
-        return self.quality_score >= 0.8 and len(self.validation_errors) == 0
+        return self.quality_score >= 0.8 and len(self.validation_errors) == 0  # noqa: PLR2004
 
     @property
     def completion_rate(self) -> float:
@@ -59,18 +59,18 @@ class DataQualityReport:
     def to_dict(self) -> dict[str, Any]:
         """Convert report to dictionary."""
         return {
-            'total_records': self.total_records,
-            'valid_records': self.valid_records,
-            'invalid_records': self.invalid_records,
-            'missing_values': self.missing_values,
-            'duplicate_records': self.duplicate_records,
-            'outliers': self.outliers,
-            'quality_score': self.quality_score,
-            'completion_rate': self.completion_rate,
-            'is_valid': self.is_valid,
-            'validation_errors': self.validation_errors,
-            'warnings': self.warnings,
-            'timestamp': self.timestamp.isoformat(),
+            "total_records": self.total_records,
+            "valid_records": self.valid_records,
+            "invalid_records": self.invalid_records,
+            "missing_values": self.missing_values,
+            "duplicate_records": self.duplicate_records,
+            "outliers": self.outliers,
+            "quality_score": self.quality_score,
+            "completion_rate": self.completion_rate,
+            "is_valid": self.is_valid,
+            "validation_errors": self.validation_errors,
+            "warnings": self.warnings,
+            "timestamp": self.timestamp.isoformat(),
         }
 
 
@@ -113,7 +113,9 @@ class DataTransformer(Protocol[T]):
 class DataExporter(Protocol[T]):
     """Protocol for data export operations."""
 
-    def export(self, data: T, destination: str | Path, format: str = "csv", **kwargs) -> bool:
+    def export(
+        self, data: T, destination: str | Path, format: str = "csv", **kwargs
+    ) -> bool:
         """Export data to destination."""
         ...
 
@@ -125,7 +127,7 @@ class DataExporter(Protocol[T]):
 class BaseDataProcessor(abc.ABC, Generic[T]):
     """
     Abstract base class for data processors.
-    
+
     Implements common functionality and defines the interface for data processing
     operations following the Template Method pattern.
     """
@@ -133,7 +135,7 @@ class BaseDataProcessor(abc.ABC, Generic[T]):
     def __init__(self, name: str):
         """
         Initialize data processor.
-        
+
         Args:
             name: Processor identifier name
         """
@@ -172,22 +174,22 @@ class BaseDataProcessor(abc.ABC, Generic[T]):
         source: str | Path,
         validate: bool = True,
         transform: bool = True,
-        **kwargs
+        **kwargs,
     ) -> T:
         """
         Process data from source to final format.
-        
+
         This is the main template method that orchestrates the data processing pipeline.
-        
+
         Args:
             source: Data source path or URL
             validate: Whether to perform data validation
             transform: Whether to apply transformations
             **kwargs: Additional processing parameters
-            
+
         Returns:
             Processed data
-            
+
         Raises:
             DataLoadingError: If data loading fails
             DataValidationError: If data validation fails
@@ -217,7 +219,7 @@ class BaseDataProcessor(abc.ABC, Generic[T]):
                         f"Data validation failed: {quality_report.validation_errors}",
                         validation_rules=self.get_validation_rules(),
                         failed_records=quality_report.invalid_records,
-                        details={'quality_report': quality_report.to_dict()}
+                        details={"quality_report": quality_report.to_dict()},
                     )
 
             # Step 5: Transform data (if requested)
@@ -228,15 +230,15 @@ class BaseDataProcessor(abc.ABC, Generic[T]):
             # Update processing stats
             duration = (datetime.utcnow() - start_time).total_seconds()
             self._processing_stats = {
-                'last_processed': datetime.utcnow().isoformat(),
-                'processing_duration': duration,
-                'source': str(source),
-                'record_count': self._get_record_count(data),
+                "last_processed": datetime.utcnow().isoformat(),
+                "processing_duration": duration,
+                "source": str(source),
+                "record_count": self._get_record_count(data),
             }
 
             self.logger.info(
                 f"Data processing completed successfully in {duration:.2f}s",
-                extra={'processing_stats': self._processing_stats}
+                extra={"processing_stats": self._processing_stats},
             )
 
             return data
@@ -251,7 +253,7 @@ class BaseDataProcessor(abc.ABC, Generic[T]):
                 raise DataLoadingError(
                     f"Failed to process data from {source}",
                     file_path=str(source),
-                    cause=e
+                    cause=e,
                 ) from e
 
     @abc.abstractmethod
@@ -280,14 +282,14 @@ class BaseDataProcessor(abc.ABC, Generic[T]):
 class PandasDataProcessor(BaseDataProcessor[pd.DataFrame]):
     """
     Base implementation for pandas DataFrame processing.
-    
+
     Provides common functionality for CSV, Excel, and other structured data formats.
     """
 
     def __init__(self, name: str, encoding: str = "utf-8"):
         """
         Initialize pandas data processor.
-        
+
         Args:
             name: Processor identifier name
             encoding: Default file encoding
@@ -306,30 +308,30 @@ class PandasDataProcessor(BaseDataProcessor[pd.DataFrame]):
             raise DataLoadingError(
                 f"Data file not found: {source}",
                 file_path=str(source),
-                data_source="file"
+                data_source="file",
             )
 
         try:
-            if source_path.suffix.lower() == '.csv':
+            if source_path.suffix.lower() == ".csv":
                 df = pd.read_csv(
                     source_path,
-                    encoding=kwargs.get('encoding', self.encoding),
-                    **{k: v for k, v in kwargs.items() if k != 'encoding'}
+                    encoding=kwargs.get("encoding", self.encoding),
+                    **{k: v for k, v in kwargs.items() if k != "encoding"},
                 )
-            elif source_path.suffix.lower() in ['.xlsx', '.xls']:
+            elif source_path.suffix.lower() in [".xlsx", ".xls"]:
                 df = pd.read_excel(source_path, **kwargs)
             else:
                 raise DataLoadingError(
                     f"Unsupported file format: {source_path.suffix}",
                     file_path=str(source),
-                    data_source="file"
+                    data_source="file",
                 )
 
             if df.empty:
                 raise DataLoadingError(
                     f"Data file is empty: {source}",
                     file_path=str(source),
-                    data_source="file"
+                    data_source="file",
                 )
 
             return df
@@ -341,7 +343,7 @@ class PandasDataProcessor(BaseDataProcessor[pd.DataFrame]):
                 f"Failed to load data from {source}: {e!s}",
                 file_path=str(source),
                 data_source="file",
-                cause=e
+                cause=e,
             ) from e
 
     def _validate_data(self, data: pd.DataFrame) -> DataQualityReport:
@@ -349,7 +351,9 @@ class PandasDataProcessor(BaseDataProcessor[pd.DataFrame]):
         total_records = len(data)
 
         # Check required columns
-        missing_columns = [col for col in self.required_columns if col not in data.columns]
+        missing_columns = [
+            col for col in self.required_columns if col not in data.columns
+        ]
         validation_errors = []
         warnings = []
 
@@ -368,15 +372,17 @@ class PandasDataProcessor(BaseDataProcessor[pd.DataFrame]):
         for col, expected_type in self.column_types.items():
             if col in data.columns:
                 try:
-                    if expected_type == float:
-                        pd.to_numeric(data[col], errors='raise')
-                    elif expected_type == int:
-                        pd.to_numeric(data[col], errors='raise', downcast='integer')
-                    elif expected_type == datetime:
-                        pd.to_datetime(data[col], errors='raise')
-                except:
+                    if expected_type is float:
+                        pd.to_numeric(data[col], errors="raise")
+                    elif expected_type is int:
+                        pd.to_numeric(data[col], errors="raise", downcast="integer")
+                    elif expected_type is datetime:
+                        pd.to_datetime(data[col], errors="raise")
+                except Exception:
                     type_errors += 1
-                    warnings.append(f"Column {col} has invalid {expected_type.__name__} values")
+                    warnings.append(
+                        f"Column {col} has invalid {expected_type.__name__} values"
+                    )
 
         # Check value ranges
         outliers = {}
@@ -386,11 +392,17 @@ class PandasDataProcessor(BaseDataProcessor[pd.DataFrame]):
                 outliers[col] = col_outliers
 
         # Calculate quality score
-        completeness = 1 - (total_missing / (total_records * len(data.columns))) if total_records > 0 else 0
+        completeness = (
+            1 - (total_missing / (total_records * len(data.columns)))
+            if total_records > 0
+            else 0
+        )
         uniqueness = 1 - (duplicate_records / total_records) if total_records > 0 else 1
-        validity = 1 - (type_errors / len(self.column_types)) if self.column_types else 1
+        validity = (
+            1 - (type_errors / len(self.column_types)) if self.column_types else 1
+        )
 
-        quality_score = (completeness * 0.4 + uniqueness * 0.3 + validity * 0.3)
+        quality_score = completeness * 0.4 + uniqueness * 0.3 + validity * 0.3
 
         valid_records = total_records - duplicate_records - sum(outliers.values())
         invalid_records = total_records - valid_records
@@ -412,35 +424,43 @@ class PandasDataProcessor(BaseDataProcessor[pd.DataFrame]):
         transformed_data = data.copy()
 
         # Remove duplicates
-        if kwargs.get('remove_duplicates', True):
+        if kwargs.get("remove_duplicates", True):
             transformed_data = transformed_data.drop_duplicates()
 
         # Handle missing values
-        fill_strategy = kwargs.get('fill_missing', 'drop')
-        if fill_strategy == 'drop':
+        fill_strategy = kwargs.get("fill_missing", "drop")
+        if fill_strategy == "drop":
             transformed_data = transformed_data.dropna()
-        elif fill_strategy == 'forward_fill':
-            transformed_data = transformed_data.fillna(method='ffill')
-        elif fill_strategy == 'mean':
-            numeric_columns = transformed_data.select_dtypes(include=[np.number]).columns
-            transformed_data[numeric_columns] = transformed_data[numeric_columns].fillna(
-                transformed_data[numeric_columns].mean()
-            )
+        elif fill_strategy == "forward_fill":
+            transformed_data = transformed_data.fillna(method="ffill")
+        elif fill_strategy == "mean":
+            numeric_columns = transformed_data.select_dtypes(
+                include=[np.number]
+            ).columns
+            transformed_data[numeric_columns] = transformed_data[
+                numeric_columns
+            ].fillna(transformed_data[numeric_columns].mean())
 
         # Apply column type conversions
         for col, expected_type in self.column_types.items():
             if col in transformed_data.columns:
                 try:
-                    if expected_type == float:
-                        transformed_data[col] = pd.to_numeric(transformed_data[col], errors='coerce')
-                    elif expected_type == int:
+                    if expected_type is float:
                         transformed_data[col] = pd.to_numeric(
-                            transformed_data[col], errors='coerce', downcast='integer'
+                            transformed_data[col], errors="coerce"
                         )
-                    elif expected_type == datetime:
-                        transformed_data[col] = pd.to_datetime(transformed_data[col], errors='coerce')
+                    elif expected_type is int:
+                        transformed_data[col] = pd.to_numeric(
+                            transformed_data[col], errors="coerce", downcast="integer"
+                        )
+                    elif expected_type is datetime:
+                        transformed_data[col] = pd.to_datetime(
+                            transformed_data[col], errors="coerce"
+                        )
                 except Exception as e:
-                    self.logger.warning(f"Failed to convert column {col} to {expected_type}: {e}")
+                    self.logger.warning(
+                        f"Failed to convert column {col} to {expected_type}: {e}"
+                    )
 
         return transformed_data
 
@@ -461,24 +481,22 @@ class PandasDataProcessor(BaseDataProcessor[pd.DataFrame]):
         self.value_ranges = ranges
 
     def export_data(
-        self,
-        data: pd.DataFrame,
-        destination: str | Path,
-        format: str = "csv",
-        **kwargs
+        self, data: pd.DataFrame, destination: str | Path, format: str = "csv", **kwargs
     ) -> bool:
         """Export DataFrame to file."""
         try:
             destination_path = Path(destination)
             destination_path.parent.mkdir(parents=True, exist_ok=True)
 
-            if format.lower() == 'csv':
-                data.to_csv(destination_path, index=False, encoding=self.encoding, **kwargs)
-            elif format.lower() in ['xlsx', 'excel']:
+            if format.lower() == "csv":
+                data.to_csv(
+                    destination_path, index=False, encoding=self.encoding, **kwargs
+                )
+            elif format.lower() in ["xlsx", "excel"]:
                 data.to_excel(destination_path, index=False, **kwargs)
-            elif format.lower() == 'json':
-                data.to_json(destination_path, orient='records', **kwargs)
-            elif format.lower() == 'parquet':
+            elif format.lower() == "json":
+                data.to_json(destination_path, orient="records", **kwargs)
+            elif format.lower() == "parquet":
                 data.to_parquet(destination_path, **kwargs)
             else:
                 raise ValueError(f"Unsupported export format: {format}")
@@ -492,14 +510,14 @@ class PandasDataProcessor(BaseDataProcessor[pd.DataFrame]):
                 f"Failed to export data to {destination}",
                 file_path=str(destination),
                 data_source="export",
-                cause=e
+                cause=e,
             ) from e
 
 
 class DataProcessorFactory:
     """Factory for creating data processors based on data type and source."""
 
-    _processors: dict[str, type] = {}
+    _processors: ClassVar[dict[str, type]] = {}
 
     @classmethod
     def register_processor(cls, data_type: str, processor_class: type) -> None:

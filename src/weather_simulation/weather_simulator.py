@@ -531,7 +531,9 @@ class WeatherSimulator:
         # Solar radiation: light smoothing only; night remains exactly zero
         if "shortwave_radiation" in smoothed_df.columns:
             smoothed_df["shortwave_radiation"] = (
-                smoothed_df["shortwave_radiation"].rolling(window=2, min_periods=1).mean()
+                smoothed_df["shortwave_radiation"]
+                .rolling(window=2, min_periods=1)
+                .mean()
             ).clip(lower=MIN_RADIATION_WM2, upper=MAX_RADIATION_WM2)
 
             # Enforce zero irradiance based on per-day sunrise/sunset derived from solar elevation
@@ -557,8 +559,8 @@ class WeatherSimulator:
                         sunrise_hour = int(hours_day[pos[0]])
                         sunset_hour = int(hours_day[pos[-1]])
                         # Quantize: include [sunrise_hour, sunset_hour) to avoid bleeding into last hour
-                        daylight_mask[day_sel] = (
-                            (hours_day >= sunrise_hour) & (hours_day < sunset_hour)
+                        daylight_mask[day_sel] = (hours_day >= sunrise_hour) & (
+                            hours_day < sunset_hour
                         )
                     else:
                         # Polar night or no sun: keep all False
@@ -568,15 +570,17 @@ class WeatherSimulator:
                 if not daylight_mask.all():
                     smoothed_df.loc[~daylight_mask, "shortwave_radiation"] = 0.0
 
-                # Compatibility clamp: ensure zero outside 06:00–20:00 as required by tests
+                # Compatibility clamp: ensure zero outside 06:00-20:00 as required by tests
                 hours = smoothed_df.index.hour
-                strict_night_mask = (hours < 6) | (hours > 20)
+                strict_night_mask = (hours < 6) | (hours > 20)  # noqa: PLR2004
                 if np.any(strict_night_mask):
                     smoothed_df.loc[strict_night_mask, "shortwave_radiation"] = 0.0
 
         return smoothed_df
 
-    def _compute_solar_elevation(self, timestamps: pd.DatetimeIndex, latitude: float) -> np.ndarray:
+    def _compute_solar_elevation(
+        self, timestamps: pd.DatetimeIndex, latitude: float
+    ) -> np.ndarray:
         """Compute solar elevation angle (degrees) using a simple astronomical model."""
         try:
             day_of_year = timestamps.dayofyear
@@ -603,7 +607,9 @@ class WeatherSimulator:
         ghi = 1000.0 * np.sin(elev_rad)  # peak ~1000 W/m²
         return np.clip(ghi, MIN_RADIATION_WM2, MAX_RADIATION_WM2)
 
-    def _apply_physical_constraints(self, location: str, df: pd.DataFrame) -> pd.DataFrame:
+    def _apply_physical_constraints(
+        self, location: str, df: pd.DataFrame
+    ) -> pd.DataFrame:
         """Enforce physical constraints and derive radiation from solar elevation and clouds."""
         out = df.copy()
         lat_lon = self.location_coords.get(location)
@@ -620,9 +626,15 @@ class WeatherSimulator:
         clear_sky = self._clear_sky_ghi(elevation)
 
         # Cloud attenuation factor: more cloud -> less radiation
-        clouds = out.get("cloud_cover", pd.Series(0, index=out.index)).clip(0, 100).to_numpy()
+        clouds = (
+            out.get("cloud_cover", pd.Series(0, index=out.index))
+            .clip(0, 100)
+            .to_numpy()
+        )
         attenuation = 1.0 - CLOUD_ATTENUATION_FACTOR * (clouds / 100.0)
-        attenuation = np.clip(attenuation, 0.05, 1.0)  # never negative, minimal daylight residual under heavy clouds
+        attenuation = np.clip(
+            attenuation, 0.05, 1.0
+        )  # never negative, minimal daylight residual under heavy clouds
 
         radiation = clear_sky * attenuation
         out["shortwave_radiation"] = radiation
@@ -635,7 +647,9 @@ class WeatherSimulator:
             "wind_speed_10m",
         ]:
             if col in out.columns:
-                out[col] = out[col].apply(lambda v: self._apply_parameter_bounds(col, float(v)))
+                out[col] = out[col].apply(
+                    lambda v, c=col: self._apply_parameter_bounds(c, float(v))
+                )
 
         # Ensure humidity and clouds are within [0,100]
         if "relative_humidity_2m" in out.columns:

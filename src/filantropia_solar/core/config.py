@@ -138,6 +138,7 @@ def _detect_app_version() -> str:
     # Fallback to package attribute
     try:
         from .. import __version__ as pkg_ver  # type: ignore
+
         return str(pkg_ver)
     except Exception:
         return "1.2.1"

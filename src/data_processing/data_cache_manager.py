@@ -223,13 +223,14 @@ class DataCacheManager:
         except Exception as e:
             logger.error(f"Error loading cached data {cache_key}: {e}")
             # Auto-invalidate corrupt/stale cache entries
-            try:
+            import contextlib
+            with contextlib.suppress(Exception):
                 self.invalidate_cache(data_type, identifier)
-            except Exception:
-                pass
             return None
 
-    def get_data_cache_entry(self, data_type: str, identifier: str) -> dict[str, Any] | None:
+    def get_data_cache_entry(
+        self, data_type: str, identifier: str
+    ) -> dict[str, Any] | None:
         """Return metadata row for a cached data entry if present."""
         try:
             cache_key = self._get_cache_key(data_type, identifier)
