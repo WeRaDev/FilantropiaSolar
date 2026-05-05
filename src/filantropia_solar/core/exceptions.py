@@ -7,12 +7,12 @@ error codes, and detailed error information for better debugging and user experi
 
 from collections.abc import Callable
 from datetime import datetime
-from enum import Enum
+from enum import StrEnum
 import traceback
 from typing import Any
 
 
-class ErrorCode(str, Enum):
+class ErrorCode(StrEnum):
     """Error codes for categorizing exceptions."""
 
     # General errors (1000-1999)

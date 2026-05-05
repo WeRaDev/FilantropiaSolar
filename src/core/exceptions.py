@@ -194,7 +194,7 @@ def retry_sync(
             raise RetryExhaustedError(
                 f"Failed after {config.max_attempts} attempts",
                 config.max_attempts,
-                last_exception,
+                last_exception,  # type: ignore[arg-type]
             )
 
         return wrapper
@@ -257,7 +257,7 @@ def retry_async(
             raise RetryExhaustedError(
                 f"Failed after {config.max_attempts} attempts",
                 config.max_attempts,
-                last_exception,
+                last_exception,  # type: ignore[arg-type]
             )
 
         return wrapper

@@ -9,7 +9,7 @@ from collections.abc import Callable
 from contextlib import contextmanager
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
-from enum import Enum
+from enum import StrEnum
 import functools
 import json
 import logging
@@ -24,7 +24,7 @@ from typing import Any, ClassVar, Optional
 from .config import get_settings
 
 
-class LogFormat(str, Enum):
+class LogFormat(StrEnum):
     """Log format types."""
 
     SIMPLE = "simple"

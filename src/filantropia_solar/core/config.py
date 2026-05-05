@@ -8,7 +8,7 @@ validation, and support for multiple environments.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from enum import Enum
+from enum import StrEnum
 from importlib.metadata import PackageNotFoundError
 from importlib.metadata import version as pkg_version
 import json
@@ -25,7 +25,7 @@ import yaml
 MAX_PORT_NUMBER = 65535
 
 
-class Environment(str, Enum):
+class Environment(StrEnum):
     """Application environment enumeration."""
 
     DEVELOPMENT = "development"
@@ -34,7 +34,7 @@ class Environment(str, Enum):
     PRODUCTION = "production"
 
 
-class LogLevel(str, Enum):
+class LogLevel(StrEnum):
     """Logging level enumeration."""
 
     DEBUG = "DEBUG"
