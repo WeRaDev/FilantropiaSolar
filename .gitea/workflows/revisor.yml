@@ -23,7 +23,7 @@ jobs:
       - name: Install dev tooling
         run: |
           .revisor-venv/bin/pip install --quiet --upgrade pip
-          .revisor-venv/bin/pip install --quiet ruff mypy bandit
+          .revisor-venv/bin/pip install --quiet ruff mypy bandit pytest pytest-cov pytest-asyncio
           .revisor-venv/bin/pip install --quiet -e ".[dev]" 2>/dev/null || \
             .revisor-venv/bin/pip install --quiet -r requirements.txt 2>/dev/null || true
 
