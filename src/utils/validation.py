@@ -9,7 +9,7 @@ from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import date, datetime
 from decimal import InvalidOperation
-from enum import Enum
+from enum import StrEnum
 import inspect
 import math
 from pathlib import Path
@@ -30,7 +30,7 @@ T = TypeVar("T")
 logger = get_logger("validation")
 
 
-class ValidationType(str, Enum):
+class ValidationType(StrEnum):
     """Types of validation rules."""
 
     TYPE_CHECK = "type_check"

@@ -14,6 +14,7 @@ from typing import Any
 import joblib
 import numpy as np
 import pandas as pd
+
 # Path helper import (packaged first, then dev layouts)
 try:
     from filantropia_solar.utils.paths import get_resource_path
@@ -30,7 +31,6 @@ from sklearn.linear_model import LinearRegression
 from sklearn.metrics import mean_absolute_error, r2_score
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler
-
 
 # Local imports
 from ..data_processing.comprehensive_data_processor import (
@@ -271,7 +271,7 @@ class EnhancedEnergyPredictor:
         ensemble_model = None
         ensemble_performance = None
 
-        if models and len(models) >= 2:
+        if models and len(models) >= 2:  # noqa: PLR2004
             try:
                 ensemble_model, ensemble_performance = self._create_ensemble_model(
                     models, performance, X_test_scaled, y_test
@@ -565,7 +565,7 @@ class EnhancedEnergyPredictor:
                 target = target.iloc[:min_len]
 
             # Feature selection based on importance (v1.1.1 Enhancement)
-            if len(features) > MINIMUM_TRAINING_SAMPLES and len(all_features) > 10:
+            if len(features) > MINIMUM_TRAINING_SAMPLES and len(all_features) > 10:  # noqa: PLR2004
                 try:
                     # Quick feature importance using Random Forest
                     from sklearn.ensemble import RandomForestRegressor
@@ -628,7 +628,7 @@ class EnhancedEnergyPredictor:
                 if performance[name]["r2"] >= MIN_R2_FOR_ENSEMBLE
             }
 
-            if len(qualified_models) < 2:
+            if len(qualified_models) < 2:  # noqa: PLR2004
                 logger.debug("Not enough qualified models for ensemble")
                 return None, None
 
@@ -801,13 +801,13 @@ class EnhancedEnergyPredictor:
                 hour = data["hour"]
                 # Peak sun hours indicator (10 AM to 4 PM typically most efficient)
                 enhanced_data["peak_sun_indicator"] = (
-                    (hour >= 10) & (hour <= 16)
+                    (hour >= 10) & (hour <= 16)  # noqa: PLR2004
                 ).astype(float)
                 # Morning/evening ramp indicators
-                enhanced_data["morning_ramp"] = ((hour >= 6) & (hour <= 10)).astype(
+                enhanced_data["morning_ramp"] = ((hour >= 6) & (hour <= 10)).astype(  # noqa: PLR2004
                     float
                 )
-                enhanced_data["evening_ramp"] = ((hour >= 16) & (hour <= 20)).astype(
+                enhanced_data["evening_ramp"] = ((hour >= 16) & (hour <= 20)).astype(  # noqa: PLR2004
                     float
                 )
 
@@ -954,14 +954,16 @@ class EnhancedEnergyPredictor:
             lon = getattr(installation_info, "longitude", None)
 
             # Excel fallback when coordinates are missing or zero
-            if (not lat or not lon or lat == 0.0 or lon == 0.0):
+            if not lat or not lon or lat == 0.0 or lon == 0.0:
                 try:
                     # Prefer lowercase 'data' directory; keep compatibility if packaging bundles resources differently
                     meta_path = get_resource_path("data/PV Plants Metadata.xlsx")
                     if meta_path.exists():
                         mdf = pd.read_excel(meta_path)
                         cols = {c.lower(): c for c in mdf.columns}
-                        sn_col = cols.get("pv serial number") or cols.get("pv_serial_number")
+                        sn_col = cols.get("pv serial number") or cols.get(
+                            "pv_serial_number"
+                        )
                         loc_col = cols.get("location")
                         lat_col = cols.get("latitude")
                         lon_col = cols.get("longitude")
@@ -1139,12 +1141,15 @@ class EnhancedEnergyPredictor:
             # Fallback: take any available installation
             avail = self.get_available_installations()
             if not avail:
-                raise ValueError("No trained installations available for custom simulation")
+                raise ValueError(
+                    "No trained installations available for custom simulation"
+                )
             ref_id, ref_info = avail[0]
 
         # Build a shallow copy of installation_info with overridden capacity/location
         class _Proxy:
             pass
+
         proxy = _Proxy()
         proxy.installation_id = ref_info.installation_id
         proxy.location = location
@@ -1155,8 +1160,12 @@ class EnhancedEnergyPredictor:
 
         # Compute period
         half = max(1, days // 2)
-        start_date = (center_date - timedelta(days=half)).replace(hour=0, minute=0, second=0, microsecond=0)
-        end_date = (center_date + timedelta(days=half)).replace(hour=23, minute=59, second=59, microsecond=999999)
+        start_date = (center_date - timedelta(days=half)).replace(
+            hour=0, minute=0, second=0, microsecond=0
+        )
+        end_date = (center_date + timedelta(days=half)).replace(
+            hour=23, minute=59, second=59, microsecond=999999
+        )
 
         # Weather
         weather_data, weather_source_info = self._get_weather_data_for_period(
@@ -1167,7 +1176,9 @@ class EnhancedEnergyPredictor:
             True,
         )
         # Features and predictions using reference model
-        prediction_features = self._prepare_prediction_features(weather_data, proxy, ref_id)
+        prediction_features = self._prepare_prediction_features(
+            weather_data, proxy, ref_id
+        )
         predictions = self._make_predictions(
             self.models[ref_id],
             self.scalers[ref_id],
@@ -1189,7 +1200,7 @@ class EnhancedEnergyPredictor:
         self,
         weather_data: pd.DataFrame,
         installation_info: InstallationInfo,
-        installation_id: str = None,
+        installation_id: str | None = None,
     ) -> np.ndarray:
         """Prepare features for prediction from weather data (v1.1.1 Enhanced).
 
@@ -1333,7 +1344,7 @@ class EnhancedEnergyPredictor:
         model_info: dict[str, Any],
         scaler: StandardScaler,
         features: np.ndarray,
-        installation_id: str = None,
+        installation_id: str | None = None,
     ) -> np.ndarray:
         """Make energy production predictions with feature alignment guard rails (v1.1.1)."""
         try:
@@ -1391,15 +1402,15 @@ class EnhancedEnergyPredictor:
         # predictions are specific energy (kWh/kWp)
         ranks: list[int] = []
         for val in predictions:
-            if val < 0.05:
+            if val < 0.05:  # noqa: PLR2004
                 ranks.append(0)
-            elif val < 0.2:
+            elif val < 0.2:  # noqa: PLR2004
                 ranks.append(1)
-            elif val < 0.4:
+            elif val < 0.4:  # noqa: PLR2004
                 ranks.append(2)
-            elif val < 0.6:
+            elif val < 0.6:  # noqa: PLR2004
                 ranks.append(3)
-            elif val < 0.8:
+            elif val < 0.8:  # noqa: PLR2004
                 ranks.append(4)
             else:
                 ranks.append(5)
@@ -1489,12 +1500,18 @@ class EnhancedEnergyPredictor:
 
                 if available_historical_cols:
                     # Only merge rows that have matching timestamps
-                    historical_subset = historical_data[available_historical_cols].copy()
+                    historical_subset = historical_data[
+                        available_historical_cols
+                    ].copy()
                     # Deduplicate any ambiguous local-time duplicates (e.g., DST end 01:00 occurs twice)
                     # Keep the first occurrence to maintain a single row per timestamp before merge
                     if historical_subset.index.has_duplicates:
-                        dup_count = int(historical_subset.index.duplicated(keep="first").sum())
-                        historical_subset = historical_subset[~historical_subset.index.duplicated(keep="first")]
+                        dup_count = int(
+                            historical_subset.index.duplicated(keep="first").sum()
+                        )
+                        historical_subset = historical_subset[
+                            ~historical_subset.index.duplicated(keep="first")
+                        ]
                         logger.debug(
                             f"Deduplicated {dup_count} duplicate historical timestamp rows before merge"
                         )
@@ -1529,8 +1546,12 @@ class EnhancedEnergyPredictor:
             }
 
             # Map colors/descriptions from the DataFrame's ranking column to avoid length mismatches after merge
-            results_df["ranking_color"] = results_df["ranking"].map(color_map).fillna("#f1c40f")
-            results_df["ranking_description"] = results_df["ranking"].map(desc_map).fillna("Average")
+            results_df["ranking_color"] = (
+                results_df["ranking"].map(color_map).fillna("#f1c40f")
+            )
+            results_df["ranking_description"] = (
+                results_df["ranking"].map(desc_map).fillna("Average")
+            )
 
             # Calculate daily summaries
             daily_summary = (

@@ -8,7 +8,9 @@ validation, and support for multiple environments.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from enum import Enum
+from enum import StrEnum
+from importlib.metadata import PackageNotFoundError
+from importlib.metadata import version as pkg_version
 import json
 import logging
 import os
@@ -18,13 +20,12 @@ from typing import Any
 from pydantic import Field, validator
 from pydantic_settings import BaseSettings
 import yaml
-from importlib.metadata import PackageNotFoundError, version as pkg_version
 
 # Constants
 MAX_PORT_NUMBER = 65535
 
 
-class Environment(str, Enum):
+class Environment(StrEnum):
     """Application environment enumeration."""
 
     DEVELOPMENT = "development"
@@ -33,7 +34,7 @@ class Environment(str, Enum):
     PRODUCTION = "production"
 
 
-class LogLevel(str, Enum):
+class LogLevel(StrEnum):
     """Logging level enumeration."""
 
     DEBUG = "DEBUG"
@@ -137,6 +138,7 @@ def _detect_app_version() -> str:
     # Fallback to package attribute
     try:
         from .. import __version__ as pkg_ver  # type: ignore
+
         return str(pkg_ver)
     except Exception:
         return "1.2.1"

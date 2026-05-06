@@ -1,6 +1,7 @@
 """
 Weather providers abstraction and Open-Meteo integration.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -44,10 +45,10 @@ class OpenMeteoWeatherProvider:
     BASE_FORECAST: str = "https://api.open-meteo.com/v1/forecast"
     BASE_ARCHIVE: str = "https://archive-api.open-meteo.com/v1/archive"
 
-    def _cache_id(self, lat: float, lon: float, start: datetime, end: datetime, source: str) -> str:
-        return (
-            f"openmeteo_{source}_{lat:.4f}_{lon:.4f}_{start.strftime('%Y%m%d%H')}_{end.strftime('%Y%m%d%H')}"
-        )
+    def _cache_id(
+        self, lat: float, lon: float, start: datetime, end: datetime, source: str
+    ) -> str:
+        return f"openmeteo_{source}_{lat:.4f}_{lon:.4f}_{start.strftime('%Y%m%d%H')}_{end.strftime('%Y%m%d%H')}"
 
     def _get_session(self) -> requests.Session:
         if self.session:
@@ -69,7 +70,7 @@ class OpenMeteoWeatherProvider:
         s = self._get_session()
         try:
             resp = s.get(url, params=params, timeout=self.timeout)
-            if resp.status_code == 200:
+            if resp.status_code == 200:  # noqa: PLR2004
                 return resp.json()
             logger.warning(f"Open-Meteo HTTP {resp.status_code}: {resp.text[:200]}")
         except Exception as e:
@@ -83,7 +84,9 @@ class OpenMeteoWeatherProvider:
             if not times:
                 return None
             df = pd.DataFrame(hourly)
-            df["datetime"] = pd.to_datetime(df["time"])  # timezone already applied by API
+            df["datetime"] = pd.to_datetime(
+                df["time"]
+            )  # timezone already applied by API
             df = df.set_index("datetime").drop(columns=["time"])  # type: ignore[arg-type]
 
             # Rename to internal schema if needed
@@ -131,25 +134,34 @@ class OpenMeteoWeatherProvider:
         source = "archive" if use_archive else "forecast"
 
         cache_id = self._cache_id(latitude, longitude, start, end, source)
+        import contextlib
         if self.cache_manager and getattr(self.cache_manager, "is_cached", None):
-            try:
+            with contextlib.suppress(Exception):
                 if self.cache_manager.is_cached("weather_api", cache_id):
                     # For forecast, require freshness (e.g., <= 3 hours old)
                     fresh_ok = True
-                    if source == "forecast" and getattr(self.cache_manager, "get_data_cache_entry", None):
-                        meta = self.cache_manager.get_data_cache_entry("weather_api", cache_id)
+                    if source == "forecast" and getattr(
+                        self.cache_manager, "get_data_cache_entry", None
+                    ):
+                        meta = self.cache_manager.get_data_cache_entry(
+                            "weather_api", cache_id
+                        )
                         if meta and meta.get("created_at"):
                             try:
-                                created = pd.to_datetime(meta["created_at"])  # sqlite timestamp
-                                fresh_ok = (datetime.utcnow() - created.to_pydatetime()) <= timedelta(hours=3)
+                                created = pd.to_datetime(
+                                    meta["created_at"]
+                                )  # sqlite timestamp
+                                fresh_ok = (
+                                    datetime.utcnow() - created.to_pydatetime()
+                                ) <= timedelta(hours=3)
                             except Exception:
                                 fresh_ok = True
                     if fresh_ok:
-                        cached = self.cache_manager.load_cached_data("weather_api", cache_id)
+                        cached = self.cache_manager.load_cached_data(
+                            "weather_api", cache_id
+                        )
                         if isinstance(cached, pd.DataFrame):
                             return cached
-            except Exception:
-                pass
 
         params = {
             "latitude": latitude,
@@ -175,14 +187,22 @@ class OpenMeteoWeatherProvider:
             return None
 
         # Clip ranges and basic sanity
-        df["relative_humidity_2m"] = pd.to_numeric(df["relative_humidity_2m"], errors="coerce").clip(0, 100)
-        df["cloud_cover"] = pd.to_numeric(df["cloud_cover"], errors="coerce").clip(0, 100)
-        df["wind_speed_10m"] = pd.to_numeric(df["wind_speed_10m"], errors="coerce").clip(lower=0)
+        df["relative_humidity_2m"] = pd.to_numeric(
+            df["relative_humidity_2m"], errors="coerce"
+        ).clip(0, 100)
+        df["cloud_cover"] = pd.to_numeric(df["cloud_cover"], errors="coerce").clip(
+            0, 100
+        )
+        df["wind_speed_10m"] = pd.to_numeric(
+            df["wind_speed_10m"], errors="coerce"
+        ).clip(lower=0)
         df["temperature_2m"] = pd.to_numeric(df["temperature_2m"], errors="coerce")
-        df["shortwave_radiation"] = pd.to_numeric(df["shortwave_radiation"], errors="coerce").clip(lower=0)
+        df["shortwave_radiation"] = pd.to_numeric(
+            df["shortwave_radiation"], errors="coerce"
+        ).clip(lower=0)
 
         if self.cache_manager and getattr(self.cache_manager, "cache_data", None):
-            try:
+            with contextlib.suppress(Exception):
                 self.cache_manager.cache_data(
                     df,
                     "weather_api",
@@ -196,6 +216,4 @@ class OpenMeteoWeatherProvider:
                         "end": end.isoformat(),
                     },
                 )
-            except Exception:
-                pass
         return df

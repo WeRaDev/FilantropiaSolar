@@ -172,6 +172,7 @@ def generate_ranking_summary(df):
 
 # Backward-compatibility shims expected by tests
 
+
 def get_energy_rank(specific_energy):
     """Alias for calculate_specific_energy_ranking for backward compatibility."""
     return calculate_specific_energy_ranking(specific_energy)
