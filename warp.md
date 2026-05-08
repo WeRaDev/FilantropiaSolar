@@ -714,9 +714,3 @@ Keep `store/app.js` as a thin orchestration layer if needed.
 2. Extract CSV export logic from `store/app.js` into a utility module
 3. Migrate Sass `@import` to `@use/@forward` before Dart Sass 3.0 removal
 4. Add frontend tests with vitest (configured but no tests written yet)
-
-## DevOps Architect baseline (Archon-SE Enhanced)
-- This repository adopts the enhanced DevOps Architect profile defined in `AGENTS.md`.
-- Prioritize smallest viable changes, explicit verification, and rollback notes for infra-impacting updates.
-- Gate irreversible operations (data drops, force-push, destructive infra actions, production deploys) behind explicit user confirmation.
-- Prefer evidence-backed diagnostics over assumptions; include observable success/failure checks for each non-trivial change.
