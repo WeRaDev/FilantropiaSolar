@@ -78,14 +78,14 @@ FilantropiaSolar is an advanced solar energy analysis application designed speci
 
 #### Option 1: Windows Installer (Recommended)
 1. **Download** the Windows installer from [Releases](../../releases)
-2. **Run** `FilantropiaSolar-1.2.1.exe`
+2. **Run** `FilantropiaSolar-1.2.3.exe`
 3. **Installer is non-admin and minimal-interaction**; shortcuts are created
 4. **Launch** from Start Menu or desktop shortcut
 
 #### Option 2: Cross-Platform Python
 ```bash
 # Clone the repository
-git clone https://github.com/your-username/FilantropiaSolar.git
+git clone https://github.com/WeRaDev/FilantropiaSolar.git
 cd FilantropiaSolar
 
 # Install dependencies
@@ -213,7 +213,7 @@ chmod +x FilantropiaSolar-v1.0.3-Linux.AppImage
 ---
 
 ## 🎯 Performance Ranking System
-The system uses a 5-tier ranking based on specific energy (kWh/kWp):
+The desktop app uses a 5-tier ranking based on specific energy (kWh/kWp). The Nextcloud app uses a separate Normalized Specific Energy formula; the two ranking systems are scoped per component.
 
 | Rank | Range (kWh/kWp) | Description | Color | Use Case |
 |------|----------------|-------------|-------|----------|
@@ -515,7 +515,7 @@ For support, questions, or feature requests:
 - **Weather Parameters**: 8 meteorological variables
 - **Prediction Accuracy**: Up to 90% R² score
 - **Ranking System**: 5-tier optimization framework
-- **Version**: 1.0.0 (Production Ready)
+- **Version**: 1.2.3 (Production Ready)
 
 ---
 

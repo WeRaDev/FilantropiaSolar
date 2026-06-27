@@ -2,6 +2,14 @@
 
 This repository includes a Warp Agent configured to help you maintain, refactor, test, and ship FilantropiaSolar with high engineering quality. It automates routine tasks while enforcing the project’s standards.
 
+## Governance baseline (WeRa Global)
+This project inherits the WeRa Global umbrella governance. Companion instruction files live at the project root and take precedence for FilantropiaSolar work:
+- `AGENTS.md`: provider-agnostic coding-agent instructions (canonical agent behavior).
+- `SOUL.md`: project constitutional layer; inherits the umbrella `SOUL.md` and must not be weakened.
+- `CLAUDE.md`: compatibility shim that points to `AGENTS.md`.
+- `CONTRIBUTING.md`: contribution workflow and required reading.
+Precedence on conflict: project `AGENTS.md` > umbrella `AGENTS.md` > this `warp.md`. `SOUL.md` invariants override process convenience.
+
 ## What this agent does
 - Codebase navigation: search files, grep symbols, read/edit files, batch edit patches.
 - Quality automation: run formatters/linters (ruff), type checks (mypy), tests (pytest), and suggest fixes.
@@ -104,6 +112,12 @@ source venv/bin/activate && python - <<'PY'
 PY
 ```
 
+## Current status (2026-06)
+- Desktop app: v1.2.3 shipped (Windows installer hardening, SciPy bundling, Lisbon baseline overlay, DST merge fix); see `pyproject.toml` and `CHANGELOG.md`.
+- Nextcloud app: v3.0.6 shipped (`nextcloud-app/`); see release notes below.
+- VCS: primary remote is Gitea (`origin`) with a GitHub mirror; CI runs on Gitea (`.gitea/workflows/`), legacy GitHub Actions deprecated.
+- A `pre-reorg-*` tag marks a planned reorganization; see `layout.specs.md` and `UPGRADE/`.
+- The dated status sections below are retained as a running history log, not the current state.
 ## Current status (2025-10-20 Final)
 - ✅ **CRITICAL FIXES COMPLETED**: Fixed F821 undefined name errors in enhanced_energy_predictor.py (missing Path, joblib imports) - model saving/loading now works.
 - ✅ **Complexity reduction**: Refactored _create_hourly_energy_chart in main.py, extracted 11+ helper methods, reduced PLR0912/0915 violations.
@@ -546,6 +560,7 @@ const RANK_COLORS = {
 ```
 
 ## Ranking System (Normalized Specific Energy)
+Note: this is the Nextcloud app's ranking and intentionally differs from the desktop app's specific-energy (kWh/kWp) 5-tier in `README.md`. Keep the two scoped per component unless unification is explicitly requested.
 
 Formula: `NSE = Y / (X * Z)`
 - Y = Energy produced (kWh)
