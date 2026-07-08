@@ -42,5 +42,6 @@ return [
         // Public read-only API (token-authed) for external consumers (Odoo)
         ['name' => 'public_api#stations', 'url' => '/api/public/v1/stations', 'verb' => 'GET'],
         ['name' => 'public_api#dashboard', 'url' => '/api/public/v1/dashboard', 'verb' => 'GET'],
+        ['name' => 'public_api#estimate', 'url' => '/api/public/v1/estimate', 'verb' => 'POST'],
     ],
 ];
