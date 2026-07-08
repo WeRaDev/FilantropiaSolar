@@ -219,4 +219,44 @@ class InstallationMapper extends QBMapper
             return $this->findEntities($qb)[0];
         }
     }
+
+    /**
+     * Find a dataset (global) installation by DB id, or null.
+     */
+    public function findDatasetById(int $id): ?Installation
+    {
+        $qb = $this->db->getQueryBuilder();
+
+        $qb->select('*')
+            ->from($this->getTableName())
+            ->where($qb->expr()->eq('id', $qb->createNamedParameter($id, IQueryBuilder::PARAM_INT)))
+            ->andWhere($qb->expr()->eq('source', $qb->createNamedParameter('dataset')))
+            ->setMaxResults(1);
+
+        try {
+            return $this->findEntity($qb);
+        } catch (DoesNotExistException $e) {
+            return null;
+        } catch (MultipleObjectsReturnedException $e) {
+            return $this->findEntities($qb)[0];
+        }
+    }
+
+    /**
+     * Count installations by source ('dataset' or 'user').
+     */
+    public function countBySource(string $source): int
+    {
+        $qb = $this->db->getQueryBuilder();
+
+        $qb->select($qb->createFunction('COUNT(*)'))
+            ->from($this->getTableName())
+            ->where($qb->expr()->eq('source', $qb->createNamedParameter($source)));
+
+        $result = $qb->executeQuery();
+        $count = (int) $result->fetchOne();
+        $result->closeCursor();
+
+        return $count;
+    }
 }
