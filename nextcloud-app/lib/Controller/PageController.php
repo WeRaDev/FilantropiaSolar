@@ -1,0 +1,30 @@
+<?php
+
+declare(strict_types=1);
+
+namespace OCA\FilantropiaSolar\Controller;
+
+use OCA\FilantropiaSolar\AppInfo\Application;
+use OCP\AppFramework\Controller;
+use OCP\AppFramework\Http\Attribute\NoAdminRequired;
+use OCP\AppFramework\Http\Attribute\NoCSRFRequired;
+use OCP\AppFramework\Http\TemplateResponse;
+use OCP\IRequest;
+
+/**
+ * Page Controller - Renders the main application page
+ */
+class PageController extends Controller
+{
+    public function __construct(IRequest $request)
+    {
+        parent::__construct(Application::APP_ID, $request);
+    }
+
+    #[NoAdminRequired]
+    #[NoCSRFRequired]
+    public function index(): TemplateResponse
+    {
+        return new TemplateResponse(Application::APP_ID, 'index');
+    }
+}

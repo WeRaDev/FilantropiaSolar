@@ -426,3 +426,9 @@ yarn-error.log*
 generated/
 auto_generated/
 *.generated.*
+# Nextcloud app PHP backend is real source, not an ignored build lib/ dir
+!nextcloud-app/lib/
+!nextcloud-app/lib/**
+
+# Never track macOS metadata, even under re-included dirs
+**/.DS_Store

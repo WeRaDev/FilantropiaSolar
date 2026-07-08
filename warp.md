@@ -694,9 +694,10 @@ These are non-blocking warnings about @import syntax. Will need migration to @us
 
 ### Component Size Limits
 Target max ~400 lines per Vue SFC. Components above this need attention:
-- `AnalyticsModal.vue` (1,703 lines) - Split chart sections into `components/charts/` sub-components
-- `AnalyticsPanel.vue` (1,026 lines) - Extract reusable analysis widgets
-- `CreateVirtualModal.vue` (608 lines) - Extract form sections if it grows further
+- `AnalyticsModal.vue` (637 lines) - Reduced from 1,489 by the analytics split; still above target due to chart-section markup + scoped CSS. Remaining: extract a chart-section component and a date-range composable.
+- `components/analytics/AnalyticsHeader.vue` (574 lines) - Mostly scoped CSS; split the weather-toggle / ML-info widgets if it grows further.
+- `CreateVirtualModal.vue` (~719 lines) - Extract form sections if it grows further.
+- Removed as dead code: `AnalyticsPanel.vue` and `components/charts/*.vue` (not referenced from `Dashboard.vue`).
 
 ### Store Architecture
 `store/app.js` (~550 lines) is monolithic. When adding features, consider splitting into:
@@ -725,7 +726,21 @@ Keep `store/app.js` as a thin orchestration layer if needed.
 - Main bundle reduced from 30.7 KiB to 29 KiB
 
 ### Next Refactoring Priorities
-1. Split `AnalyticsModal.vue` into chart sub-components (highest impact)
-2. Extract CSV export logic from `store/app.js` into a utility module
-3. Migrate Sass `@import` to `@use/@forward` before Dart Sass 3.0 removal
-4. Add frontend tests with vitest (configured but no tests written yet)
+1. Finish slimming `AnalyticsModal.vue` under ~400 lines: extract the chart-section into its own component and a `useAnalyticsDateRange` composable (date/timeframe/mode orchestration).
+2. Extract CSV export logic from `store/app.js` into a utility module.
+3. Migrate Sass `@import` to `@use/@forward` before Dart Sass 3.0 removal.
+4. Add frontend tests with vitest (configured but no tests written yet); start with the new pure composables (`useAnalyticsStats`) and `utils/ranking.js`.
+## AnalyticsModal Split (2026-07-03 Session)
+Executed the "Split and slim AnalyticsModal.vue" plan on branch `refactor/analytics-modal-split`.
+### Dead code removed
+- Deleted `components/AnalyticsPanel.vue` (1,029 lines) and `components/charts/{EnergyChart,WeatherChart,DailyOverviewChart}.vue` - an unreachable cluster (AnalyticsPanel imported the charts but was never referenced from `Dashboard.vue`/router). Only a docs diagram (`docs/flowcharts/ui-architecture-v1.mmd`) still mentions it.
+### Extracted
+- `composables/useAnalyticsStats.js` - hourlyData, totalDays, currentDayLabel, chartTitle, dateRangeLabel, periodStats, dailySummary.
+- `composables/useAnalyticsExport.js` - isExporting + exportData.
+- `components/analytics/AnalyticsHeader.vue` - header (mode toggle, date picker, timeframe buttons, weather-layer dropdown, ML-info popover, export/close) wired via props + events.
+- `components/analytics/KeyMetricsPanel.vue` and `components/analytics/DailySummaryPanel.vue` - right-column widgets with their own scoped CSS.
+### Result
+- `AnalyticsModal.vue`: 1,489 -> 637 lines; now an orchestrator (store wiring, open/close + keydown, chart canvas via `useEnergyChart`, composition of the above).
+- Chart rendering remains in `composables/useEnergyChart.js` (single combined canvas).
+- `npm run build` compiles cleanly (only pre-existing Sass `@import`/legacy-JS-API deprecation warnings from `App.vue`).
+- Behavior preserved by construction; not yet manually smoke-tested in a running Nextcloud instance.
