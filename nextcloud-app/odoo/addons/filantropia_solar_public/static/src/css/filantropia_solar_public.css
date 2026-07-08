@@ -1,0 +1,89 @@
+.fs-public-wrap {
+    background: #fdfbf5;
+    color: #2c2b28;
+}
+
+.fs-hero {
+    background: linear-gradient(135deg, #a89d3f 0%, #c4b552 50%, #d4c563 100%);
+    color: #ffffff;
+}
+
+.fs-hero h1 {
+    font-size: 2.4rem;
+    font-weight: 700;
+    letter-spacing: 0.03em;
+}
+
+.fs-card {
+    background: #ffffff;
+    border: 1px solid #ece7d8;
+    border-radius: 14px;
+    padding: 1.25rem;
+    box-shadow: 0 8px 24px rgba(168, 157, 63, 0.08);
+}
+
+.fs-card-title {
+    color: #7f7428;
+    font-size: 1.2rem;
+    margin-bottom: 0.9rem;
+}
+
+.fs-metrics li,
+.fs-station-list li {
+    padding: 0.45rem 0;
+    border-bottom: 1px dashed #ece7d8;
+}
+
+.fs-metrics li:last-child,
+.fs-station-list li:last-child {
+    border-bottom: 0;
+}
+
+.fs-map {
+    height: 440px;
+    border-radius: 10px;
+    border: 1px solid #ece7d8;
+}
+
+.fs-btn-primary,
+.fs-btn-secondary {
+    border-radius: 10px;
+    border: 0;
+    font-weight: 600;
+    padding: 0.6rem 1rem;
+}
+
+.fs-btn-primary {
+    background-color: #a89d3f;
+    color: #ffffff;
+}
+
+.fs-btn-primary:hover,
+.fs-btn-primary:focus {
+    background-color: #918834;
+    color: #ffffff;
+}
+
+.fs-btn-secondary {
+    background-color: #c4b552;
+    color: #2c2b28;
+}
+
+.fs-btn-secondary:hover,
+.fs-btn-secondary:focus {
+    background-color: #d4c563;
+    color: #2c2b28;
+}
+
+.fs-estimate {
+    background: #f5f1df;
+    border: 1px solid #e8dfb9;
+    border-radius: 10px;
+    padding: 1rem;
+}
+
+.fs-estimate h4 {
+    color: #7f7428;
+    margin-bottom: 0.75rem;
+    font-size: 1rem;
+}

@@ -96,6 +96,46 @@ services:
       - debug
     restart: unless-stopped
 
+  # Odoo PostgreSQL (optional, odoo profile only)
+  odoo-db:
+    image: postgres:16-alpine
+    container_name: filantropia-odoo-db
+    environment:
+      - POSTGRES_DB=postgres
+      - POSTGRES_USER=odoo
+      - POSTGRES_PASSWORD=odoo_dev_password
+    volumes:
+      - odoo_db_data:/var/lib/postgresql/data
+    networks:
+      - filantropia-net
+    profiles:
+      - odoo
+    restart: unless-stopped
+
+  # Odoo 19 public website and CRM (optional, odoo profile only)
+  odoo:
+    image: odoo:19.0
+    container_name: filantropia-odoo
+    depends_on:
+      - odoo-db
+      - nextcloud
+    ports:
+      - "8069:8069"
+    environment:
+      - HOST=odoo-db
+      - USER=odoo
+      - PASSWORD=odoo_dev_password
+      - FS_API_BASE_URL=http://filantropia-nextcloud/apps/filantropia_solar/api/public/v1
+      - FS_PUBLIC_API_TOKEN=${FS_PUBLIC_API_TOKEN:-REPLACE_ME}
+    volumes:
+      - odoo_data:/var/lib/odoo
+      - ./odoo/addons:/mnt/extra-addons
+    networks:
+      - filantropia-net
+    profiles:
+      - odoo
+    restart: unless-stopped
+
 networks:
   filantropia-net:
     driver: bridge
@@ -104,3 +144,5 @@ volumes:
   nextcloud_data:
   db_data:
   ml_models:
+  odoo_data:
+  odoo_db_data:
