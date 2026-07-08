@@ -10,6 +10,7 @@ import logging
 from datetime import datetime, timedelta
 from typing import List, Optional, Dict, Any
 from pathlib import Path
+from dataclasses import dataclass
 
 import numpy as np
 import pandas as pd
@@ -18,6 +19,12 @@ import httpx
 from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
+from sklearn.base import clone
+from sklearn.ensemble import GradientBoostingRegressor, RandomForestRegressor
+from sklearn.linear_model import LinearRegression
+from sklearn.metrics import mean_absolute_error, r2_score
+from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import StandardScaler
 
 from features import (
     ALL_FEATURES,
@@ -51,6 +58,9 @@ LOCATION_COORDS = {
 ENSEMBLE_WEIGHT_RF = 0.4
 ENSEMBLE_WEIGHT_GB = 0.35
 ENSEMBLE_WEIGHT_LINEAR = 0.25
+GRID_PRICE_EUR_PER_KWH = 0.15
+MINIMUM_TRAINING_SAMPLES = 200
+DASHBOARD_CACHE_TTL_SECONDS = 900
 
 
 # Pydantic models for API
@@ -98,6 +108,20 @@ class HealthResponse(BaseModel):
     locations_available: List[str]
 
 
+class EstimateRequest(BaseModel):
+    latitude: float
+    longitude: float
+    capacity_kwp: float = Field(gt=0)
+    location: Optional[str] = None
+
+
+class EstimateResponse(BaseModel):
+    annual_production_kwh: float
+    annual_savings_eur: float
+    specific_energy_kwh_kwp: float
+    method: str
+
+
 # Initialize FastAPI app
 app = FastAPI(
     title="FilantropiaSolar ML Service",
@@ -118,11 +142,26 @@ app.add_middleware(
 _models_cache = {}
 _scalers_cache = {}
 _feature_names_cache = {}
+_model_metrics_cache = {}
+_model_name_cache = {}
 
 # Data cache (loaded from Excel files)
 _installations_cache: Dict[str, Dict[str, Any]] = {}
 _energy_data_cache: Dict[str, pd.DataFrame] = {}
 _weather_data_cache: Dict[str, pd.DataFrame] = {}
+_dashboard_cache: Dict[str, Any] = {"computed_at": None, "data": None}
+
+
+@dataclass
+class WeightedEnsembleRegressor:
+    models: Dict[str, Any]
+    weights: Dict[str, float]
+
+    def predict(self, features: np.ndarray) -> np.ndarray:
+        blended = np.zeros(len(features))
+        for model_name, model in self.models.items():
+            blended += self.weights[model_name] * model.predict(features)
+        return blended
 
 
 def load_model(installation_id: str) -> dict:
@@ -132,6 +171,8 @@ def load_model(installation_id: str) -> dict:
             "model": _models_cache[installation_id],
             "scaler": _scalers_cache.get(installation_id),
             "feature_names": _feature_names_cache.get(installation_id, ALL_FEATURES),
+            "best_model_name": _model_name_cache.get(installation_id, "unknown"),
+            "metrics": _model_metrics_cache.get(installation_id, {}),
         }
     
     model_file = os.path.join(MODEL_PATH, f"{installation_id}_model.joblib")
@@ -141,10 +182,14 @@ def load_model(installation_id: str) -> dict:
             _models_cache[installation_id] = bundle.get("model") or bundle.get("best_model")
             _scalers_cache[installation_id] = bundle.get("scaler")
             _feature_names_cache[installation_id] = bundle.get("feature_names", ALL_FEATURES)
+            _model_name_cache[installation_id] = bundle.get("best_model_name", "unknown")
+            _model_metrics_cache[installation_id] = bundle.get("metrics", {})
             return {
                 "model": _models_cache[installation_id],
                 "scaler": _scalers_cache[installation_id],
                 "feature_names": _feature_names_cache[installation_id],
+                "best_model_name": _model_name_cache[installation_id],
+                "metrics": _model_metrics_cache[installation_id],
             }
         except Exception as e:
             logger.error(f"Failed to load model for {installation_id}: {e}")
@@ -405,6 +450,132 @@ async def get_locations():
     return LOCATION_COORDS
 
 
+@app.post("/train")
+async def train_all_models():
+    """Train models for all dataset installations and persist bundles to MODEL_PATH."""
+    installations = load_installations_from_excel()
+    if not installations:
+        raise HTTPException(404, "No installations available for training")
+
+    trained = {}
+    failed = {}
+    for installation_id in installations:
+        try:
+            trained[installation_id] = train_single_installation(installation_id)
+        except Exception as exc:  # noqa: BLE001
+            failed[installation_id] = str(exc)
+            logger.error("Training failed for %s: %s", installation_id, exc)
+
+    if not trained:
+        raise HTTPException(500, {"message": "Training failed for all installations", "failed": failed})
+
+    _refresh_dashboard_cache(force=True)
+    return {
+        "success": True,
+        "trained_count": len(trained),
+        "failed_count": len(failed),
+        "trained_models": trained,
+        "failed_models": failed,
+    }
+
+
+@app.post("/train/{installation_id}")
+async def train_one_model(installation_id: str):
+    """Retrain one installation model and persist to MODEL_PATH."""
+    installations = load_installations_from_excel()
+    if installation_id not in installations:
+        raise HTTPException(404, f"Installation not found: {installation_id}")
+
+    result = train_single_installation(installation_id)
+    return {"success": True, "trained_model": result}
+
+
+@app.post("/estimate", response_model=EstimateResponse)
+async def estimate_annual_production(request: EstimateRequest):
+    """
+    Estimate annual production and savings for a virtual station.
+    Uses nearest trained model when available, otherwise physics fallback.
+    """
+    location = request.location or "Lisbon"
+    if location not in LOCATION_COORDS:
+        location = min(
+            LOCATION_COORDS.keys(),
+            key=lambda key: (
+                (LOCATION_COORDS[key]["lat"] - request.latitude) ** 2
+                + (LOCATION_COORDS[key]["lon"] - request.longitude) ** 2
+            ),
+        )
+
+    weather_df = load_weather_data(location)
+    if weather_df.empty:
+        start_date = datetime.utcnow().replace(hour=0, minute=0, second=0, microsecond=0)
+        weather_df = generate_synthetic_weather(location, start_date, 365)
+    else:
+        weather_df = _normalize_weather_columns(weather_df)
+        if "timestamp" not in weather_df.columns and "date" in weather_df.columns:
+            weather_df["timestamp"] = pd.to_datetime(weather_df["date"], errors="coerce")
+        weather_df = weather_df.dropna(subset=["timestamp"]).sort_values("timestamp")
+        if len(weather_df) > 24 * 365:
+            weather_df = weather_df.tail(24 * 365).copy()
+
+    nearest_model_installation = _nearest_installation_with_model(request.latitude, request.longitude)
+    model_bundle = load_model(nearest_model_installation) if nearest_model_installation else None
+    annual_production_kwh: float
+    method: str
+
+    if model_bundle and model_bundle.get("model"):
+        weather_records = []
+        for _, row in weather_df.iterrows():
+            weather_records.append(
+                {
+                    "timestamp": pd.to_datetime(row["timestamp"]).isoformat(),
+                    "temperature_2m": float(row.get("temperature_2m", 20.0)),
+                    "relative_humidity_2m": float(row.get("relative_humidity_2m", 60.0)),
+                    "cloud_cover": float(row.get("cloud_cover", 35.0)),
+                    "wind_speed_10m": float(row.get("wind_speed_10m", 4.0)),
+                    "shortwave_radiation": float(row.get("shortwave_radiation", 200.0)),
+                }
+            )
+        solar_elevations = calculate_solar_elevations_batch(
+            [datetime.fromisoformat(rec["timestamp"]) for rec in weather_records],
+            request.latitude,
+            request.longitude,
+        )
+        features_df = prepare_features_for_prediction(weather_records, solar_elevations)
+        expected_features = model_bundle.get("feature_names", ALL_FEATURES)
+        features_df = align_features_to_training(features_df, expected_features)
+        scaler = model_bundle.get("scaler")
+        feature_matrix = scaler.transform(features_df.values) if scaler is not None else features_df.values
+
+        raw_predictions = model_bundle["model"].predict(feature_matrix)
+        constrained = enforce_physical_constraints(
+            raw_predictions,
+            features_df["shortwave_radiation"].to_numpy(),
+            features_df["cloud_cover"].to_numpy(),
+            features_df["temperature_2m"].to_numpy(),
+        )
+        annual_production_kwh = float(np.clip(constrained, 0, None).sum() * request.capacity_kwp)
+        method = f"ml:{nearest_model_installation}"
+    else:
+        annual_production_kwh = 0.0
+        for _, row in weather_df.iterrows():
+            annual_production_kwh += predict_production_simple(
+                request.capacity_kwp,
+                float(row.get("shortwave_radiation", 200.0)),
+                float(row.get("cloud_cover", 35.0)),
+                float(row.get("temperature_2m", 20.0)),
+            )
+        method = "physics_fallback"
+
+    specific_energy = annual_production_kwh / request.capacity_kwp
+    return EstimateResponse(
+        annual_production_kwh=round(annual_production_kwh, 2),
+        annual_savings_eur=round(annual_production_kwh * GRID_PRICE_EUR_PER_KWH, 2),
+        specific_energy_kwh_kwp=round(specific_energy, 4),
+        method=method,
+    )
+
+
 # ============================================================================
 # DATA LOADING ENDPOINTS (v3.0.1 - Load from Mendeley Dataset)
 # ============================================================================
@@ -546,6 +717,316 @@ def load_weather_data(location: str) -> pd.DataFrame:
         return pd.DataFrame()
 
 
+def _normalize_weather_columns(df: pd.DataFrame) -> pd.DataFrame:
+    """Normalize weather/energy column names to expected schema."""
+    normalized = df.copy()
+    column_map = {col.lower().strip(): col for col in normalized.columns}
+
+    aliases = {
+        "temperature_2m": [
+            "temperature_2m",
+            "temperature",
+            "temp",
+            "air_temperature",
+        ],
+        "relative_humidity_2m": [
+            "relative_humidity_2m",
+            "relative_humidity",
+            "humidity",
+        ],
+        "cloud_cover": ["cloud_cover", "cloudiness"],
+        "wind_speed_10m": ["wind_speed_10m", "wind_speed", "wind"],
+        "shortwave_radiation": [
+            "shortwave_radiation",
+            "solar_radiation",
+            "radiation",
+            "irradiance",
+        ],
+    }
+
+    for canonical, options in aliases.items():
+        if canonical in normalized.columns:
+            continue
+        for option in options:
+            source = column_map.get(option)
+            if source and source in normalized.columns:
+                normalized[canonical] = normalized[source]
+                break
+
+    return normalized
+
+
+def _build_training_frame(installation_id: str) -> Optional[pd.DataFrame]:
+    """Build aligned training dataframe for one installation."""
+    installations = load_installations_from_excel()
+    installation = installations.get(installation_id)
+    if installation is None:
+        return None
+
+    energy_df = load_energy_data_for_installation(installation_id)
+    if energy_df.empty or "timestamp" not in energy_df.columns:
+        return None
+
+    df = _normalize_weather_columns(energy_df)
+    df["timestamp"] = pd.to_datetime(df["timestamp"], errors="coerce")
+    df = df.dropna(subset=["timestamp"]).sort_values("timestamp")
+
+    if "produced_kwh" not in df.columns:
+        if "specific_energy_kwh_kwp" in df.columns:
+            df["produced_kwh"] = (
+                pd.to_numeric(df["specific_energy_kwh_kwp"], errors="coerce")
+                * float(installation["capacity_kwp"])
+            )
+        else:
+            return None
+
+    if "specific_energy_kwh_kwp" not in df.columns:
+        df["specific_energy_kwh_kwp"] = (
+            pd.to_numeric(df["produced_kwh"], errors="coerce")
+            / float(installation["capacity_kwp"])
+        )
+
+    for weather_col, default_value in (
+        ("temperature_2m", 20.0),
+        ("relative_humidity_2m", 60.0),
+        ("cloud_cover", 35.0),
+        ("wind_speed_10m", 4.0),
+        ("shortwave_radiation", 200.0),
+    ):
+        if weather_col not in df.columns:
+            df[weather_col] = default_value
+        df[weather_col] = pd.to_numeric(df[weather_col], errors="coerce").fillna(default_value)
+
+    coords = (installation["latitude"], installation["longitude"])
+    solar_elevations = calculate_solar_elevations_batch(
+        list(df["timestamp"]),
+        float(coords[0]),
+        float(coords[1]),
+    )
+
+    df["hour"] = df["timestamp"].dt.hour
+    df["day_of_year"] = df["timestamp"].dt.dayofyear
+    df["month"] = df["timestamp"].dt.month
+    df["solar_elevation"] = solar_elevations
+    df = df.set_index("timestamp")
+
+    features = enhance_features(
+        df[
+            [
+                "temperature_2m",
+                "relative_humidity_2m",
+                "cloud_cover",
+                "wind_speed_10m",
+                "shortwave_radiation",
+                "hour",
+                "day_of_year",
+                "month",
+                "solar_elevation",
+            ]
+        ]
+    )
+    target = pd.to_numeric(df["specific_energy_kwh_kwp"], errors="coerce").fillna(0.0)
+
+    frame = features.copy()
+    frame["target_specific_energy"] = target
+    frame = frame.replace([np.inf, -np.inf], np.nan).dropna()
+    return frame
+
+
+def _create_ensemble(
+    trained_models: Dict[str, Any],
+    metrics: Dict[str, Dict[str, float]],
+) -> Optional[WeightedEnsembleRegressor]:
+    available = {
+        name: trained_models[name]
+        for name in ("random_forest", "gradient_boost", "linear")
+        if name in trained_models
+    }
+    if len(available) < 2:
+        return None
+
+    raw_weights = {}
+    for name in available:
+        baseline_weight = {
+            "random_forest": ENSEMBLE_WEIGHT_RF,
+            "gradient_boost": ENSEMBLE_WEIGHT_GB,
+            "linear": ENSEMBLE_WEIGHT_LINEAR,
+        }[name]
+        quality = max(metrics[name]["r2"], 0.01)
+        raw_weights[name] = baseline_weight * quality
+
+    total = sum(raw_weights.values())
+    if total <= 0:
+        return None
+
+    return WeightedEnsembleRegressor(
+        models=available,
+        weights={name: value / total for name, value in raw_weights.items()},
+    )
+
+
+def train_single_installation(installation_id: str) -> Dict[str, Any]:
+    """Train one installation model and persist model bundle to disk."""
+    frame = _build_training_frame(installation_id)
+    if frame is None or len(frame) < MINIMUM_TRAINING_SAMPLES:
+        raise HTTPException(
+            400,
+            f"Insufficient training data for {installation_id}; need at least {MINIMUM_TRAINING_SAMPLES} rows",
+        )
+
+    features = frame[ALL_FEATURES]
+    target = frame["target_specific_energy"]
+    X_train, X_test, y_train, y_test = train_test_split(
+        features,
+        target,
+        test_size=0.2,
+        random_state=42,
+        shuffle=True,
+    )
+
+    scaler = StandardScaler()
+    X_train_scaled = scaler.fit_transform(X_train)
+    X_test_scaled = scaler.transform(X_test)
+
+    candidates = {
+        "random_forest": RandomForestRegressor(
+            n_estimators=200,
+            min_samples_leaf=2,
+            random_state=42,
+            n_jobs=-1,
+        ),
+        "gradient_boost": GradientBoostingRegressor(random_state=42),
+        "linear": LinearRegression(),
+    }
+
+    trained_models: Dict[str, Any] = {}
+    metrics: Dict[str, Dict[str, float]] = {}
+
+    for model_name, template in candidates.items():
+        model = clone(template)
+        model.fit(X_train_scaled, y_train)
+        preds = model.predict(X_test_scaled)
+        metrics[model_name] = {
+            "r2": float(r2_score(y_test, preds)),
+            "mae": float(mean_absolute_error(y_test, preds)),
+            "feature_count": len(ALL_FEATURES),
+            "model_used": model_name,
+        }
+        trained_models[model_name] = model
+
+    ensemble_model = _create_ensemble(trained_models, metrics)
+    if ensemble_model:
+        ensemble_preds = ensemble_model.predict(X_test_scaled)
+        metrics["ensemble"] = {
+            "r2": float(r2_score(y_test, ensemble_preds)),
+            "mae": float(mean_absolute_error(y_test, ensemble_preds)),
+            "feature_count": len(ALL_FEATURES),
+            "model_used": "ensemble",
+        }
+        trained_models["ensemble"] = ensemble_model
+
+    best_model_name = max(metrics.keys(), key=lambda key: metrics[key]["r2"])
+    best_model = trained_models[best_model_name]
+
+    os.makedirs(MODEL_PATH, exist_ok=True)
+    model_file = Path(MODEL_PATH) / f"{installation_id}_model.joblib"
+    joblib.dump(
+        {
+            "model": best_model,
+            "best_model_name": best_model_name,
+            "all_models": trained_models,
+            "scaler": scaler,
+            "feature_names": list(ALL_FEATURES),
+            "metrics": metrics,
+            "trained_at": datetime.utcnow().isoformat(),
+        },
+        model_file,
+    )
+
+    _models_cache[installation_id] = best_model
+    _scalers_cache[installation_id] = scaler
+    _feature_names_cache[installation_id] = list(ALL_FEATURES)
+    _model_metrics_cache[installation_id] = metrics
+    _model_name_cache[installation_id] = best_model_name
+
+    return {
+        "installation_id": installation_id,
+        "best_model": best_model_name,
+        "metrics": metrics,
+    }
+
+
+def _nearest_installation_with_model(latitude: float, longitude: float) -> Optional[str]:
+    """Find nearest installation that has an available trained model."""
+    installations = load_installations_from_excel()
+    nearest_id: Optional[str] = None
+    nearest_distance = float("inf")
+
+    for inst_id, inst in installations.items():
+        bundle = load_model(inst_id)
+        if not bundle or not bundle.get("model"):
+            continue
+        distance = (
+            (float(inst["latitude"]) - latitude) ** 2
+            + (float(inst["longitude"]) - longitude) ** 2
+        )
+        if distance < nearest_distance:
+            nearest_distance = distance
+            nearest_id = inst_id
+
+    return nearest_id
+
+
+def _build_dashboard_payload() -> Dict[str, Any]:
+    """Build dashboard aggregate payload from cached dataset metadata/readings."""
+    installations = load_installations_from_excel()
+    total_capacity = sum(i["capacity_kwp"] for i in installations.values())
+    total_production = 0.0
+
+    for inst_id in installations:
+        df = load_energy_data_for_installation(inst_id)
+        if not df.empty and "produced_kwh" in df.columns:
+            total_production += float(pd.to_numeric(df["produced_kwh"], errors="coerce").fillna(0).sum())
+
+    location_stats: Dict[str, Dict[str, Any]] = {}
+    for inst in installations.values():
+        location = inst["location"]
+        if location not in location_stats:
+            location_stats[location] = {
+                "name": location,
+                "lat": inst["latitude"],
+                "lon": inst["longitude"],
+                "count": 0,
+                "capacity_kwp": 0.0,
+            }
+        location_stats[location]["count"] += 1
+        location_stats[location]["capacity_kwp"] += inst["capacity_kwp"]
+
+    return {
+        "total_installations": len(installations),
+        "total_capacity_kwp": round(total_capacity, 2),
+        "total_production_kwh": round(total_production, 2),
+        "total_savings_eur": round(total_production * GRID_PRICE_EUR_PER_KWH, 2),
+        "locations": list(location_stats.values()),
+    }
+
+
+def _refresh_dashboard_cache(force: bool = False) -> Dict[str, Any]:
+    computed_at = _dashboard_cache.get("computed_at")
+    if (
+        not force
+        and computed_at is not None
+        and (datetime.utcnow() - computed_at).total_seconds() < DASHBOARD_CACHE_TTL_SECONDS
+        and _dashboard_cache.get("data") is not None
+    ):
+        return _dashboard_cache["data"]
+
+    payload = _build_dashboard_payload()
+    _dashboard_cache["computed_at"] = datetime.utcnow()
+    _dashboard_cache["data"] = payload
+    return payload
+
+
 @app.get("/data/installations")
 async def get_installations():
     """
@@ -661,41 +1142,7 @@ async def get_dashboard_stats():
     """
     Get network-wide dashboard statistics.
     """
-    installations = load_installations_from_excel()
-    
-    total_capacity = sum(i["capacity_kwp"] for i in installations.values())
-    total_production = 0
-    
-    for inst_id in installations:
-        df = load_energy_data_for_installation(inst_id)
-        if not df.empty and "produced_kwh" in df.columns:
-            total_production += df["produced_kwh"].sum()
-    
-    grid_price = 0.15
-    total_savings = total_production * grid_price
-    
-    # Group by location for cluster stats
-    location_stats = {}
-    for inst in installations.values():
-        loc = inst["location"]
-        if loc not in location_stats:
-            location_stats[loc] = {
-                "name": loc,
-                "lat": inst["latitude"],
-                "lon": inst["longitude"],
-                "count": 0,
-                "capacity_kwp": 0,
-            }
-        location_stats[loc]["count"] += 1
-        location_stats[loc]["capacity_kwp"] += inst["capacity_kwp"]
-    
-    return {
-        "total_installations": len(installations),
-        "total_capacity_kwp": round(total_capacity, 2),
-        "total_production_kwh": round(total_production, 2),
-        "total_savings_eur": round(total_savings, 2),
-        "locations": list(location_stats.values()),
-    }
+    return _refresh_dashboard_cache()
 
 
 @app.get("/data/weather/{location}")
@@ -1358,7 +1805,7 @@ async def get_installation_stats(installation_id: str):
         capacity_kwp = inst["capacity_kwp"]
         
         # Load energy data for this installation
-        energy_df = load_energy_data(installation_id)
+        energy_df = load_energy_data_for_installation(installation_id)
         
         if energy_df.empty:
             # No historical data - return basic info
@@ -1490,8 +1937,8 @@ async def admin_cache_status():
 @app.post("/admin/cache/clear")
 async def admin_clear_cache():
     """Clear all model and data caches."""
-    global _models_cache, _scalers_cache, _feature_names_cache
-    global _installations_cache, _energy_data_cache, _weather_data_cache
+    global _models_cache, _scalers_cache, _feature_names_cache, _model_metrics_cache, _model_name_cache
+    global _installations_cache, _energy_data_cache, _weather_data_cache, _dashboard_cache
     
     cleared = {
         "models": len(_models_cache),
@@ -1502,9 +1949,12 @@ async def admin_clear_cache():
     _models_cache = {}
     _scalers_cache = {}
     _feature_names_cache = {}
+    _model_metrics_cache = {}
+    _model_name_cache = {}
     _installations_cache = {}
     _energy_data_cache = {}
     _weather_data_cache = {}
+    _dashboard_cache = {"computed_at": None, "data": None}
     
     logger.info(f"Cache cleared: {cleared}")
     return {"success": True, "cleared": cleared}
@@ -1529,10 +1979,11 @@ async def admin_model_info(installation_id: str):
     return {
         "installation_id": installation_id,
         "has_model": True,
-        "model_type": type(model).__name__,
+        "model_type": model_bundle.get("best_model_name") or type(model).__name__,
         "feature_count": len(feature_names),
         "feature_names": feature_names[:10],  # First 10 for display
         "has_scaler": model_bundle.get('scaler') is not None,
+        "metrics": model_bundle.get("metrics", {}),
     }
 
 
@@ -1549,10 +2000,14 @@ async def model_info_aggregate():
     for inst_id in installations:
         bundle = load_model(inst_id)
         if bundle and bundle.get('model'):
+            metrics = bundle.get("metrics", {})
+            selected_model = bundle.get("best_model_name", type(bundle["model"]).__name__)
             models_available.append({
                 "id": inst_id,
-                "model_type": type(bundle['model']).__name__,
+                "model_type": selected_model,
                 "feature_count": len(bundle.get('feature_names', [])),
+                "r2": metrics.get(selected_model, {}).get("r2"),
+                "mae": metrics.get(selected_model, {}).get("mae"),
             })
         else:
             models_missing.append(inst_id)
@@ -1582,6 +2037,10 @@ async def startup_event():
     try:
         installations = load_installations_from_excel()
         logger.info(f"Startup: loaded {len(installations)} installations")
+        for installation_id in installations:
+            load_model(installation_id)
+        _refresh_dashboard_cache(force=True)
+        logger.info("Startup: warmed model cache and dashboard aggregates")
     except Exception as e:
         logger.error(f"Startup data loading failed: {e}")
 
