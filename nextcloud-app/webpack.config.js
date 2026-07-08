@@ -15,6 +15,7 @@ module.exports = {
 
     entry: {
         'filantropia_solar-main': path.resolve(__dirname, 'src/main.js'),
+        'filantropia_solar-admin': path.resolve(__dirname, 'src/admin.js'),
     },
 
     output: {

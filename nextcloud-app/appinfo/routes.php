@@ -43,5 +43,21 @@ return [
         ['name' => 'public_api#stations', 'url' => '/api/public/v1/stations', 'verb' => 'GET'],
         ['name' => 'public_api#dashboard', 'url' => '/api/public/v1/dashboard', 'verb' => 'GET'],
         ['name' => 'public_api#estimate', 'url' => '/api/public/v1/estimate', 'verb' => 'POST'],
+
+        // Admin API (admin-only): global dataset stations + ML controls + admin settings
+        ['name' => 'admin_api#bootstrap', 'url' => '/api/v1/admin/bootstrap', 'verb' => 'GET'],
+        ['name' => 'admin_api#stations', 'url' => '/api/v1/admin/stations', 'verb' => 'GET'],
+        ['name' => 'admin_api#createStation', 'url' => '/api/v1/admin/stations', 'verb' => 'POST'],
+        ['name' => 'admin_api#updateStation', 'url' => '/api/v1/admin/stations/{id}', 'verb' => 'PUT'],
+        ['name' => 'admin_api#deleteStation', 'url' => '/api/v1/admin/stations/{id}', 'verb' => 'DELETE'],
+        ['name' => 'admin_api#reimportDataset', 'url' => '/api/v1/admin/dataset/reimport', 'verb' => 'POST'],
+        ['name' => 'admin_api#getCacheStatus', 'url' => '/api/v1/admin/ml/cache', 'verb' => 'GET'],
+        ['name' => 'admin_api#clearCache', 'url' => '/api/v1/admin/ml/cache/clear', 'verb' => 'POST'],
+        ['name' => 'admin_api#getModelInfo', 'url' => '/api/v1/admin/ml/model-info', 'verb' => 'GET'],
+        ['name' => 'admin_api#getModelDetails', 'url' => '/api/v1/admin/ml/model/{id}', 'verb' => 'GET'],
+        ['name' => 'admin_api#trainAll', 'url' => '/api/v1/admin/ml/train', 'verb' => 'POST'],
+        ['name' => 'admin_api#trainStation', 'url' => '/api/v1/admin/ml/train/{id}', 'verb' => 'POST'],
+        ['name' => 'admin_api#getSettings', 'url' => '/api/v1/admin/settings', 'verb' => 'GET'],
+        ['name' => 'admin_api#saveSettings', 'url' => '/api/v1/admin/settings', 'verb' => 'POST'],
     ],
 ];
