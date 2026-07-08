@@ -38,5 +38,9 @@ return [
         ['name' => 'prediction_api#forecast', 'url' => '/api/v1/installations/{id}/forecast', 'verb' => 'GET'],
         ['name' => 'prediction_api#trigger', 'url' => '/api/v1/installations/{id}/predict', 'verb' => 'POST'],
         ['name' => 'prediction_api#period', 'url' => '/api/v1/predict/period', 'verb' => 'POST'],
+
+        // Public read-only API (token-authed) for external consumers (Odoo)
+        ['name' => 'public_api#stations', 'url' => '/api/public/v1/stations', 'verb' => 'GET'],
+        ['name' => 'public_api#dashboard', 'url' => '/api/public/v1/dashboard', 'verb' => 'GET'],
     ],
 ];
