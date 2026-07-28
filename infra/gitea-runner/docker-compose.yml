@@ -1,0 +1,34 @@
+# Gitea Actions runner (act_runner) containerized for the wera-global Gitea instance.
+#
+# Lifecycle: Docker Desktop starts at login -> this service starts (restart:
+# unless-stopped) -> the runner registers/connects to Gitea at
+# http://host.docker.internal:3000 and retries until Gitea is reachable.
+# Job containers are spawned as siblings on the host Docker daemon via the
+# mounted socket; /data is shared so workdir paths resolve for siblings.
+#
+# Usage:
+#   cp env.example .env   # then put a registration token in .env
+#   docker compose up -d
+#
+# See README.md for token regeneration and troubleshooting.
+
+name: wera-gitea-runner
+
+services:
+  runner:
+    image: gitea/act_runner:0.4.0
+    container_name: wera-global-act-runner
+    restart: unless-stopped
+    environment:
+      CONFIG_FILE: /config.yaml
+      GITEA_INSTANCE_URL: http://host.docker.internal:3000
+      GITEA_RUNNER_REGISTRATION_TOKEN: ${GITEA_RUNNER_REGISTRATION_TOKEN:?set GITEA_RUNNER_REGISTRATION_TOKEN in .env}
+      GITEA_RUNNER_NAME: wera-global-docker-runner
+      GITEA_RUNNER_LABELS: ubuntu-latest:docker://gitea/runner-images:ubuntu-latest,ubuntu-24.04:docker://gitea/runner-images:ubuntu-24.04,ubuntu-22.04:docker://gitea/runner-images:ubuntu-22.04
+    volumes:
+      - ./config.yaml:/config.yaml:ro
+      - runner-data:/data
+      - /var/run/docker.sock:/var/run/docker.sock
+
+volumes:
+  runner-data:
