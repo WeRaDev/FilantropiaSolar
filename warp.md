@@ -112,6 +112,45 @@ source venv/bin/activate && python - <<'PY'
 PY
 ```
 
+## Current status (2026-07-28)
+- **Quality gates live**: PR#3 merged (`902fc30`) — ruff (384→0), mypy (204→0 in 56 files), bandit (16→0), pytest 36+1 all green locally and in CI. `.gitea/workflows/ci.yml` `quality-gates` job enforces ruff format+lint, mypy, bandit, pytest on push/PR.
+- **Runner containerized**: `infra/gitea-runner/` compose stack (`gitea/act_runner:0.4.0`, `restart: unless-stopped`) replaces the nohup host daemon. Org runner `wera-global-docker-runner` is online; job images are `gitea/runner-images` (node + Python 3.12). PR#4 (open) carries this commit (pushed after PR#3 merged).
+- Nextcloud app is at v3.1.0 (`nextcloud-app/appinfo/info.xml`) with the two-app platform on main (admin dashboard, ML integration, Odoo public site, TRL4 deploy prep). Desktop app remains v1.2.3.
+- Regression coverage: `tests/unit/test_regressions_w27.py` guards the four latent bugs fixed in the paydown.
+- Next tracks: (2) Nextcloud v3.1.1 hardening, (3) TRL4/deploy readiness, (4) desktop v1.2.4 based on nextcloud/desktop (explicitly queued last by user).
+- The dated status sections below are retained as a running history log, not the current state.
+
+## CI/Runner operations playbook (2026-07-28)
+Operational knowledge for this Gitea instance; read before touching `.gitea/workflows/` or the runner.
+
+### Runner stack
+- Start/stop: `docker compose up -d` / `docker compose down` in `infra/gitea-runner/`. Registration persists in the `runner-data` volume; token (in gitignored `.env`) only needed on first start.
+- Legacy org runner `wera-global-local-runner` is superseded and stays offline; do not start the Homebrew/nohup daemon (duplicate runners race for jobs).
+- The brew `gitea-runner` formula has no working service registration (`brew services` fails); the compose stack is the supported lifecycle.
+
+### Workflow conventions required by this instance
+- URLs: inside job containers, `127.0.0.1:3000` is the container itself. Use `http://host.docker.internal:3000` for `github-server-url` and API posts.
+- Clone auth: the run-scoped actions token is rejected (401) by this instance. Pass `token: ${{ secrets.WERA_GITEA_TOKEN }}` to `actions/checkout` (private repo).
+- Job images need BOTH Node.js (JS actions like checkout) and Python >=3.11 (project). Use `gitea/runner-images`, not `node:*` or `python:*` alone.
+- Pin `ruff==0.14.0` in workflow installs: formatter output differs between ruff releases and breaks format gates.
+- `bandit[toml]>=1.9`: 1.8.x crashes on Python 3.14 (`ast.Num` removed).
+- tkinter: `main.py` imports it at module level; install `python3-tk` via apt and create venvs with `--system-site-packages` (tkinter cannot be pip-installed).
+- Type stubs for mypy: `types-requests types-psutil types-PyYAML` (in dev extras and CI installs).
+
+### Debugging CI runs
+- Retrigger checks without touching history: close+reopen the PR via API (`PATCH /pulls/N {"state":"closed"}` then `{"state":"open"}`). This Gitea version has no rerun endpoint and does not expose new-run job logs via API.
+- Runner-side truth: set `log.level: debug` in the act_runner config and read the daemon log (`docker logs wera-global-act-runner`, or `/opt/homebrew/var/log/act_runner.log` for the legacy daemon). Step output with exit codes appears there.
+- Manual reproduction in the exact job image: `docker run --rm -v "$PWD:/src" -w /src gitea/runner-images:ubuntu-latest bash -c '<steps>'`.
+
+### Lessons learned (this session)
+1. **Python version parity**: CI runner is 3.12, local dev is 3.14. Stdlib APIs drift (`gc.get_counts` is 3.13+); mypy caught a real runtime bug on 3.12. Evaluate stdlib usage against the oldest supported Python, not just local.
+2. **Check installed-package staleness first**: two test import failures were a stale non-editable 1.2.1 install; `pip show filantropia-solar` version mismatch was the tell. Reinstall editable before debugging code.
+3. **Symlinked layout**: `src/filantropia_solar/{prediction,utils,data_processing,weather_api,weather_simulation,gui}` are symlinks to legacy `src/*` (same inode) — edits to either path propagate to both namespaces; verify with `ls -li` before assuming copies need syncing.
+4. **Commit on the feature branch, not main**: the commit-on-main-then-`git branch -f` pattern twice produced "Everything up-to-date" push confusion. Next: `git checkout -b <branch>` before the first commit, or use a worktree.
+5. **Diagnosis sequence that worked**: runner offline → image missing node → container-localhost URL → clone auth 401 → version drift (ruff pin, gc, install list) → missing tkinter. Each failure was fixed one push at a time with debug logs as ground truth.
+6. **Asserts in production code**: `assert` disappears under `python -O`; use explicit `raise` for runtime invariants (fixed in `core/config.py`).
+7. **pydantic v2**: `Field(env=...)` is a silent no-op (degrades to json_schema_extra); env resolution comes from field names under `case_sensitive=False`.
+
 ## Current status (2026-06)
 - Desktop app: v1.2.3 shipped (Windows installer hardening, SciPy bundling, Lisbon baseline overlay, DST merge fix); see `pyproject.toml` and `CHANGELOG.md`.
 - Nextcloud app: v3.0.6 shipped (`nextcloud-app/`); see release notes below.
