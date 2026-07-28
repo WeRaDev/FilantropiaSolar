@@ -15,7 +15,7 @@ networks:
         - subnet: 172.20.0.0/16
 
 # ===========================================
-# Volume definitions
+# Volume definitions (single volumes: block — YAML rejects duplicate keys)
 # ===========================================
 volumes:
   postgres_data:
@@ -27,6 +27,10 @@ volumes:
   filantropia_data:
     driver: local
   filantropia_logs:
+    driver: local
+  prometheus_data:
+    driver: local
+  grafana_data:
     driver: local
 
 # ===========================================
@@ -273,11 +277,3 @@ services:
     profiles:
       - monitoring
 
-# ===========================================
-# Additional volumes for monitoring
-# ===========================================
-volumes:
-  prometheus_data:
-    driver: local
-  grafana_data:
-    driver: local
