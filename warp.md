@@ -115,10 +115,26 @@ PY
 ## Current status (2026-07-28)
 - **Quality gates live**: PR#3 merged (`902fc30`) — ruff (384→0), mypy (204→0 in 56 files), bandit (16→0), pytest 36+1 all green locally and in CI. `.gitea/workflows/ci.yml` `quality-gates` job enforces ruff format+lint, mypy, bandit, pytest on push/PR.
 - **Runner containerized**: `infra/gitea-runner/` compose stack (`gitea/act_runner:0.4.0`, `restart: unless-stopped`) replaces the nohup host daemon. Org runner `wera-global-docker-runner` is online; job images are `gitea/runner-images` (node + Python 3.12). PR#4 (open) carries this commit (pushed after PR#3 merged).
-- Nextcloud app is at v3.1.0 (`nextcloud-app/appinfo/info.xml`) with the two-app platform on main (admin dashboard, ML integration, Odoo public site, TRL4 deploy prep). Desktop app remains v1.2.3.
+- Nextcloud app is at v3.1.1 (`nextcloud-app/appinfo/info.xml`): platform hardening verified (setup.sh smoke, public API, Odoo quote flow) and AnalyticsModal slimmed to 387 lines. Desktop app remains v1.2.3.
 - Regression coverage: `tests/unit/test_regressions_w27.py` guards the four latent bugs fixed in the paydown.
 - Next tracks: (2) Nextcloud v3.1.1 hardening, (3) TRL4/deploy readiness, (4) desktop v1.2.4 based on nextcloud/desktop (explicitly queued last by user).
 - The dated status sections below are retained as a running history log, not the current state.
+
+## v3.1.1 Release Notes (2026-07-28)
+
+### Platform hardening verified
+1. **setup.sh smoke test** — idempotent bring-up verified end-to-end: stack build, Nextcloud install check, config (`allow_local_remote_servers`, trusted domains), app enable/upgrade, public API token provisioning + export to SolarSeed-v3 secrets, dataset import (0 created / 9 updated), ML training.
+2. **Public API verified** — bearer auth enforced (401 without token); `/stations` (9 stations), `/dashboard` (302.56 kWp), `/estimate` returns ML-backed results (`method: ml:<installation_id>`), not physics fallback.
+3. **Odoo quote flow verified** — public dashboard renders stations + capacity; estimate POST proxies through Nextcloud with the provisioned token; quote POST creates CRM leads (verified in `filantropia_public` DB). Fixed stale Odoo container (July) blocking port 8069; recreate via `docker compose --profile odoo up -d --force-recreate odoo` with `FS_PUBLIC_API_TOKEN` exported.
+
+### Refactoring
+4. **AnalyticsModal slim-down complete** — 637 → 387 lines. Extracted `components/analytics/ChartSection.vue` (chart markup + day nav + data-mode badge + CSS), `components/analytics/ModalStatePanel.vue` (loading/no-data states + CSS), and `composables/useAnalyticsDateRange.js` (date/timeframe/analysis-mode orchestration, injected generate callback). Modal is now a thin orchestrator (store wiring, open/close + keydown, canvas handoff via `canvas-el` event, composition). vitest 18 passed; `npm run build` clean.
+
+### Files Modified
+- `src/components/AnalyticsModal.vue` — slim orchestrator
+- `src/components/analytics/ChartSection.vue`, `ModalStatePanel.vue` — new components
+- `src/composables/useAnalyticsDateRange.js` — new composable
+- `appinfo/info.xml`, `package.json` — version 3.1.1 (package.json was stale at 3.0.6)
 
 ## CI/Runner operations playbook (2026-07-28)
 Operational knowledge for this Gitea instance; read before touching `.gitea/workflows/` or the runner.

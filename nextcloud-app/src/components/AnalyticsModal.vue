@@ -26,57 +26,30 @@
 
                     <!-- Modal Body -->
                     <div class="modal-body">
-                        <!-- Loading state -->
-                        <div v-if="isLoading" class="loading-overlay">
-                            <div class="spinner"></div>
-                            <p>{{ loadingMessage }}</p>
-                        </div>
-
-                        <!-- No data state -->
-                        <div v-else-if="!analysisData" class="no-data-state">
-                            <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-                                <path d="M3 3v18h18"/>
-                                <path d="m19 9-5 5-4-4-3 3"/>
-                            </svg>
-                            <h3>No Analysis Data</h3>
-                            <p>Click below to generate analysis for this installation.</p>
-                            <button class="btn-primary" @click="generateAnalysis">
-                                Generate {{ timeframeDays }}-Day Analysis
-                            </button>
-                        </div>
+                        <!-- Loading / no-data states -->
+                        <ModalStatePanel
+                            v-if="isLoading || !analysisData"
+                            :state="isLoading ? 'loading' : 'no-data'"
+                            :loading-message="loadingMessage"
+                            :timeframe-days="timeframeDays"
+                            @generate="generateAnalysis"
+                        />
 
                         <!-- Main content: Chart + Overview -->
                         <div v-else class="analysis-content">
-                            <!-- Left: Combined Chart -->
-                            <div class="chart-section">
-                                <div class="chart-header">
-                                    <h3>{{ chartTitle }}</h3>
-                                    <!-- Day navigation only for 'day' timeframe -->
-                                    <div v-if="currentTimeframe === 'day'" class="day-nav">
-                                        <button class="nav-btn" :disabled="currentDayIndex <= 0" @click="prevDay">
-                                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                                <path d="m15 18-6-6 6-6"/>
-                                            </svg>
-                                        </button>
-                                        <span class="day-label">{{ currentDayLabel }}</span>
-                                        <button class="nav-btn" :disabled="currentDayIndex >= totalDays - 1" @click="nextDay">
-                                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                                <path d="m9 18 6-6-6-6"/>
-                                            </svg>
-                                        </button>
-                                    </div>
-                                    <div v-else class="timeframe-info">
-                                        <span>{{ totalDays }} days: {{ dateRangeLabel }}</span>
-                                    </div>
-                                </div>
-                                <div class="chart-container">
-                                    <canvas ref="combinedChartRef"></canvas>
-                                </div>
-                                <!-- Data mode indicator -->
-                                <div class="data-mode-badge" :class="dataMode">
-                                    {{ dataModeLabel }}
-                                </div>
-                            </div>
+                            <ChartSection
+                                :chart-title="chartTitle"
+                                :current-timeframe="currentTimeframe"
+                                :current-day-index="currentDayIndex"
+                                :total-days="totalDays"
+                                :current-day-label="currentDayLabel"
+                                :date-range-label="dateRangeLabel"
+                                :data-mode="dataMode"
+                                :data-mode-label="dataModeLabel"
+                                @prev-day="prevDay"
+                                @next-day="nextDay"
+                                @canvas-el="onCanvasEl"
+                            />
 
                             <!-- Right: Overview Metrics -->
                             <div class="overview-section">
@@ -101,7 +74,10 @@ import { useAppStore } from '../store/app.js'
 import { useEnergyChart } from '../composables/useEnergyChart.js'
 import { useAnalyticsStats } from '../composables/useAnalyticsStats.js'
 import { useAnalyticsExport } from '../composables/useAnalyticsExport.js'
+import { useAnalyticsDateRange } from '../composables/useAnalyticsDateRange.js'
 import AnalyticsHeader from './analytics/AnalyticsHeader.vue'
+import ChartSection from './analytics/ChartSection.vue'
+import ModalStatePanel from './analytics/ModalStatePanel.vue'
 import KeyMetricsPanel from './analytics/KeyMetricsPanel.vue'
 import DailySummaryPanel from './analytics/DailySummaryPanel.vue'
 
@@ -109,6 +85,8 @@ export default {
     name: 'AnalyticsModal',
     components: {
         AnalyticsHeader,
+        ChartSection,
+        ModalStatePanel,
         KeyMetricsPanel,
         DailySummaryPanel,
     },
@@ -118,10 +96,7 @@ export default {
         // Refs / local state
         const combinedChartRef = ref(null)
         const currentDayIndex = ref(0)
-        const currentTimeframe = ref('week')
         const isSimulating = ref(false)
-        const centerDate = ref(new Date().toISOString().split('T')[0])
-        const analysisMode = ref('predicted') // 'historical' or 'predicted'
         const weatherLayers = ref({
             temperature: true,
             cloudCover: true,
@@ -129,84 +104,52 @@ export default {
             windSpeed: true,
         })
 
-        // Timeframe options
-        const timeframes = [
-            { label: 'Day', value: 'day', days: 1 },
-            { label: 'Week', value: 'week', days: 7 },
-            { label: 'Month', value: 'month', days: 30 },
-            { label: 'Year', value: 'year', days: 365 },
-        ]
-
         // Store-backed computed
         const isOpen = computed(() => store.analyticsModalOpen)
         const selectedObject = computed(() => store.selectedObject)
         const analysisData = computed(() => store.analysisData)
         const isLoading = computed(() => store.analysisLoading)
         const loadingMessage = computed(() => isSimulating.value ? 'Running simulation...' : 'Generating analysis...')
-        const dataMode = computed(() => analysisData.value?.mode || 'historical')
 
-        // Dynamic data mode label reflecting weather source
-        const dataModeLabel = computed(() => {
-            const mode = dataMode.value
-            const weatherSource = analysisData.value?.weather_source || ''
-            if (mode === 'historical' || analysisMode.value === 'historical') {
-                if (weatherSource === 'measured') return 'Historical Data (Measured)'
-                if (weatherSource === 'api') return 'Historical Data (API Weather)'
-                return 'Historical Data'
-            }
-            if (weatherSource === 'api') return 'Predicted (API Weather)'
-            if (weatherSource === 'synthetic') return 'Predicted (Simulated Weather)'
-            if (weatherSource === 'historical_file') return 'Predicted (Historical Weather)'
-            return 'Predicted Data'
+        // Analysis generation (hoisted so the date-range composable can receive it)
+        async function generateAnalysis() {
+            if (!selectedObject.value) return
+            const mode = analysisMode.value === 'predicted' ? 'simulated' : 'historical'
+            await store.generateAnalysisWithMode(
+                selectedObject.value.id,
+                centerDate.value,
+                timeframeDays.value,
+                mode,
+            )
+            currentDayIndex.value = Math.floor(totalDays.value / 2)
+            await nextTick()
+            renderCombinedChart()
+        }
+
+        // Date/timeframe/mode orchestration
+        const {
+            centerDate,
+            currentTimeframe,
+            analysisMode,
+            timeframes,
+            timeframeDays,
+            effectiveMaxDate,
+            dataMode,
+            dataModeLabel,
+            setTimeframe: setDateRangeTimeframe,
+            onDateChange,
+            setAnalysisMode,
+            toggleAnalysisMode,
+        } = useAnalyticsDateRange({
+            selectedObject,
+            analysisData,
+            generateAnalysis,
         })
 
-        const timeframeDays = computed(() => {
-            const tf = timeframes.find(t => t.value === currentTimeframe.value)
-            return tf?.days || 21
-        })
-
-        const maxDate = computed(() => {
-            const toDate = selectedObject.value?.customData?.toDate?.split('T')[0]
-            return toDate || new Date().toISOString().split('T')[0]
-        })
-
-        const minDate = computed(() => {
-            const fromDate = selectedObject.value?.customData?.fromDate?.split('T')[0]
-            return fromDate || null
-        })
-
-        // Effective max date based on analysis mode
-        const effectiveMaxDate = computed(() => {
-            if (analysisMode.value === 'predicted') {
-                const futureDate = new Date()
-                futureDate.setFullYear(futureDate.getFullYear() + 1)
-                return futureDate.toISOString().split('T')[0]
-            }
-            return maxDate.value
-        })
-
-        // Clamp center date within historical data range, accounting for half-window
-        const clampCenterDate = () => {
-            if (analysisMode.value !== 'historical') return
-
-            const halfDays = Math.floor(timeframeDays.value / 2)
-            const from = minDate.value
-            const to = maxDate.value
-
-            if (to) {
-                const toMs = new Date(to).getTime()
-                const maxCenter = new Date(toMs - halfDays * 86400000).toISOString().split('T')[0]
-                if (centerDate.value > maxCenter) {
-                    centerDate.value = maxCenter
-                }
-            }
-            if (from) {
-                const fromMs = new Date(from).getTime()
-                const minCenter = new Date(fromMs + halfDays * 86400000).toISOString().split('T')[0]
-                if (centerDate.value < minCenter) {
-                    centerDate.value = minCenter
-                }
-            }
+        // Wrap store side effect around timeframe changes
+        const setTimeframe = async (tf) => {
+            store.setAnalyticsTimeframe(tf)
+            await setDateRangeTimeframe(tf)
         }
 
         // Derived analytics statistics
@@ -252,49 +195,8 @@ export default {
             store.closeAnalyticsModal()
         }
 
-        const generateAnalysis = async () => {
-            if (!selectedObject.value) return
-            const mode = analysisMode.value === 'predicted' ? 'simulated' : 'historical'
-            await store.generateAnalysisWithMode(
-                selectedObject.value.id,
-                centerDate.value,
-                timeframeDays.value,
-                mode,
-            )
-            currentDayIndex.value = Math.floor(totalDays.value / 2)
-            await nextTick()
-            renderCombinedChart()
-        }
-
-        const setTimeframe = async (tf) => {
-            currentTimeframe.value = tf
-            store.setAnalyticsTimeframe(tf)
-            clampCenterDate()
-            await generateAnalysis()
-        }
-
-        const onDateChange = async () => {
-            clampCenterDate()
-            await generateAnalysis()
-        }
-
-        const setAnalysisMode = async (mode) => {
-            if (analysisMode.value !== mode) {
-                analysisMode.value = mode
-                if (mode === 'historical') {
-                    const to = maxDate.value
-                    if (to) {
-                        centerDate.value = to
-                    }
-                    clampCenterDate()
-                }
-                await generateAnalysis()
-            }
-        }
-
-        const toggleAnalysisMode = async () => {
-            const newMode = analysisMode.value === 'historical' ? 'predicted' : 'historical'
-            await setAnalysisMode(newMode)
+        const onCanvasEl = (el) => {
+            combinedChartRef.value = el
         }
 
         const prevDay = () => {
@@ -356,7 +258,6 @@ export default {
         })
 
         return {
-            combinedChartRef,
             isOpen,
             selectedObject,
             analysisData,
@@ -389,6 +290,7 @@ export default {
             prevDay,
             nextDay,
             goToDay,
+            onCanvasEl,
             renderCombinedChart,
         }
     },
@@ -432,157 +334,11 @@ export default {
     position: relative;
 }
 
-/* Loading Overlay */
-.loading-overlay {
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    background: rgba(255, 255, 255, 0.9);
-    gap: 16px;
-}
-
-.spinner {
-    width: 40px;
-    height: 40px;
-    border: 3px solid var(--color-border, #e0e0e0);
-    border-top-color: var(--color-primary, #0082c9);
-    border-radius: 50%;
-    animation: spin 1s linear infinite;
-}
-
-@keyframes spin {
-    to { transform: rotate(360deg); }
-}
-
-/* No Data State */
-.no-data-state {
-    height: 100%;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    color: var(--color-text-lighter, #666);
-    gap: 16px;
-}
-
-.no-data-state h3 {
-    margin: 0;
-    font-size: 20px;
-    color: var(--color-main-text, #333);
-}
-
-.btn-primary {
-    padding: 12px 24px;
-    background: var(--color-primary, #0082c9);
-    color: white;
-    border: none;
-    border-radius: 6px;
-    cursor: pointer;
-    font-size: 14px;
-    font-weight: 500;
-}
-
-.btn-primary:hover {
-    background: var(--color-primary-hover, #0070b0);
-}
-
 /* Analysis Content - Two Columns */
 .analysis-content {
     display: flex;
     height: 100%;
     overflow: hidden;
-}
-
-/* Chart Section - Left */
-.chart-section {
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-    padding: 20px;
-    border-right: 1px solid var(--color-border, #e0e0e0);
-    position: relative;
-}
-
-.chart-header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    margin-bottom: 16px;
-}
-
-.chart-header h3 {
-    margin: 0;
-    font-size: 16px;
-    font-weight: 600;
-}
-
-.day-nav {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-}
-
-.nav-btn {
-    background: var(--color-background-dark, #f5f5f5);
-    border: 1px solid var(--color-border, #ddd);
-    border-radius: 4px;
-    padding: 4px 8px;
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-}
-
-.nav-btn:hover:not(:disabled) {
-    background: var(--color-background-hover, #e8e8e8);
-}
-
-.nav-btn:disabled {
-    opacity: 0.4;
-    cursor: not-allowed;
-}
-
-.day-label {
-    font-size: 13px;
-    min-width: 100px;
-    text-align: center;
-}
-
-.chart-container {
-    flex: 1;
-    min-height: 0;
-    position: relative;
-}
-
-.chart-container canvas {
-    width: 100% !important;
-    height: 100% !important;
-}
-
-.data-mode-badge {
-    position: absolute;
-    bottom: 20px;
-    left: 20px;
-    padding: 4px 12px;
-    border-radius: 4px;
-    font-size: 11px;
-    font-weight: 500;
-    text-transform: uppercase;
-}
-
-.data-mode-badge.historical {
-    background: #e8f5e9;
-    color: #2e7d32;
-}
-
-.data-mode-badge.simulated {
-    background: #fff3e0;
-    color: #ef6c00;
 }
 
 /* Overview Section - Right */
@@ -621,12 +377,6 @@ export default {
 @media (max-width: 1000px) {
     .analysis-content {
         flex-direction: column;
-    }
-
-    .chart-section {
-        border-right: none;
-        border-bottom: 1px solid var(--color-border, #e0e0e0);
-        height: 50%;
     }
 
     .overview-section {
