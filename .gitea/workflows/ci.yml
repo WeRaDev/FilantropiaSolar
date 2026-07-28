@@ -16,7 +16,8 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
         with:
-          github-server-url: http://127.0.0.1:3000
+          # host.docker.internal reaches the Gitea host from inside job containers
+          github-server-url: http://host.docker.internal:3000
 
       - name: Validate baseline files
         run: |

@@ -15,7 +15,8 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
         with:
-          github-server-url: http://127.0.0.1:3000
+          # host.docker.internal reaches the Gitea host from inside job containers
+          github-server-url: http://host.docker.internal:3000
 
       - name: Set up Python venv
         run: python3 -m venv .revisor-venv
@@ -59,7 +60,8 @@ jobs:
         if: always()
         env:
           WERA_GITEA_TOKEN: ${{ secrets.WERA_GITEA_TOKEN }}
-          GITEA_URL: http://127.0.0.1:3000
+          # host.docker.internal reaches the Gitea host from inside job containers
+          GITEA_URL: http://host.docker.internal:3000
           GITHUB_REPOSITORY: ${{ github.repository }}
           PR_NUMBER: ${{ github.event.number }}
           LINT_RESULT: ${{ steps.lint.outcome }}
