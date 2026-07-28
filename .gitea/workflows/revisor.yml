@@ -20,8 +20,16 @@ jobs:
           # run-scoped token is rejected by this instance (401); use the org PAT
           token: ${{ secrets.WERA_GITEA_TOKEN }}
 
+      - name: Install system tkinter
+        # main.py imports tkinter; the runner image lacks it and tkinter cannot
+        # be pip-installed, so install the OS package into the system python
+        run: |
+          (sudo apt-get update -qq && sudo apt-get install -y -qq python3-tk) || \
+          (apt-get update -qq && apt-get install -y -qq python3-tk)
+
       - name: Set up Python venv
-        run: python3 -m venv .revisor-venv
+        # --system-site-packages so the venv sees the OS tkinter package
+        run: python3 -m venv --system-site-packages .revisor-venv
 
       - name: Install package and QA tooling
         run: |
