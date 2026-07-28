@@ -18,6 +18,8 @@ jobs:
         with:
           # host.docker.internal reaches the Gitea host from inside job containers
           github-server-url: http://host.docker.internal:3000
+          # run-scoped token is rejected by this instance (401); use the org PAT
+          token: ${{ secrets.WERA_GITEA_TOKEN }}
 
       - name: Validate baseline files
         run: |
