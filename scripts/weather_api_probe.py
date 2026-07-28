@@ -1,6 +1,6 @@
 import asyncio
-import sys
 from pathlib import Path
+import sys
 
 # Ensure project root on sys.path so 'src' package is importable
 ROOT = Path(__file__).resolve().parents[1]
@@ -8,6 +8,7 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 from src.weather_api.async_weather_client import AsyncWeatherClient
+
 
 async def main():
     async with AsyncWeatherClient() as client:
@@ -23,6 +24,7 @@ async def main():
 
         print("\nSample rows (first 5):")
         print(df.head().to_string())
+
 
 if __name__ == "__main__":
     asyncio.run(main())

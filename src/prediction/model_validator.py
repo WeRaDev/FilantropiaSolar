@@ -50,7 +50,7 @@ class ModelValidator:
         """Initialize the model validator."""
         self.data_processor = data_processor
         self.weather_simulator = weather_simulator
-        self.validation_results = {}
+        self.validation_results: dict[str, Any] = {}
 
         logger.info("Model validator initialized")
 
@@ -79,7 +79,7 @@ class ModelValidator:
         else:
             test_locations = locations
 
-        validation_results = {
+        validation_results: dict[str, Any] = {
             "summary": {
                 "total_installations": len(installations),
                 "total_locations": len(locations),
@@ -144,7 +144,7 @@ class ModelValidator:
             excluded_predictor = self._train_excluded_models(training_installations)
 
             # Test on excluded installation
-            location_results = {
+            location_results: dict[str, Any] = {
                 "test_location": test_location,
                 "training_installations": len(training_installations),
                 "test_installations": test_installations,
@@ -248,7 +248,14 @@ class ModelValidator:
             # Get actual values
             actual_energy = test_period["Produced Energy (kWh)"].values
 
-            # Generate predictions using trained model
+            # Generate predictions using reference models trained on other
+            # locations (the excluded predictor has no model for this installation,
+            # which is the point of leave-one-location-out validation)
+            capacity_kwp = 1.0
+            inst_info = self.data_processor.installations.get(installation_id)
+            if inst_info is not None:
+                capacity_kwp = inst_info.installed_power_kwp
+
             predictions = []
 
             for date in pd.date_range(
@@ -257,12 +264,11 @@ class ModelValidator:
                 freq="D",
             ):
                 try:
-                    # Predict using historical weather data
-                    prediction_result = predictor.predict_15_day_period(
-                        installation_id="temp_test",  # Use temporary ID
-                        center_date=date,
-                        use_historical_weather=True,
-                        weather_location=location,
+                    # Predict via a reference installation from a different location
+                    prediction_result = predictor.predict_period_for_custom(
+                        location,
+                        capacity_kwp,
+                        date,
                     )
 
                     if prediction_result and "hourly_data" in prediction_result:
@@ -308,7 +314,7 @@ class ModelValidator:
         self,
         actual: list[float],
         predictions: list[float],
-    ) -> dict[str, float]:
+    ) -> dict[str, Any]:
         """Calculate comprehensive performance metrics."""
         try:
             actual_arr = np.array(actual)

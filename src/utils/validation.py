@@ -81,9 +81,9 @@ class ValidationResult:
     warnings: list[str] = field(default_factory=list)
     sanitized_value: Any = None
 
-    def add_error(self, message: str) -> None:
+    def add_error(self, message: str | None) -> None:
         """Add validation error."""
-        self.errors.append(message)
+        self.errors.append(message or "Validation failed")
         self.is_valid = False
 
     def add_warning(self, message: str) -> None:

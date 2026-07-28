@@ -28,14 +28,15 @@ from typing import Any
 logger = logging.getLogger(__name__)
 
 import pandas as pd
+
 # Robust import for path utilities (supports packaged and dev layouts)
 try:
-    from filantropia_solar.utils.paths import get_resource_path, get_app_cache_dir
+    from filantropia_solar.utils.paths import get_app_cache_dir, get_resource_path
 except Exception:
     try:
-        from src.utils.paths import get_resource_path, get_app_cache_dir
+        from src.utils.paths import get_app_cache_dir, get_resource_path
     except Exception:
-        from utils.paths import get_resource_path, get_app_cache_dir
+        from utils.paths import get_app_cache_dir, get_resource_path
 
 # Remove sys.path manipulation - use proper package imports instead
 
@@ -118,6 +119,13 @@ HOUR_MIN = 0
 HOUR_MAX = 23
 HOUR_PADDING = 1
 DATE_SAMPLE_LIMIT = 50
+
+# Ranking thresholds (specific energy kWh/kWp) for the 0-5 desktop rank scale
+RANK_R0_THRESHOLD = 0.05
+RANK_R1_THRESHOLD = 0.2
+RANK_R2_THRESHOLD = 0.4
+RANK_R3_THRESHOLD = 0.6
+RANK_R4_THRESHOLD = 0.8
 
 
 class FilantropiaSolarApp:
@@ -478,7 +486,9 @@ class FilantropiaSolarApp:
             self._load_available_dates()
 
             # Load validation baseline (Lisbon 4-year averages)
-            self._update_progress(45, "Loading validation baseline (Lisbon averages)...")
+            self._update_progress(
+                45, "Loading validation baseline (Lisbon averages)..."
+            )
             self._load_validation_baseline()
 
             # Step 3: Initialize weather simulation
@@ -872,7 +882,9 @@ class FilantropiaSolarApp:
         options_frame.pack(fill=tk.X, pady=(0, 20))
 
         # Weather source is automatic (API first, simulate gaps) — no manual toggle
-        self.simulation_var = tk.BooleanVar(value=True)  # kept for backward compatibility
+        self.simulation_var = tk.BooleanVar(
+            value=True
+        )  # kept for backward compatibility
         # (Checkbox removed from UI)
 
         # Action Buttons Frame
@@ -921,7 +933,10 @@ class FilantropiaSolarApp:
             self.historical_date_frame.pack(fill=tk.X)
             self.simulation_date_frame.pack_forget()
             # Hide custom-station panel in historical mode
-            if hasattr(self, "custom_panel_frame") and self.custom_panel_frame.winfo_ismapped():
+            if (
+                hasattr(self, "custom_panel_frame")
+                and self.custom_panel_frame.winfo_ismapped()
+            ):
                 self.custom_panel_frame.grid_remove()
             if hasattr(self, "custom_use_var"):
                 self.custom_use_var.set(False)
@@ -931,7 +946,10 @@ class FilantropiaSolarApp:
             self.simulation_date_frame.pack(fill=tk.X)
             self.historical_date_frame.pack_forget()
             # Show custom-station panel only in simulation mode
-            if hasattr(self, "custom_panel_frame") and not self.custom_panel_frame.winfo_ismapped():
+            if (
+                hasattr(self, "custom_panel_frame")
+                and not self.custom_panel_frame.winfo_ismapped()
+            ):
                 self.custom_panel_frame.grid()
             self.simulation_var.set(True)
 
@@ -966,7 +984,9 @@ class FilantropiaSolarApp:
                 # Populate historical date options (sample to avoid overwhelming dropdown)
                 date_list = []
                 current = min_date
-                step_size = max(1, days_available // DATE_SAMPLE_LIMIT)  # Limit to ~50 options
+                step_size = max(
+                    1, days_available // DATE_SAMPLE_LIMIT
+                )  # Limit to ~50 options
 
                 while current <= max_date:
                     date_list.append(current.strftime("%Y-%m-%d"))
@@ -1356,7 +1376,11 @@ class FilantropiaSolarApp:
 
             # Generate prediction using appropriate settings
             # Weather source selection is automatic inside predictor
-            if mode == "simulation" and getattr(self, "custom_use_var", None) and self.custom_use_var.get():
+            if (
+                mode == "simulation"
+                and getattr(self, "custom_use_var", None)
+                and self.custom_use_var.get()
+            ):
                 # Custom station path
                 try:
                     capacity_kwp = float(self.custom_capacity_var.get())
@@ -1406,10 +1430,10 @@ class FilantropiaSolarApp:
             error_msg = str(e)
 
             # Provide specific guidance for weather data issues
-            if (
-                "No weather data available" in error_msg
-            ):
-                self.input_status_var.set("Weather data unavailable; simulator will fill gaps automatically.")
+            if "No weather data available" in error_msg:
+                self.input_status_var.set(
+                    "Weather data unavailable; simulator will fill gaps automatically."
+                )
                 messagebox.showerror(
                     "Weather Data Required",
                     "Weather API returned no data for this period and location.\n"
@@ -1534,7 +1558,11 @@ class FilantropiaSolarApp:
     def _build_performance_metrics(self, results: dict[str, Any]) -> str:
         """Build the performance metrics section."""
         stats = results["period_statistics"]
-        text = f"KEY PERFORMANCE METRICS ({ANALYSIS_PERIOD_DAYS}-day period)\n" + "-" * 50 + "\n"
+        text = (
+            f"KEY PERFORMANCE METRICS ({ANALYSIS_PERIOD_DAYS}-day period)\n"
+            + "-" * 50
+            + "\n"
+        )
         text += f"Total Energy Production: {stats['total_energy_kwh']:.2f} kWh\n"
         text += f"Average Daily Energy: {stats['total_energy_kwh'] / ANALYSIS_PERIOD_DAYS:.2f} kWh/day\n"
         text += (
@@ -1571,7 +1599,9 @@ class FilantropiaSolarApp:
             text += f"Weather Source: {'Simulated' if source.get('used_simulation') else 'Historical'}\n"
         # Simulated datapoints count if available
         if "simulated_points" in source and total_hours:
-            text += f"Simulated datapoints: {source['simulated_points']}/{total_hours}\n"
+            text += (
+                f"Simulated datapoints: {source['simulated_points']}/{total_hours}\n"
+            )
         text += f"ML Model: {source.get('model_used', '').replace('_', ' ').title()}\n"
 
         if (
@@ -1707,8 +1737,8 @@ class FilantropiaSolarApp:
                         "predicted_total_energy",
                         pd.Series([0]),
                     ).max()
-        except Exception:
-            pass
+        except Exception as exc:
+            logger.debug(f"Peak energy calculation fallback: {exc}")
         return 0
 
     def _build_hourly_day_section(
@@ -1733,7 +1763,11 @@ class FilantropiaSolarApp:
                 h_wind = hour_row.get("wind_speed_10m", 0)
                 h_solar = hour_row.get("shortwave_radiation", 0)
                 h_humidity = hour_row.get("relative_humidity_2m", 0)
-                sim_tag = " [sim]" if bool(hour_row.get("is_simulated_weather", False)) else ""
+                sim_tag = (
+                    " [sim]"
+                    if bool(hour_row.get("is_simulated_weather", False))
+                    else ""
+                )
                 text += f"{hour:02d}:00 {h_energy:<10.2f} {h_temp:<8.1f} {h_cloud:<8.0f} {h_wind:<8.1f} {h_solar:<10.0f} {h_humidity:<8.0f}{sim_tag}\n"
         text += "\n"
         return text
@@ -1775,7 +1809,9 @@ class FilantropiaSolarApp:
         try:
             csv_path = get_resource_path("average_values.csv")
             if not csv_path.exists():
-                logger.warning("average_values.csv not found; baseline overlay disabled")
+                logger.warning(
+                    "average_values.csv not found; baseline overlay disabled"
+                )
                 return
 
             df = pd.read_csv(csv_path)
@@ -1786,18 +1822,34 @@ class FilantropiaSolarApp:
             day_col = lower.get("pvday") or lower.get("day")
             hour_col = lower.get("pvhour") or lower.get("hour") or lower.get("hr")
             min_col = lower.get("minkwh") or lower.get("min") or lower.get("minimum")
-            avg_col = lower.get("avgkwh") or lower.get("avg") or lower.get("average") or lower.get("mean")
+            avg_col = (
+                lower.get("avgkwh")
+                or lower.get("avg")
+                or lower.get("average")
+                or lower.get("mean")
+            )
             max_col = lower.get("maxkwh") or lower.get("max") or lower.get("maximum")
 
             if not hour_col:
                 raise ValueError("No hour column found (expected 'PVHour' or 'Hour')")
 
             # Build normalized DataFrame
-            keep = {"month": month_col, "day": day_col, "hour": hour_col, "min": min_col, "avg": avg_col, "max": max_col}
+            keep = {
+                "month": month_col,
+                "day": day_col,
+                "hour": hour_col,
+                "min": min_col,
+                "avg": avg_col,
+                "max": max_col,
+            }
             norm = {}
             for k, src in keep.items():
                 if src and src in df.columns:
-                    norm[k] = pd.to_numeric(df[src], errors="coerce") if k in {"month","day","hour","min","avg","max"} else df[src]
+                    norm[k] = (
+                        pd.to_numeric(df[src], errors="coerce")
+                        if k in {"month", "day", "hour", "min", "avg", "max"}
+                        else df[src]
+                    )
             base = pd.DataFrame(norm).dropna(subset=["hour"]).copy()
             # Ensure ints for month/day/hour
             if "month" in base:
@@ -1962,12 +2014,9 @@ class FilantropiaSolarApp:
             )
 
             # ===== CALCULATE DYNAMIC PRODUCTIVE HOURS RANGE =====
-            # Determine the productive hours range across all 15 days using the correct energy column
+            # Determine the productive hours range across all days from specific energy
             productive_hour_min, productive_hour_max = (
-                self._calculate_dynamic_productive_hours(
-                    hourly_data,
-                    energy_column_for_charts,
-                )
+                self._calculate_dynamic_productive_hours(hourly_data)
             )
             logger.info(
                 f"Dynamic productive hours range: {productive_hour_min}:00 - {productive_hour_max}:00",
@@ -2099,7 +2148,7 @@ class FilantropiaSolarApp:
             return "predicted_specific_energy"
         return "Specific Energy (kWh/kWp)"
 
-    def _calculate_dynamic_productive_hours(self, hourly_data, energy_col=None):
+    def _calculate_dynamic_productive_hours(self, hourly_data):
         """Calculate the dynamic productive hours range based on specific energy across all days."""
         try:
             # Always determine specific energy column
@@ -2109,7 +2158,9 @@ class FilantropiaSolarApp:
             )
 
             if se_col not in hourly_data.columns:
-                logger.warning("No specific energy column found, using default 6-20 hour range")
+                logger.warning(
+                    "No specific energy column found, using default 6-20 hour range"
+                )
                 return 6, 20
 
             specific = pd.to_numeric(hourly_data[se_col], errors="coerce").fillna(0)
@@ -2197,7 +2248,9 @@ class FilantropiaSolarApp:
                 if "predicted_specific_energy" in productive_hours.columns
                 else "Specific Energy (kWh/kWp)"
             )
-            specific_series = pd.to_numeric(productive_hours[se_col], errors="coerce").fillna(0)
+            specific_series = pd.to_numeric(
+                productive_hours[se_col], errors="coerce"
+            ).fillna(0)
             rankings = self._calculate_rankings_from_specific(specific_series)
             hours = productive_hours.index.hour
 
@@ -2217,16 +2270,26 @@ class FilantropiaSolarApp:
             )
             # Render baseline overlay (Lisbon 4y) on TOP using black vlines + 'x' for average
             try:
-                if self.validation_baseline_df is not None and not self.validation_baseline_df.empty:
+                if (
+                    self.validation_baseline_df is not None
+                    and not self.validation_baseline_df.empty
+                ):
                     base = self.validation_baseline_df.copy()
                     # Filter for target month/day if available for exact matching
                     try:
-                        t_month = target_date.month if hasattr(target_date, "month") else None
+                        t_month = (
+                            target_date.month if hasattr(target_date, "month") else None
+                        )
                         t_day = target_date.day if hasattr(target_date, "day") else None
                     except Exception:
                         t_month, t_day = None, None
 
-                    if "month" in base.columns and "day" in base.columns and t_month and t_day:
+                    if (
+                        "month" in base.columns
+                        and "day" in base.columns
+                        and t_month
+                        and t_day
+                    ):
                         base = base[(base["month"] == t_month) & (base["day"] == t_day)]
                         # Fallback to month-only if no exact rows
                         if base.empty:
@@ -2235,30 +2298,61 @@ class FilantropiaSolarApp:
 
                     # Now restrict to productive hours window
                     if not base.empty:
-                        base = base[base["hour"].between(productive_hour_min, productive_hour_max)]
+                        base = base[
+                            base["hour"].between(
+                                productive_hour_min, productive_hour_max
+                            )
+                        ]
 
                     if not base.empty:
                         x_hours = base["hour"].astype(int).to_numpy()
                         # Capacity scaling: baseline values are normalized to 18kWp
                         try:
                             capacity_kwp = float(
-                                self.current_results.get("installation_info", {}).get("capacity_kwp", 18.0),
+                                self.current_results.get("installation_info", {}).get(
+                                    "capacity_kwp", 18.0
+                                ),
                             )
                         except Exception:
                             capacity_kwp = 18.0
                         scale = capacity_kwp / 18.0 if capacity_kwp else 1.0
 
-                        y_min = (base.get("min").fillna(0).to_numpy() * scale) if "min" in base.columns else None
-                        y_max = (base.get("max").fillna(0).to_numpy() * scale) if "max" in base.columns else None
-                        y_avg = (base.get("avg").fillna(0).to_numpy() * scale) if "avg" in base.columns else None
+                        y_min = (
+                            (base.get("min").fillna(0).to_numpy() * scale)
+                            if "min" in base.columns
+                            else None
+                        )
+                        y_max = (
+                            (base.get("max").fillna(0).to_numpy() * scale)
+                            if "max" in base.columns
+                            else None
+                        )
+                        y_avg = (
+                            (base.get("avg").fillna(0).to_numpy() * scale)
+                            if "avg" in base.columns
+                            else None
+                        )
 
                         if y_min is not None and y_max is not None:
                             self.hourly_energy_ax.vlines(
-                                x_hours, y_min, y_max, colors="black", linewidth=1.5, alpha=0.9, label="Lisbon min–max (4y)", zorder=5,
+                                x_hours,
+                                y_min,
+                                y_max,
+                                colors="black",
+                                linewidth=1.5,
+                                alpha=0.9,
+                                label="Lisbon min-max (4y)",
+                                zorder=5,
                             )
                         if y_avg is not None:
                             self.hourly_energy_ax.scatter(
-                                x_hours, y_avg, marker="x", color="black", s=30, label="Lisbon avg (4y)", zorder=6,
+                                x_hours,
+                                y_avg,
+                                marker="x",
+                                color="black",
+                                s=30,
+                                label="Lisbon avg (4y)",
+                                zorder=6,
                             )
 
                         # Ensure y-axis accommodates baseline overlay as well as bars
@@ -2272,12 +2366,17 @@ class FilantropiaSolarApp:
                                 overlay_peaks.append(float(pd.Series(y_avg).max()))
                             if overlay_peaks:
                                 current_top = self.hourly_energy_ax.get_ylim()[1]
-                                desired_top = max(current_top, max(overlay_peaks) * CHART_Y_AXIS_PADDING)
+                                desired_top = max(
+                                    current_top,
+                                    max(overlay_peaks) * CHART_Y_AXIS_PADDING,
+                                )
                                 # Only bump limits upward (never shrink here)
                                 if desired_top > current_top:
                                     self.hourly_energy_ax.set_ylim(0, desired_top)
                         except Exception as _ylim_err:
-                            logger.debug(f"Could not adjust y-limits for baseline overlay: {_ylim_err}")
+                            logger.debug(
+                                f"Could not adjust y-limits for baseline overlay: {_ylim_err}"
+                            )
             except Exception as e:
                 logger.warning(f"Baseline overlay failed: {e}")
 
@@ -2349,19 +2448,21 @@ class FilantropiaSolarApp:
         )
         return pd.to_numeric(hourly_energy, errors="coerce").fillna(0)
 
-    def _calculate_rankings_from_specific(self, specific_series: pd.Series) -> list[int]:
+    def _calculate_rankings_from_specific(
+        self, specific_series: pd.Series
+    ) -> list[int]:
         """Calculate fixed 0-5 rankings based on specific energy thresholds."""
         ranks: list[int] = []
         for val in specific_series:
-            if val < 0.05:
+            if val < RANK_R0_THRESHOLD:
                 ranks.append(0)
-            elif val < 0.2:
+            elif val < RANK_R1_THRESHOLD:
                 ranks.append(1)
-            elif val < 0.4:
+            elif val < RANK_R2_THRESHOLD:
                 ranks.append(2)
-            elif val < 0.6:
+            elif val < RANK_R3_THRESHOLD:
                 ranks.append(3)
-            elif val < 0.8:
+            elif val < RANK_R4_THRESHOLD:
                 ranks.append(4)
             else:
                 ranks.append(5)
@@ -2463,7 +2564,9 @@ class FilantropiaSolarApp:
         )
 
         if hourly_energy.max() > 0:
-            self.hourly_energy_ax.set_ylim(0, hourly_energy.max() * CHART_Y_AXIS_PADDING)
+            self.hourly_energy_ax.set_ylim(
+                0, hourly_energy.max() * CHART_Y_AXIS_PADDING
+            )
 
     def _add_energy_legend(self):
         """Add performance ranking legend to energy chart."""
@@ -2940,7 +3043,9 @@ class FilantropiaSolarApp:
             )
 
             # Create energy bars
-            bars, x_positions = self._create_daily_energy_bars(daily_energy, daily_dates)
+            bars, x_positions = self._create_daily_energy_bars(
+                daily_energy, daily_dates
+            )
 
             # Highlight selected day
             self._highlight_selected_day(bars, daily_energy)

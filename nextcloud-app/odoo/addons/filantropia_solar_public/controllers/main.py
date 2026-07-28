@@ -51,13 +51,25 @@ class FilantropiaSolarPublicController(http.Controller):
         try:
             stations_response = self._fetch_json("stations")
             stations = stations_response.get("stations", [])
-        except (urllib.error.URLError, urllib.error.HTTPError, json.JSONDecodeError) as exc:
-            _logger.warning("Unable to fetch stations from Nextcloud public API: %s", exc)
+        except (
+            urllib.error.URLError,
+            urllib.error.HTTPError,
+            json.JSONDecodeError,
+        ) as exc:
+            _logger.warning(
+                "Unable to fetch stations from Nextcloud public API: %s", exc
+            )
             api_error = "Stations are temporarily unavailable."
         try:
             dashboard = self._fetch_json("dashboard")
-        except (urllib.error.URLError, urllib.error.HTTPError, json.JSONDecodeError) as exc:
-            _logger.warning("Unable to fetch dashboard from Nextcloud public API: %s", exc)
+        except (
+            urllib.error.URLError,
+            urllib.error.HTTPError,
+            json.JSONDecodeError,
+        ) as exc:
+            _logger.warning(
+                "Unable to fetch dashboard from Nextcloud public API: %s", exc
+            )
             if not api_error:
                 api_error = "Dashboard metrics are temporarily unavailable."
         return stations, dashboard, api_error
@@ -131,9 +143,15 @@ class FilantropiaSolarPublicController(http.Controller):
             estimate = self._estimate(location, latitude, longitude, capacity_kwp)
             if not estimate:
                 estimate_error = "Estimate service returned an empty response."
-        except (urllib.error.URLError, urllib.error.HTTPError, json.JSONDecodeError) as exc:
+        except (
+            urllib.error.URLError,
+            urllib.error.HTTPError,
+            json.JSONDecodeError,
+        ) as exc:
             _logger.warning("Estimate call failed: %s", exc)
-            estimate_error = "Could not calculate estimate right now. Please try again shortly."
+            estimate_error = (
+                "Could not calculate estimate right now. Please try again shortly."
+            )
         return self._render_dashboard(
             estimate=estimate,
             estimate_error=estimate_error,
@@ -164,7 +182,11 @@ class FilantropiaSolarPublicController(http.Controller):
         estimate_error = None
         try:
             estimate = self._estimate(location, latitude, longitude, capacity_kwp)
-        except (urllib.error.URLError, urllib.error.HTTPError, json.JSONDecodeError) as exc:
+        except (
+            urllib.error.URLError,
+            urllib.error.HTTPError,
+            json.JSONDecodeError,
+        ) as exc:
             _logger.warning("Estimate call failed during quote creation: %s", exc)
             estimate_error = "Could not retrieve estimate while creating quote."
 
@@ -196,7 +218,9 @@ class FilantropiaSolarPublicController(http.Controller):
                 ]
             )
         else:
-            description_lines.append(f"- Estimate unavailable: {estimate_error or 'unknown'}")
+            description_lines.append(
+                f"- Estimate unavailable: {estimate_error or 'unknown'}"
+            )
         description_lines.extend(["", "Requester message:", quote_message or "n/a"])
 
         request.env["crm.lead"].sudo().create(

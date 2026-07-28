@@ -13,7 +13,7 @@ import hashlib
 import json
 import logging
 from pathlib import Path
-import pickle
+import pickle  # nosec B403 - local cache serialization only; loads restricted to app-written files
 import sqlite3
 from typing import Any
 
@@ -122,7 +122,7 @@ class DataCacheManager:
         else:
             content = str(data)
 
-        return hashlib.md5(content.encode()).hexdigest()
+        return hashlib.md5(content.encode(), usedforsecurity=False).hexdigest()
 
     def _get_cache_key(self, data_type: str, identifier: str) -> str:
         """Generate cache key for data."""
@@ -213,7 +213,7 @@ class DataCacheManager:
 
                         # Load data
                         with Path(file_path).open("rb") as f:
-                            data = pickle.load(f)
+                            data = pickle.load(f)  # nosec B301 - loads only cache files written by this application
 
                         logger.info(f"Loaded cached data: {cache_key}")
                         return data
@@ -224,6 +224,7 @@ class DataCacheManager:
             logger.error(f"Error loading cached data {cache_key}: {e}")
             # Auto-invalidate corrupt/stale cache entries
             import contextlib
+
             with contextlib.suppress(Exception):
                 self.invalidate_cache(data_type, identifier)
             return None
@@ -355,7 +356,7 @@ class DataCacheManager:
 
     def validate_cache(self) -> dict[str, Any]:
         """Validate cache integrity."""
-        validation_results = {
+        validation_results: dict[str, Any] = {
             "valid_entries": 0,
             "invalid_entries": 0,
             "missing_files": 0,

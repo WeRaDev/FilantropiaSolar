@@ -133,7 +133,10 @@ dev = [
     "ruff>=0.2.0,<1.0.0",           # Fast linter & formatter
     "mypy>=1.8.0,<2.0.0",           # Type checking
     "pre-commit>=3.6.0,<4.0.0",    # Pre-commit hooks
-    "bandit[toml]>=1.7.0,<2.0.0",  # Security linting
+    "bandit[toml]>=1.9.0,<2.0.0",  # Security linting (1.9+ for Python 3.14)
+    "types-requests",              # Type stubs for mypy
+    "types-psutil",                # Type stubs for mypy
+    "types-PyYAML",                # Type stubs for mypy
     
     # Documentation
     "mkdocs>=1.5.0,<2.0.0",
@@ -235,6 +238,10 @@ line-ending = "auto"
 "tests/**/*.py" = ["S101", "PLR2004", "ARG001", "PLC0415"]
 "src/**/__init__.py" = ["F401"]
 "benchmark_v103.py" = ["E402"]  # Imports must be after sys.path manipulation
+# Odoo framework idioms: package __init__ re-exports, dict-only __manifest__, route **kwargs
+"nextcloud-app/odoo/**/__init__.py" = ["F401"]
+"nextcloud-app/odoo/**/__manifest__.py" = ["B018"]
+"nextcloud-app/odoo/**/controllers/*.py" = ["ARG002"]
 
 [tool.ruff.lint.isort]
 known-first-party = ["filantropia_solar"]
@@ -272,6 +279,15 @@ module = [
     "scipy.*",
     "tkcalendar.*",
     "polars.*",
+]
+ignore_missing_imports = true
+
+# Transitional layout: same modules exist under both names until the
+# package-layout migration completes; avoid duplicate-module analysis.
+[[tool.mypy.overrides]]
+module = [
+    "filantropia_solar.utils.paths",
+    "utils.paths",
 ]
 ignore_missing_imports = true
 

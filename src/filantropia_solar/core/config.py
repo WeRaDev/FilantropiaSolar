@@ -153,31 +153,34 @@ class Settings(BaseSettings):
     """
 
     # Application settings
-    app_name: str = Field(default="FilantropiaSolar", env="APP_NAME")
-    version: str = Field(default_factory=_detect_app_version, env="APP_VERSION")
-    debug: bool = Field(default=False, env="DEBUG")
-    environment: Environment = Field(default=Environment.DEVELOPMENT, env="ENVIRONMENT")
+    # Env var names match uppercased field names (case_sensitive=False).
+    # pydantic v2 ignores the legacy `env=` kwarg, so it is documented as comments.
+    app_name: str = Field(default="FilantropiaSolar")  # env: APP_NAME
+    version: str = Field(default_factory=_detect_app_version)  # env: APP_VERSION
+    debug: bool = Field(default=False)  # env: DEBUG
+    environment: Environment = Field(
+        default=Environment.DEVELOPMENT
+    )  # env: ENVIRONMENT
 
     # Server settings
-    host: str = Field(default="0.0.0.0", env="HOST")
-    port: int = Field(default=8000, env="PORT")
-    workers: int = Field(default=1, env="WORKERS")
+    host: str = Field(default="0.0.0.0")  # nosec B104 - intentional bind-all default for the containerized API (env: HOST)
+    port: int = Field(default=8000)  # env: PORT
+    workers: int = Field(default=1)  # env: WORKERS
 
     # Logging settings
-    log_level: LogLevel = Field(default=LogLevel.INFO, env="LOG_LEVEL")
+    log_level: LogLevel = Field(default=LogLevel.INFO)  # env: LOG_LEVEL
     log_format: str = Field(
         default="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-        env="LOG_FORMAT",
-    )
-    log_file: str | None = Field(default=None, env="LOG_FILE")
-    log_rotation: bool = Field(default=True, env="LOG_ROTATION")
-    log_retention: int = Field(default=30, env="LOG_RETENTION")  # days
+    )  # env: LOG_FORMAT
+    log_file: str | None = Field(default=None)  # env: LOG_FILE
+    log_rotation: bool = Field(default=True)  # env: LOG_ROTATION
+    log_retention: int = Field(default=30)  # days, env: LOG_RETENTION
 
     # Paths
-    data_dir: Path = Field(default=Path("data"), env="DATA_DIR")
-    models_dir: Path = Field(default=Path("models"), env="MODELS_DIR")
-    logs_dir: Path = Field(default=Path("logs"), env="LOGS_DIR")
-    temp_dir: Path = Field(default=Path("temp"), env="TEMP_DIR")
+    data_dir: Path = Field(default=Path("data"))  # env: DATA_DIR
+    models_dir: Path = Field(default=Path("models"))  # env: MODELS_DIR
+    logs_dir: Path = Field(default=Path("logs"))  # env: LOGS_DIR
+    temp_dir: Path = Field(default=Path("temp"))  # env: TEMP_DIR
 
     # Component configurations
     database: DatabaseConfig = Field(default_factory=DatabaseConfig)
@@ -329,6 +332,8 @@ class ConfigurationManager:
         """Get current settings."""
         if self._settings is None:
             self._load_configuration()
+        if self._settings is None:
+            raise RuntimeError("Configuration load failed: settings unavailable")
         return self._settings
 
     def reload(self) -> None:
@@ -342,7 +347,7 @@ class ConfigurationManager:
             self._load_configuration()
 
         # Create new settings instance with updated values
-        current_dict = self._settings.dict()
+        current_dict = self.settings.dict()
         current_dict.update(kwargs)
         self._settings = Settings(**current_dict)
 

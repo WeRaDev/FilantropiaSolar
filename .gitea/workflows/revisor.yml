@@ -15,17 +15,31 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
         with:
-          github-server-url: http://127.0.0.1:3000
+          # host.docker.internal reaches the Gitea host from inside job containers
+          github-server-url: http://host.docker.internal:3000
+          # run-scoped token is rejected by this instance (401); use the org PAT
+          token: ${{ secrets.WERA_GITEA_TOKEN }}
+
+      - name: Install system tkinter
+        # main.py imports tkinter; the runner image lacks it and tkinter cannot
+        # be pip-installed, so install the OS package into the system python
+        run: |
+          (sudo apt-get update -qq && sudo apt-get install -y -qq python3-tk) || \
+          (apt-get update -qq && apt-get install -y -qq python3-tk)
 
       - name: Set up Python venv
-        run: python3 -m venv .revisor-venv
+        # --system-site-packages so the venv sees the OS tkinter package
+        run: python3 -m venv --system-site-packages .revisor-venv
 
-      - name: Install dev tooling
+      - name: Install package and QA tooling
         run: |
           .revisor-venv/bin/pip install --quiet --upgrade pip
-          .revisor-venv/bin/pip install --quiet ruff mypy bandit pytest pytest-cov pytest-asyncio
-          .revisor-venv/bin/pip install --quiet -e ".[dev]" 2>/dev/null || \
-            .revisor-venv/bin/pip install --quiet -r requirements.txt 2>/dev/null || true
+          .revisor-venv/bin/pip install --quiet -e .
+          # ruff is pinned: lint/format output differs between ruff releases
+          .revisor-venv/bin/pip install --quiet \
+            ruff==0.14.0 mypy "bandit[toml]>=1.9" \
+            pytest pytest-cov pytest-asyncio pytest-benchmark pytest-timeout \
+            types-requests types-psutil types-PyYAML
 
       - name: Lint (ruff)
         id: lint
@@ -59,7 +73,8 @@ jobs:
         if: always()
         env:
           WERA_GITEA_TOKEN: ${{ secrets.WERA_GITEA_TOKEN }}
-          GITEA_URL: http://127.0.0.1:3000
+          # host.docker.internal reaches the Gitea host from inside job containers
+          GITEA_URL: http://host.docker.internal:3000
           GITHUB_REPOSITORY: ${{ github.repository }}
           PR_NUMBER: ${{ github.event.number }}
           LINT_RESULT: ${{ steps.lint.outcome }}

@@ -7,9 +7,12 @@ r"""Cross-platform resource and user-data path helpers.
 
 from __future__ import annotations
 
+import logging
 import os
 from pathlib import Path
 import sys
+
+logger = logging.getLogger(__name__)
 
 
 def get_project_root() -> Path:
@@ -25,8 +28,8 @@ def get_resource_base() -> Path:
     if getattr(sys, "frozen", False):
         try:
             return Path(sys.executable).parent
-        except Exception:
-            pass
+        except Exception as exc:
+            logger.debug(f"Frozen executable parent resolution failed: {exc}")
     # Pynsist: sys.prefix points to <AppDir>\\Python; resources live in <AppDir>
     try:
         app_python = Path(sys.prefix)
@@ -34,8 +37,8 @@ def get_resource_base() -> Path:
         # Heuristic: nsist layout contains a 'pkgs' dir next to 'Python'
         if (app_dir / "pkgs").exists() and (app_dir / "Python").exists():
             return app_dir
-    except Exception:
-        pass
+    except Exception as exc:
+        logger.debug(f"Pynsist layout detection failed: {exc}")
     # Dev fallback: project root
     return get_project_root()
 

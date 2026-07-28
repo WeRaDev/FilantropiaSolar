@@ -9,7 +9,7 @@ from datetime import datetime, timedelta
 import hashlib
 import logging
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 import joblib
 import numpy as np
@@ -101,6 +101,7 @@ class EnhancedEnergyPredictor:
         self.weather_simulator = weather_simulator
         self.use_cache = use_cache
         # Initialize weather provider with cache
+        self.weather_provider: OpenMeteoWeatherProvider | None
         try:
             self.weather_provider = OpenMeteoWeatherProvider(
                 cache_manager=getattr(data_processor, "cache_manager", None),
@@ -119,8 +120,8 @@ class EnhancedEnergyPredictor:
         self.scalers: dict[str, StandardScaler] = {}  # {installation_id: scaler}
         self.model_performance: dict[
             str,
-            dict[str, float],
-        ] = {}  # {installation_id: {metric: value}}
+            dict[str, dict[str, float]],
+        ] = {}  # {installation_id: {model_name: {metric: value}}}
 
         # Feature persistence for consistent training/inference (v1.1.1 Fix)
         self.feature_columns: dict[
@@ -276,7 +277,7 @@ class EnhancedEnergyPredictor:
                 ensemble_model, ensemble_performance = self._create_ensemble_model(
                     models, performance, X_test_scaled, y_test
                 )
-                if ensemble_model:
+                if ensemble_model and ensemble_performance is not None:
                     models["ensemble"] = ensemble_model
                     performance["ensemble"] = ensemble_performance
                     logger.info(
@@ -319,6 +320,8 @@ class EnhancedEnergyPredictor:
 
     def _load_cached_models(self, installation_id: str) -> bool:
         """Load cached models for an installation."""
+        if self.cache_manager is None:
+            return False
         try:
             model_key = f"model_{installation_id}"
             scaler_key = f"scaler_{installation_id}"
@@ -361,6 +364,8 @@ class EnhancedEnergyPredictor:
 
     def _cache_models(self, installation_id: str) -> bool:
         """Cache trained models for an installation."""
+        if self.cache_manager is None:
+            return False
         try:
             model_key = f"model_{installation_id}"
             scaler_key = f"scaler_{installation_id}"
@@ -422,7 +427,8 @@ class EnhancedEnergyPredictor:
                 best_model = self.models[installation_id].get("best_model")
                 perf = self.model_performance[installation_id].get(best_name, {})
                 train_hash = hashlib.md5(
-                    repr(self.model_performance[installation_id]).encode()
+                    repr(self.model_performance[installation_id]).encode(),
+                    usedforsecurity=False,
                 ).hexdigest()
                 if best_model and hasattr(self.cache_manager, "cache_model"):
                     self.cache_manager.cache_model(
@@ -976,19 +982,19 @@ class EnhancedEnergyPredictor:
                             try:
                                 lat = float(row.iloc[0][lat_col])
                                 lon = float(row.iloc[0][lon_col])
-                            except Exception:
-                                pass
-                except Exception:
-                    pass
+                            except Exception as exc:
+                                logger.debug(f"Metadata coordinate parse failed: {exc}")
+                except Exception as exc:
+                    logger.debug(f"Metadata Excel fallback unavailable: {exc}")
 
             # Fallback to simulator's stored coords
-            if (not lat or not lon) and getattr(self, "weather_simulator", None):
+            if (not lat or not lon) and self.weather_simulator is not None:
                 coords = self.weather_simulator.location_coords.get(location)
                 if coords:
                     lat, lon = coords
 
             # 1) Try real weather via provider (historical or forecast)
-            if (lat and lon) and getattr(self, "weather_provider", None):
+            if (lat and lon) and self.weather_provider is not None:
                 provider = self.weather_provider
                 prefer_historical = end_date <= datetime.utcnow()
                 df_api = provider.get_hourly_weather(
@@ -1148,7 +1154,12 @@ class EnhancedEnergyPredictor:
 
         # Build a shallow copy of installation_info with overridden capacity/location
         class _Proxy:
-            pass
+            installation_id: str
+            location: str
+            installed_power_kwp: float
+            serial_number: str
+            latitude: float | None
+            longitude: float | None
 
         proxy = _Proxy()
         proxy.installation_id = ref_info.installation_id
@@ -1177,7 +1188,7 @@ class EnhancedEnergyPredictor:
         )
         # Features and predictions using reference model
         prediction_features = self._prepare_prediction_features(
-            weather_data, proxy, ref_id
+            weather_data, cast("InstallationInfo", proxy), ref_id
         )
         predictions = self._make_predictions(
             self.models[ref_id],
@@ -1191,7 +1202,7 @@ class EnhancedEnergyPredictor:
             predictions,
             rankings,
             center_date,
-            proxy,
+            cast("InstallationInfo", proxy),
             True,
             weather_source_info,
         )
@@ -1644,7 +1655,9 @@ class EnhancedEnergyPredictor:
             if id in self.models
         ]
 
-    def get_model_performance(self, installation_id: str) -> dict[str, float] | None:
+    def get_model_performance(
+        self, installation_id: str
+    ) -> dict[str, dict[str, float]] | None:
         """Get model performance metrics for an installation."""
         return self.model_performance.get(installation_id)
 
@@ -1714,6 +1727,9 @@ class EnhancedEnergyPredictor:
         try:
             model_info = self.models[installation_id]
             best_model = model_info.get("best_model")
+
+            if best_model is None:
+                return None
 
             if hasattr(best_model, "feature_importances_"):
                 return {

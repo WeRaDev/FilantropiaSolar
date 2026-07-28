@@ -342,7 +342,9 @@ class AsyncWeatherClient:
                 else:
                     logger.error(f"All retry attempts failed: {e}")
 
-        raise last_exception
+        if last_exception is not None:
+            raise last_exception
+        raise RuntimeError("Request failed without captured exception")
 
     def _get_default_weather(self, location: str) -> dict[str, Any]:
         """Get default weather data for fallback"""

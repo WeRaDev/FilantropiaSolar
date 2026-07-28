@@ -7,7 +7,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 import logging
-from typing import Protocol
+from typing import Any, Protocol
 
 import pandas as pd
 import requests
@@ -37,7 +37,7 @@ class WeatherProvider(Protocol):
 
 @dataclass
 class OpenMeteoWeatherProvider:
-    cache_manager: object | None = None  # DataCacheManager-like
+    cache_manager: Any | None = None  # DataCacheManager-like
     session: requests.Session | None = None
     timeout: int = 20
     max_retries: int = 3
@@ -90,7 +90,7 @@ class OpenMeteoWeatherProvider:
             df = df.set_index("datetime").drop(columns=["time"])  # type: ignore[arg-type]
 
             # Rename to internal schema if needed
-            rename_map = {
+            rename_map: dict[str, str] = {
                 # Open-Meteo already uses these names for requested variables
             }
             df = df.rename(columns=rename_map)
@@ -135,6 +135,7 @@ class OpenMeteoWeatherProvider:
 
         cache_id = self._cache_id(latitude, longitude, start, end, source)
         import contextlib
+
         if self.cache_manager and getattr(self.cache_manager, "is_cached", None):
             with contextlib.suppress(Exception):
                 if self.cache_manager.is_cached("weather_api", cache_id):

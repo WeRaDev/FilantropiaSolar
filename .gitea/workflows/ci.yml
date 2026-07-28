@@ -1,13 +1,26 @@
 name: ci
+
 on:
   push:
     branches: [main, master, develop]
   pull_request:
+
+permissions:
+  contents: read
+
 jobs:
-  baseline:
+  quality-gates:
+    name: Quality gates
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          # host.docker.internal reaches the Gitea host from inside job containers
+          github-server-url: http://host.docker.internal:3000
+          # run-scoped token is rejected by this instance (401); use the org PAT
+          token: ${{ secrets.WERA_GITEA_TOKEN }}
+
       - name: Validate baseline files
         run: |
           test -f README.md
@@ -16,8 +29,38 @@ jobs:
             echo "WARP.md missing"
             exit 1
           fi
-      - name: Quick repository sanity
+
+      - name: Install system tkinter
+        # main.py imports tkinter; the runner image lacks it and tkinter cannot
+        # be pip-installed, so install the OS package into the system python
         run: |
-          if [ -f pyproject.toml ] || [ -f requirements.txt ]; then
-            python3 -m compileall -q .
-          fi
+          (sudo apt-get update -qq && sudo apt-get install -y -qq python3-tk) || \
+          (apt-get update -qq && apt-get install -y -qq python3-tk)
+
+      - name: Set up Python venv
+        # --system-site-packages so the venv sees the OS tkinter package
+        run: python3 -m venv --system-site-packages .ci-venv
+
+      - name: Install package and QA tooling
+        run: |
+          .ci-venv/bin/pip install --quiet --upgrade pip
+          .ci-venv/bin/pip install --quiet -e .
+          # ruff is pinned: formatter output differs between ruff releases
+          .ci-venv/bin/pip install --quiet \
+            ruff==0.14.0 mypy "bandit[toml]>=1.9" pytest pytest-benchmark pytest-timeout \
+            types-requests types-psutil types-PyYAML
+
+      - name: Format check (ruff format)
+        run: .ci-venv/bin/ruff format --check .
+
+      - name: Lint (ruff)
+        run: .ci-venv/bin/ruff check .
+
+      - name: Type check (mypy)
+        run: .ci-venv/bin/python -m mypy
+
+      - name: Security static analysis (bandit)
+        run: .ci-venv/bin/bandit -c pyproject.toml -r src main.py scripts nextcloud-app/ml-service
+
+      - name: Tests (pytest)
+        run: .ci-venv/bin/python -m pytest -q

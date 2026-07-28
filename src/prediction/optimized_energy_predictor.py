@@ -52,7 +52,7 @@ class OptimizedEnergyPredictor(EnhancedEnergyPredictor):
         """Initialize optimized energy predictor."""
         self.progress_callback = progress_callback
         self.training_start_time = None
-        self.model_performance_metrics = {}
+        self.model_performance_metrics: dict[str, Any] = {}
 
         # Use the cache manager from data processor
         self.cache_manager = (
@@ -301,7 +301,7 @@ class OptimizedEnergyPredictor(EnhancedEnergyPredictor):
 
     def get_model_performance_report(self) -> dict[str, Any]:
         """Get comprehensive model performance report."""
-        report = {
+        report: dict[str, Any] = {
             "training_metrics": self.model_performance_metrics,
             "model_details": {},
             "performance_analysis": self._analyze_model_performance(),
@@ -333,7 +333,7 @@ class OptimizedEnergyPredictor(EnhancedEnergyPredictor):
 
     def _analyze_model_performance(self) -> dict[str, Any]:
         """Analyze overall model performance across installations."""
-        analysis = {
+        analysis: dict[str, Any] = {
             "performance_distribution": {},
             "location_performance": {},
             "capacity_correlation": {},
@@ -343,7 +343,7 @@ class OptimizedEnergyPredictor(EnhancedEnergyPredictor):
             # Collect performance data
             r2_scores = []
             mae_scores = []
-            location_performance = {}
+            location_performance: dict[str, list[float]] = {}
             capacity_performance = []
 
             for installation_id, performance in self.model_performance.items():
@@ -357,7 +357,7 @@ class OptimizedEnergyPredictor(EnhancedEnergyPredictor):
                     continue
 
                 # Find best model metrics
-                best_r2 = 0
+                best_r2 = 0.0
                 best_mae = float("inf")
 
                 for _model_name, metrics in performance.items():
