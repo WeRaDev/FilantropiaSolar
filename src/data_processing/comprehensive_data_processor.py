@@ -9,13 +9,12 @@ and handles all available installations across Portugal.
 from __future__ import annotations
 
 from dataclasses import dataclass
-import datetime
 import logging
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
-    from datetime import datetime
+    import datetime
 
 import numpy as np
 import pandas as pd
@@ -643,7 +642,9 @@ class ComprehensiveDataProcessor:
             if info.location == location
         ]
 
-    def get_date_range(self) -> tuple[datetime.datetime, datetime.datetime]:
+    def get_date_range(
+        self,
+    ) -> tuple[datetime.datetime | None, datetime.datetime | None]:
         """Get the overall date range of available data."""
         if not self.combined_data:
             return None, None

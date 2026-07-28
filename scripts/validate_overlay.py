@@ -1,10 +1,12 @@
 from __future__ import annotations
-import sys
+
 from pathlib import Path
-import pandas as pd
+import sys
 
 # Use non-interactive backend for matplotlib
 import matplotlib
+import pandas as pd
+
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 
@@ -13,11 +15,10 @@ ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from src.data_processing.comprehensive_data_processor import ComprehensiveDataProcessor
-from src.weather_simulation.weather_simulator import WeatherSimulator
-from src.prediction.enhanced_energy_predictor import EnhancedEnergyPredictor
-from src.prediction.weather_ranking_system import WeatherRankingSystem
 from main import FilantropiaSolarApp
+from src.data_processing.comprehensive_data_processor import ComprehensiveDataProcessor
+from src.prediction.enhanced_energy_predictor import EnhancedEnergyPredictor
+from src.weather_simulation.weather_simulator import WeatherSimulator
 
 
 def main() -> int:
@@ -33,7 +34,7 @@ def main() -> int:
         print("[VALIDATE] No installations available")
         return 1
 
-    inst_id, info = installs[0]
+    inst_id, _info = installs[0]
     data = dp.get_combined_data(inst_id)
     if data is None or data.empty:
         print("[VALIDATE] No combined data for installation")
@@ -44,7 +45,7 @@ def main() -> int:
 
     hourly = results["hourly_data"]
     daily = results["daily_summary"]
-    target_date = daily.index[len(daily)//2]
+    target_date = daily.index[len(daily) // 2]
 
     # Instantiate app and load baseline
     app = FilantropiaSolarApp()
@@ -52,7 +53,9 @@ def main() -> int:
     if app.validation_baseline_df is None or app.validation_baseline_df.empty:
         print("[VALIDATE] Baseline CSV not found or empty; overlay will be skipped")
     else:
-        print(f"[VALIDATE] Baseline loaded with columns: {list(app.validation_baseline_df.columns)}")
+        print(
+            f"[VALIDATE] Baseline loaded with columns: {list(app.validation_baseline_df.columns)}"
+        )
 
     # Prepare Matplotlib axes without Tk
     fig = plt.figure(figsize=(10, 4), dpi=100)
@@ -63,7 +66,10 @@ def main() -> int:
 
     # Slice current day
     try:
-        current_day_hourly = hourly[hourly.index.date == (target_date.date() if hasattr(target_date, 'date') else target_date)]
+        current_day_hourly = hourly[
+            hourly.index.date
+            == (target_date.date() if hasattr(target_date, "date") else target_date)
+        ]
     except Exception:
         current_day_hourly = hourly[hourly.index == target_date]
 

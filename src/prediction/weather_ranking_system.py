@@ -311,7 +311,7 @@ class WeatherRankingSystem:
                     hourly_scores.append(score)
 
                 # Daily average score and ranking
-                daily_score = np.mean(hourly_scores) if hourly_scores else 50.0
+                daily_score = float(np.mean(hourly_scores)) if hourly_scores else 50.0
                 daily_ranking = self._score_to_ranking(daily_score)
 
                 # Collect daily statistics

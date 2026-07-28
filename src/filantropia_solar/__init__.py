@@ -6,6 +6,7 @@ Built with modern Python practices, type safety, and clean architecture principl
 """
 
 from datetime import datetime
+import logging
 import os
 from pathlib import Path
 import platform
@@ -67,7 +68,7 @@ try:
     )
 except ImportError as e:
     warnings.warn(f"Failed to import core modules: {e}", stacklevel=2)
-    core = None
+    core = None  # type: ignore[assignment]
 
 # Avoid eager imports of subpackages to prevent circular imports during startup.
 # Subpackages (data, models, utils, gui, api, monitoring) should be imported
@@ -119,8 +120,8 @@ def get_version_info():
                 "log_level": settings.log_level.value,
             },
         )
-    except Exception:
-        pass
+    except Exception as exc:
+        logging.getLogger(__name__).debug(f"Settings info unavailable: {exc}")
 
     return info
 

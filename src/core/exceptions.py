@@ -4,7 +4,7 @@ Provides custom exceptions, retry mechanisms, and error recovery strategies
 """
 
 import asyncio
-from collections.abc import Callable
+from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 import functools
 import logging
@@ -174,7 +174,7 @@ def retry_sync(
                         )
 
                         if config.jitter:
-                            delay *= 0.5 + random.random() * 0.5  # Add 0-50% jitter
+                            delay *= 0.5 + random.random() * 0.5  # nosec B311 - backoff jitter, not security-sensitive
 
                         logger.warning(
                             f"Attempt {attempt + 1}/{config.max_attempts} failed for {func.__name__}: {e}. "
@@ -205,7 +205,7 @@ def retry_sync(
 # Asynchronous Retry Decorator
 def retry_async(
     config: RetryConfig | None = None,
-) -> Callable[[Callable[P, R]], Callable[P, R]]:
+) -> Callable[[Callable[P, Awaitable[R]]], Callable[P, Awaitable[R]]]:
     """
     Asynchronous retry decorator with exponential backoff
 
@@ -218,7 +218,7 @@ def retry_async(
     if config is None:
         config = RetryConfig()
 
-    def decorator(func: Callable[P, R]) -> Callable[P, R]:
+    def decorator(func: Callable[P, Awaitable[R]]) -> Callable[P, Awaitable[R]]:
         @functools.wraps(func)
         async def wrapper(*args: P.args, **kwargs: P.kwargs) -> R:
             last_exception = None
@@ -237,7 +237,7 @@ def retry_async(
                         )
 
                         if config.jitter:
-                            delay *= 0.5 + random.random() * 0.5  # Add 0-50% jitter
+                            delay *= 0.5 + random.random() * 0.5  # nosec B311 - backoff jitter, not security-sensitive
 
                         logger.warning(
                             f"Attempt {attempt + 1}/{config.max_attempts} failed for {func.__name__}: {e}. "
@@ -299,8 +299,8 @@ class CircuitBreaker:
                 if time.time() - self.last_failure_time >= self.config.recovery_timeout:
                     self.state = CircuitBreakerState.HALF_OPEN
                     logger.info("Circuit breaker transitioning to HALF_OPEN")
-                else:
-                    raise ResourceExhaustionError("Circuit breaker is OPEN")
+                    return self.call(func)
+                raise ResourceExhaustionError("Circuit breaker is OPEN")
 
             case CircuitBreakerState.HALF_OPEN:
                 try:
@@ -319,6 +319,11 @@ class CircuitBreaker:
                 except self.config.expected_exception:
                     self._on_failure()
                     raise
+
+            case _:
+                raise ResourceExhaustionError(
+                    f"Circuit breaker in unknown state: {self.state}"
+                )
 
     def _on_success(self):
         """Handle successful operation"""
@@ -521,7 +526,7 @@ if __name__ == "__main__":
     def example_sync_function():
         """Example sync function with retry"""
 
-        if random.random() < TEST_FAILURE_PROBABILITY:
+        if random.random() < TEST_FAILURE_PROBABILITY:  # nosec B311 - example test function
             raise DataProcessingError("Random failure for testing")
         return "Success!"
 
@@ -529,7 +534,7 @@ if __name__ == "__main__":
     async def example_async_function():
         """Example async function with retry"""
 
-        if random.random() < TEST_FAILURE_PROBABILITY:
+        if random.random() < TEST_FAILURE_PROBABILITY:  # nosec B311 - example test function
             raise WeatherAPIError("Random API failure for testing")
         return "Async Success!"
 

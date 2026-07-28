@@ -14,7 +14,7 @@ import gc
 import sys
 import threading
 import time
-from typing import Any, Optional, TypeVar
+from typing import Any, Optional, TypeVar, cast
 
 from ..core import get_logger
 
@@ -22,12 +22,12 @@ from ..core import get_logger
 try:
     import psutil
 except ImportError:
-    psutil = None
+    psutil = None  # type: ignore[assignment]
 
 try:
     import pandas as pd
 except ImportError:
-    pd = None
+    pd = None  # type: ignore[assignment]
 
 T = TypeVar("T")
 F = TypeVar("F", bound=Callable[..., Any])
@@ -156,7 +156,7 @@ def performance_monitor(func: F) -> F:
             function_name = f"{func.__module__}.{func.__name__}"
             perf_monitor.record_execution(function_name, execution_time)
 
-    return wrapper
+    return cast("F", wrapper)
 
 
 class LRUCache:
@@ -278,10 +278,10 @@ def lru_cache(max_size: int = 128, ttl: float | None = None):
             return result
 
         # Add cache management methods
-        wrapper.cache_info = cache.stats
-        wrapper.cache_clear = cache.clear
+        wrapper.cache_info = cache.stats  # type: ignore[attr-defined]
+        wrapper.cache_clear = cache.clear  # type: ignore[attr-defined]
 
-        return wrapper
+        return cast("F", wrapper)
 
     return decorator
 
@@ -335,6 +335,9 @@ class BatchProcessor:
         batch_to_process = self._batch.copy()
         self._batch.clear()
         self._last_process_time = time.time()
+
+        if self.processor_func is None:
+            return
 
         try:
             self.processor_func(batch_to_process)
@@ -504,7 +507,7 @@ def profile_memory_usage(func: F) -> F:
                     f"Memory usage for {func.__name__}: {memory_diff:+,} bytes",
                 )
 
-    return wrapper
+    return cast("F", wrapper)
 
 
 def chunked_processing(

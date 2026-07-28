@@ -23,6 +23,7 @@ from sklearn.model_selection import cross_val_score, GridSearchCV
 from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
 
 from ..core import (
+    ErrorCode,
     get_logger,
     log_performance,
     log_exceptions,
@@ -38,6 +39,12 @@ from ..core import (
 ModelType = TypeVar('ModelType', bound=BaseEstimator)
 PredictionType = TypeVar('PredictionType')
 FeatureType = TypeVar('FeatureType')
+
+# Variance-correct type variables for protocol definitions
+ModelTypeCo = TypeVar('ModelTypeCo', bound=BaseEstimator, covariant=True)
+ModelTypeContra = TypeVar('ModelTypeContra', bound=BaseEstimator, contravariant=True)
+PredictionTypeCo = TypeVar('PredictionTypeCo', covariant=True)
+FeatureTypeContra = TypeVar('FeatureTypeContra', contravariant=True)
 
 
 class ModelStatus(str, Enum):
@@ -109,14 +116,14 @@ class PredictionResult:
 
 
 @runtime_checkable
-class ModelPredictor(Protocol[FeatureType, PredictionType]):
+class ModelPredictor(Protocol[FeatureTypeContra, PredictionTypeCo]):
     """Protocol for model prediction operations."""
     
-    def predict(self, features: FeatureType) -> PredictionType:
+    def predict(self, features: FeatureTypeContra) -> PredictionTypeCo:
         """Make predictions on features."""
         ...
     
-    def predict_proba(self, features: FeatureType) -> np.ndarray:
+    def predict_proba(self, features: FeatureTypeContra) -> np.ndarray:
         """Get prediction probabilities (for classification models)."""
         ...
     
@@ -126,14 +133,14 @@ class ModelPredictor(Protocol[FeatureType, PredictionType]):
 
 
 @runtime_checkable
-class ModelTrainer(Protocol[ModelType, FeatureType]):
+class ModelTrainer(Protocol[ModelTypeCo, FeatureTypeContra]):
     """Protocol for model training operations."""
     
-    def fit(self, X: FeatureType, y: np.ndarray, **kwargs) -> ModelType:
+    def fit(self, X: FeatureTypeContra, y: np.ndarray, **kwargs) -> ModelTypeCo:
         """Train the model on features and targets."""
         ...
     
-    def partial_fit(self, X: FeatureType, y: np.ndarray, **kwargs) -> ModelType:
+    def partial_fit(self, X: FeatureTypeContra, y: np.ndarray, **kwargs) -> ModelTypeCo:
         """Incrementally train the model."""
         ...
     
@@ -141,20 +148,20 @@ class ModelTrainer(Protocol[ModelType, FeatureType]):
         """Get model parameters."""
         ...
     
-    def set_params(self, **params) -> ModelType:
+    def set_params(self, **params) -> ModelTypeCo:
         """Set model parameters."""
         ...
 
 
 @runtime_checkable
-class ModelEvaluator(Protocol[ModelType, FeatureType]):
+class ModelEvaluator(Protocol[ModelTypeContra, FeatureTypeContra]):
     """Protocol for model evaluation operations."""
     
-    def evaluate(self, model: ModelType, X_test: FeatureType, y_test: np.ndarray) -> ModelMetrics:
+    def evaluate(self, model: ModelTypeContra, X_test: FeatureTypeContra, y_test: np.ndarray) -> ModelMetrics:
         """Evaluate model performance."""
         ...
     
-    def cross_validate(self, model: ModelType, X: FeatureType, y: np.ndarray, cv: int = 5) -> List[float]:
+    def cross_validate(self, model: ModelTypeContra, X: FeatureTypeContra, y: np.ndarray, cv: int = 5) -> List[float]:
         """Perform cross-validation."""
         ...
 
@@ -382,7 +389,13 @@ class BaseMLModel(abc.ABC, Generic[ModelType, FeatureType, PredictionType]):
                 f"Model {self.name} is not trained. Current status: {self._status}",
                 model_name=self.name
             )
-        
+
+        if self._model is None:
+            raise ModelPredictionError(
+                f"Model {self.name} has no underlying estimator loaded",
+                model_name=self.name
+            )
+
         try:
             # Validate and prepare features
             self._validate_features(X)
@@ -443,6 +456,11 @@ class BaseMLModel(abc.ABC, Generic[ModelType, FeatureType, PredictionType]):
         
         if not param_grid:
             self.logger.warning("No parameter grid provided for hyperparameter tuning")
+            if self._model is None:
+                raise ModelTrainingError(
+                    "No model instance available for hyperparameter tuning",
+                    model_type=self.model_type,
+                )
             return self._model
         
         grid_search = GridSearchCV(
@@ -468,6 +486,11 @@ class BaseMLModel(abc.ABC, Generic[ModelType, FeatureType, PredictionType]):
     
     def _evaluate_model(self, X_val: np.ndarray, y_val: np.ndarray) -> ModelMetrics:
         """Evaluate model performance on validation data."""
+        if self._model is None:
+            raise ModelTrainingError(
+                "Cannot evaluate without a trained model instance",
+                model_type=self.model_type,
+            )
         predictions = self._model.predict(X_val)
         
         mae = mean_absolute_error(y_val, predictions)
@@ -503,7 +526,7 @@ class BaseMLModel(abc.ABC, Generic[ModelType, FeatureType, PredictionType]):
     
     def _get_feature_importance(self) -> Optional[Dict[str, float]]:
         """Get feature importance scores."""
-        if not hasattr(self._model, 'feature_importances_'):
+        if self._model is None or not hasattr(self._model, 'feature_importances_'):
             return None
         
         importances = self._model.feature_importances_
@@ -523,7 +546,7 @@ class BaseMLModel(abc.ABC, Generic[ModelType, FeatureType, PredictionType]):
     ) -> Optional[np.ndarray]:
         """Calculate prediction confidence intervals."""
         # Default implementation - override in subclasses for more sophisticated methods
-        if hasattr(self._model, 'predict_std'):
+        if self._model is not None and hasattr(self._model, 'predict_std'):
             std = self._model.predict_std(X)
             from scipy.stats import norm
             z_score = norm.ppf((1 + confidence_level) / 2)
@@ -547,7 +570,7 @@ class BaseMLModel(abc.ABC, Generic[ModelType, FeatureType, PredictionType]):
         if not self.is_trained:
             raise ModelError(
                 f"Cannot save untrained model {self.name}",
-                error_code="FS3003"  # MODEL_SAVING_ERROR
+                error_code=ErrorCode.MODEL_SAVING_ERROR
             )
         
         if file_path is None:
@@ -582,7 +605,7 @@ class BaseMLModel(abc.ABC, Generic[ModelType, FeatureType, PredictionType]):
         except Exception as e:
             raise ModelError(
                 f"Failed to save model to {file_path}: {str(e)}",
-                error_code="FS3003",  # MODEL_SAVING_ERROR
+                error_code=ErrorCode.MODEL_SAVING_ERROR,
                 cause=e
             ) from e
     
@@ -605,7 +628,7 @@ class BaseMLModel(abc.ABC, Generic[ModelType, FeatureType, PredictionType]):
         if not file_path.exists():
             raise ModelError(
                 f"Model file not found: {file_path}",
-                error_code="FS3002"  # MODEL_LOADING_ERROR
+                error_code=ErrorCode.MODEL_LOADING_ERROR
             )
         
         try:
@@ -650,7 +673,7 @@ class BaseMLModel(abc.ABC, Generic[ModelType, FeatureType, PredictionType]):
         except Exception as e:
             raise ModelError(
                 f"Failed to load model from {file_path}: {str(e)}",
-                error_code="FS3002",  # MODEL_LOADING_ERROR
+                error_code=ErrorCode.MODEL_LOADING_ERROR,
                 cause=e
             ) from e
     

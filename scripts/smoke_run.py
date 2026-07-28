@@ -1,7 +1,7 @@
 from __future__ import annotations
-import sys
+
 from pathlib import Path
-from datetime import datetime
+import sys
 
 import pandas as pd
 
@@ -11,9 +11,13 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 from src.data_processing.comprehensive_data_processor import ComprehensiveDataProcessor
-from src.weather_simulation.weather_simulator import WeatherSimulator
 from src.prediction.enhanced_energy_predictor import EnhancedEnergyPredictor
 from src.prediction.weather_ranking_system import WeatherRankingSystem
+from src.weather_simulation.weather_simulator import WeatherSimulator
+
+# Night hours for the radiation sanity check (outside the productive window)
+NIGHT_RADIATION_HOUR_MIN = 6
+NIGHT_RADIATION_HOUR_MAX = 20
 
 
 def main() -> int:
@@ -30,7 +34,9 @@ def main() -> int:
         return 1
 
     inst_id, info = installs[0]
-    print(f"[SMOKE] Using installation: {info.location}_{info.serial_number} ({info.installed_power_kwp} kWp)")
+    print(
+        f"[SMOKE] Using installation: {info.location}_{info.serial_number} ({info.installed_power_kwp} kWp)"
+    )
 
     data = dp.get_combined_data(inst_id)
     if data is None or data.empty:
@@ -48,25 +54,39 @@ def main() -> int:
     source = results.get("data_source", {})
 
     print("[SMOKE] Period:", period)
-    print("[SMOKE] Stats: total_kwh=", stats.get("total_energy_kwh"), "avg_specific=", stats.get("average_specific_energy"))
+    print(
+        "[SMOKE] Stats: total_kwh=",
+        stats.get("total_energy_kwh"),
+        "avg_specific=",
+        stats.get("average_specific_energy"),
+    )
     print("[SMOKE] Data source:", source)
 
     hourly = results.get("hourly_data")
     daily = results.get("daily_summary")
 
     if isinstance(hourly, pd.DataFrame):
-        print(f"[SMOKE] Hourly rows: {len(hourly)}, cols: {list(hourly.columns)[:10]}...")
-        # Night radiation sanity: hours <6 or >20 must be zero
+        print(
+            f"[SMOKE] Hourly rows: {len(hourly)}, cols: {list(hourly.columns)[:10]}..."
+        )
+        # Night radiation sanity: hours outside the productive window must be zero
         if "shortwave_radiation" in hourly.columns:
-            night = hourly[(hourly.index.hour < 6) | (hourly.index.hour > 20)]["shortwave_radiation"]
-            night_max = float(pd.to_numeric(night, errors="coerce").fillna(0).max()) if len(night) else 0.0
+            night = hourly[
+                (hourly.index.hour < NIGHT_RADIATION_HOUR_MIN)
+                | (hourly.index.hour > NIGHT_RADIATION_HOUR_MAX)
+            ]["shortwave_radiation"]
+            night_max = (
+                float(pd.to_numeric(night, errors="coerce").fillna(0).max())
+                if len(night)
+                else 0.0
+            )
             print(f"[SMOKE] Night radiation max: {night_max}")
     if isinstance(daily, pd.DataFrame):
         print(f"[SMOKE] Daily rows: {len(daily)}")
 
     # Rank check on one day
     try:
-        target_date = daily.index[len(daily)//2]
+        target_date = daily.index[len(daily) // 2]
         try:
             target_key = target_date.date()
         except Exception:

@@ -51,7 +51,7 @@ class OptimizedDataProcessor(ComprehensiveDataProcessor):
         """Initialize optimized data processor."""
         self.use_cache = use_cache
         self.progress_callback = progress_callback
-        self.performance_metrics = {}
+        self.performance_metrics: dict[str, Any] = {}
         self.loading_start_time = None
 
         # Initialize cache manager
@@ -83,7 +83,7 @@ class OptimizedDataProcessor(ComprehensiveDataProcessor):
 
     def _can_use_cached_data(self) -> bool:
         """Check if all required data is cached and valid."""
-        if not self.use_cache:
+        if not self.use_cache or self.cache_manager is None:
             return False
 
         # Check for essential cached components
@@ -424,14 +424,7 @@ class OptimizedDataProcessor(ComprehensiveDataProcessor):
             # Add to installations
             location = metadata.get("location")
             if location and location in self.weather_file_mapping:
-                # Combine with weather data
-                combined = self._combine_installation_weather(new_data, location)
-
-                # Add to data structures
-                self.energy_data[installation_id] = new_data
-                self.combined_data[installation_id] = combined
-
-                # Create installation info
+                # Create installation info first (needed by computed features)
                 self.installations[installation_id] = InstallationInfo(
                     serial_number=metadata.get("serial_number", installation_id),
                     location=location,
@@ -442,6 +435,15 @@ class OptimizedDataProcessor(ComprehensiveDataProcessor):
                     from_date=new_data.index.min(),
                     to_date=new_data.index.max(),
                 )
+
+                # Combine with weather data
+                combined = self._combine_installation_weather(
+                    new_data, location, installation_id
+                )
+
+                # Add to data structures
+                self.energy_data[installation_id] = new_data
+                self.combined_data[installation_id] = combined
 
                 # Update cache
                 if self.use_cache:
@@ -465,6 +467,7 @@ class OptimizedDataProcessor(ComprehensiveDataProcessor):
         self,
         energy_data: pd.DataFrame,
         location: str,
+        installation_id: str,
     ) -> pd.DataFrame:
         """Combine installation energy data with weather data for specific location."""
         if location not in self.weather_data:
@@ -484,8 +487,10 @@ class OptimizedDataProcessor(ComprehensiveDataProcessor):
                     method="nearest",
                 )
 
-        # Add derived features (same as parent class)
-        combined = self._add_derived_features(combined)
+        # Add computed features (same as parent class)
+        installation = self.installations.get(installation_id)
+        if installation is not None:
+            combined = self._add_computed_features(combined, installation)
 
         return combined
 

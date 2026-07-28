@@ -26,6 +26,8 @@ from ..core import (
 
 # Type variables for generic interfaces
 T = TypeVar("T")
+T_co = TypeVar("T_co", covariant=True)
+T_contra = TypeVar("T_contra", contravariant=True)
 DataFrameType = TypeVar("DataFrameType", bound=pd.DataFrame)
 
 
@@ -74,10 +76,10 @@ class DataQualityReport:
         }
 
 
-class DataLoader(Protocol[T]):
+class DataLoader(Protocol[T_co]):
     """Protocol for data loading operations."""
 
-    def load(self, source: str | Path, **kwargs) -> T:
+    def load(self, source: str | Path, **kwargs) -> T_co:
         """Load data from source."""
         ...
 
@@ -86,10 +88,10 @@ class DataLoader(Protocol[T]):
         ...
 
 
-class DataValidator(Protocol[T]):
+class DataValidator(Protocol[T_contra]):
     """Protocol for data validation operations."""
 
-    def validate(self, data: T) -> DataQualityReport:
+    def validate(self, data: T_contra) -> DataQualityReport:
         """Validate data quality and return report."""
         ...
 
@@ -110,11 +112,11 @@ class DataTransformer(Protocol[T]):
         ...
 
 
-class DataExporter(Protocol[T]):
+class DataExporter(Protocol[T_contra]):
     """Protocol for data export operations."""
 
     def export(
-        self, data: T, destination: str | Path, format: str = "csv", **kwargs
+        self, data: T_contra, destination: str | Path, format: str = "csv", **kwargs
     ) -> bool:
         """Export data to destination."""
         ...

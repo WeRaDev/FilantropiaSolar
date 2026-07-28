@@ -184,6 +184,7 @@ class LoggingManager:
 
     _instance: Optional["LoggingManager"] = None
     _initialized: bool = False
+    _local: threading.local
 
     def __new__(cls) -> "LoggingManager":
         """Ensure singleton instance."""
@@ -194,6 +195,7 @@ class LoggingManager:
     def __init__(self) -> None:
         """Initialize logging manager."""
         if not self._initialized:
+            self._local = threading.local()
             self.setup_logging()
             self._initialized = True
 
@@ -210,7 +212,7 @@ class LoggingManager:
         root_logger.setLevel(getattr(logging, settings.log_level.value))
 
         # Setup handlers
-        handlers = []
+        handlers: list[logging.Handler] = []
 
         # Console handler
         console_handler = logging.StreamHandler(sys.stdout)
@@ -232,6 +234,7 @@ class LoggingManager:
 
             log_file_path.parent.mkdir(parents=True, exist_ok=True)
 
+            file_handler: logging.Handler
             if settings.log_rotation:
                 file_handler = logging.handlers.RotatingFileHandler(
                     log_file_path,
@@ -270,8 +273,6 @@ class LoggingManager:
     def set_context(self, context: LogContext) -> None:
         """Set logging context for structured logging."""
         # Store context in thread-local storage
-        if not hasattr(self._local, "context"):
-            self._local = threading.local()
         self._local.context = context
 
     def get_context(self) -> LogContext | None:
