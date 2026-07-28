@@ -332,7 +332,8 @@ class ConfigurationManager:
         """Get current settings."""
         if self._settings is None:
             self._load_configuration()
-        assert self._settings is not None
+        if self._settings is None:
+            raise RuntimeError("Configuration load failed: settings unavailable")
         return self._settings
 
     def reload(self) -> None:

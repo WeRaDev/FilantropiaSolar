@@ -6,6 +6,7 @@ should import from ``filantropia_solar.core`` directly. The legacy-only
 importable as a submodule and is unaffected by this shim.
 """
 
+# Re-export the packaged public API surface (stays in sync automatically)
 from src.filantropia_solar.core import (
     BusinessLogicError,
     ColoredFormatter,
@@ -35,6 +36,7 @@ from src.filantropia_solar.core import (
     WeatherAPIError,
     WeatherAPIRateLimitError,
     WeatherAPITimeoutError,
+    __all__,
     create_error_response,
     get_config,
     get_data_dir,
@@ -60,5 +62,3 @@ from src.filantropia_solar.core import (
     reload_config,
     setup_logging,
 )
-
-__all__ = [name for name in dir() if not name.startswith("_")]

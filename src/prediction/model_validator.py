@@ -159,6 +159,7 @@ class ModelValidator:
                 installation_result = self._test_installation(
                     excluded_predictor,
                     test_installation,
+                    test_location,
                 )
                 location_results["installation_results"][test_installation] = (
                     installation_result
@@ -220,6 +221,7 @@ class ModelValidator:
         self,
         predictor: EnhancedEnergyPredictor,
         installation_id: str,
+        location: str,
     ) -> dict[str, Any]:
         """Test model performance on excluded installation."""
         try:
@@ -246,7 +248,14 @@ class ModelValidator:
             # Get actual values
             actual_energy = test_period["Produced Energy (kWh)"].values
 
-            # Generate predictions using trained model
+            # Generate predictions using reference models trained on other
+            # locations (the excluded predictor has no model for this installation,
+            # which is the point of leave-one-location-out validation)
+            capacity_kwp = 1.0
+            inst_info = self.data_processor.installations.get(installation_id)
+            if inst_info is not None:
+                capacity_kwp = inst_info.installed_power_kwp
+
             predictions = []
 
             for date in pd.date_range(
@@ -255,11 +264,11 @@ class ModelValidator:
                 freq="D",
             ):
                 try:
-                    # Predict using historical weather data
-                    prediction_result = predictor.predict_15day_period(
-                        installation_id,
+                    # Predict via a reference installation from a different location
+                    prediction_result = predictor.predict_period_for_custom(
+                        location,
+                        capacity_kwp,
                         date,
-                        True,
                     )
 
                     if prediction_result and "hourly_data" in prediction_result:
