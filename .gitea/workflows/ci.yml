@@ -35,8 +35,9 @@ jobs:
         run: |
           .ci-venv/bin/pip install --quiet --upgrade pip
           .ci-venv/bin/pip install --quiet -e .
+          # ruff is pinned: formatter output differs between ruff releases
           .ci-venv/bin/pip install --quiet \
-            ruff mypy "bandit[toml]>=1.9" pytest \
+            ruff==0.14.0 mypy "bandit[toml]>=1.9" pytest pytest-benchmark pytest-timeout \
             types-requests types-psutil types-PyYAML
 
       - name: Format check (ruff format)

@@ -424,7 +424,7 @@ class MemoryOptimizer:
             # Fallback without psutil
             return {
                 "objects_count": len(gc.get_objects()),
-                "gc_counts": gc.get_counts(),
+                "gc_counts": gc.get_count(),  # get_count exists on all supported versions (get_counts is 3.13+)
                 "sys_getsizeof_limit": sys.getsizeof({}),
                 "unit": "objects/bytes",
             }
