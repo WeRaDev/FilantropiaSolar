@@ -241,12 +241,8 @@ $RECYCLE.BIN/
 # FilantropiaSolar Specific
 # ==========================================
 
-# Data files (large datasets)
-data/
-!data/
-!data/**
-!data/.gitkeep
-!data/README.md
+# Data files: the shared Mendeley dataset is TRACKED (self-contained clone,
+# reorganization 2026-07-29). Only transient outputs under data/ are ignored.
 weather_files/
 !weather_files/
 !weather_files/**
@@ -288,8 +284,8 @@ temp/
 *.backup
 *~
 
-# Archive directory (development artifacts)
-archive/
+# Archive directory is a PERMANENT preservation area (tracked):
+# stale-but-valuable files are archived here, never deleted
 old/
 backup/
 

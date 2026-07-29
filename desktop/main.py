@@ -11,7 +11,7 @@ Sarmas, Elissaios; Matias, Nuno; Pereira, Catarina; Antunes, Ana Rita (2025),
 "Photovoltaic Power Production Dataset", Mendeley Data, V3, doi: 10.17632/dbh93b6vp8.3
 
 Author: FilantropiaSolar Team
-Version: 1.2.3
+Version: 1.3.0
 """
 
 from datetime import datetime, timedelta
@@ -66,6 +66,13 @@ except Exception:
         WeatherSimulator = None  # type: ignore[assignment]
         EnhancedEnergyPredictor = None  # type: ignore[assignment]
         WeatherRankingSystem = None  # type: ignore[assignment]
+
+# Server backend (API-client mode, v1.3.0+)
+try:
+    from src.nextcloud_backend import NextcloudBackend
+except Exception as _backend_import_err:
+    logger.error(f"Backend import failure: {_backend_import_err}")
+    NextcloudBackend = None  # type: ignore[assignment]
 
 # Optional matplotlib imports
 try:
@@ -194,7 +201,7 @@ class FilantropiaSolarApp:
     def create_loading_gui(self):
         """Create the initial loading interface."""
         self.root = tk.Tk()
-        self.root.title("FilantropiaSolar v1.2.3 - Loading...")
+        self.root.title("FilantropiaSolar v1.3.0 - Loading...")
         self.root.geometry(f"{LOADING_WINDOW_WIDTH}x{LOADING_WINDOW_HEIGHT}")
         self.root.resizable(False, False)
 
@@ -474,12 +481,20 @@ class FilantropiaSolarApp:
     def _initialize_components_threaded(self):
         """Initialize all application components in a separate thread."""
         try:
-            # Step 1: Load data processing system
-            self._update_progress(15, "Loading installation data...")
+            # Step 1: Connect to the Nextcloud server (API-client mode)
+            self._update_progress(15, "Connecting to FilantropiaSolar server...")
 
-            self.data_processor = ComprehensiveDataProcessor()
-            # Store cache manager reference
-            self.cache_manager = getattr(self.data_processor, "cache_manager", None)
+            if NextcloudBackend is None:
+                raise RuntimeError(
+                    "Nextcloud backend unavailable (import failed); "
+                    "check the backend module installation."
+                )
+            backend = NextcloudBackend.from_environment()
+
+            self.data_processor = backend
+            self.cache_manager = backend.cache_manager
+            self.weather_simulator = backend
+            self.energy_predictor = backend
 
             # Step 2: Analyze available data ranges
             self._update_progress(35, "Analyzing available data ranges...")
@@ -491,35 +506,13 @@ class FilantropiaSolarApp:
             )
             self._load_validation_baseline()
 
-            # Step 3: Initialize weather simulation
-            self._update_progress(55, "Initializing weather simulation...")
+            # Initialize weather ranking system (runs locally on server data)
+            self._update_progress(75, "Initializing analysis components...")
 
-            self.weather_simulator = WeatherSimulator("weather_files")
-
-            # Step 4: Initialize ML models (try loading existing first)
-            self._update_progress(75, "Initializing machine learning models...")
-
-            self.energy_predictor = EnhancedEnergyPredictor(
-                self.data_processor,
-                self.weather_simulator,
-            )
-
-            # Initialize weather ranking system
             self.weather_ranking_system = WeatherRankingSystem(
                 self.energy_predictor,
                 self.data_processor,
             )
-
-            # Try to load models saved on disk (optional); otherwise predictor uses cache or trains on demand
-            try:
-                self.energy_predictor.load_models()
-                logger.info("Attempted to load on-disk ML models (optional)")
-                self._update_progress(95, "Checking existing ML models...")
-            except Exception as e:
-                logger.warning(
-                    f"Model load attempt skipped/failed: {e}. Will train or use cache automatically.",
-                )
-                self._update_progress(90, "Preparing ML models...")
 
             # Step 5: Finalize setup
             self._update_progress(98, "Finalizing setup...")
@@ -632,7 +625,7 @@ class FilantropiaSolarApp:
             self.loading_frame.destroy()
 
             # Reconfigure main window
-            self.root.title("FilantropiaSolar v1.2.3 - Advanced Solar Energy Analysis")
+            self.root.title("FilantropiaSolar v1.3.0 - Advanced Solar Energy Analysis")
             self.root.geometry("1400x900")
             self.root.resizable(True, True)
 
