@@ -72,7 +72,7 @@ services:
     volumes:
       - ./ml-service:/app
       - ml_models:/app/models
-      - ../Data:/app/data:ro
+      - ../data:/app/data:ro
       - ../weather_files:/app/weather_files:ro
     networks:
       - filantropia-net

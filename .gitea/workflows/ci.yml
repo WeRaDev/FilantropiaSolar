@@ -44,7 +44,7 @@ jobs:
       - name: Install package and QA tooling
         run: |
           .ci-venv/bin/pip install --quiet --upgrade pip
-          .ci-venv/bin/pip install --quiet -e .
+          .ci-venv/bin/pip install --quiet -e ./desktop
           # ruff is pinned: formatter output differs between ruff releases
           .ci-venv/bin/pip install --quiet \
             ruff==0.14.0 mypy "bandit[toml]>=1.9" pytest pytest-benchmark pytest-timeout \
@@ -57,10 +57,11 @@ jobs:
         run: .ci-venv/bin/ruff check .
 
       - name: Type check (mypy)
-        run: .ci-venv/bin/python -m mypy
+        # mypy config lives in desktop/pyproject.toml after the repo split
+        run: cd desktop && ../.ci-venv/bin/python -m mypy
 
       - name: Security static analysis (bandit)
-        run: .ci-venv/bin/bandit -c pyproject.toml -r src main.py scripts nextcloud-app/ml-service
+        run: .ci-venv/bin/bandit -c desktop/pyproject.toml -r desktop/src desktop/main.py desktop/scripts nextcloud-app/ml-service
 
       - name: Tests (pytest)
-        run: .ci-venv/bin/python -m pytest -q
+        run: cd desktop && ../.ci-venv/bin/python -m pytest -q
