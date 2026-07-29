@@ -1,11 +1,14 @@
 # FilantropiaSolar Nextcloud App Development Guide
 
 ## Overview
-This document captures Nextcloud-specific development patterns, solutions, and best practices learned during FilantropiaSolar v3.0.x development.
+This document captures Nextcloud-specific development patterns, solutions, and best practices learned during FilantropiaSolar Nextcloud app development.
 
 ## Version History
 - v3.0.0 (2026-01-16): Initial Nextcloud app launch with basic UI
 - v3.0.1 (2026-01-17): Data integration from Mendeley PV dataset via PHP proxy
+- v3.0.5/3.0.6 (2026-02): Ranking fix, virtual installations, ML admin panel, historical data upload
+- v3.1.0 (2026-07-08): Two-app platform — MariaDB canonical stations, tokened public API, admin dashboard, ML integration, Odoo public site, setup.sh/TRL4 helpers
+- v3.1.1 (2026-07-28): Platform hardening verified; AnalyticsModal slimmed to 387 lines (see `CHANGELOG.md` for full history)
 
 ---
 
@@ -506,20 +509,17 @@ class MyJob extends TimedJob {
 
 ---
 
-# Next Steps for v3.0.2
+# Current State (v3.1.1)
 
-## Feature Parity with v1.2.3 Desktop App
-1. **Analysis Configuration Tab**: Mode selection, installation picker, date controls
-2. **Analysis Results Tab**: Split panel with summary and hourly breakdown
-3. **Interactive Charts Tab**: Chart.js implementation with day navigation
-4. **Custom Station Simulation**: User-defined capacity at chosen location
+All v3.0.2-era feature-parity items are delivered: analysis configuration,
+results with hourly breakdown, interactive Chart.js charts with day
+navigation, custom station simulation, and CSV export. Since then the app
+gained the ML microservice integration, admin dashboard, tokened public API,
+Odoo public site, and TRL4 deployment helpers.
 
-## Implementation Priority
-1. Chart.js integration for energy visualization
-2. Day navigation controls (Previous/Center/Next)
-3. Weather data display
-4. Analysis configuration panel
-5. Results export functionality
+For open work see `../warp.md` (next tracks) and the CI/Runner playbook.
+Component guideline: keep Vue SFCs under ~400 lines via composables and
+`components/analytics/*` extraction (pattern set by the v3.1.1 modal split).
 
 ---
 
