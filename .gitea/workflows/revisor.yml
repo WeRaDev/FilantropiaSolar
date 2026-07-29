@@ -34,7 +34,7 @@ jobs:
       - name: Install package and QA tooling
         run: |
           .revisor-venv/bin/pip install --quiet --upgrade pip
-          .revisor-venv/bin/pip install --quiet -e .
+          .revisor-venv/bin/pip install --quiet -e ./desktop
           # ruff is pinned: lint/format output differs between ruff releases
           .revisor-venv/bin/pip install --quiet \
             ruff==0.14.0 mypy "bandit[toml]>=1.9" \
@@ -45,28 +45,28 @@ jobs:
         id: lint
         continue-on-error: true
         run: |
-          .revisor-venv/bin/ruff check src tests 2>&1 | tee /tmp/revisor_${GITHUB_RUN_ID}_lint.txt
+          .revisor-venv/bin/ruff check desktop/src desktop/tests 2>&1 | tee /tmp/revisor_${GITHUB_RUN_ID}_lint.txt
           exit ${PIPESTATUS[0]}
 
       - name: Type check (mypy)
         id: typecheck
         continue-on-error: true
         run: |
-          .revisor-venv/bin/python -m mypy src --ignore-missing-imports 2>&1 | tee /tmp/revisor_${GITHUB_RUN_ID}_mypy.txt
+          cd desktop && ../.revisor-venv/bin/python -m mypy --ignore-missing-imports 2>&1 | tee /tmp/revisor_${GITHUB_RUN_ID}_mypy.txt
           exit ${PIPESTATUS[0]}
 
       - name: Unit tests (pytest)
         id: tests
         continue-on-error: true
         run: |
-          .revisor-venv/bin/python -m pytest -q tests/ 2>&1 | tee /tmp/revisor_${GITHUB_RUN_ID}_tests.txt
+          cd desktop && ../.revisor-venv/bin/python -m pytest -q tests/ 2>&1 | tee /tmp/revisor_${GITHUB_RUN_ID}_tests.txt
           exit ${PIPESTATUS[0]}
 
       - name: Security static analysis (bandit)
         id: bandit
         continue-on-error: true
         run: |
-          .revisor-venv/bin/bandit -q -r src -s B404,B603,B310,B105 2>&1 | tee /tmp/revisor_${GITHUB_RUN_ID}_bandit.txt
+          .revisor-venv/bin/bandit -q -r desktop/src -s B404,B603,B310,B105 2>&1 | tee /tmp/revisor_${GITHUB_RUN_ID}_bandit.txt
           exit ${PIPESTATUS[0]}
 
       - name: Post Revisor review comment

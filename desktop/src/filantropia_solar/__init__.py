@@ -14,7 +14,7 @@ import sys
 import warnings
 
 # Package metadata
-__version__ = "1.2.3"
+__version__ = "1.3.0"
 __author__ = "WeRaDev Team"
 __email__ = "contact@weradev.com"
 __description__ = (

@@ -62,6 +62,8 @@ class NextcloudBackend:
         self._session = requests.Session()
         if username or app_password:
             self._session.auth = (username, app_password)
+        # Cache of installation list for date-range fallbacks
+        self._installations_cache: dict[str, InstallationInfo] | None = None
 
     @classmethod
     def from_environment(cls) -> NextcloudBackend:
@@ -100,10 +102,12 @@ class NextcloudBackend:
         return dict(self.get_installation_list())
 
     def get_combined_data(self, installation_id: str) -> pd.DataFrame | None:
-        """Date range for an installation, via the server stats endpoint.
+        """Date range for an installation.
 
         The server owns the actual time series; the GUI only needs the
-        min/max dates here. Returns a two-row frame indexed [from, to].
+        min/max dates here. Tries the stats endpoint first, then falls
+        back to the installation metadata dates. Returns a two-row frame
+        indexed [from, to], or None when no dates are known.
         """
         try:
             stats = self._get(f"/installations/{installation_id}/stats")
@@ -113,10 +117,20 @@ class NextcloudBackend:
                 idx = pd.to_datetime([from_date, to_date])
                 return pd.DataFrame({"server_owned": [True, True]}, index=idx)
         except Exception as exc:
-            logger.warning(f"Date-range lookup failed for {installation_id}: {exc}")
+            logger.warning(
+                f"Stats lookup failed for {installation_id}, "
+                f"falling back to metadata dates: {exc}"
+            )
+
+        # Fallback: metadata dates from the installations list
+        if self._installations_cache is None:
+            self._installations_cache = self.installations
+        info = self._installations_cache.get(installation_id)
+        if info is not None and info.from_date is not None and info.to_date is not None:
+            idx = pd.to_datetime([info.from_date, info.to_date])
+            return pd.DataFrame({"server_owned": [True, True]}, index=idx)
         return None
 
-    # ------------------------------------------------------------------
     # energy_predictor surface
     # ------------------------------------------------------------------
     def get_available_installations(self) -> list[tuple[str, InstallationInfo]]:

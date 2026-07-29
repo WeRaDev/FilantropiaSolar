@@ -77,6 +77,14 @@ echo "[7/7] Training ML models (physics fallback remains if this fails)..."
 curl -sS -m 600 -X POST http://localhost:8501/train >/dev/null 2>&1 \
     && echo "    models trained" || echo "    training skipped/failed"
 
+# Optional: join the SolarSeed TRL4/TRL5 ops network when present
+if docker network inspect "${CITY_NET:-compose_city_internal}" >/dev/null 2>&1; then
+    echo "[+] SolarSeed ops network detected (${CITY_NET:-compose_city_internal}) - connecting..."
+    bash "$(dirname "$0")/connect-trl4.sh"
+else
+    echo "[-] No SolarSeed ops network found; skipping TRL connect (run scripts/connect-trl4.sh later if needed)"
+fi
+
 echo
 echo "Done."
 echo "  Nextcloud admin dashboard: http://localhost:8080  (admin / admin)"

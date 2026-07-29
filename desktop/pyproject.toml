@@ -194,58 +194,10 @@ include = [
     "CHANGELOG.md",
 ]
 
-# Ruff configuration (replaces Black, isort, flake8, etc.)
+# Ruff configuration: shared root ruff.toml governs lint/format repo-wide
+# (includes the archive/ exclusion and desktop per-file ignores)
 [tool.ruff]
-target-version = "py311"
-line-length = 88
-
-[tool.ruff.lint]
-select = [
-    "E",   # pycodestyle errors
-    "W",   # pycodestyle warnings
-    "F",   # Pyflakes
-    "I",   # isort
-    "B",   # flake8-bugbear
-    "C4",  # flake8-comprehensions
-    "UP",  # pyupgrade
-    "ARG", # flake8-unused-arguments
-    "SIM", # flake8-simplify
-    "TCH", # flake8-type-checking
-    "PTH", # flake8-use-pathlib
-    "ERA", # flake8-eradicate
-    "PL",  # pylint
-    "RUF", # Ruff-specific rules
-]
-ignore = [
-    "E501",     # line too long, handled by formatter
-    "E402",     # module level import not at top of file
-    "B008",     # do not perform function calls in argument defaults
-    "PLR0913",  # too many arguments to function call
-    "PLR0911",  # too many return statements
-    "PLR0912",  # too many branches
-    "PLR0915",  # too many statements
-    "PLC0415",  # import should be placed at top of module
-    "B025",     # duplicate exception handlers (handled manually)
-]
-
-[tool.ruff.format]
-quote-style = "double"
-indent-style = "space"
-skip-magic-trailing-comma = false
-line-ending = "auto"
-
-[tool.ruff.lint.per-file-ignores]
-"tests/**/*.py" = ["S101", "PLR2004", "ARG001", "PLC0415"]
-"src/**/__init__.py" = ["F401"]
-"benchmark_v103.py" = ["E402"]  # Imports must be after sys.path manipulation
-# Odoo framework idioms: package __init__ re-exports, dict-only __manifest__, route **kwargs
-"nextcloud-app/odoo/**/__init__.py" = ["F401"]
-"nextcloud-app/odoo/**/__manifest__.py" = ["B018"]
-"nextcloud-app/odoo/**/controllers/*.py" = ["ARG002"]
-
-[tool.ruff.lint.isort]
-known-first-party = ["filantropia_solar"]
-force-sort-within-sections = true
+extend = "../ruff.toml"
 
 # MyPy configuration
 [tool.mypy]
