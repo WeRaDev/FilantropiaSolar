@@ -1,23 +1,128 @@
 <?xml version="1.0" encoding="utf-8"?>
 <odoo>
-    <template id="page_dashboard" name="FilantropiaSolar Public Dashboard">
+    <template id="page_dashboard" name="Filantropia Solar">
         <t t-call="website.layout">
+            <t t-set="page_title" t-value="'Filantropia Solar – Doação de Energia Solar a ONGs'"/>
+            <t t-set="page_description" t-value="'Programa de doação de energia solar a ONGs: instalação de 4 a 6 painéis, até 3.000 watts, para autoconsumo das organizações.'"/>
             <div id="wrap" class="fs-public-wrap">
+                <!-- Hero -->
                 <section class="fs-hero">
                     <div class="container py-5">
-                        <h1>FilantropiaSolar</h1>
+                        <h1>Filantropia Solar</h1>
                         <p class="lead mb-0">
-                            Public dashboard for NGO solar projects and a virtual station quote builder.
+                            Doação de energia elétrica a ONGs, gerada por painéis solares.
                         </p>
                     </div>
                 </section>
 
+                <!-- Descriptive content -->
                 <section class="container py-4">
-                    <t t-if="submitted">
-                        <div class="alert alert-success mb-4" role="alert">
-                            Thank you. Your quote request was submitted successfully.
+                    <div class="row">
+                        <div class="col-12 col-lg-8">
+                            <ul class="fs-copy">
+                                <li>A Filantropia Solar é uma modalidade de doação a ONGs na forma de energia elétrica gerada por painéis solares instalados em suas instalações. Os painéis podem ser instalados em prédios, garagens ou terrenos no local da ONG.</li>
+                                <li>Os destinatários necessitam de boas localizações para instalação de painéis para que a captação solar para geração de eletricidade e autoconsumo seja maximizada.</li>
+                                <li>Procuramos projetos de menor escala, para instalação de 4 a 6 painéis.</li>
+                                <li>A capacidade instalada será limitada a 3.000 watts de painéis para evitar aprovações adicionais de regularidade.</li>
+                                <li>Os candidatos devem ter um NIF de ONG válido.</li>
+                                <li>Mais detalhes estão no PDF dos termos de participação na próxima seção abaixo.</li>
+                            </ul>
+                            <p class="mt-3">
+                                <a class="btn fs-btn-secondary" href="/filantropia_solar_public/static/src/docs/filantropia-solar-regulamento.pdf" target="_blank" rel="noopener">
+                                    O PDF neste link descreve os termos de participação (Regulamento)
+                                </a>
+                            </p>
                         </div>
-                    </t>
+                    </div>
+                </section>
+
+                <!-- Application form (replaces the external Google Form) -->
+                <section class="container pb-5" id="candidatura">
+                    <div class="fs-card">
+                        <h3 class="fs-card-title">Candidatura</h3>
+                        <t t-if="submitted">
+                            <div class="alert alert-success mb-4" role="alert">
+                                Obrigado. A sua candidatura foi submetida com sucesso.
+                            </div>
+                        </t>
+                        <form action="/filantropia-solar/quote" method="post" enctype="multipart/form-data" class="row g-3">
+                            <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
+                            <input type="hidden" name="location" t-att-value="location or ''"/>
+                            <input type="hidden" name="latitude" t-att-value="latitude or ''"/>
+                            <input type="hidden" name="longitude" t-att-value="longitude or ''"/>
+                            <input type="hidden" name="capacity_kwp" t-att-value="capacity_kwp or ''"/>
+
+                            <div class="col-md-6">
+                                <label class="form-label" for="quote_org">Nome da ONG *</label>
+                                <input class="form-control" id="quote_org" name="quote_org" required="required" type="text" t-att-value="quote_org or ''"/>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label" for="nif">NIF da ONG *</label>
+                                <input class="form-control" id="nif" name="nif" required="required" type="text" t-att-value="nif or ''"/>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label" for="quote_name">Pessoa de contacto *</label>
+                                <input class="form-control" id="quote_name" name="quote_name" required="required" type="text" t-att-value="quote_name or ''"/>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label" for="quote_email">Email *</label>
+                                <input class="form-control" id="quote_email" name="quote_email" required="required" type="email" t-att-value="quote_email or ''"/>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label" for="quote_phone">Telefone</label>
+                                <input class="form-control" id="quote_phone" name="quote_phone" type="tel" t-att-value="quote_phone or ''"/>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label" for="install_address">Morada de instalação *</label>
+                                <input class="form-control" id="install_address" name="install_address" required="required" type="text" t-att-value="install_address or ''"/>
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label" for="location_type">Tipo de local *</label>
+                                <select class="form-control" id="location_type" name="location_type" required="required">
+                                    <option value="predio">Prédio (cobertura)</option>
+                                    <option value="garagem">Garagem</option>
+                                    <option value="terreno">Terreno</option>
+                                </select>
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label" for="available_area">Área disponível (m²)</label>
+                                <input class="form-control" id="available_area" name="available_area" type="number" step="0.1" min="0" t-att-value="available_area or ''"/>
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label" for="panel_count">N.º de painéis (4–6) *</label>
+                                <input class="form-control" id="panel_count" name="panel_count" required="required" type="number" min="4" max="6" t-att-value="panel_count or ''"/>
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label" for="wattage">Potência pretendida (W, máx. 3000) *</label>
+                                <input class="form-control" id="wattage" name="wattage" required="required" type="number" min="1" max="3000" t-att-value="wattage or ''"/>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label" for="site_photos">Fotografias do local</label>
+                                <input class="form-control" id="site_photos" name="site_photos" type="file" accept="image/*,.pdf" multiple="multiple"/>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label" for="nif_document">Comprovativo de registo da ONG / NIF</label>
+                                <input class="form-control" id="nif_document" name="nif_document" type="file" accept="image/*,.pdf"/>
+                            </div>
+                            <div class="col-12">
+                                <label class="form-label" for="quote_message">Notas / justificação</label>
+                                <textarea class="form-control" id="quote_message" name="quote_message" rows="4"><t t-esc="quote_message or ''"/></textarea>
+                            </div>
+                            <div class="col-12 form-check">
+                                <input class="form-check-input" id="terms_accept" name="terms_accept" required="required" type="checkbox" value="1"/>
+                                <label class="form-check-label" for="terms_accept">
+                                    Li e aceito os <a href="/filantropia_solar_public/static/src/docs/filantropia-solar-regulamento.pdf" target="_blank" rel="noopener">termos de participação</a> *
+                                </label>
+                            </div>
+                            <div class="col-12">
+                                <button type="submit" class="btn fs-btn-primary w-100">Submeter candidatura</button>
+                            </div>
+                        </form>
+                    </div>
+                </section>
+
+                <!-- Live dashboard -->
+                <section class="container py-4">
                     <t t-if="api_error">
                         <div class="alert alert-warning mb-4" role="alert">
                             <t t-esc="api_error"/>
@@ -26,24 +131,24 @@
                     <div class="row g-4">
                         <div class="col-12 col-lg-4">
                             <div class="fs-card">
-                                <h3 class="fs-card-title">Public Dashboard</h3>
+                                <h3 class="fs-card-title">Painéis instalados (rede)</h3>
                                 <ul class="list-unstyled fs-metrics mb-0">
                                     <li>
-                                        <strong>Stations:</strong>
+                                        <strong>Estações:</strong>
                                         <span t-esc="dashboard.get('station_count', 0)"/>
                                     </li>
                                     <li>
-                                        <strong>Total capacity:</strong>
+                                        <strong>Capacidade total:</strong>
                                         <span t-esc="dashboard.get('total_capacity_kwp', 0)"/> kWp
                                     </li>
                                     <li>
-                                        <strong>Locations:</strong>
+                                        <strong>Localizações:</strong>
                                         <span t-esc="len(dashboard.get('locations', []))"/>
                                     </li>
                                 </ul>
                             </div>
                             <div class="fs-card mt-4">
-                                <h3 class="fs-card-title">Station List</h3>
+                                <h3 class="fs-card-title">Estações</h3>
                                 <ul class="list-unstyled fs-station-list mb-0">
                                     <t t-foreach="stations" t-as="station">
                                         <li>
@@ -63,22 +168,23 @@
 
                         <div class="col-12 col-lg-8">
                             <div class="fs-card">
-                                <h3 class="fs-card-title">Stations Map</h3>
+                                <h3 class="fs-card-title">Mapa das estações</h3>
                                 <div id="fs-stations-map" class="fs-map"></div>
                             </div>
                         </div>
                     </div>
                 </section>
 
+                <!-- Virtual station builder -->
                 <section class="container pb-5">
                     <div class="row g-4">
                         <div class="col-12 col-xl-6">
                             <div class="fs-card h-100">
-                                <h3 class="fs-card-title">Virtual Station Builder</h3>
+                                <h3 class="fs-card-title">Simulador de estação virtual</h3>
                                 <form action="/filantropia-solar/estimate" method="post" class="row g-3">
                                     <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
                                     <div class="col-12">
-                                        <label class="form-label" for="location">Location (optional)</label>
+                                        <label class="form-label" for="location">Localização (opcional)</label>
                                         <input class="form-control" id="location" name="location" type="text" t-att-value="location or ''"/>
                                     </div>
                                     <div class="col-md-6">
@@ -90,11 +196,11 @@
                                         <input class="form-control" id="longitude" name="longitude" required="required" type="number" step="any" t-att-value="longitude or ''"/>
                                     </div>
                                     <div class="col-12">
-                                        <label class="form-label" for="capacity_kwp">Capacity (kWp)</label>
+                                        <label class="form-label" for="capacity_kwp">Capacidade (kWp)</label>
                                         <input class="form-control" id="capacity_kwp" name="capacity_kwp" required="required" type="number" step="0.1" min="0.1" t-att-value="capacity_kwp or ''"/>
                                     </div>
                                     <div class="col-12">
-                                        <button type="submit" class="btn fs-btn-primary w-100">Calculate estimate</button>
+                                        <button type="submit" class="btn fs-btn-primary w-100">Calcular estimativa</button>
                                     </div>
                                 </form>
                                 <t t-if="estimate_error">
@@ -104,22 +210,22 @@
                                 </t>
                                 <t t-if="estimate">
                                     <div class="fs-estimate mt-3">
-                                        <h4>Estimated output</h4>
+                                        <h4>Estimativa de produção</h4>
                                         <ul class="list-unstyled mb-0">
                                             <li>
-                                                <strong>Annual production:</strong>
+                                                <strong>Produção anual:</strong>
                                                 <span t-esc="estimate.get('annual_production_kwh', 0)"/> kWh
                                             </li>
                                             <li>
-                                                <strong>Annual savings:</strong>
+                                                <strong>Poupança anual:</strong>
                                                 <span t-esc="estimate.get('annual_savings_eur', 0)"/> EUR
                                             </li>
                                             <li>
-                                                <strong>Specific energy:</strong>
+                                                <strong>Energia específica:</strong>
                                                 <span t-esc="estimate.get('specific_energy_kwh_kwp', 0)"/> kWh/kWp
                                             </li>
                                             <li>
-                                                <strong>Method:</strong>
+                                                <strong>Método:</strong>
                                                 <span t-esc="estimate.get('method', 'n/a')"/>
                                             </li>
                                         </ul>
@@ -128,37 +234,17 @@
                             </div>
                         </div>
 
+                        <!-- Contact -->
                         <div class="col-12 col-xl-6">
                             <div class="fs-card h-100">
-                                <h3 class="fs-card-title">Request a Quote</h3>
-                                <form action="/filantropia-solar/quote" method="post" class="row g-3">
-                                    <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
-                                    <input type="hidden" name="location" t-att-value="location or ''"/>
-                                    <input type="hidden" name="latitude" t-att-value="latitude or ''"/>
-                                    <input type="hidden" name="longitude" t-att-value="longitude or ''"/>
-                                    <input type="hidden" name="capacity_kwp" t-att-value="capacity_kwp or ''"/>
-                                    <div class="col-md-6">
-                                        <label class="form-label" for="quote_name">Contact name</label>
-                                        <input class="form-control" id="quote_name" name="quote_name" required="required" type="text" t-att-value="quote_name or ''"/>
-                                    </div>
-                                    <div class="col-md-6">
-                                        <label class="form-label" for="quote_email">Email</label>
-                                        <input class="form-control" id="quote_email" name="quote_email" required="required" type="email" t-att-value="quote_email or ''"/>
-                                    </div>
-                                    <div class="col-12">
-                                        <label class="form-label" for="quote_org">Organization</label>
-                                        <input class="form-control" id="quote_org" name="quote_org" type="text" t-att-value="quote_org or ''"/>
-                                    </div>
-                                    <div class="col-12">
-                                        <label class="form-label" for="quote_message">Message</label>
-                                        <textarea class="form-control" id="quote_message" name="quote_message" rows="5"><t t-esc="quote_message or ''"/></textarea>
-                                    </div>
-                                    <div class="col-12">
-                                        <button type="submit" class="btn fs-btn-secondary w-100">Submit quote request</button>
-                                    </div>
-                                </form>
-                                <p class="small text-muted mt-3 mb-0">
-                                    The quote includes your virtual station inputs and the live production estimate.
+                                <h3 class="fs-card-title">Contacto</h3>
+                                <p>
+                                    Para questões sobre a Filantropia Solar, use o formulário de
+                                    candidatura acima — a equipa responde por email.
+                                </p>
+                                <p class="small text-muted mb-0">
+                                    (O endereço de email não é publicado para proteção contra spam;
+                                    o contacto é feito através do formulário.)
                                 </p>
                             </div>
                         </div>

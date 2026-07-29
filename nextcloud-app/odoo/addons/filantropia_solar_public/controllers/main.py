@@ -1,3 +1,4 @@
+import base64
 import json
 import logging
 import os
@@ -173,6 +174,14 @@ class FilantropiaSolarPublicController(http.Controller):
         quote_email = post.get("quote_email", "").strip()
         quote_org = post.get("quote_org", "").strip()
         quote_message = post.get("quote_message", "").strip()
+        quote_phone = post.get("quote_phone", "").strip()
+        nif = post.get("nif", "").strip()
+        install_address = post.get("install_address", "").strip()
+        location_type = post.get("location_type", "").strip()
+        available_area = post.get("available_area", "").strip()
+        panel_count = post.get("panel_count", "").strip()
+        wattage = post.get("wattage", "").strip()
+        terms_accept = post.get("terms_accept", "").strip()
         location = post.get("location", "").strip()
         latitude = post.get("latitude", "").strip()
         longitude = post.get("longitude", "").strip()
@@ -190,7 +199,13 @@ class FilantropiaSolarPublicController(http.Controller):
             _logger.warning("Estimate call failed during quote creation: %s", exc)
             estimate_error = "Could not retrieve estimate while creating quote."
 
-        title_parts = ["FilantropiaSolar Quote Request"]
+        location_type_labels = {
+            "predio": "Prédio (cobertura)",
+            "garagem": "Garagem",
+            "terreno": "Terreno",
+        }
+
+        title_parts = ["Filantropia Solar Candidatura"]
         if quote_org:
             title_parts.append(quote_org)
         elif quote_name:
@@ -198,7 +213,26 @@ class FilantropiaSolarPublicController(http.Controller):
         lead_name = " - ".join(title_parts)
 
         description_lines = [
-            "FilantropiaSolar public website quote request",
+            "Filantropia Solar application (public website form)",
+            "",
+            "Organization:",
+            f"- NGO: {quote_org or 'n/a'}",
+            f"- NIF: {nif or 'n/a'}",
+            "",
+            "Contact:",
+            f"- Person: {quote_name or 'n/a'}",
+            f"- Email: {quote_email or 'n/a'}",
+            f"- Phone: {quote_phone or 'n/a'}",
+            "",
+            "Installation site:",
+            f"- Address: {install_address or 'n/a'}",
+            f"- Location type: {location_type_labels.get(location_type, location_type or 'n/a')}",
+            f"- Available area (m2): {available_area or 'n/a'}",
+            "",
+            "Project:",
+            f"- Panels requested (4-6): {panel_count or 'n/a'}",
+            f"- Wattage (W, max 3000): {wattage or 'n/a'}",
+            f"- Terms accepted: {'yes' if terms_accept else 'no'}",
             "",
             "Virtual station inputs:",
             f"- Location: {location or 'n/a'}",
@@ -221,17 +255,22 @@ class FilantropiaSolarPublicController(http.Controller):
             description_lines.append(
                 f"- Estimate unavailable: {estimate_error or 'unknown'}"
             )
-        description_lines.extend(["", "Requester message:", quote_message or "n/a"])
+        description_lines.extend(["", "Notes / justification:", quote_message or "n/a"])
 
-        request.env["crm.lead"].sudo().create(
+        lead = request.env["crm.lead"].sudo().create(
             {
                 "name": lead_name,
                 "contact_name": quote_name or "Unknown contact",
                 "email_from": quote_email or False,
                 "partner_name": quote_org or False,
+                "phone": quote_phone or False,
+                "street": install_address or False,
                 "description": "\n".join(description_lines),
             }
         )
+
+        # Attach uploaded files (site photos, NGO registration proof) to the lead
+        self._attach_files(lead)
 
         return self._render_dashboard(
             submitted=True,
@@ -246,3 +285,30 @@ class FilantropiaSolarPublicController(http.Controller):
             longitude=longitude,
             capacity_kwp=capacity_kwp,
         )
+
+    def _attach_files(self, lead):
+        """Store uploaded form files as ir.attachment records on the lead."""
+        Attachment = request.env["ir.attachment"].sudo()
+        files = request.httprequest.files
+        for field in ("site_photos", "nif_document"):
+            uploads = files.getlist(field)
+            for upload in uploads:
+                if not upload or not upload.filename:
+                    continue
+                try:
+                    Attachment.create(
+                        {
+                            "name": upload.filename,
+                            "datas": base64.b64encode(upload.read()),
+                            "res_model": "crm.lead",
+                            "res_id": lead.id,
+                            "mimetype": upload.mimetype,
+                        }
+                    )
+                except Exception as exc:  # noqa: BLE001 - log and continue with other files
+                    _logger.warning(
+                        "Could not attach file %s to lead %s: %s",
+                        upload.filename,
+                        lead.id,
+                        exc,
+                    )
