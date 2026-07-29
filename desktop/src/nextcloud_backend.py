@@ -47,8 +47,8 @@ class NextcloudBackend:
     def __init__(
         self,
         server_url: str,
-        username: str = "",
-        app_password: str = "",
+        username: str | None = None,
+        app_password: str | None = None,
         timeout: int = 120,
     ):
         if not server_url:
@@ -60,7 +60,7 @@ class NextcloudBackend:
         self._api = f"{self.server_url}/apps/filantropia_solar/api/v1"
         self._timeout = timeout
         self._session = requests.Session()
-        if username or app_password:
+        if username and app_password:
             self._session.auth = (username, app_password)
         # Cache of installation list for date-range fallbacks
         self._installations_cache: dict[str, InstallationInfo] | None = None
@@ -70,8 +70,8 @@ class NextcloudBackend:
         """Build a backend from FS_SERVER_* environment variables."""
         return cls(
             server_url=os.environ.get("FS_SERVER_URL", ""),
-            username=os.environ.get("FS_SERVER_USER", ""),
-            app_password=os.environ.get("FS_SERVER_PASSWORD", ""),
+            username=os.environ.get("FS_SERVER_USER"),
+            app_password=os.environ.get("FS_SERVER_PASSWORD"),
         )
 
     # ------------------------------------------------------------------
