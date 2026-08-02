@@ -18,11 +18,10 @@ _NGO_ORG_TYPES = {"ong", "ipss", "fundacao", "cooperativa"}
 
 # Panel dimensions and power constants
 _PANEL_AREA_M2 = 2.0  # 2 m x 1 m per panel
-_PANEL_WATTS = 550     # 550 W per panel
+_PANEL_WATTS = 550  # 550 W per panel
 
 
 class FilantropiaSolarPublicController(http.Controller):
-
     def _api_base_url(self) -> str:
         return os.environ.get(
             "FS_API_BASE_URL",
@@ -59,7 +58,7 @@ class FilantropiaSolarPublicController(http.Controller):
             stations = stations_payload.get("stations", [])
         except Exception as exc:
             stations = []
-            api_error = f"Não foi possível carregar as estações."
+            api_error = "Não foi possível carregar as estações."
             _logger.warning("Stations fetch failed: %s", exc)
 
         try:
@@ -92,8 +91,7 @@ class FilantropiaSolarPublicController(http.Controller):
     def _compute_panels(self, area_m2: float) -> tuple[int, float]:
         """Calculate how many 2m x 1m panels fit and the resulting DC kWp."""
         count = int(area_m2 // _PANEL_AREA_M2)
-        if count < 1:
-            count = 1
+        count = max(count, 1)
         kwp = count * _PANEL_WATTS / 1000.0
         return count, kwp
 
@@ -107,17 +105,21 @@ class FilantropiaSolarPublicController(http.Controller):
                 if not upload or not upload.filename:
                     continue
                 try:
-                    Attachment.create({
-                        "name": upload.filename,
-                        "datas": base64.b64encode(upload.read()),
-                        "res_model": "crm.lead",
-                        "res_id": lead.id,
-                        "mimetype": upload.mimetype,
-                    })
+                    Attachment.create(
+                        {
+                            "name": upload.filename,
+                            "datas": base64.b64encode(upload.read()),
+                            "res_model": "crm.lead",
+                            "res_id": lead.id,
+                            "mimetype": upload.mimetype,
+                        }
+                    )
                 except Exception as exc:
                     _logger.warning(
                         "Could not attach file %s to lead %s: %s",
-                        upload.filename, lead.id, exc,
+                        upload.filename,
+                        lead.id,
+                        exc,
                     )
 
     def _render_page(self, template, **extra):
@@ -136,9 +138,11 @@ class FilantropiaSolarPublicController(http.Controller):
     # ------------------------------------------------------------------
     # Home page
     # ------------------------------------------------------------------
-    @http.route(["/inicio", "/filantropia-solar"], type="http", auth="public", website=True)
+    @http.route(
+        ["/inicio", "/filantropia-solar"], type="http", auth="public", website=True
+    )
     def home(self, **kwargs):
-        return self._render_page("filantropia_solar_public.page_home")
+        return self._render_page("filantropia_solar_public.page_inicio")
 
     # ------------------------------------------------------------------
     # Static pages
@@ -174,7 +178,13 @@ class FilantropiaSolarPublicController(http.Controller):
         )
 
     # Step 1: Estimate savings
-    @http.route("/candidatura/estimativa", type="http", auth="public", website=True, methods=["POST"])
+    @http.route(
+        "/candidatura/estimativa",
+        type="http",
+        auth="public",
+        website=True,
+        methods=["POST"],
+    )
     def candidatura_estimativa(self, **post):
         step1_name = post.get("step1_name", "").strip()
         step1_email = post.get("step1_email", "").strip()
@@ -205,7 +215,13 @@ class FilantropiaSolarPublicController(http.Controller):
         )
 
     # Step 2: Eligibility check
-    @http.route("/candidatura/elegibilidade", type="http", auth="public", website=True, methods=["POST"])
+    @http.route(
+        "/candidatura/elegibilidade",
+        type="http",
+        auth="public",
+        website=True,
+        methods=["POST"],
+    )
     def candidatura_elegibilidade(self, **post):
         org_type = post.get("step2_org_type", "").strip()
 
@@ -227,19 +243,27 @@ class FilantropiaSolarPublicController(http.Controller):
             )
         else:
             # SME / for-profit → referral branch, lead preserved
-            lead = request.env["crm.lead"].sudo().create({
-                "name": f"Filantropia Solar — {post.get('step2_org_name', '').strip() or 'SME referral'}",
-                "contact_name": post.get("step1_name", "").strip(),
-                "email_from": post.get("step1_email", "").strip() or False,
-                "partner_name": post.get("step2_org_name", "").strip() or False,
-                "description": "\n".join([
-                    "NÃO ELEGÍVEL para Filantropia Solar (SME/for-profit referral)",
-                    f"Org type: {org_type}",
-                    f"Location: {post.get('location', '').strip()}",
-                    f"Available area: {post.get('available_area', '').strip()} m²",
-                    "Handed off to WeRa Global.",
-                ]),
-            })
+            lead = (
+                request.env["crm.lead"]
+                .sudo()
+                .create(
+                    {
+                        "name": f"Filantropia Solar — {post.get('step2_org_name', '').strip() or 'SME referral'}",
+                        "contact_name": post.get("step1_name", "").strip(),
+                        "email_from": post.get("step1_email", "").strip() or False,
+                        "partner_name": post.get("step2_org_name", "").strip() or False,
+                        "description": "\n".join(
+                            [
+                                "NÃO ELEGÍVEL para Filantropia Solar (SME/for-profit referral)",
+                                f"Org type: {org_type}",
+                                f"Location: {post.get('location', '').strip()}",
+                                f"Available area: {post.get('available_area', '').strip()} m²",
+                                "Handed off to WeRa Global.",
+                            ]
+                        ),
+                    }
+                )
+            )
             _logger.info("SME lead created: %s -> WeRa referral", lead.id)
             return self._render_page(
                 "filantropia_solar_public.page_candidatura",
@@ -250,7 +274,13 @@ class FilantropiaSolarPublicController(http.Controller):
             )
 
     # Step 3: Submit donation application
-    @http.route("/candidatura/enviar", type="http", auth="public", website=True, methods=["POST"])
+    @http.route(
+        "/candidatura/enviar",
+        type="http",
+        auth="public",
+        website=True,
+        methods=["POST"],
+    )
     def candidatura_enviar(self, **post):
         description_lines = [
             "Filantropia Solar — Candidatura de doação (funnel 3-passos)",
@@ -276,13 +306,20 @@ class FilantropiaSolarPublicController(http.Controller):
             f"- Notas: {post.get('step3_description', '').strip()}",
         ]
 
-        lead = request.env["crm.lead"].sudo().create({
-            "name": f"Filantropia Solar Candidatura — {post.get('step2_org_name', '').strip() or 'ONG'}",
-            "contact_name": post.get("step1_name", "").strip() or "Contacto desconhecido",
-            "email_from": post.get("step1_email", "").strip() or False,
-            "partner_name": post.get("step2_org_name", "").strip() or False,
-            "description": "\n".join(description_lines),
-        })
+        lead = (
+            request.env["crm.lead"]
+            .sudo()
+            .create(
+                {
+                    "name": f"Filantropia Solar Candidatura — {post.get('step2_org_name', '').strip() or 'ONG'}",
+                    "contact_name": post.get("step1_name", "").strip()
+                    or "Contacto desconhecido",
+                    "email_from": post.get("step1_email", "").strip() or False,
+                    "partner_name": post.get("step2_org_name", "").strip() or False,
+                    "description": "\n".join(description_lines),
+                }
+            )
+        )
         self._attach_files(lead)
         _logger.info("Donation application lead created: %s", lead.id)
 
