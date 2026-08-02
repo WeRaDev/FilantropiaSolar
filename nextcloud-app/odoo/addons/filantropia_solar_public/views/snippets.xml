@@ -1,0 +1,112 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- Shared snippets: CTA buttons, story card, disclaimer -->
+
+    <!-- Primary CTA button (orange) -->
+    <template id="snippet_cta_primary" name="Snippet: Primary CTA">
+        <a t-att-href="href or '/candidatura'" class="btn fs-btn-primary btn-lg">
+            <t t-out="label or 'Simular poupança'"/>
+        </a>
+    </template>
+
+    <!-- Secondary CTA button -->
+    <template id="snippet_cta_secondary" name="Snippet: Secondary CTA">
+        <a t-att-href="href or '/faq'" class="btn fs-btn-secondary btn-lg">
+            <t t-out="label or 'Condições'"/>
+        </a>
+    </template>
+
+    <!-- 3-step "Como funciona" strip -->
+    <template id="snippet_steps" name="Snippet: 3-step strip">
+        <div class="row text-center g-4 py-4">
+            <div class="col-md-4">
+                <div class="fs-card h-100">
+                    <div class="fs-step-number">1</div>
+                    <h4>Estimar poupança</h4>
+                    <p class="text-muted small">
+                        Indique a localização e área disponível para
+                        receber uma estimativa da produção e poupança anual.
+                    </p>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="fs-card h-100">
+                    <div class="fs-step-number">2</div>
+                    <h4>Verificar elegibilidade</h4>
+                    <p class="text-muted small">
+                        Confirme que a sua organização é uma ONG ou entidade
+                        sem fins lucrativos registada em Portugal.
+                    </p>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="fs-card h-100">
+                    <div class="fs-step-number">3</div>
+                    <h4>Candidatar à doação</h4>
+                    <p class="text-muted small">
+                        Envie a sua candidatura gratuita — não pagará nada
+                        pelo processo de seleção.
+                    </p>
+                </div>
+            </div>
+        </div>
+    </template>
+
+    <!-- Success story card -->
+    <template id="snippet_story_card" name="Snippet: Success story card">
+        <div t-att-id="id or ''" class="fs-card fs-story-card">
+            <h3 t-out="title"/>
+            <p>
+                <strong t-out="location"/> — <span t-out="capacity"/>
+            </p>
+            <p t-out="text"/>
+            <t t-if="detail">
+                <p class="small text-muted" t-out="detail"/>
+            </t>
+        </div>
+    </template>
+
+    <!-- In-kind donation disclaimer -->
+    <template id="snippet_in_kind_notice" name="Snippet: In-kind notice">
+        <div class="fs-note mt-3">
+            <p class="small mb-0">
+                A Filantropia Solar é uma doação em espécie (equipamento +
+                instalação), não um valor monetário. O equipamento pode ser
+                reutilizado / recondicionado. A organização beneficiária não
+                recebe manutenção nem garantia continuada.
+            </p>
+        </div>
+    </template>
+
+    <!-- Leaflet map renderer (shared by all pages that show the stations map) -->
+    <template id="snippet_leaflet_map" name="Snippet: Leaflet stations map">
+        <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+        <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"/>
+        <script type="text/javascript">
+            document.addEventListener('DOMContentLoaded', function () {
+                if (typeof L === 'undefined') return;
+                var mapEl = document.getElementById('fs-stations-map');
+                if (!mapEl) return;
+                var map = L.map('fs-stations-map');
+                L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                    maxZoom: 18,
+                    attribution: '&amp;copy; OpenStreetMap contributors'
+                }).addTo(map);
+                var stations = <t t-out="stations_json"/>;
+                var markers = [];
+                stations.forEach(function(s) {
+                    var lat = parseFloat(s.latitude), lng = parseFloat(s.longitude);
+                    if (!isFinite(lat) || !isFinite(lng)) return;
+                    var m = L.marker([lat, lng]).addTo(map);
+                    m.bindPopup('<strong>' + (s.name||'Station') + '</strong><br/>' + (s.location||'') + '<br/>' + (s.capacity_kwp||0) + ' kWp');
+                    markers.push(m);
+                });
+                if (markers.length) {
+                    map.fitBounds(L.featureGroup(markers).getBounds().pad(0.15));
+                } else {
+                    map.setView([38.7223,-9.1393], 5);
+                }
+            });
+        </script>
+    </template>
+</odoo>

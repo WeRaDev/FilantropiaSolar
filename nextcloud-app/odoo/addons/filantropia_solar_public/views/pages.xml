@@ -1,0 +1,301 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- Pages following the wera_website website.page record pattern -->
+
+    <!-- Home (Inicio) -->
+    <record id="page_inicio" model="website.page">
+        <field name="name">Início</field>
+        <field name="type">qweb</field>
+        <field name="key">filantropia_solar_public.page_inicio</field>
+        <field name="url">/inicio</field>
+        <field name="is_published" eval="True"/>
+        <field name="website_indexed" eval="True"/>
+        <field name="website_meta_title">Filantropia Solar — Painéis solares doados para ONGs em Portugal</field>
+        <field name="website_meta_description">Equipamento e instalação solar doados para reduzir a fatura elétrica da sua organização ao longo dos anos. Candidatura gratuita para ONGs.</field>
+        <field name="arch" type="xml">
+            <t t-name="filantropia_solar_public.page_inicio">
+<t t-call="website.layout">
+                    <t t-set="dashboard" t-value="{'station_count': 9, 'total_capacity_kwp': 302.56, 'locations': ['Braga','Faro','Lisbon','Loule','Setubal','Tavira']}"/>
+                    <t t-set="stations" t-value="[]"/>
+                    <t t-set="stations_json" t-value="[]"/>
+                    <t t-set="api_error" t-value=""/>
+                    <div id="wrap" class="fs-public-wrap">
+                        <section class="fs-hero text-center">
+                            <div class="container py-5">
+                                <h1>Painéis solares doados para ONGs em Portugal</h1>
+                                <p class="lead">Equipamento e instalação para reduzir a fatura elétrica da sua organização ao longo dos anos.</p>
+                                <div class="mt-4">
+                                    <a href="/candidatura" class="btn fs-btn-primary btn-lg">Simular poupança</a>
+                                </div>
+                            </div>
+                        </section>
+                        <section class="container py-4">
+                            <div class="row justify-content-center"><div class="col-12 col-lg-8 text-center">
+                                <p class="fs-mission">A Filantropia Solar doa equipamento e instalação solar a ONGs em Portugal — não é um subsídio, é uma doação direta em espécie que reduz os custos de eletricidade ano após ano.</p>
+                            </div></div>
+                        </section>
+                        <section class="container py-4">
+                            <h2 class="text-center mb-4">Como funciona</h2>
+                            <t t-call="filantropia_solar_public.snippet_steps"/>
+                        </section>
+                        <section class="container py-4">
+                            <h2 class="text-center mb-3">Casos de sucesso</h2>
+                            <t t-call="filantropia_solar_public.snippet_story_card">
+                                <t t-set="title">Abrigo dos Animais de Braga</t>
+                                <t t-set="location">Braga</t>
+                                <t t-set="capacity">64.93 kWp</t>
+                                <t t-set="text">O abrigo reduziu a sua fatura elétrica em mais de 80%, redirecionando os fundos poupados para alimentação e cuidados veterinários dos animais acolhidos.</t>
+                                <t t-set="detail">Instalação realizada em 2022. A organização forneceu divulgação do projeto nos seus canais de comunicação.</t>
+                            </t>
+                            <div class="text-center mt-3"><a href="/casos-de-sucesso" class="btn fs-btn-secondary">Ver mais casos</a></div>
+                        </section>
+                        <section class="container py-4">
+                            <h2 class="text-center mb-3">Rede de instalações</h2>
+                            <div class="row g-4">
+                                <div class="col-12 col-lg-4">
+                                    <div class="fs-card">
+                                        <h3 class="fs-card-title">Painéis instalados</h3>
+                                        <ul class="list-unstyled fs-metrics mb-0">
+                                            <li><strong>Estações:</strong> <span t-esc="dashboard.get('station_count', 0)"/></li>
+                                            <li><strong>Capacidade total:</strong> <span t-esc="dashboard.get('total_capacity_kwp', 0)"/> kWp</li>
+                                            <li><strong>Localizações:</strong> <span t-esc="len(dashboard.get('locations', []))"/></li>
+                                        </ul>
+                                    </div>
+                                    <div class="fs-card mt-4">
+                                        <h3 class="fs-card-title">Estações</h3>
+                                        <ul class="list-unstyled fs-station-list mb-0">
+                                            <t t-foreach="stations" t-as="station">
+                                                <li><strong t-esc="station.get('name')"/><div class="text-muted small"><span t-esc="station.get('location', 'Desconhecido')"/> | <span t-esc="station.get('capacity_kwp', 0)"/> kWp</div></li>
+                                            </t>
+                                        </ul>
+                                    </div>
+                                </div>
+                                <div class="col-12 col-lg-8">
+                                    <div class="fs-card">
+                                        <h3 class="fs-card-title">Mapa</h3>
+                                        <div id="fs-stations-map" class="fs-map"></div>
+                                    </div>
+                                </div>
+                            </div>
+                        </section>
+                        <section class="container py-4 text-center">
+                            <div class="fs-card">
+                                <p class="mb-0">A doação é em espécie (equipamento + instalação), não em dinheiro. O processo de candidatura é <strong>gratuito</strong> para ONGs elegíveis.</p>
+                            </div>
+                        </section>
+                    </div>
+                    <t t-call="filantropia_solar_public.snippet_leaflet_map"/>
+                </t>
+            </t>
+        </field>
+    </record>
+
+    <!-- Static dash data default (used when website serves /inicio directly) -->
+    <template id="dashboard_defaults" name="Dashboard defaults">
+        <t t-set="dashboard" t-value="{'station_count': 9, 'total_capacity_kwp': 302.56, 'locations': ['Braga','Faro','Lisbon','Loule','Setubal','Tavira']}"/>
+        <t t-set="stations" t-value="[]"/>
+        <t t-set="stations_json" t-value="[]"/>
+        <t t-set="api_error" t-value=""/>
+    </template>
+
+    <!-- Como Funciona -->
+    <record id="page_como_funciona" model="website.page">
+        <field name="name">Como Funciona</field>
+        <field name="type">qweb</field>
+        <field name="key">filantropia_solar_public.page_como_funciona</field>
+        <field name="url">/como-funciona</field>
+        <field name="is_published" eval="True"/>
+        <field name="website_meta_title">Como Funciona — Filantropia Solar</field>
+        <field name="arch" type="xml">
+            <t t-name="filantropia_solar_public.page_como_funciona">
+                <t t-call="website.layout">
+                    <div id="wrap" class="fs-public-wrap">
+                        <section class="fs-hero"><div class="container py-5"><h1>Como funciona</h1></div></section>
+                        <section class="container py-4">
+                            <t t-call="filantropia_solar_public.snippet_steps"/>
+                            <div class="fs-card mt-4">
+                                <h3>O que recebe a organização</h3>
+                                <ul>
+                                    <li>Painéis solares e equipamento de instalação doados.</li>
+                                    <li>Redução da fatura elétrica ano após ano (autoconsumo).</li>
+                                    <li>Apoio na identificação de projetos tecnicamente viáveis.</li>
+                                </ul>
+                                <p class="small text-muted">Projetos normalmente enquadráveis no regime simplificado aplicável até 30 kW (DGEG). A instalação é gratuita para a ONG; a manutenção corrente fica a cargo da organização.</p>
+                            </div>
+                            <div class="text-center mt-4"><a href="/candidatura" class="btn fs-btn-primary btn-lg">Começar candidatura</a></div>
+                        </section>
+                    </div>
+                </t>
+            </t>
+        </field>
+    </record>
+
+    <!-- Casos de Sucesso -->
+    <record id="page_casos" model="website.page">
+        <field name="name">Casos de Sucesso</field>
+        <field name="type">qweb</field>
+        <field name="key">filantropia_solar_public.page_casos</field>
+        <field name="url">/casos-de-sucesso</field>
+        <field name="is_published" eval="True"/>
+        <field name="website_meta_title">Casos de Sucesso — Filantropia Solar</field>
+        <field name="arch" type="xml">
+            <t t-name="filantropia_solar_public.page_casos">
+                <t t-call="website.layout">
+                    <div id="wrap" class="fs-public-wrap">
+                        <section class="fs-hero"><div class="container py-5"><h1>Casos de sucesso</h1><p class="lead mb-0">Organizações que já reduziram a sua fatura elétrica com a Filantropia Solar.</p></div></section>
+                        <section class="container py-4">
+                            <t t-call="filantropia_solar_public.snippet_story_card"><t t-set="title">Abrigo dos Animais de Braga</t><t t-set="location">Braga</t><t t-set="capacity">64.93 kWp</t><t t-set="text">Redução superior a 80% na fatura elétrica. Os fundos poupados são agora aplicados em alimentação, cuidados veterinários e melhorias das instalações para os animais.</t><t t-set="detail">Abrigo de animais — a nossa primeira prioridade. Instalação de 2022.</t></t>
+                            <t t-call="filantropia_solar_public.snippet_story_card"><t t-set="id">caso-lisboa</t><t t-set="title">Centro Comunitário de Lisboa</t><t t-set="location">Lisboa</t><t t-set="capacity">46 kWp</t><t t-set="text">O centro comunitário cobre agora mais de 70% do seu consumo elétrico com energia solar, libertando o orçamento para programas sociais.</t></t>
+                            <t t-call="filantropia_solar_public.snippet_story_card"><t t-set="id">caso-tavira</t><t t-set="title">Associação de Proteção Animal de Tavira</t><t t-set="location">Tavira</t><t t-set="capacity">46 kWp</t><t t-set="text">Uma instalação que reduziu os custos operacionais em mais de 60%, permitindo à associação expandir o número de animais resgatados.</t></t>
+                            <div class="text-center mt-4"><p>A sua organização também pode ser um caso de sucesso.</p><a href="/candidatura" class="btn fs-btn-primary btn-lg">Simular poupança</a></div>
+                        </section>
+                    </div>
+                </t>
+            </t>
+        </field>
+    </record>
+
+    <!-- Candidatura (3-step funnel) -->
+    <record id="page_candidatura" model="website.page">
+        <field name="name">Candidatura</field>
+        <field name="type">qweb</field>
+        <field name="key">filantropia_solar_public.page_candidatura</field>
+        <field name="url">/candidatura</field>
+        <field name="is_published" eval="True"/>
+        <field name="website_meta_title">Candidatura — Filantropia Solar</field>
+        <field name="arch" type="xml">
+            <t t-name="filantropia_solar_public.page_candidatura">
+                <t t-call="website.layout">
+                    <div id="wrap" class="fs-public-wrap">
+                        <section class="fs-hero"><div class="container py-5"><h1>Simular poupança e candidatar-se</h1></div></section>
+                        <section class="container py-4">
+                            <!-- Step 1 -->
+                            <div id="fs-step1" class="fs-card mb-4" t-att-class="{'fs-card mb-4': True, 'd-none': step >= 2}">
+                                <h3 class="fs-card-title">Passo 1 — Estimar poupança</h3>
+                                <t t-if="estimate"><div class="fs-estimate mb-3"><p class="lead">A sua organização poderá poupar cerca de <strong t-esc="'%.0f'|format(estimate.get('annual_savings_eur', 0))"/> EUR/ano com uma instalação estimada de <strong t-esc="'%.1f'|format(estimate.get('capacity_kwp', capacity_kwp or 0))"/> kWp.</p></div></t>
+                                <form action="/candidatura/estimativa" method="post" class="row g-3">
+                                    <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
+                                    <div class="col-md-6"><label class="form-label" for="step1_name">Nome de contacto *</label><input class="form-control" id="step1_name" name="step1_name" required="required" type="text" t-att-value="step1_name or ''"/></div>
+                                    <div class="col-md-6"><label class="form-label" for="step1_email">Email *</label><input class="form-control" id="step1_email" name="step1_email" required="required" type="email" t-att-value="step1_email or ''"/></div>
+                                    <div class="col-md-6"><label class="form-label" for="location">Localização (cidade)</label><input class="form-control" id="location" name="location" type="text" t-att-value="location or ''"/></div>
+                                    <div class="col-md-6"><label class="form-label" for="surface_type">Tipo de superfície *</label><select class="form-control" id="surface_type" name="surface_type" required="required"><option value="roof">Cobertura / telhado</option><option value="parking">Parque de estacionamento</option><option value="flat">Terreno plano</option></select></div>
+                                    <div class="col-md-6"><label class="form-label" for="available_area">Área disponível (m²) *</label><input class="form-control" id="available_area" name="available_area" required="required" type="number" step="0.1" min="2" t-att-value="available_area or ''"/></div>
+                                    <div class="col-12"><button type="submit" class="btn fs-btn-primary w-100">Estimar poupança</button></div>
+                                </form>
+                            </div>
+                            <!-- Step 2 -->
+                            <div id="fs-step2" class="fs-card mb-4" t-att-class="{'fs-card mb-4': True, 'd-none': step not in (2, 'sme')}">
+                                <h3 class="fs-card-title">Passo 2 — Verificar elegibilidade</h3>
+                                <t t-if="step == 'sme'">
+                                    <div class="alert alert-info mb-3"><h4>Não elegível para Filantropia Solar</h4><p>A Filantropia Solar é reservada a ONGs e entidades sem fins lucrativos. Para empresas e entidades comerciais, a WeRa Global poderá apoiar através de soluções de autoconsumo com condições dedicadas.</p><p><a href="https://wera.global/contacto" class="btn fs-btn-primary" target="_blank" rel="noopener">Contactar a WeRa Global</a></p></div>
+                                </t>
+                                <t t-else="">
+                                    <form action="/candidatura/elegibilidade" method="post" class="row g-3">
+                                        <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
+                                        <div class="col-md-6"><label class="form-label" for="step2_org_name">Nome da organização *</label><input class="form-control" id="step2_org_name" name="step2_org_name" required="required" type="text" t-att-value="step2_org_name or ''"/></div>
+                                        <div class="col-md-6"><label class="form-label" for="step2_org_type">Tipo de organização *</label><select class="form-control" id="step2_org_type" name="step2_org_type" required="required"><option value="ong">ONG / Associação sem fins lucrativos</option><option value="ipss">IPSS</option><option value="fundacao">Fundação</option><option value="cooperativa">Cooperativa social</option><option value="pme">PME / Empresa</option><option value="outro">Outro</option></select></div>
+                                        <div class="col-12"><label class="form-label" for="step2_website">Site ou descrição breve</label><input class="form-control" id="step2_website" name="step2_website" type="text" t-att-value="step2_website or ''"/></div>
+                                        <div class="col-12 form-check"><input class="form-check-input" id="step2_npo_confirm" name="step2_npo_confirm" required="required" type="checkbox" value="1"/><label class="form-check-label" for="step2_npo_confirm">Confirmo que esta organização é uma ONG / entidade sem fins lucrativos registada em Portugal *</label></div>
+                                        <div class="col-12"><button type="submit" class="btn fs-btn-primary w-100">Verificar elegibilidade</button></div>
+                                    </form>
+                                </t>
+                            </div>
+                            <!-- Step 3 -->
+                            <div id="fs-step3" class="fs-card mb-4" t-att-class="{'fs-card mb-4': True, 'd-none': step != 3}">
+                                <h3 class="fs-card-title">Passo 3 — Candidatar à doação</h3>
+                                <p class="text-muted small">Não pagará nada pelo processo de candidatura.</p>
+                                <t t-if="submitted">
+                                    <div class="alert alert-success mb-4">Obrigado. A sua candidatura foi submetida com sucesso. A equipa da Filantropia Solar entrará em contacto.</div>
+                                </t>
+                                <t t-else="">
+                                    <form action="/candidatura/enviar" method="post" enctype="multipart/form-data" class="row g-3">
+                                        <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
+                                        <div class="col-md-6"><label class="form-label" for="step3_monthly_spend">Gasto mensal de eletricidade (EUR) *</label><input class="form-control" id="step3_monthly_spend" name="step3_monthly_spend" required="required" type="number" step="0.01" min="0" t-att-value="step3_monthly_spend or ''"/></div>
+                                        <div class="col-md-6"><label class="form-label" for="step3_price_kwh">Preço por kWh (se conhecido)</label><input class="form-control" id="step3_price_kwh" name="step3_price_kwh" type="number" step="0.001" min="0" t-att-value="step3_price_kwh or ''"/></div>
+                                        <div class="col-12"><label class="form-label" for="step3_usage_pattern">Padrão de consumo *</label><select class="form-control" id="step3_usage_pattern" name="step3_usage_pattern" required="required"><option value="weekdays_daytime">Dias úteis, horário diurno</option><option value="weekdays_all">Dias úteis, todo o dia</option><option value="weekends">Fins de semana</option><option value="full_time">24/7</option><option value="custom">Outro / personalizado</option></select></div>
+                                        <div class="col-12"><label class="form-label" for="step3_description">Notas adicionais sobre o consumo</label><textarea class="form-control" id="step3_description" name="step3_description" rows="2"><t t-esc="step3_description or ''"/></textarea></div>
+                                        <div class="col-12"><label class="form-label" for="step3_bills">Faturas de eletricidade (2–3, idealmente verão + inverno)</label><input class="form-control" id="step3_bills" name="step3_bills" type="file" accept="image/*,.pdf" multiple="multiple"/></div>
+                                        <div class="col-12"><button type="submit" class="btn fs-btn-primary w-100">Enviar candidatura</button></div>
+                                    </form>
+                                </t>
+                            </div>
+                        </section>
+                    </div>
+                </t>
+            </t>
+        </field>
+    </record>
+
+    <!-- FAQ -->
+    <record id="page_faq" model="website.page">
+        <field name="name">FAQ / Condições</field>
+        <field name="type">qweb</field>
+        <field name="key">filantropia_solar_public.page_faq</field>
+        <field name="url">/faq</field>
+        <field name="is_published" eval="True"/>
+        <field name="website_meta_title">FAQ e Condições — Filantropia Solar</field>
+        <field name="arch" type="xml">
+            <t t-name="filantropia_solar_public.page_faq">
+                <t t-call="website.layout">
+                    <div id="wrap" class="fs-public-wrap">
+                        <section class="fs-hero"><div class="container py-5"><h1>FAQ e Condições</h1></div></section>
+                        <section class="container py-4">
+                            <div class="fs-card mb-3"><h3>O que é a Filantropia Solar?</h3><p>É um programa de doação em espécie: oferecemos equipamento solar e a sua instalação a ONGs em Portugal, sem qualquer custo para a organização beneficiária. Não é um subsídio nem um financiamento — é uma doação direta.</p></div>
+                            <div class="fs-card mb-3"><h3>Quem se pode candidatar?</h3><p>ONGs, IPSS, fundações, cooperativas sociais e outras entidades sem fins lucrativos registadas em Portugal com NIF válido. Empresas e entidades comerciais não são elegíveis para este programa, mas podem contactar a WeRa Global para soluções de autoconsumo dedicadas.</p></div>
+                            <div class="fs-card mb-3"><h3>O que está incluído na doação?</h3><p>Equipamento solar (painéis, inversor, estrutura de fixação) e a instalação no local da ONG. O equipamento pode ser novo ou reutilizado / recondicionado. A doação é em espécie — não é entregue qualquer valor monetário à organização.</p></div>
+                            <div class="fs-card mb-3"><h3>Quem faz a manutenção?</h3><p>A Filantropia Solar <strong>não</strong> fornece manutenção continuada nem garantia sobre o equipamento após a instalação. A organização beneficiária é responsável pela manutenção corrente do sistema.</p></div>
+                            <div class="fs-card mb-3"><h3>Espera-se algo em troca?</h3><p>Sim. A organização beneficiária compromete-se a fornecer divulgação e apoio mediático sobre a doação recebida (publicação nos seus canais de comunicação, menção nas redes sociais, e disponibilidade para testemunhos). Isto ajuda-nos a atrair mais doadores e a expandir o programa.</p></div>
+                            <div class="fs-card mb-3"><h3>Há limite de potência?</h3><p>Projetos normalmente enquadráveis no regime simplificado aplicável até 30 kW (DGEG). Ajudamos a identificar projetos tecnicamente viáveis dentro de uma gama de pequena e média dimensão.</p></div>
+                            <div class="fs-card mb-3"><h3>Quanto custa candidatar-se?</h3><p><strong>Nada.</strong> O processo de candidatura é totalmente gratuito. Não há taxas de submissão nem custos administrativos para a ONG candidata.</p></div>
+                            <div class="text-center mt-4"><a href="/candidatura" class="btn fs-btn-primary btn-lg">Começar candidatura</a></div>
+                        </section>
+                    </div>
+                </t>
+            </t>
+        </field>
+    </record>
+
+    <!-- Sobre -->
+    <record id="page_sobre" model="website.page">
+        <field name="name">Sobre</field>
+        <field name="type">qweb</field>
+        <field name="key">filantropia_solar_public.page_sobre</field>
+        <field name="url">/sobre</field>
+        <field name="is_published" eval="True"/>
+        <field name="website_meta_title">Sobre — Filantropia Solar</field>
+        <field name="arch" type="xml">
+            <t t-name="filantropia_solar_public.page_sobre">
+                <t t-call="website.layout">
+                    <div id="wrap" class="fs-public-wrap">
+                        <section class="fs-hero"><div class="container py-5"><h1>Sobre a Filantropia Solar</h1></div></section>
+                        <section class="container py-4">
+                            <div class="fs-card"><p>A Filantropia Solar nasceu da convicção de que a melhor forma de apoiar ONGs é dar-lhes independência energética. Em vez de donativos pontuais, oferecemos equipamento e instalação solar que reduz a fatura elétrica ano após ano.</p><p>Somos uma iniciativa da <strong>WeRa Global</strong>, focada em projetos de pequena e média dimensão para organizações sem fins lucrativos em Portugal.</p></div>
+                        </section>
+                    </div>
+                </t>
+            </t>
+        </field>
+    </record>
+
+    <!-- Contacto -->
+    <record id="page_contacto" model="website.page">
+        <field name="name">Contacto</field>
+        <field name="type">qweb</field>
+        <field name="key">filantropia_solar_public.page_contacto</field>
+        <field name="url">/contacto</field>
+        <field name="is_published" eval="True"/>
+        <field name="website_meta_title">Contacto — Filantropia Solar</field>
+        <field name="arch" type="xml">
+            <t t-name="filantropia_solar_public.page_contacto">
+                <t t-call="website.layout">
+                    <div id="wrap" class="fs-public-wrap">
+                        <section class="fs-hero"><div class="container py-5"><h1>Contacto</h1></div></section>
+                        <section class="container py-4">
+                            <div class="fs-card"><p>Para questões sobre o programa Filantropia Solar, utilize o formulário de candidatura — a equipa responde por email.</p><p class="small text-muted">O endereço de email não é publicado aqui para proteção contra spam. Se já submeteu uma candidatura, aguarde o contacto da equipa.</p><div class="mt-3"><a href="/candidatura" class="btn fs-btn-primary btn-lg">Ir para a candidatura</a></div></div>
+                        </section>
+                    </div>
+                </t>
+            </t>
+        </field>
+    </record>
+</odoo>
