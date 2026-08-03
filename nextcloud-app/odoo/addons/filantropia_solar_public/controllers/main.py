@@ -1,10 +1,11 @@
 """Filantropia Solar public website controller with 3-step application funnel."""
 
+from __future__ import annotations
+
 import base64
 import json
 import logging
 import os
-import urllib.error
 import urllib.request
 
 from markupsafe import Markup
@@ -70,8 +71,10 @@ class FilantropiaSolarPublicController(http.Controller):
 
         return stations, dashboard, api_error
 
-    def _as_float(value, default=0.0):
+    def _as_float(self, value, default=0.0):
         try:
+            if value is None or value == "":
+                return default
             return float(value)
         except (TypeError, ValueError):
             return default
@@ -90,10 +93,20 @@ class FilantropiaSolarPublicController(http.Controller):
 
     def _compute_panels(self, area_m2: float) -> tuple[int, float]:
         """Calculate how many 2m x 1m panels fit and the resulting DC kWp."""
-        count = int(area_m2 // _PANEL_AREA_M2)
+        area = max(self._as_float(area_m2, 0.0), 0.0)
+        count = int(area // _PANEL_AREA_M2)
         count = max(count, 1)
         kwp = count * _PANEL_WATTS / 1000.0
         return count, kwp
+
+    def _parse_estimate_data(self, raw: str | None) -> dict:
+        if not raw:
+            return {}
+        try:
+            data = json.loads(raw)
+        except (TypeError, ValueError, json.JSONDecodeError):
+            return {}
+        return data if isinstance(data, dict) else {}
 
     def _attach_files(self, lead):
         """Store uploaded form files as ir.attachment records on the lead."""
@@ -111,7 +124,7 @@ class FilantropiaSolarPublicController(http.Controller):
                             "datas": base64.b64encode(upload.read()),
                             "res_model": "crm.lead",
                             "res_id": lead.id,
-                            "mimetype": upload.mimetype,
+                            "mimetype": upload.mimetype or "application/octet-stream",
                         }
                     )
                 except Exception as exc:
@@ -129,181 +142,245 @@ class FilantropiaSolarPublicController(http.Controller):
             "stations_json": Markup(json.dumps(stations)),
             "dashboard": dashboard,
             "api_error": api_error,
-            "step": 0,
+            "step": 1,
             "submitted": False,
+            "estimate": {},
+            "estimate_data": "{}",
+            "estimate_savings": "0",
+            "estimate_kwp": "0.0",
+            "panel_count": "",
+            "capacity_kwp": "",
+            "available_area": "",
+            "location": "",
+            "surface_type": "",
+            "step1_name": "",
+            "step1_email": "",
+            "step2_org_name": "",
+            "step2_org_type": "",
+            "step2_website": "",
+            "step3_monthly_spend": "",
+            "step3_price_kwh": "",
+            "step3_usage_pattern": "",
+            "step3_description": "",
+            "contact_name": "",
+            "contact_email": "",
         }
         values.update(extra)
+
+        # Allow a step-specific estimate error without wiping station fetch errors
+        if extra.get("form_error"):
+            values["api_error"] = extra["form_error"]
+
+        step = values.get("step", 1)
+        if step not in (1, 2, 3, "sme"):
+            try:
+                step = int(step)
+            except (TypeError, ValueError):
+                step = 1
+        values["step"] = step
+
+        est = values.get("estimate") or {}
+        if not isinstance(est, dict):
+            est = {}
+            values["estimate"] = est
+
+        if not values.get("estimate_data") or values.get("estimate_data") == "{}":
+            values["estimate_data"] = json.dumps(est)
+
+        cap = values.get("capacity_kwp")
+        try:
+            savings_val = float(est.get("annual_savings_eur", 0) or 0)
+        except (TypeError, ValueError):
+            savings_val = 0.0
+        try:
+            kwp_val = float(est.get("capacity_kwp") or cap or 0)
+        except (TypeError, ValueError):
+            kwp_val = 0.0
+        values["estimate_savings"] = str(int(savings_val))
+        values["estimate_kwp"] = f"{kwp_val:.1f}"
+
+        values["contact_name"] = values.get("contact_name") or values.get("step1_name") or ""
+        values["contact_email"] = values.get("contact_email") or values.get("step1_email") or ""
+
         return request.render(template, values)
 
-    # ------------------------------------------------------------------
-    # Home page
-    # ------------------------------------------------------------------
     @http.route(
-        ["/inicio", "/filantropia-solar"], type="http", auth="public", website=True
+        ["/", "/inicio", "/filantropia-solar"],
+        type="http",
+        auth="public",
+        website=True,
     )
     def home(self, **kwargs):
-        return self._render_page("filantropia_solar_public.page_inicio")
+        return self._render_page("filantropia_solar_public.page_inicio", step=1)
 
-    # ------------------------------------------------------------------
-    # Static pages
-    # ------------------------------------------------------------------
-    @http.route("/como-funciona", type="http", auth="public", website=True)
-    def como_funciona(self, **kwargs):
-        return request.render("filantropia_solar_public.page_como_funciona")
-
-    @http.route("/casos-de-sucesso", type="http", auth="public", website=True)
-    def casos_de_sucesso(self, **kwargs):
-        return request.render("filantropia_solar_public.page_casos")
-
-    @http.route("/faq", type="http", auth="public", website=True)
-    def faq(self, **kwargs):
-        return request.render("filantropia_solar_public.page_faq")
-
-    @http.route("/sobre", type="http", auth="public", website=True)
-    def sobre(self, **kwargs):
-        return request.render("filantropia_solar_public.page_sobre")
-
-    @http.route("/contacto", type="http", auth="public", website=True)
-    def contacto(self, **kwargs):
-        return request.render("filantropia_solar_public.page_contacto")
-
-    # ------------------------------------------------------------------
-    # 3-Step funnel: /candidatura
-    # ------------------------------------------------------------------
-    @http.route("/candidatura", type="http", auth="public", website=True, sitemap=True)
-    def candidatura(self, **kwargs):
-        return self._render_page(
-            "filantropia_solar_public.page_candidatura",
-            step=1,
-        )
-
-    # Step 1: Estimate savings
     @http.route(
         "/candidatura/estimativa",
         type="http",
         auth="public",
         website=True,
         methods=["POST"],
+        csrf=True,
     )
     def candidatura_estimativa(self, **post):
-        step1_name = post.get("step1_name", "").strip()
-        step1_email = post.get("step1_email", "").strip()
-        location = post.get("location", "").strip()
-        surface_type = post.get("surface_type", "").strip()
+        step1_name = (post.get("step1_name") or "").strip()
+        step1_email = (post.get("step1_email") or "").strip()
+        location = (post.get("location") or "").strip()
+        surface_type = (post.get("surface_type") or "").strip()
         available_area = self._as_float(post.get("available_area", "0"))
 
         panels, kwp = self._compute_panels(available_area)
-        estimate = None
+        estimate: dict = {}
+        form_error = None
         try:
-            estimate = self._estimate(location, None, None, kwp)
+            estimate = self._estimate(location, None, None, kwp) or {}
         except Exception as exc:
+            form_error = (
+                "Não foi possível obter a estimativa automática. "
+                "Pode continuar — a equipa valida os números manualmente."
+            )
             _logger.warning("Step 1 estimate failed: %s", exc)
 
         return self._render_page(
-            "filantropia_solar_public.page_candidatura",
+            "filantropia_solar_public.page_inicio",
             step=2,
             step1_name=step1_name,
             step1_email=step1_email,
             location=location,
             surface_type=surface_type,
             available_area=str(available_area),
-            capacity_kwp=str(kwp),
+            capacity_kwp=f"{kwp:.2f}",
             panel_count=str(panels),
-            estimate=estimate or {},
+            estimate=estimate,
+            estimate_data=json.dumps(estimate),
+            form_error=form_error,
             contact_name=step1_name,
             contact_email=step1_email,
         )
 
-    # Step 2: Eligibility check
     @http.route(
         "/candidatura/elegibilidade",
         type="http",
         auth="public",
         website=True,
         methods=["POST"],
+        csrf=True,
     )
     def candidatura_elegibilidade(self, **post):
-        org_type = post.get("step2_org_type", "").strip()
+        org_type = (post.get("step2_org_type") or "").strip()
+        step1_name = (post.get("step1_name") or "").strip()
+        step1_email = (post.get("step1_email") or "").strip()
+        location = (post.get("location") or "").strip()
+        surface_type = (post.get("surface_type") or "").strip()
+        available_area = (post.get("available_area") or "").strip()
+        capacity_kwp = (post.get("capacity_kwp") or "").strip()
+        panel_count = (post.get("panel_count") or "").strip()
+        step2_org_name = (post.get("step2_org_name") or "").strip()
+        step2_website = (post.get("step2_website") or "").strip()
+        estimate = self._parse_estimate_data(post.get("estimate_data"))
+
+        common = {
+            "step1_name": step1_name,
+            "step1_email": step1_email,
+            "location": location,
+            "surface_type": surface_type,
+            "available_area": available_area,
+            "capacity_kwp": capacity_kwp,
+            "panel_count": panel_count,
+            "step2_org_name": step2_org_name,
+            "step2_org_type": org_type,
+            "step2_website": step2_website,
+            "estimate": estimate,
+            "estimate_data": json.dumps(estimate),
+            "contact_name": step1_name,
+            "contact_email": step1_email,
+        }
 
         if org_type in _NGO_ORG_TYPES:
             return self._render_page(
-                "filantropia_solar_public.page_candidatura",
+                "filantropia_solar_public.page_inicio",
                 step=3,
-                step1_name=post.get("step1_name", "").strip(),
-                step1_email=post.get("step1_email", "").strip(),
-                location=post.get("location", "").strip(),
-                available_area=post.get("available_area", "").strip(),
-                capacity_kwp=post.get("capacity_kwp", "").strip(),
-                step2_org_name=post.get("step2_org_name", "").strip(),
-                step2_org_type=org_type,
-                step2_website=post.get("step2_website", "").strip(),
-                estimate=json.loads(post.get("estimate_data", "{}")),
-                contact_name=post.get("step1_name", "").strip(),
-                contact_email=post.get("step1_email", "").strip(),
-            )
-        else:
-            # SME / for-profit → referral branch, lead preserved
-            lead = (
-                request.env["crm.lead"]
-                .sudo()
-                .create(
-                    {
-                        "name": f"Filantropia Solar — {post.get('step2_org_name', '').strip() or 'SME referral'}",
-                        "contact_name": post.get("step1_name", "").strip(),
-                        "email_from": post.get("step1_email", "").strip() or False,
-                        "partner_name": post.get("step2_org_name", "").strip() or False,
-                        "description": "\n".join(
-                            [
-                                "NÃO ELEGÍVEL para Filantropia Solar (SME/for-profit referral)",
-                                f"Org type: {org_type}",
-                                f"Location: {post.get('location', '').strip()}",
-                                f"Available area: {post.get('available_area', '').strip()} m²",
-                                "Handed off to WeRa Global.",
-                            ]
-                        ),
-                    }
-                )
-            )
-            _logger.info("SME lead created: %s -> WeRa referral", lead.id)
-            return self._render_page(
-                "filantropia_solar_public.page_candidatura",
-                step="sme",
-                step1_name=post.get("step1_name", "").strip(),
-                step1_email=post.get("step1_email", "").strip(),
-                location=post.get("location", "").strip(),
+                **common,
             )
 
-    # Step 3: Submit donation application
+        lead = (
+            request.env["crm.lead"]
+            .sudo()
+            .create(
+                {
+                    "name": f"Filantropia Solar — {step2_org_name or 'SME referral'}",
+                    "contact_name": step1_name or False,
+                    "email_from": step1_email or False,
+                    "partner_name": step2_org_name or False,
+                    "description": "\n".join(
+                        [
+                            "NÃO ELEGÍVEL para Filantropia Solar (SME/for-profit referral)",
+                            f"Org type: {org_type}",
+                            f"Location: {location}",
+                            f"Available area: {available_area} m²",
+                            f"Estimated capacity: {capacity_kwp} kWp",
+                            "Handed off to WeRa Global.",
+                        ]
+                    ),
+                }
+            )
+        )
+        _logger.info("SME lead created: %s -> WeRa referral", lead.id)
+        return self._render_page(
+            "filantropia_solar_public.page_inicio",
+            step="sme",
+            **common,
+        )
+
     @http.route(
         "/candidatura/enviar",
         type="http",
         auth="public",
         website=True,
         methods=["POST"],
+        csrf=True,
     )
     def candidatura_enviar(self, **post):
+        step1_name = (post.get("step1_name") or "").strip()
+        step1_email = (post.get("step1_email") or "").strip()
+        location = (post.get("location") or "").strip()
+        surface_type = (post.get("surface_type") or "").strip()
+        available_area = (post.get("available_area") or "").strip()
+        capacity_kwp = (post.get("capacity_kwp") or "").strip()
+        panel_count = (post.get("panel_count") or "").strip()
+        step2_org_name = (post.get("step2_org_name") or "").strip()
+        step2_org_type = (post.get("step2_org_type") or "").strip()
+        step2_website = (post.get("step2_website") or "").strip()
+        step3_monthly_spend = (post.get("step3_monthly_spend") or "").strip()
+        step3_price_kwh = (post.get("step3_price_kwh") or "").strip()
+        step3_usage_pattern = (post.get("step3_usage_pattern") or "").strip()
+        step3_description = (post.get("step3_description") or "").strip()
+        estimate = self._parse_estimate_data(post.get("estimate_data"))
+
         description_lines = [
             "Filantropia Solar — Candidatura de doação (funnel 3-passos)",
             "",
             "Contacto:",
-            f"- Nome: {post.get('step1_name', '').strip()}",
-            f"- Email: {post.get('step1_email', '').strip()}",
+            f"- Nome: {step1_name}",
+            f"- Email: {step1_email}",
             "",
             "Estimativa:",
-            f"- Localização: {post.get('location', '').strip()}",
-            f"- Área disponível: {post.get('available_area', '').strip()} m²",
-            f"- Capacidade estimada: {post.get('capacity_kwp', '').strip()} kWp",
+            f"- Localização: {location}",
+            f"- Superfície: {surface_type}",
+            f"- Área disponível: {available_area} m²",
+            f"- Painéis estimados: {panel_count}",
+            f"- Capacidade estimada: {capacity_kwp} kWp",
+            f"- Poupança anual estimada (EUR): {estimate.get('annual_savings_eur', 'n/d')}",
             "",
             "Organização:",
-            f"- Nome: {post.get('step2_org_name', '').strip()}",
-            f"- Tipo: {post.get('step2_org_type', '').strip()}",
-            f"- Site/descrição: {post.get('step2_website', '').strip()}",
+            f"- Nome: {step2_org_name}",
+            f"- Tipo: {step2_org_type}",
+            f"- Site/descrição: {step2_website}",
             "",
             "Padrão de consumo:",
-            f"- Gasto mensal: {post.get('step3_monthly_spend', '').strip()} EUR",
-            f"- Preço/kWh: {post.get('step3_price_kwh', '').strip()}",
-            f"- Padrão: {post.get('step3_usage_pattern', '').strip()}",
-            f"- Notas: {post.get('step3_description', '').strip()}",
+            f"- Gasto mensal: {step3_monthly_spend} EUR",
+            f"- Preço/kWh: {step3_price_kwh}",
+            f"- Padrão: {step3_usage_pattern}",
+            f"- Notas: {step3_description}",
         ]
 
         lead = (
@@ -311,11 +388,10 @@ class FilantropiaSolarPublicController(http.Controller):
             .sudo()
             .create(
                 {
-                    "name": f"Filantropia Solar Candidatura — {post.get('step2_org_name', '').strip() or 'ONG'}",
-                    "contact_name": post.get("step1_name", "").strip()
-                    or "Contacto desconhecido",
-                    "email_from": post.get("step1_email", "").strip() or False,
-                    "partner_name": post.get("step2_org_name", "").strip() or False,
+                    "name": f"Filantropia Solar Candidatura — {step2_org_name or 'ONG'}",
+                    "contact_name": step1_name or "Contacto desconhecido",
+                    "email_from": step1_email or False,
+                    "partner_name": step2_org_name or False,
                     "description": "\n".join(description_lines),
                 }
             )
@@ -324,15 +400,25 @@ class FilantropiaSolarPublicController(http.Controller):
         _logger.info("Donation application lead created: %s", lead.id)
 
         return self._render_page(
-            "filantropia_solar_public.page_candidatura",
+            "filantropia_solar_public.page_inicio",
             step=3,
             submitted=True,
-            step1_name=post.get("step1_name", "").strip(),
-            step1_email=post.get("step1_email", "").strip(),
-            location=post.get("location", "").strip(),
-            available_area=post.get("available_area", "").strip(),
-            capacity_kwp=post.get("capacity_kwp", "").strip(),
-            step2_org_name=post.get("step2_org_name", "").strip(),
-            step2_org_type=post.get("step2_org_type", "").strip(),
-            step2_website=post.get("step2_website", "").strip(),
+            step1_name=step1_name,
+            step1_email=step1_email,
+            location=location,
+            surface_type=surface_type,
+            available_area=available_area,
+            capacity_kwp=capacity_kwp,
+            panel_count=panel_count,
+            step2_org_name=step2_org_name,
+            step2_org_type=step2_org_type,
+            step2_website=step2_website,
+            step3_monthly_spend=step3_monthly_spend,
+            step3_price_kwh=step3_price_kwh,
+            step3_usage_pattern=step3_usage_pattern,
+            step3_description=step3_description,
+            estimate=estimate,
+            estimate_data=json.dumps(estimate),
+            contact_name=step1_name,
+            contact_email=step1_email,
         )

@@ -1,14 +1,13 @@
 {
     "name": "FilantropiaSolar Public",
     "summary": "Public NGO website: donation platform for solar equipment and installation.",
-    "version": "19.0.2.0.0",
+    "version": "19.0.2.1.0",
     "author": "WeRa Global",
     "website": "https://wera.global",
     "category": "Website",
     "license": "LGPL-3",
     "depends": ["website", "crm"],
     "data": [
-        "data/menus.xml",
         "views/snippets.xml",
         "views/pages.xml",
     ],

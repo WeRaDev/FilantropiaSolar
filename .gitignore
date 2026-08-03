@@ -428,3 +428,6 @@ auto_generated/
 
 # Never track macOS metadata, even under re-included dirs
 **/.DS_Store
+
+# local ops backups (never commit)
+.local-backups/
