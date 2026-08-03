@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- Primary navigation: Home, Como Funciona, Casos de Sucesso, Candidatura, Sobre, FAQ, Contacto -->
+    <record id="menu_inicio" model="website.menu">
+        <field name="name">Início</field>
+        <field name="url">/inicio</field>
+        <field name="sequence">10</field>
+        <field name="parent_id" ref="website.main_menu"/>
+    </record>
+    <record id="menu_como_funciona" model="website.menu">
+        <field name="name">Como Funciona</field>
+        <field name="url">/como-funciona</field>
+        <field name="sequence">20</field>
+        <field name="parent_id" ref="website.main_menu"/>
+    </record>
+    <record id="menu_casos" model="website.menu">
+        <field name="name">Casos de Sucesso</field>
+        <field name="url">/casos-de-sucesso</field>
+        <field name="sequence">30</field>
+        <field name="parent_id" ref="website.main_menu"/>
+    </record>
+    <record id="menu_candidatura" model="website.menu">
+        <field name="name">Candidatura</field>
+        <field name="url">/candidatura</field>
+        <field name="sequence">40</field>
+        <field name="parent_id" ref="website.main_menu"/>
+    </record>
+    <record id="menu_faq" model="website.menu">
+        <field name="name">FAQ / Condições</field>
+        <field name="url">/faq</field>
+        <field name="sequence">50</field>
+        <field name="parent_id" ref="website.main_menu"/>
+    </record>
+    <record id="menu_sobre" model="website.menu">
+        <field name="name">Sobre</field>
+        <field name="url">/sobre</field>
+        <field name="sequence">60</field>
+        <field name="parent_id" ref="website.main_menu"/>
+    </record>
+    <record id="menu_contacto" model="website.menu">
+        <field name="name">Contacto</field>
+        <field name="url">/contacto</field>
+        <field name="sequence">70</field>
+        <field name="parent_id" ref="website.main_menu"/>
+    </record>
+</odoo>
