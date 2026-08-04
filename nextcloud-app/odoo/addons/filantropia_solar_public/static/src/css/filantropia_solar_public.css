@@ -126,3 +126,67 @@
 .fs-progress-bar {
     background: linear-gradient(90deg, #a89d3f, #c4b552);
 }
+
+.fs-station-list {
+    max-height: 280px;
+    overflow: auto;
+    margin: 0;
+    padding: 0;
+}
+
+.fs-station-list li {
+    list-style: none;
+}
+
+.fs-station-item .fs-station-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.35rem 0.75rem;
+    margin-top: 0.15rem;
+}
+
+.fs-station-item .fs-station-info {
+    margin-top: 0.35rem;
+    color: #5c5848;
+}
+
+.fs-expand-toggle {
+    width: 100%;
+    text-align: left;
+    background: transparent;
+    border: 0;
+    padding: 0;
+    color: inherit;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+    cursor: pointer;
+}
+
+.fs-expand-toggle .fs-chevron {
+    transition: transform 0.2s ease;
+    font-size: 0.9rem;
+    color: #7f7428;
+}
+
+.fs-expand-toggle[aria-expanded="true"] .fs-chevron {
+    transform: rotate(180deg);
+}
+
+.fs-expand-body {
+    margin-top: 0.75rem;
+}
+
+.fs-expand-body.collapse:not(.show) {
+    display: none;
+}
+
+.fs-location-mode .form-check {
+    margin-bottom: 0.35rem;
+}
+
+.fs-pick-map-hint {
+    font-size: 0.85rem;
+    color: #6c6758;
+}

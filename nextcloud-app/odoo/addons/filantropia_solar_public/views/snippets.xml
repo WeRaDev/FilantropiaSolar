@@ -98,7 +98,25 @@
                     var lat = parseFloat(s.latitude), lng = parseFloat(s.longitude);
                     if (!isFinite(lat) || !isFinite(lng)) return;
                     var m = L.marker([lat, lng]).addTo(map);
-                    m.bindPopup('<strong>' + (s.name||'Station') + '</strong><br/>' + (s.location||'') + '<br/>' + (s.capacity_kwp||0) + ' kWp');
+                    var saved = (s.money_saved_display != null &amp;&amp; s.money_saved_display !== '')
+                        ? s.money_saved_display
+                        : (s.money_saved_eur != null ? Math.round(Number(s.money_saved_eur)) : '\u2014');
+                    var info = (s.info || s.description || '');
+                    function esc(t) {
+                        return String(t == null ? '' : t)
+                            .replace(/&amp;/g, '&amp;amp;')
+                            .replace(/\x3c/g, '&amp;lt;')
+                            .replace(/\x3e/g, '&amp;gt;')
+                            .replace(/"/g, '&amp;quot;');
+                    }
+                    var html = '<strong>' + esc(s.name || 'Station') + '</strong><br/>'
+                        + esc(s.location || '') + '<br/>'
+                        + esc(s.capacity_kwp || 0) + ' kWp<br/>'
+                        + '<strong>Money Saved:</strong> ' + esc(saved) + ' EUR/ano';
+                    if (info) {
+                        html += '<br/><strong>Info:</strong> ' + esc(info);
+                    }
+                    m.bindPopup(html);
                     markers.push(m);
                 });
                 if (markers.length) {

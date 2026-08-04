@@ -1,0 +1,249 @@
+# Translation of Odoo Server.
+# This file contains the translation of the following modules:
+# 	* filantropia_solar_public
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: Odoo Server 19.0\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2026-08-04 15:00+0000\n"
+"PO-Revision-Date: 2026-08-04 15:00+0000\n"
+"Last-Translator: \n"
+"Language-Team: \n"
+"Language: en_US\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=(n != 1);\n"
+
+#. module: filantropia_solar_public
+msgid "Painéis solares doados para ONGs em Portugal"
+msgstr "Solar panels donated to NGOs in Portugal"
+
+#. module: filantropia_solar_public
+msgid "Equipamento e instalação para reduzir a fatura elétrica da sua organização ao longo dos anos."
+msgstr "Equipment and installation to cut your organisation's electricity bill for years to come."
+
+#. module: filantropia_solar_public
+msgid "Candidatar instalação"
+msgstr "Apply for an installation"
+
+#. module: filantropia_solar_public
+msgid "Contactos"
+msgstr "Contact"
+
+#. module: filantropia_solar_public
+msgid "A Filantropia Solar doa equipamento e instalação solar a ONGs em Portugal — não é um subsídio, é uma doação direta em espécie que reduz os custos de eletricidade ano após ano."
+msgstr "Filantropia Solar donates solar equipment and installation to NGOs in Portugal — not a subsidy, but a direct in-kind donation that reduces electricity costs year after year."
+
+#. module: filantropia_solar_public
+msgid "Como funciona"
+msgstr "How it works"
+
+#. module: filantropia_solar_public
+msgid "Iniciar candidatura"
+msgstr "Start application"
+
+#. module: filantropia_solar_public
+msgid "Rede de instalações"
+msgstr "Installation network"
+
+#. module: filantropia_solar_public
+msgid "Painéis instalados"
+msgstr "Panels installed"
+
+#. module: filantropia_solar_public
+msgid "Estações:"
+msgstr "Stations:"
+
+#. module: filantropia_solar_public
+msgid "Capacidade total:"
+msgstr "Total capacity:"
+
+#. module: filantropia_solar_public
+msgid "Localizações:"
+msgstr "Locations:"
+
+#. module: filantropia_solar_public
+msgid "Total Money Saved:"
+msgstr "Total Money Saved:"
+
+#. module: filantropia_solar_public
+msgid "Estações"
+msgstr "Stations"
+
+#. module: filantropia_solar_public
+msgid "Money Saved:"
+msgstr "Money Saved:"
+
+#. module: filantropia_solar_public
+msgid "Info:"
+msgstr "Info:"
+
+#. module: filantropia_solar_public
+msgid "Mapa"
+msgstr "Map"
+
+#. module: filantropia_solar_public
+msgid "Clique num marcador para ver potência, Money Saved e Info da estação."
+msgstr "Click a marker to see capacity, Money Saved and station Info."
+
+#. module: filantropia_solar_public
+msgid "Casos de sucesso"
+msgstr "Success stories"
+
+#. module: filantropia_solar_public
+msgid "Ler mais"
+msgstr "Read more"
+
+#. module: filantropia_solar_public
+msgid "Ver todos os casos de sucesso"
+msgstr "See all success stories"
+
+#. module: filantropia_solar_public
+msgid "FAQ e condições"
+msgstr "FAQ and terms"
+
+#. module: filantropia_solar_public
+msgid "O que é a Filantropia Solar?"
+msgstr "What is Filantropia Solar?"
+
+#. module: filantropia_solar_public
+msgid "Quem se pode candidatar?"
+msgstr "Who can apply?"
+
+#. module: filantropia_solar_public
+msgid "O que está incluído?"
+msgstr "What is included?"
+
+#. module: filantropia_solar_public
+msgid "Quem faz a manutenção?"
+msgstr "Who handles maintenance?"
+
+#. module: filantropia_solar_public
+msgid "Há limite de potência?"
+msgstr "Is there a power limit?"
+
+#. module: filantropia_solar_public
+msgid "O processo é gratuito?"
+msgstr "Is the process free?"
+
+#. module: filantropia_solar_public
+msgid "Candidatar à doação"
+msgstr "Apply for a donation"
+
+#. module: filantropia_solar_public
+msgid "Candidatura à doação"
+msgstr "Donation application"
+
+#. module: filantropia_solar_public
+msgid "Processo gratuito, em passos. Não pagará nada pela candidatura."
+msgstr "A free, step-by-step process. You pay nothing to apply."
+
+#. module: filantropia_solar_public
+msgid "Passo 1 — Estimar poupança"
+msgstr "Step 1 — Estimate savings"
+
+#. module: filantropia_solar_public
+msgid "Passo 2 — Verificar elegibilidade"
+msgstr "Step 2 — Check eligibility"
+
+#. module: filantropia_solar_public
+msgid "Passo 3 — Candidatar à doação"
+msgstr "Step 3 — Apply for donation"
+
+#. module: filantropia_solar_public
+msgid "Passo 4 — Confirmação"
+msgstr "Step 4 — Confirmation"
+
+#. module: filantropia_solar_public
+msgid "Escolher cidade"
+msgstr "Choose a city"
+
+#. module: filantropia_solar_public
+msgid "Escolher no mapa"
+msgstr "Choose on the map"
+
+#. module: filantropia_solar_public
+msgid "Nome de contacto *"
+msgstr "Contact name *"
+
+#. module: filantropia_solar_public
+msgid "Email *"
+msgstr "Email *"
+
+#. module: filantropia_solar_public
+msgid "Localização *"
+msgstr "Location *"
+
+#. module: filantropia_solar_public
+msgid "Tipo de superfície *"
+msgstr "Surface type *"
+
+#. module: filantropia_solar_public
+msgid "Área disponível (m²) *"
+msgstr "Available area (m²) *"
+
+#. module: filantropia_solar_public
+msgid "Estimar poupança"
+msgstr "Estimate savings"
+
+#. module: filantropia_solar_public
+msgid "Verificar elegibilidade"
+msgstr "Check eligibility"
+
+#. module: filantropia_solar_public
+msgid "Enviar candidatura"
+msgstr "Submit application"
+
+#. module: filantropia_solar_public
+msgid "Contacto"
+msgstr "Contact"
+
+#. module: filantropia_solar_public
+msgid "Envie a sua questão. Este formulário não é a candidatura à doação."
+msgstr "Send your question. This form is not the donation application."
+
+#. module: filantropia_solar_public
+msgid "Obrigado. Entraremos em contacto em breve."
+msgstr "Thank you. We will get back to you soon."
+
+#. module: filantropia_solar_public
+msgid "Pergunta / mensagem *"
+msgstr "Question / message *"
+
+#. module: filantropia_solar_public
+msgid "Enviar"
+msgstr "Send"
+
+#. module: filantropia_solar_public
+msgid "Instalações"
+msgstr "Installations"
+
+#. module: filantropia_solar_public
+msgid "Voltar ao início"
+msgstr "Back to home"
+
+#. module: filantropia_solar_public
+msgid "Não elegível para Filantropia Solar"
+msgstr "Not eligible for Filantropia Solar"
+
+#. module: filantropia_solar_public
+msgid "Parabéns, a sua candidatura foi submetida com sucesso."
+msgstr "Congratulations, your application has been submitted successfully."
+
+#. module: filantropia_solar_public
+msgid "Simular poupança"
+msgstr "Estimate savings"
+
+#. module: filantropia_solar_public
+msgid "Condições"
+msgstr "Terms"
+
+#. module: filantropia_solar_public
+msgid "Casos de Sucesso"
+msgstr "Success Stories"
+
+#. module: filantropia_solar_public
+msgid "Início"
+msgstr "Home"
