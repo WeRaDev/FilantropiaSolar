@@ -107,7 +107,7 @@ class FilantropiaSolarPublicController(http.Controller):
         dash["total_money_saved_display"] = f"{int(float(total_saved or 0)):,}".replace(
             ",", " "
         )
-        # Per-station indicative savings for the list page
+        # Per-station indicative savings + short info blurb for list/map popups
         enriched = []
         for s in stations or []:
             row = dict(s)
@@ -117,6 +117,21 @@ class FilantropiaSolarPublicController(http.Controller):
                 saved = cap * _DISPLAY_SPECIFIC_YIELD_KWH_PER_KWP * _DISPLAY_EUR_PER_KWH
             row["money_saved_eur"] = float(saved or 0)
             row["money_saved_display"] = f"{int(float(saved or 0)):,}".replace(",", " ")
+            # Prefer API-provided description/info; else build a short PT blurb
+            info = (
+                row.get("info")
+                or row.get("description")
+                or row.get("short_description")
+                or ""
+            ).strip()
+            if not info:
+                loc = (row.get("location") or "Portugal").strip()
+                name = (row.get("name") or "Instalação").strip()
+                info = (
+                    f"{name} em {loc}: instalação solar da rede Filantropia Solar "
+                    f"({cap:g} kWp). Poupança indicativa ~{row['money_saved_display']} EUR/ano."
+                )
+            row["info"] = info
             enriched.append(row)
         return dash, enriched
 

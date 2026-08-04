@@ -44,26 +44,53 @@
                     <div class="row g-4">
                         <div class="col-12 col-lg-4">
                             <div class="fs-card">
-                                <h3 class="fs-card-title">Indicadores</h3>
-                                <ul class="list-unstyled fs-metrics mb-3">
+                                <h3 class="fs-card-title">Painéis instalados</h3>
+                                <ul class="list-unstyled fs-metrics mb-0">
                                     <li><strong>Estações:</strong> <span t-esc="dashboard.get('station_count', 0)"/></li>
                                     <li><strong>Capacidade total:</strong> <span t-esc="dashboard.get('total_capacity_kwp', 0)"/> kWp</li>
                                     <li><strong>Localizações:</strong> <span t-esc="dashboard.get('location_count', len(dashboard.get('locations', [])))"/></li>
                                     <li>
-                                        <strong>Poupança indicativa:</strong>
+                                        <strong>Total Money Saved:</strong>
                                         <span t-esc="dashboard.get('total_money_saved_display', '0')"/> EUR/ano
                                         <t t-if="dashboard.get('savings_is_indicative')">
-                                            <div class="small text-muted">Estimativa com base na capacidade e preço médio de energia; o valor administrativo será configurável na app Nextcloud.</div>
+                                            <div class="small text-muted">Valor indicativo (capacidade × produção específica × preço médio). O preço administrativo será configurável na app Nextcloud.</div>
                                         </t>
                                     </li>
                                 </ul>
-                                <a href="/instalacoes" class="btn fs-btn-secondary w-100">Ver mais</a>
+                            </div>
+                            <div class="fs-card mt-4">
+                                <button type="button" class="fs-expand-toggle fs-card-title mb-0" id="fs-stations-toggle"
+                                        aria-expanded="false" aria-controls="fs-stations-expand" data-bs-target="#fs-stations-expand">
+                                    <span>Estações</span>
+                                    <span class="fs-chevron" aria-hidden="true">▼</span>
+                                </button>
+                                <div id="fs-stations-expand" class="fs-expand-body collapse" role="region" aria-labelledby="fs-stations-toggle">
+                                    <ul class="list-unstyled fs-station-list mb-0">
+                                        <t t-foreach="stations" t-as="station">
+                                            <li class="fs-station-item">
+                                                <strong t-esc="station.get('name')"/>
+                                                <div class="fs-station-meta text-muted small">
+                                                    <span t-esc="station.get('location', 'Desconhecido')"/>
+                                                    <span>|</span>
+                                                    <span><t t-esc="station.get('capacity_kwp', 0)"/> kWp</span>
+                                                    <span>|</span>
+                                                    <span>Money Saved: <t t-esc="station.get('money_saved_display', '—')"/> EUR/ano</span>
+                                                </div>
+                                                <div class="fs-station-info small">
+                                                    <strong>Info:</strong>
+                                                    <span t-esc="station.get('info', '')"/>
+                                                </div>
+                                            </li>
+                                        </t>
+                                    </ul>
+                                </div>
                             </div>
                         </div>
                         <div class="col-12 col-lg-8">
                             <div class="fs-card">
                                 <h3 class="fs-card-title">Mapa</h3>
                                 <div id="fs-stations-map" class="fs-map"/>
+                                <p class="small text-muted mt-2 mb-0">Clique num marcador para ver potência, Money Saved e Info da estação.</p>
                             </div>
                         </div>
                     </div>
@@ -149,6 +176,17 @@
                 </section>
             </div>
             <t t-call="filantropia_solar_public.snippet_leaflet_map"/>
+            <script type="text/javascript">
+                document.addEventListener('DOMContentLoaded', function () {
+                    var btn = document.getElementById('fs-stations-toggle');
+                    var body = document.getElementById('fs-stations-expand');
+                    if (!btn || !body) return;
+                    btn.addEventListener('click', function () {
+                        var open = body.classList.toggle('show');
+                        btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+                    });
+                });
+            </script>
         </t>
     </template>
 
@@ -295,23 +333,39 @@
                                 <label class="form-label" for="step1_email">Email *</label>
                                 <input class="form-control" id="step1_email" name="step1_email" required="required" type="email" t-att-value="step1_email or ''"/>
                             </div>
-                            <div class="col-md-6">
-                                <label class="form-label" for="location">Localização *</label>
+                            <div class="col-12">
+                                <label class="form-label d-block">Localização *</label>
+                                <div class="fs-location-mode mb-2">
+                                    <div class="form-check form-check-inline">
+                                        <input class="form-check-input" type="radio" name="location_mode" id="loc_mode_city" value="city"
+                                               t-att-checked="'checked' if (location or 'Lisboa') != 'outro' else None"/>
+                                        <label class="form-check-label" for="loc_mode_city">Escolher cidade</label>
+                                    </div>
+                                    <div class="form-check form-check-inline">
+                                        <input class="form-check-input" type="radio" name="location_mode" id="loc_mode_map" value="map"
+                                               t-att-checked="'checked' if location == 'outro' else None"/>
+                                        <label class="form-check-label" for="loc_mode_map">Escolher no mapa</label>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-6" id="location_city_wrap">
+                                <label class="form-label" for="location">Cidade</label>
                                 <select class="form-control" id="location" name="location" required="required">
                                     <t t-foreach="city_options" t-as="city">
                                         <option t-att-value="city" t-att-selected="'selected' if location == city else None" t-esc="city"/>
                                     </t>
-                                    <option value="outro" t-att-selected="'selected' if location == 'outro' else None">Outro / no mapa</option>
+                                    <option value="outro" t-att-selected="'selected' if location == 'outro' else None">Outro (mapa)</option>
                                 </select>
                             </div>
                             <div class="col-md-6" id="location_custom_wrap" t-attf-class="col-md-6#{'' if location == 'outro' else ' d-none'}">
-                                <label class="form-label" for="location_custom">Localização personalizada</label>
-                                <input class="form-control" id="location_custom" name="location_custom" type="text" t-att-value="location_custom or ''" placeholder="Cidade ou descrição"/>
+                                <label class="form-label" for="location_custom">Nome do local (mapa)</label>
+                                <input class="form-control" id="location_custom" name="location_custom" type="text" t-att-value="location_custom or ''" placeholder="ex.: Vila Nova de Gaia"/>
                             </div>
                             <div class="col-12" id="pick_map_wrap" t-attf-class="col-12#{'' if location == 'outro' else ' d-none'}">
-                                <label class="form-label">Selecione no mapa (opcional)</label>
+                                <label class="form-label">Mapa — clique para definir a localização</label>
                                 <div id="fs-pick-map" class="fs-map fs-map-sm"/>
-                                <p class="small text-muted mb-0">Clique no mapa para gravar coordenadas.</p>
+                                <p class="fs-pick-map-hint mb-0">A localização no mapa grava latitude/longitude usadas na estimativa. Também pode escolher uma cidade na lista acima.</p>
+                                <p class="small text-muted mb-0" id="fs-pick-coords"></p>
                             </div>
                             <div class="col-md-6">
                                 <label class="form-label" for="surface_type">Tipo de superfície *</label>
@@ -470,12 +524,24 @@
                     var mapWrap = document.getElementById('pick_map_wrap');
                     var surface = document.getElementById('surface_type');
                     var surfaceOther = document.getElementById('surface_other_wrap');
-                    function toggleLoc() {
-                        var isOther = loc &amp;&amp; loc.value === 'outro';
-                        if (customWrap) customWrap.classList.toggle('d-none', !isOther);
-                        if (mapWrap) mapWrap.classList.toggle('d-none', !isOther);
-                        if (isOther) initPickMap();
+                    var modeCity = document.getElementById('loc_mode_city');
+                    var modeMap = document.getElementById('loc_mode_map');
+                    var cityWrap = document.getElementById('location_city_wrap');
+                    var coordsLbl = document.getElementById('fs-pick-coords');
+                    function setMapMode(on) {
+                        if (modeMap) modeMap.checked = !!on;
+                        if (modeCity) modeCity.checked = !on;
+                        if (loc &amp;&amp; on) loc.value = 'outro';
+                        if (customWrap) customWrap.classList.toggle('d-none', !on);
+                        if (mapWrap) mapWrap.classList.toggle('d-none', !on);
+                        if (on) initPickMap();
                     }
+                    function toggleLoc() {
+                        var isOther = (modeMap &amp;&amp; modeMap.checked) || (loc &amp;&amp; loc.value === 'outro');
+                        setMapMode(isOther);
+                    }
+                    if (modeCity) modeCity.addEventListener('change', function () { if (modeCity.checked) setMapMode(false); });
+                    if (modeMap) modeMap.addEventListener('change', function () { if (modeMap.checked) setMapMode(true); });
                     function toggleSurface() {
                         var isOther = surface &amp;&amp; surface.value === 'other';
                         if (surfaceOther) surfaceOther.classList.toggle('d-none', !isOther);
@@ -510,6 +576,9 @@
                             marker = L.marker(e.latlng).addTo(map);
                             if (latEl) latEl.value = e.latlng.lat.toFixed(5);
                             if (lngEl) lngEl.value = e.latlng.lng.toFixed(5);
+                            if (coordsLbl) coordsLbl.textContent = 'Coordenadas: ' + e.latlng.lat.toFixed(5) + ', ' + e.latlng.lng.toFixed(5);
+                            if (loc) loc.value = 'outro';
+                            if (modeMap) modeMap.checked = true;
                         });
                         setTimeout(function(){ map.invalidateSize(); }, 200);
                     }
