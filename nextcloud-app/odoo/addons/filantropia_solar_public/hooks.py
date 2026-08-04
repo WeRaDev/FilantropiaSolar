@@ -8,6 +8,8 @@ _logger = logging.getLogger(__name__)
 
 LEGACY_URL = "/filantropia-solar"
 HOME_URL = "/inicio"
+SITE_NAME = "Filantropia Solar"
+COMPANY_NAME = "Filantropia Solar"
 
 _BLOG_XMLID = "filantropia_solar_public.blog_casos_sucesso"
 
@@ -122,8 +124,8 @@ def _ensure_legacy_redirect(env):
         )
 
 
-def _ensure_languages(env):
-    """Activate pt_PT + en_US; set filantropiasolar website default to Portuguese."""
+def _ensure_site_identity(env):
+    """Brand all websites + company as Filantropia Solar; PT default; /inicio home."""
     Lang = env["res.lang"]
     for code in ("pt_PT", "en_US"):
         lang = Lang.search([("code", "=", code)], limit=1)
@@ -137,7 +139,22 @@ def _ensure_languages(env):
         _logger.warning("filantropia_solar_public: pt_PT not available")
         return
 
+    # Company display name (appears in some layouts)
+    company = env.ref("base.main_company", raise_if_not_found=False)
+    if company and "Filantropia" not in (company.name or ""):
+        company.name = COMPANY_NAME
+        _logger.info("filantropia_solar_public: company renamed to %s", COMPANY_NAME)
+
     for website in env["website"].search([]):
+        vals = {}
+        if website.name != SITE_NAME:
+            vals["name"] = SITE_NAME
+        if "homepage_url" in website._fields and website.homepage_url != HOME_URL:
+            vals["homepage_url"] = HOME_URL
+        if vals:
+            website.write(vals)
+
+        # languages
         to_add = []
         if pt not in website.language_ids:
             to_add.append(pt.id)
@@ -145,25 +162,24 @@ def _ensure_languages(env):
             to_add.append(en.id)
         if to_add:
             website.language_ids = [(4, lid) for lid in to_add]
-        name = (website.name or "").lower()
-        if (
-            "filantropia" in name
-            or website == env["website"].search([], order="id desc", limit=1)
-        ) and (website.default_lang_id != pt):
+        if website.default_lang_id != pt:
             website.default_lang_id = pt
             _logger.info(
                 "filantropia_solar_public: website %s default lang -> pt_PT",
                 website.id,
             )
 
+        _logger.info(
+            "filantropia_solar_public: website id=%s name=%s default=%s",
+            website.id,
+            website.name,
+            website.default_lang_id.code,
+        )
+
 
 def _external_id(env, module: str, name: str, record):
-    """Create or update ir.model.data for a record."""
     Imd = env["ir.model.data"].sudo()
-    existing = Imd.search(
-        [("module", "=", module), ("name", "=", name)],
-        limit=1,
-    )
+    existing = Imd.search([("module", "=", module), ("name", "=", name)], limit=1)
     if existing:
         return env[record._name].browse(existing.res_id)
     Imd.create(
@@ -179,7 +195,6 @@ def _external_id(env, module: str, name: str, record):
 
 
 def _ensure_blog_posts(env):
-    """Seed Casos de Sucesso blog + 3 published posts (PT) and EN translations."""
     Blog = env["blog.blog"].sudo()
     Post = env["blog.post"].sudo()
 
@@ -195,8 +210,15 @@ def _ensure_blog_posts(env):
         _logger.info(
             "filantropia_solar_public: created blog Casos de Sucesso id=%s", blog.id
         )
+    else:
+        # Keep PT as source values
+        blog.with_context(lang="pt_PT").write(
+            {
+                "name": "Casos de Sucesso",
+                "subtitle": "Histórias reais da rede Filantropia Solar",
+            }
+        )
 
-    # EN blog name
     blog.with_context(lang="en_US").write(
         {
             "name": "Success Stories",
@@ -207,7 +229,7 @@ def _ensure_blog_posts(env):
     for spec in _POSTS_PT:
         xml_name = spec["xmlid"].split(".", 1)[1]
         post = env.ref(spec["xmlid"], raise_if_not_found=False)
-        vals = {
+        vals_pt = {
             "name": spec["name"],
             "subtitle": spec["subtitle"],
             "content": spec["content"],
@@ -215,17 +237,16 @@ def _ensure_blog_posts(env):
             "is_published": True,
         }
         if not post:
-            post = Post.create(vals)
+            post = Post.create(vals_pt)
             _external_id(env, "filantropia_solar_public", xml_name, post)
             _logger.info("filantropia_solar_public: created post %s", spec["name"])
-        # keep published; refresh content if empty
-        elif not post.content:
-            post.write(vals)
+        else:
+            post.with_context(lang="pt_PT").write(vals_pt)
         post.with_context(lang="en_US").write(spec["en"])
 
 
 def post_init_hook(env):
     """Run after module install/update."""
     _ensure_legacy_redirect(env)
-    _ensure_languages(env)
+    _ensure_site_identity(env)
     _ensure_blog_posts(env)

@@ -128,8 +128,9 @@ class FilantropiaSolarPublicController(http.Controller):
                 loc = (row.get("location") or "Portugal").strip()
                 name = (row.get("name") or "Instalação").strip()
                 info = (
-                    f"{name} em {loc}: instalação solar da rede Filantropia Solar "
-                    f"({cap:g} kWp). Poupança indicativa ~{row['money_saved_display']} EUR/ano."
+                    f"{name} em {loc}: instalação da rede Filantropia Solar "
+                    f"({cap:g} kWp). Poupança anual estimada ~"
+                    f"{row['money_saved_display']} EUR (valor indicativo, não medido)."
                 )
             row["info"] = info
             enriched.append(row)
@@ -161,7 +162,14 @@ class FilantropiaSolarPublicController(http.Controller):
         """Return published success-story blog posts for homepage teasers."""
         stories: list[dict] = []
         try:
-            BlogPost = request.env["blog.post"].sudo()
+            # Respect current website language for translated post fields
+            lang = (
+                request.env.context.get("lang")
+                or getattr(request, "lang", None)
+                or (request.website.default_lang_id.code if request.website else None)
+                or "pt_PT"
+            )
+            BlogPost = request.env["blog.post"].sudo().with_context(lang=lang)
             blog = request.env.ref(
                 "filantropia_solar_public.blog_casos_sucesso",
                 raise_if_not_found=False,

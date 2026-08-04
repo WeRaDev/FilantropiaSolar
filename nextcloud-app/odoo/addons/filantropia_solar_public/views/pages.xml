@@ -3,6 +3,8 @@
     <!-- ========== HOME (content-first, no application form) ========== -->
     <template id="page_inicio" name="Filantropia Solar — Início">
         <t t-call="website.layout">
+            <t t-set="additional_title">Filantropia Solar</t>
+            <t t-set="website_meta_description">Doação em espécie de equipamento e instalação solar para ONGs em Portugal. Candidatura gratuita.</t>
             <t t-set="dashboard" t-value="dashboard or {}"/>
             <t t-set="stations" t-value="stations or []"/>
             <t t-set="stations_json" t-value="stations_json or '[]'"/>
@@ -50,10 +52,10 @@
                                     <li><strong>Capacidade total:</strong> <span t-esc="dashboard.get('total_capacity_kwp', 0)"/> kWp</li>
                                     <li><strong>Localizações:</strong> <span t-esc="dashboard.get('location_count', len(dashboard.get('locations', [])))"/></li>
                                     <li>
-                                        <strong>Total Money Saved:</strong>
+                                        <strong>Poupança total estimada:</strong>
                                         <span t-esc="dashboard.get('total_money_saved_display', '0')"/> EUR/ano
                                         <t t-if="dashboard.get('savings_is_indicative')">
-                                            <div class="small text-muted">Valor indicativo (capacidade × produção específica × preço médio). O preço administrativo será configurável na app Nextcloud.</div>
+                                            <div class="small text-muted">Estimativa indicativa (não é medição real): capacidade × produção específica de referência × preço médio de energia. O valor administrativo poderá ser configurado na app Nextcloud.</div>
                                         </t>
                                     </li>
                                 </ul>
@@ -74,10 +76,10 @@
                                                     <span>|</span>
                                                     <span><t t-esc="station.get('capacity_kwp', 0)"/> kWp</span>
                                                     <span>|</span>
-                                                    <span>Money Saved: <t t-esc="station.get('money_saved_display', '—')"/> EUR/ano</span>
+                                                    <span>Poupança estimada: <t t-esc="station.get('money_saved_display', '—')"/> EUR/ano</span>
                                                 </div>
                                                 <div class="fs-station-info small">
-                                                    <strong>Info:</strong>
+                                                    <strong>Informação:</strong>
                                                     <span t-esc="station.get('info', '')"/>
                                                 </div>
                                             </li>
@@ -90,7 +92,7 @@
                             <div class="fs-card">
                                 <h3 class="fs-card-title">Mapa</h3>
                                 <div id="fs-stations-map" class="fs-map"/>
-                                <p class="small text-muted mt-2 mb-0">Clique num marcador para ver potência, Money Saved e Info da estação.</p>
+                                <p class="small text-muted mt-2 mb-0">Clique num marcador para ver potência, poupança estimada e informação da estação.</p>
                             </div>
                         </div>
                     </div>
@@ -207,7 +209,7 @@
                                     <th>Nome</th>
                                     <th>Localização</th>
                                     <th>Potência (kWp)</th>
-                                    <th>Poupança indicativa (EUR/ano)</th>
+                                    <th>Poupança estimada (EUR/ano)</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -442,10 +444,11 @@
                                     <label class="form-label" for="step2_description">Descrição da organização</label>
                                     <textarea class="form-control" id="step2_description" name="step2_description" rows="3"><t t-esc="step2_description or ''"/></textarea>
                                 </div>
-                                <div class="col-12 form-check">
-                                    <input class="form-check-input" id="step2_npo_confirm" name="step2_npo_confirm" required="required" type="checkbox" value="1"/>
+                                <div class="col-12 form-check" id="step2_npo_wrap">
+                                    <input class="form-check-input" id="step2_npo_confirm" name="step2_npo_confirm" type="checkbox" value="1"/>
                                     <label class="form-check-label" for="step2_npo_confirm">Confirmo que esta organização é uma entidade sem fins lucrativos registada em Portugal *</label>
                                 </div>
+                                <p class="small text-muted d-none" id="step2_sme_hint">Empresas com fins lucrativos não são elegíveis para a doação Filantropia Solar. Pode continuar para ser reencaminhado para a WeRa Global.</p>
                                 <div class="col-12">
                                     <button type="submit" class="btn fs-btn-primary w-100">Verificar elegibilidade</button>
                                 </div>
@@ -588,6 +591,29 @@
             <!-- Leaflet assets for pick map (also used if stations map present) -->
             <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
             <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"/>
+            <script type="text/javascript">
+                document.addEventListener('DOMContentLoaded', function () {
+                    var orgType = document.getElementById('step2_org_type');
+                    var npo = document.getElementById('step2_npo_confirm');
+                    var npoWrap = document.getElementById('step2_npo_wrap');
+                    var smeHint = document.getElementById('step2_sme_hint');
+                    var ngoTypes = {ong:1, ipss:1, fundacao:1, cooperativa:1};
+                    function syncEligibility() {
+                        if (!orgType) return;
+                        var isNgo = !!ngoTypes[orgType.value];
+                        if (npoWrap) npoWrap.classList.toggle('d-none', !isNgo);
+                        if (smeHint) smeHint.classList.toggle('d-none', isNgo);
+                        if (npo) {
+                            npo.required = isNgo;
+                            if (!isNgo) npo.checked = false;
+                        }
+                    }
+                    if (orgType) {
+                        orgType.addEventListener('change', syncEligibility);
+                        syncEligibility();
+                    }
+                });
+            </script>
         </t>
     </template>
 </odoo>
