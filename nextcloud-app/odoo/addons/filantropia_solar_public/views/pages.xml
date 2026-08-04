@@ -1,22 +1,21 @@
 <?xml version="1.0" encoding="utf-8"?>
 <odoo>
-    <!-- Single-page Filantropia Solar site: info, map, stories, FAQ, inline 3-step form -->
-    <template id="page_inicio" name="Filantropia Solar">
+    <!-- ========== HOME (content-first, no application form) ========== -->
+    <template id="page_inicio" name="Filantropia Solar — Início">
         <t t-call="website.layout">
-            <t t-set="dashboard" t-value="dashboard or {'station_count': 9, 'total_capacity_kwp': 302.56, 'locations': ['Braga','Faro','Lisbon','Loule','Setubal','Tavira']}"/>
+            <t t-set="dashboard" t-value="dashboard or {}"/>
             <t t-set="stations" t-value="stations or []"/>
             <t t-set="stations_json" t-value="stations_json or '[]'"/>
             <t t-set="api_error" t-value="api_error or ''"/>
-            <t t-set="step" t-value="step or 1"/>
-            <t t-set="submitted" t-value="submitted or False"/>
             <div id="wrap" class="fs-public-wrap">
 
                 <section class="fs-hero text-center">
                     <div class="container py-5">
                         <h1>Painéis solares doados para ONGs em Portugal</h1>
                         <p class="lead">Equipamento e instalação para reduzir a fatura elétrica da sua organização ao longo dos anos.</p>
-                        <div class="mt-4">
-                            <a href="#candidatura" class="btn fs-btn-primary btn-lg">Simular poupança</a>
+                        <div class="mt-4 d-flex flex-wrap gap-2 justify-content-center">
+                            <a href="/candidatura" class="btn fs-btn-primary btn-lg">Candidatar instalação</a>
+                            <a href="/contacto" class="btn fs-btn-secondary btn-lg">Contactos</a>
                         </div>
                     </div>
                 </section>
@@ -27,16 +26,13 @@
                             <p class="fs-mission">A Filantropia Solar doa equipamento e instalação solar a ONGs em Portugal — não é um subsídio, é uma doação direta em espécie que reduz os custos de eletricidade ano após ano.</p>
                         </div>
                     </div>
-                    <div class="text-center mt-3">
-                        <a href="#candidatura" class="btn fs-btn-primary">Começar candidatura</a>
-                    </div>
                 </section>
 
                 <section class="container py-4">
                     <h2 class="text-center mb-3">Como funciona</h2>
                     <t t-call="filantropia_solar_public.snippet_steps"/>
                     <div class="text-center mt-3">
-                        <a href="#candidatura" class="btn fs-btn-primary">Iniciar simulação</a>
+                        <a href="/candidatura" class="btn fs-btn-primary">Iniciar candidatura</a>
                     </div>
                 </section>
 
@@ -48,26 +44,20 @@
                     <div class="row g-4">
                         <div class="col-12 col-lg-4">
                             <div class="fs-card">
-                                <h3 class="fs-card-title">Painéis instalados</h3>
-                                <ul class="list-unstyled fs-metrics mb-0">
+                                <h3 class="fs-card-title">Indicadores</h3>
+                                <ul class="list-unstyled fs-metrics mb-3">
                                     <li><strong>Estações:</strong> <span t-esc="dashboard.get('station_count', 0)"/></li>
                                     <li><strong>Capacidade total:</strong> <span t-esc="dashboard.get('total_capacity_kwp', 0)"/> kWp</li>
-                                    <li><strong>Localizações:</strong> <span t-esc="len(dashboard.get('locations', []))"/></li>
+                                    <li><strong>Localizações:</strong> <span t-esc="dashboard.get('location_count', len(dashboard.get('locations', [])))"/></li>
+                                    <li>
+                                        <strong>Poupança indicativa:</strong>
+                                        <span t-esc="dashboard.get('total_money_saved_display', '0')"/> EUR/ano
+                                        <t t-if="dashboard.get('savings_is_indicative')">
+                                            <div class="small text-muted">Estimativa com base na capacidade e preço médio de energia; o valor administrativo será configurável na app Nextcloud.</div>
+                                        </t>
+                                    </li>
                                 </ul>
-                            </div>
-                            <div class="fs-card mt-4">
-                                <h3 class="fs-card-title">Estações</h3>
-                                <ul class="list-unstyled fs-station-list mb-0">
-                                    <t t-foreach="stations" t-as="station">
-                                        <li>
-                                            <strong t-esc="station.get('name')"/>
-                                            <div class="text-muted small">
-                                                <span t-esc="station.get('location', 'Desconhecido')"/> |
-                                                <span t-esc="station.get('capacity_kwp', 0)"/> kWp
-                                            </div>
-                                        </li>
-                                    </t>
-                                </ul>
+                                <a href="/instalacoes" class="btn fs-btn-secondary w-100">Ver mais</a>
                             </div>
                         </div>
                         <div class="col-12 col-lg-8">
@@ -78,7 +68,7 @@
                         </div>
                     </div>
                     <div class="text-center mt-4">
-                        <a href="#candidatura" class="btn fs-btn-primary">Simular poupança para a minha ONG</a>
+                        <a href="/candidatura" class="btn fs-btn-primary">Candidatar instalação</a>
                     </div>
                 </section>
 
@@ -89,29 +79,27 @@
                             <div class="fs-card h-100">
                                 <h4>Abrigo dos Animais de Braga</h4>
                                 <p class="text-muted">Braga — 64.93 kWp</p>
-                                <p>Redução superior a 80% na fatura elétrica. Os fundos poupados são agora aplicados em alimentação, cuidados veterinários e melhorias das instalações para os animais.</p>
-                                <p class="small text-muted">Abrigo de animais — a nossa primeira prioridade.</p>
+                                <p>Redução superior a 80% na fatura elétrica. Os fundos poupados são agora aplicados em alimentação, cuidados veterinários e melhorias das instalações.</p>
+                                <p class="small text-muted">Abrigo de animais — prioridade do programa.</p>
                             </div>
                         </div>
                         <div class="col-md-4">
                             <div class="fs-card h-100">
                                 <h4>Associação de Proteção Animal de Tavira</h4>
                                 <p class="text-muted">Tavira — 46 kWp</p>
-                                <p>Uma instalação que reduziu os custos operacionais em mais de 60%, permitindo à associação expandir o número de animais resgatados.</p>
-                                <p class="small text-muted">Abrigo de animais.</p>
+                                <p>Redução de custos operacionais superior a 60%, permitindo expandir o número de animais resgatados.</p>
                             </div>
                         </div>
                         <div class="col-md-4">
                             <div class="fs-card h-100">
                                 <h4>Centro Comunitário de Lisboa</h4>
                                 <p class="text-muted">Lisboa — 46 kWp</p>
-                                <p>O centro comunitário cobre agora mais de 70% do seu consumo elétrico com energia solar, libertando o orçamento para programas sociais.</p>
+                                <p>Mais de 70% do consumo elétrico coberto por energia solar, libertando orçamento para programas sociais.</p>
                             </div>
                         </div>
                     </div>
                     <div class="text-center mt-4">
-                        <p>A sua organização também pode ser um caso de sucesso.</p>
-                        <a href="#candidatura" class="btn fs-btn-primary btn-lg">Simular poupança</a>
+                        <a href="/candidatura" class="btn fs-btn-primary btn-lg">Candidatar instalação</a>
                     </div>
                 </section>
 
@@ -119,15 +107,15 @@
                     <h2 class="text-center mb-3">FAQ e condições</h2>
                     <div class="fs-card mb-3">
                         <h4>O que é a Filantropia Solar?</h4>
-                        <p>É um programa de doação em espécie: oferecemos equipamento solar e a sua instalação a ONGs em Portugal, sem qualquer custo para a organização beneficiária. Não é um subsídio nem um financiamento — é uma doação direta.</p>
+                        <p>É um programa de doação em espécie: equipamento solar e instalação a ONGs em Portugal, sem custo para a organização beneficiária. Não é um subsídio nem um financiamento.</p>
                     </div>
                     <div class="fs-card mb-3">
                         <h4>Quem se pode candidatar?</h4>
-                        <p>ONGs, IPSS, fundações, cooperativas sociais e outras entidades sem fins lucrativos registadas em Portugal com NIF válido. Empresas com fins lucrativos não são elegíveis para esta doação.</p>
+                        <p>ONGs, IPSS, fundações, cooperativas sociais e outras entidades sem fins lucrativos registadas em Portugal. Empresas com fins lucrativos não são elegíveis.</p>
                     </div>
                     <div class="fs-card mb-3">
                         <h4>O que está incluído?</h4>
-                        <p>Equipamento solar e a instalação no local. O equipamento pode ser novo ou reutilizado/recondicionado. A doação é em espécie — não é entregue qualquer valor monetário.</p>
+                        <p>Equipamento (novo ou reutilizado/recondicionado) e instalação no local. A doação é em espécie — não é entregue valor monetário.</p>
                     </div>
                     <div class="fs-card mb-3">
                         <h4>Quem faz a manutenção?</h4>
@@ -139,27 +127,145 @@
                     </div>
                     <div class="fs-card mb-3">
                         <h4>O processo é gratuito?</h4>
-                        <p><strong>Sim.</strong> A candidatura é totalmente gratuita. A organização beneficiária não paga o equipamento nem a instalação doados.</p>
-                    </div>
-                    <div class="fs-card mb-3">
-                        <h4>Que apoio pedimos em troca?</h4>
-                        <p>A organização beneficiária compromete-se a apoiar a divulgação pública da doação (fotografias, menção em canais próprios, etc.), para que mais ONGs conheçam o programa.</p>
+                        <p><strong>Sim.</strong> A candidatura é gratuita. A organização não paga o equipamento nem a instalação doados.</p>
                     </div>
                     <div class="text-center mt-4">
-                        <a href="#candidatura" class="btn fs-btn-primary btn-lg">Candidatar à doação</a>
+                        <a href="/candidatura" class="btn fs-btn-primary btn-lg">Candidatar à doação</a>
+                        <a href="/contacto" class="btn btn-link">Contactos</a>
                     </div>
                 </section>
 
                 <section class="container py-4 text-center">
                     <div class="fs-note">
-                        <p class="small mb-0">A doação é em espécie (equipamento + instalação), não em dinheiro. O equipamento pode ser reutilizado / recondicionado. Não inclui manutenção nem garantia continuada. A organização beneficiária compromete-se a fornecer divulgação sobre a doação recebida.</p>
+                        <p class="small mb-0">A doação é em espécie (equipamento + instalação), não em dinheiro. O equipamento pode ser reutilizado / recondicionado. Não inclui manutenção nem garantia continuada. A organização beneficiária compromete-se a apoiar a divulgação da doação.</p>
                     </div>
                 </section>
 
-                <section class="container py-4" id="candidatura">
-                    <h2 class="text-center mb-4">Simular poupança e candidatar-se</h2>
+                <section class="container py-4 text-center">
+                    <p class="small text-muted mb-1">Uma iniciativa da <strong>WeRa Global</strong>.</p>
+                    <p class="small text-muted">
+                        <a href="/filantropia_solar_public/static/src/docs/filantropia-solar-regulamento.pdf" target="_blank" rel="noopener">Regulamento (PDF)</a>
+                    </p>
+                </section>
+            </div>
+            <t t-call="filantropia_solar_public.snippet_leaflet_map"/>
+        </t>
+    </template>
 
-                    <t t-if="step in (2, 3, 'sme') and estimate_kwp and estimate_kwp != '0.0'">
+    <!-- ========== INSTALLATIONS LIST ========== -->
+    <template id="page_instalacoes" name="Filantropia Solar — Instalações">
+        <t t-call="website.layout">
+            <t t-set="stations" t-value="stations or []"/>
+            <t t-set="dashboard" t-value="dashboard or {}"/>
+            <div id="wrap" class="fs-public-wrap">
+                <section class="container py-5">
+                    <h1 class="mb-3">Instalações</h1>
+                    <p class="text-muted">Lista das estações da rede Filantropia Solar.</p>
+                    <div class="table-responsive fs-card">
+                        <table class="table table-striped mb-0">
+                            <thead>
+                                <tr>
+                                    <th>Nome</th>
+                                    <th>Localização</th>
+                                    <th>Potência (kWp)</th>
+                                    <th>Poupança indicativa (EUR/ano)</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <t t-foreach="stations" t-as="station">
+                                    <tr>
+                                        <td t-esc="station.get('name')"/>
+                                        <td t-esc="station.get('location')"/>
+                                        <td t-esc="station.get('capacity_kwp')"/>
+                                        <td t-esc="station.get('money_saved_display', '—')"/>
+                                    </tr>
+                                </t>
+                            </tbody>
+                        </table>
+                    </div>
+                    <div class="mt-4 d-flex gap-2">
+                        <a href="/inicio" class="btn fs-btn-secondary">Voltar ao início</a>
+                        <a href="/candidatura" class="btn fs-btn-primary">Candidatar instalação</a>
+                    </div>
+                </section>
+            </div>
+        </t>
+    </template>
+
+    <!-- ========== CONTACT ========== -->
+    <template id="page_contacto" name="Filantropia Solar — Contacto">
+        <t t-call="website.layout">
+            <div id="wrap" class="fs-public-wrap">
+                <section class="container py-5">
+                    <div class="row justify-content-center">
+                        <div class="col-12 col-lg-7">
+                            <h1 class="mb-3">Contacto</h1>
+                            <p class="text-muted">Envie a sua questão. Este formulário não é a candidatura à doação.</p>
+                            <t t-if="contact_submitted">
+                                <div class="alert alert-success">Obrigado. Entraremos em contacto em breve.</div>
+                                <a href="/inicio" class="btn fs-btn-primary">Voltar ao início</a>
+                            </t>
+                            <t t-else="">
+                                <form action="/contacto/enviar" method="post" class="fs-card row g-3">
+                                    <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
+                                    <div class="col-12">
+                                        <label class="form-label" for="contact_name">Nome *</label>
+                                        <input class="form-control" id="contact_name" name="contact_name" required="required" type="text" t-att-value="contact_name or ''"/>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label class="form-label" for="contact_email">Email *</label>
+                                        <input class="form-control" id="contact_email" name="contact_email" required="required" type="email" t-att-value="contact_email or ''"/>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label class="form-label" for="contact_phone">Telefone</label>
+                                        <input class="form-control" id="contact_phone" name="contact_phone" type="tel" t-att-value="contact_phone or ''"/>
+                                    </div>
+                                    <div class="col-12">
+                                        <label class="form-label" for="contact_message">Pergunta / mensagem *</label>
+                                        <textarea class="form-control" id="contact_message" name="contact_message" required="required" rows="5"><t t-esc="contact_message or ''"/></textarea>
+                                    </div>
+                                    <div class="col-12">
+                                        <button type="submit" class="btn fs-btn-primary w-100">Enviar</button>
+                                    </div>
+                                </form>
+                                <p class="small text-muted mt-3">Para candidatar a sua organização à doação solar, use a <a href="/candidatura">página de candidatura</a>.</p>
+                            </t>
+                        </div>
+                    </div>
+                </section>
+            </div>
+        </t>
+    </template>
+
+    <!-- ========== CANDIDATURA multi-step ========== -->
+    <template id="page_candidatura" name="Filantropia Solar — Candidatura">
+        <t t-call="website.layout">
+            <t t-set="step" t-value="step or 1"/>
+            <t t-set="progress" t-value="progress or 10"/>
+            <t t-set="submitted" t-value="submitted or False"/>
+            <t t-set="city_options" t-value="city_options or []"/>
+            <div id="wrap" class="fs-public-wrap">
+                <section class="container py-5">
+                    <h1 class="mb-2">Candidatura à doação</h1>
+                    <p class="text-muted mb-4">Processo gratuito, em passos. Não pagará nada pela candidatura.</p>
+
+                    <!-- Progress bar -->
+                    <div class="fs-progress mb-4">
+                        <div class="fs-progress-labels d-flex justify-content-between small mb-1">
+                            <span t-attf-class="#{'fw-bold' if step in (1,) else ''}">1. Estimar</span>
+                            <span t-attf-class="#{'fw-bold' if step in (2, 'sme') else ''}">2. Elegibilidade</span>
+                            <span t-attf-class="#{'fw-bold' if step == 3 else ''}">3. Candidatar</span>
+                            <span t-attf-class="#{'fw-bold' if step == 4 else ''}">4. Confirmação</span>
+                        </div>
+                        <div class="progress" style="height: 12px;">
+                            <div class="progress-bar fs-progress-bar" role="progressbar"
+                                 t-att-aria-valuenow="progress" aria-valuemin="0" aria-valuemax="100"
+                                 t-attf-style="width: #{progress}%;"/>
+                        </div>
+                        <div class="text-end small text-muted mt-1"><t t-esc="progress"/>%</div>
+                    </div>
+
+                    <t t-if="step in (2, 3, 'sme', 4) and estimate_kwp and estimate_kwp != '0.0'">
                         <div class="fs-estimate mb-4 text-center">
                             <p class="lead mb-1">
                                 A sua organização poderá poupar cerca de
@@ -170,14 +276,17 @@
                                     (<span t-esc="panel_count"/> painéis)
                                 </t>.
                             </p>
-                            <p class="small text-muted mb-0">Estimativa indicativa com base na área e localização indicadas; sujeita a validação técnica.</p>
+                            <p class="small text-muted mb-0">Estimativa indicativa; sujeita a validação técnica.</p>
                         </div>
                     </t>
 
+                    <!-- Step 1 -->
                     <div t-attf-class="fs-card mb-4#{' d-none' if step not in (1,) else ''}">
                         <h3 class="fs-card-title">Passo 1 — Estimar poupança</h3>
-                        <form action="/candidatura/estimativa" method="post" class="row g-3">
+                        <form action="/candidatura/estimativa" method="post" class="row g-3" id="fs-step1-form">
                             <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
+                            <input type="hidden" name="location_lat" id="location_lat" t-att-value="location_lat or ''"/>
+                            <input type="hidden" name="location_lng" id="location_lng" t-att-value="location_lng or ''"/>
                             <div class="col-md-6">
                                 <label class="form-label" for="step1_name">Nome de contacto *</label>
                                 <input class="form-control" id="step1_name" name="step1_name" required="required" type="text" t-att-value="step1_name or ''"/>
@@ -187,8 +296,22 @@
                                 <input class="form-control" id="step1_email" name="step1_email" required="required" type="email" t-att-value="step1_email or ''"/>
                             </div>
                             <div class="col-md-6">
-                                <label class="form-label" for="location">Localização (cidade)</label>
-                                <input class="form-control" id="location" name="location" type="text" t-att-value="location or ''" placeholder="ex.: Lisboa"/>
+                                <label class="form-label" for="location">Localização *</label>
+                                <select class="form-control" id="location" name="location" required="required">
+                                    <t t-foreach="city_options" t-as="city">
+                                        <option t-att-value="city" t-att-selected="'selected' if location == city else None" t-esc="city"/>
+                                    </t>
+                                    <option value="outro" t-att-selected="'selected' if location == 'outro' else None">Outro / no mapa</option>
+                                </select>
+                            </div>
+                            <div class="col-md-6" id="location_custom_wrap" t-attf-class="col-md-6#{'' if location == 'outro' else ' d-none'}">
+                                <label class="form-label" for="location_custom">Localização personalizada</label>
+                                <input class="form-control" id="location_custom" name="location_custom" type="text" t-att-value="location_custom or ''" placeholder="Cidade ou descrição"/>
+                            </div>
+                            <div class="col-12" id="pick_map_wrap" t-attf-class="col-12#{'' if location == 'outro' else ' d-none'}">
+                                <label class="form-label">Selecione no mapa (opcional)</label>
+                                <div id="fs-pick-map" class="fs-map fs-map-sm"/>
+                                <p class="small text-muted mb-0">Clique no mapa para gravar coordenadas.</p>
                             </div>
                             <div class="col-md-6">
                                 <label class="form-label" for="surface_type">Tipo de superfície *</label>
@@ -196,7 +319,12 @@
                                     <option value="roof">Cobertura / telhado</option>
                                     <option value="parking">Parque de estacionamento</option>
                                     <option value="flat">Terreno plano</option>
+                                    <option value="other">Outro</option>
                                 </select>
+                            </div>
+                            <div class="col-md-6 d-none" id="surface_other_wrap">
+                                <label class="form-label" for="surface_other">Descreva a superfície</label>
+                                <input class="form-control" id="surface_other" name="surface_other" type="text" t-att-value="surface_other or ''"/>
                             </div>
                             <div class="col-md-6">
                                 <label class="form-label" for="available_area">Área disponível (m²) *</label>
@@ -208,6 +336,7 @@
                         </form>
                     </div>
 
+                    <!-- Step 2 / SME -->
                     <div t-attf-class="fs-card mb-4#{' d-none' if step not in (2, 'sme') else ''}">
                         <h3 class="fs-card-title">Passo 2 — Verificar elegibilidade</h3>
                         <t t-if="step == 'sme'">
@@ -216,7 +345,7 @@
                                 <p>A Filantropia Solar é reservada a ONGs e entidades sem fins lucrativos. Para empresas, a WeRa Global poderá apoiar com soluções comerciais.</p>
                                 <p class="mb-0">
                                     <a href="https://wera.global" class="btn fs-btn-primary" target="_blank" rel="noopener">Contactar a WeRa Global</a>
-                                    <a href="/inicio#candidatura" class="btn btn-link">Recomeçar</a>
+                                    <a href="/candidatura" class="btn btn-link">Recomeçar</a>
                                 </p>
                             </div>
                         </t>
@@ -226,7 +355,11 @@
                                 <input type="hidden" name="step1_name" t-att-value="step1_name or ''"/>
                                 <input type="hidden" name="step1_email" t-att-value="step1_email or ''"/>
                                 <input type="hidden" name="location" t-att-value="location or ''"/>
+                                <input type="hidden" name="location_custom" t-att-value="location_custom or ''"/>
+                                <input type="hidden" name="location_lat" t-att-value="location_lat or ''"/>
+                                <input type="hidden" name="location_lng" t-att-value="location_lng or ''"/>
                                 <input type="hidden" name="surface_type" t-att-value="surface_type or ''"/>
+                                <input type="hidden" name="surface_other" t-att-value="surface_other or ''"/>
                                 <input type="hidden" name="available_area" t-att-value="available_area or ''"/>
                                 <input type="hidden" name="capacity_kwp" t-att-value="capacity_kwp or ''"/>
                                 <input type="hidden" name="panel_count" t-att-value="panel_count or ''"/>
@@ -247,8 +380,12 @@
                                     </select>
                                 </div>
                                 <div class="col-12">
-                                    <label class="form-label" for="step2_website">Site ou descrição breve</label>
+                                    <label class="form-label" for="step2_website">Site (opcional)</label>
                                     <input class="form-control" id="step2_website" name="step2_website" type="text" t-att-value="step2_website or ''"/>
+                                </div>
+                                <div class="col-12">
+                                    <label class="form-label" for="step2_description">Descrição da organização</label>
+                                    <textarea class="form-control" id="step2_description" name="step2_description" rows="3"><t t-esc="step2_description or ''"/></textarea>
                                 </div>
                                 <div class="col-12 form-check">
                                     <input class="form-check-input" id="step2_npo_confirm" name="step2_npo_confirm" required="required" type="checkbox" value="1"/>
@@ -261,70 +398,126 @@
                         </t>
                     </div>
 
+                    <!-- Step 3 -->
                     <div t-attf-class="fs-card mb-4#{' d-none' if step != 3 else ''}">
                         <h3 class="fs-card-title">Passo 3 — Candidatar à doação</h3>
-                        <p class="text-muted small">Não pagará nada pelo processo de candidatura. A doação é em espécie (equipamento + instalação).</p>
-                        <t t-if="submitted">
-                            <div class="alert alert-success mb-4">
-                                Obrigado. A sua candidatura foi submetida com sucesso. A equipa entrará em contacto.
+                        <p class="text-muted small">Não pagará nada. A doação é em espécie (equipamento + instalação).</p>
+                        <form action="/candidatura/enviar" method="post" enctype="multipart/form-data" class="row g-3">
+                            <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
+                            <input type="hidden" name="step1_name" t-att-value="step1_name or ''"/>
+                            <input type="hidden" name="step1_email" t-att-value="step1_email or ''"/>
+                            <input type="hidden" name="location" t-att-value="location or ''"/>
+                            <input type="hidden" name="location_custom" t-att-value="location_custom or ''"/>
+                            <input type="hidden" name="location_lat" t-att-value="location_lat or ''"/>
+                            <input type="hidden" name="location_lng" t-att-value="location_lng or ''"/>
+                            <input type="hidden" name="surface_type" t-att-value="surface_type or ''"/>
+                            <input type="hidden" name="surface_other" t-att-value="surface_other or ''"/>
+                            <input type="hidden" name="available_area" t-att-value="available_area or ''"/>
+                            <input type="hidden" name="capacity_kwp" t-att-value="capacity_kwp or ''"/>
+                            <input type="hidden" name="panel_count" t-att-value="panel_count or ''"/>
+                            <input type="hidden" name="step2_org_name" t-att-value="step2_org_name or ''"/>
+                            <input type="hidden" name="step2_org_type" t-att-value="step2_org_type or ''"/>
+                            <input type="hidden" name="step2_website" t-att-value="step2_website or ''"/>
+                            <input type="hidden" name="step2_description" t-att-value="step2_description or ''"/>
+                            <input type="hidden" name="estimate_data" t-att-value="estimate_data or '{}'"/>
+                            <div class="col-md-6">
+                                <label class="form-label" for="step3_monthly_spend">Gasto mensal de eletricidade (EUR) *</label>
+                                <input class="form-control" id="step3_monthly_spend" name="step3_monthly_spend" required="required" type="number" step="0.01" min="0"/>
                             </div>
-                        </t>
-                        <t t-else="">
-                            <form action="/candidatura/enviar" method="post" enctype="multipart/form-data" class="row g-3">
-                                <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
-                                <input type="hidden" name="step1_name" t-att-value="step1_name or ''"/>
-                                <input type="hidden" name="step1_email" t-att-value="step1_email or ''"/>
-                                <input type="hidden" name="location" t-att-value="location or ''"/>
-                                <input type="hidden" name="surface_type" t-att-value="surface_type or ''"/>
-                                <input type="hidden" name="available_area" t-att-value="available_area or ''"/>
-                                <input type="hidden" name="capacity_kwp" t-att-value="capacity_kwp or ''"/>
-                                <input type="hidden" name="panel_count" t-att-value="panel_count or ''"/>
-                                <input type="hidden" name="step2_org_name" t-att-value="step2_org_name or ''"/>
-                                <input type="hidden" name="step2_org_type" t-att-value="step2_org_type or ''"/>
-                                <input type="hidden" name="step2_website" t-att-value="step2_website or ''"/>
-                                <input type="hidden" name="estimate_data" t-att-value="estimate_data or '{}'"/>
-                                <div class="col-md-6">
-                                    <label class="form-label" for="step3_monthly_spend">Gasto mensal de eletricidade (EUR) *</label>
-                                    <input class="form-control" id="step3_monthly_spend" name="step3_monthly_spend" required="required" type="number" step="0.01" min="0" t-att-value="step3_monthly_spend or ''"/>
-                                </div>
-                                <div class="col-md-6">
-                                    <label class="form-label" for="step3_price_kwh">Preço por kWh (se conhecido)</label>
-                                    <input class="form-control" id="step3_price_kwh" name="step3_price_kwh" type="number" step="0.001" min="0" t-att-value="step3_price_kwh or ''"/>
-                                </div>
-                                <div class="col-12">
-                                    <label class="form-label" for="step3_usage_pattern">Padrão de consumo *</label>
-                                    <select class="form-control" id="step3_usage_pattern" name="step3_usage_pattern" required="required">
-                                        <option value="weekdays_daytime">Dias úteis, horário diurno</option>
-                                        <option value="weekdays_all">Dias úteis, todo o dia</option>
-                                        <option value="weekends">Fins de semana</option>
-                                        <option value="full_time">24/7</option>
-                                        <option value="custom">Outro</option>
-                                    </select>
-                                </div>
-                                <div class="col-12">
-                                    <label class="form-label" for="step3_description">Notas sobre o consumo</label>
-                                    <textarea class="form-control" id="step3_description" name="step3_description" rows="2"><t t-esc="step3_description or ''"/></textarea>
-                                </div>
-                                <div class="col-12">
-                                    <label class="form-label" for="step3_bills">Faturas de eletricidade (2–3, verão + inverno)</label>
-                                    <input class="form-control" id="step3_bills" name="step3_bills" type="file" accept="image/*,.pdf" multiple="multiple"/>
-                                </div>
-                                <div class="col-12">
-                                    <button type="submit" class="btn fs-btn-primary w-100">Enviar candidatura</button>
-                                </div>
-                            </form>
-                        </t>
+                            <div class="col-md-6">
+                                <label class="form-label" for="step3_price_kwh">Preço por kWh (se conhecido)</label>
+                                <input class="form-control" id="step3_price_kwh" name="step3_price_kwh" type="number" step="0.001" min="0"/>
+                            </div>
+                            <div class="col-12">
+                                <label class="form-label" for="step3_usage_pattern">Padrão de consumo *</label>
+                                <select class="form-control" id="step3_usage_pattern" name="step3_usage_pattern" required="required">
+                                    <option value="weekdays_daytime">Dias úteis, horário diurno</option>
+                                    <option value="weekdays_all">Dias úteis, todo o dia</option>
+                                    <option value="weekends">Fins de semana</option>
+                                    <option value="full_time">24/7</option>
+                                    <option value="custom">Outro</option>
+                                </select>
+                            </div>
+                            <div class="col-12">
+                                <label class="form-label" for="step3_description">Notas sobre o consumo</label>
+                                <textarea class="form-control" id="step3_description" name="step3_description" rows="2"/>
+                            </div>
+                            <div class="col-12">
+                                <label class="form-label" for="step3_bills">Fatura(s) de eletricidade (PDF/imagem)</label>
+                                <input class="form-control" id="step3_bills" name="step3_bills" type="file" accept="image/*,.pdf" multiple="multiple"/>
+                            </div>
+                            <div class="col-12">
+                                <button type="submit" class="btn fs-btn-primary w-100">Enviar candidatura</button>
+                            </div>
+                        </form>
+                    </div>
+
+                    <!-- Step 4 confirmation -->
+                    <div t-attf-class="fs-card mb-4#{' d-none' if step != 4 else ''}">
+                        <h3 class="fs-card-title">Passo 4 — Confirmação</h3>
+                        <div class="alert alert-success mb-3">
+                            Parabéns, a sua candidatura foi submetida com sucesso.
+                        </div>
+                        <p>A equipa da Filantropia Solar entrará em contacto. Obrigado.</p>
+                        <a href="/inicio" class="btn fs-btn-primary">Voltar ao início</a>
                     </div>
                 </section>
-
-                <section class="container py-4 text-center">
-                    <p class="small text-muted mb-1">Uma iniciativa da <strong>WeRa Global</strong>.</p>
-                    <p class="small text-muted">
-                        <a href="/filantropia_solar_public/static/src/docs/filantropia-solar-regulamento.pdf" target="_blank" rel="noopener">Regulamento (PDF)</a>
-                    </p>
-                </section>
             </div>
-            <t t-call="filantropia_solar_public.snippet_leaflet_map"/>
+            <script type="text/javascript">
+                document.addEventListener('DOMContentLoaded', function () {
+                    var loc = document.getElementById('location');
+                    var customWrap = document.getElementById('location_custom_wrap');
+                    var mapWrap = document.getElementById('pick_map_wrap');
+                    var surface = document.getElementById('surface_type');
+                    var surfaceOther = document.getElementById('surface_other_wrap');
+                    function toggleLoc() {
+                        var isOther = loc &amp;&amp; loc.value === 'outro';
+                        if (customWrap) customWrap.classList.toggle('d-none', !isOther);
+                        if (mapWrap) mapWrap.classList.toggle('d-none', !isOther);
+                        if (isOther) initPickMap();
+                    }
+                    function toggleSurface() {
+                        var isOther = surface &amp;&amp; surface.value === 'other';
+                        if (surfaceOther) surfaceOther.classList.toggle('d-none', !isOther);
+                    }
+                    if (loc) loc.addEventListener('change', toggleLoc);
+                    if (surface) surface.addEventListener('change', toggleSurface);
+                    toggleLoc(); toggleSurface();
+
+                    var pickMapInited = false;
+                    function initPickMap() {
+                        if (pickMapInited || typeof L === 'undefined') return;
+                        var el = document.getElementById('fs-pick-map');
+                        if (!el) return;
+                        pickMapInited = true;
+                        var map = L.map('fs-pick-map').setView([39.5, -8.0], 6);
+                        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                            maxZoom: 18,
+                            attribution: '&amp;copy; OpenStreetMap'
+                        }).addTo(map);
+                        var marker = null;
+                        var latEl = document.getElementById('location_lat');
+                        var lngEl = document.getElementById('location_lng');
+                        if (latEl &amp;&amp; lngEl &amp;&amp; latEl.value &amp;&amp; lngEl.value) {
+                            var lat0 = parseFloat(latEl.value), lng0 = parseFloat(lngEl.value);
+                            if (isFinite(lat0) &amp;&amp; isFinite(lng0)) {
+                                marker = L.marker([lat0, lng0]).addTo(map);
+                                map.setView([lat0, lng0], 12);
+                            }
+                        }
+                        map.on('click', function (e) {
+                            if (marker) map.removeLayer(marker);
+                            marker = L.marker(e.latlng).addTo(map);
+                            if (latEl) latEl.value = e.latlng.lat.toFixed(5);
+                            if (lngEl) lngEl.value = e.latlng.lng.toFixed(5);
+                        });
+                        setTimeout(function(){ map.invalidateSize(); }, 200);
+                    }
+                });
+            </script>
+            <!-- Leaflet assets for pick map (also used if stations map present) -->
+            <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+            <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"/>
         </t>
     </template>
 </odoo>

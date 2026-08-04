@@ -14,6 +14,11 @@
     letter-spacing: 0.03em;
 }
 
+.fs-mission {
+    font-size: 1.1rem;
+    line-height: 1.6;
+}
+
 .fs-card {
     background: #ffffff;
     border: 1px solid #ece7d8;
@@ -43,6 +48,10 @@
     height: 440px;
     border-radius: 10px;
     border: 1px solid #ece7d8;
+}
+
+.fs-map-sm {
+    height: 280px;
 }
 
 .fs-btn-primary,
@@ -86,4 +95,34 @@
     color: #7f7428;
     margin-bottom: 0.75rem;
     font-size: 1rem;
+}
+
+.fs-note {
+    background: #f8f5e8;
+    border: 1px dashed #d9cf9a;
+    border-radius: 10px;
+    padding: 1rem;
+}
+
+.fs-step-number {
+    width: 2.2rem;
+    height: 2.2rem;
+    margin: 0 auto 0.75rem;
+    border-radius: 50%;
+    background: #a89d3f;
+    color: #fff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+}
+
+.fs-progress .progress {
+    background: #ece7d8;
+    border-radius: 999px;
+    overflow: hidden;
+}
+
+.fs-progress-bar {
+    background: linear-gradient(90deg, #a89d3f, #c4b552);
 }

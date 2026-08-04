@@ -1,4 +1,4 @@
-"""Filantropia Solar public website controller with 3-step application funnel."""
+"""Filantropia Solar public website: content home + multi-step candidatura + contact."""
 
 from __future__ import annotations
 
@@ -20,6 +20,33 @@ _NGO_ORG_TYPES = {"ong", "ipss", "fundacao", "cooperativa"}
 # Panel dimensions and power constants
 _PANEL_AREA_M2 = 2.0  # 2 m x 1 m per panel
 _PANEL_WATTS = 550  # 550 W per panel
+
+# Interim display constants until Nextcloud exposes aggregate savings
+# (admin-editable EUR/kWh is a Nextcloud-app follow-up per Feedback).
+_DISPLAY_EUR_PER_KWH = 0.15
+_DISPLAY_SPECIFIC_YIELD_KWH_PER_KWP = 1400.0  # Portugal-indicative
+
+# Progress bar percentages for the candidatura funnel
+_STEP_PROGRESS = {
+    1: 10,
+    2: 40,
+    3: 70,
+    4: 100,
+    "sme": 40,
+}
+
+_CITY_OPTIONS = [
+    "Lisboa",
+    "Porto",
+    "Braga",
+    "Faro",
+    "Setúbal",
+    "Coimbra",
+    "Aveiro",
+    "Évora",
+    "Funchal",
+    "Ponta Delgada",
+]
 
 
 class FilantropiaSolarPublicController(http.Controller):
@@ -50,6 +77,49 @@ class FilantropiaSolarPublicController(http.Controller):
         with urllib.request.urlopen(req, timeout=30) as resp:
             return json.loads(resp.read().decode("utf-8"))
 
+    def _enrich_metrics(self, stations: list, dashboard: dict) -> dict:
+        """Add indicative total money saved until Nextcloud supplies aggregates."""
+        dash = dict(dashboard or {})
+        station_count = int(dash.get("station_count") or len(stations) or 0)
+        capacity = self._as_float(dash.get("total_capacity_kwp"), 0.0)
+        locations = dash.get("locations") or []
+        if not locations and stations:
+            locations = sorted(
+                {
+                    (s.get("location") or "").strip()
+                    for s in stations
+                    if (s.get("location") or "").strip()
+                }
+            )
+        # Prefer API field if present later; else indicative estimate
+        total_saved = dash.get("total_money_saved_eur")
+        if total_saved is None:
+            annual_kwh = capacity * _DISPLAY_SPECIFIC_YIELD_KWH_PER_KWP
+            total_saved = annual_kwh * _DISPLAY_EUR_PER_KWH
+            dash["savings_is_indicative"] = True
+        else:
+            dash["savings_is_indicative"] = False
+        dash["station_count"] = station_count
+        dash["total_capacity_kwp"] = capacity
+        dash["locations"] = locations
+        dash["location_count"] = len(locations)
+        dash["total_money_saved_eur"] = float(total_saved or 0)
+        dash["total_money_saved_display"] = f"{int(float(total_saved or 0)):,}".replace(
+            ",", " "
+        )
+        # Per-station indicative savings for the list page
+        enriched = []
+        for s in stations or []:
+            row = dict(s)
+            cap = self._as_float(row.get("capacity_kwp"), 0.0)
+            saved = row.get("money_saved_eur")
+            if saved is None:
+                saved = cap * _DISPLAY_SPECIFIC_YIELD_KWH_PER_KWP * _DISPLAY_EUR_PER_KWH
+            row["money_saved_eur"] = float(saved or 0)
+            row["money_saved_display"] = f"{int(float(saved or 0)):,}".replace(",", " ")
+            enriched.append(row)
+        return dash, enriched
+
     def _get_public_data(self):
         api_error = None
         stations = []
@@ -69,6 +139,7 @@ class FilantropiaSolarPublicController(http.Controller):
             api_error = api_error or "Dashboard indisponível."
             _logger.warning("Dashboard fetch failed: %s", exc)
 
+        dashboard, stations = self._enrich_metrics(stations, dashboard)
         return stations, dashboard, api_error
 
     def _as_float(self, value, default=0.0):
@@ -135,15 +206,18 @@ class FilantropiaSolarPublicController(http.Controller):
                         exc,
                     )
 
-    def _render_page(self, template, **extra):
+    def _base_values(self, **extra):
         stations, dashboard, api_error = self._get_public_data()
         values = {
             "stations": stations,
             "stations_json": Markup(json.dumps(stations)),
             "dashboard": dashboard,
             "api_error": api_error,
+            "city_options": _CITY_OPTIONS,
             "step": 1,
+            "progress": 10,
             "submitted": False,
+            "contact_submitted": False,
             "estimate": {},
             "estimate_data": "{}",
             "estimate_savings": "0",
@@ -152,32 +226,39 @@ class FilantropiaSolarPublicController(http.Controller):
             "capacity_kwp": "",
             "available_area": "",
             "location": "",
+            "location_custom": "",
+            "location_lat": "",
+            "location_lng": "",
             "surface_type": "",
+            "surface_other": "",
             "step1_name": "",
             "step1_email": "",
             "step2_org_name": "",
             "step2_org_type": "",
             "step2_website": "",
+            "step2_description": "",
             "step3_monthly_spend": "",
             "step3_price_kwh": "",
             "step3_usage_pattern": "",
             "step3_description": "",
             "contact_name": "",
             "contact_email": "",
+            "contact_phone": "",
+            "contact_message": "",
         }
         values.update(extra)
 
-        # Allow a step-specific estimate error without wiping station fetch errors
         if extra.get("form_error"):
             values["api_error"] = extra["form_error"]
 
         step = values.get("step", 1)
-        if step not in (1, 2, 3, "sme"):
+        if step not in (1, 2, 3, 4, "sme"):
             try:
                 step = int(step)
             except (TypeError, ValueError):
                 step = 1
         values["step"] = step
+        values["progress"] = _STEP_PROGRESS.get(step, 10)
 
         est = values.get("estimate") or {}
         if not isinstance(est, dict):
@@ -198,12 +279,14 @@ class FilantropiaSolarPublicController(http.Controller):
             kwp_val = 0.0
         values["estimate_savings"] = str(int(savings_val))
         values["estimate_kwp"] = f"{kwp_val:.1f}"
+        return values
 
-        values["contact_name"] = values.get("contact_name") or values.get("step1_name") or ""
-        values["contact_email"] = values.get("contact_email") or values.get("step1_email") or ""
+    def _render(self, template, **extra):
+        return request.render(template, self._base_values(**extra))
 
-        return request.render(template, values)
-
+    # ------------------------------------------------------------------
+    # Content-first homepage (no application form)
+    # ------------------------------------------------------------------
     @http.route(
         ["/", "/inicio", "/filantropia-solar"],
         type="http",
@@ -211,7 +294,95 @@ class FilantropiaSolarPublicController(http.Controller):
         website=True,
     )
     def home(self, **kwargs):
-        return self._render_page("filantropia_solar_public.page_inicio", step=1)
+        return self._render("filantropia_solar_public.page_inicio")
+
+    # ------------------------------------------------------------------
+    # Installations list ("Ver mais")
+    # ------------------------------------------------------------------
+    @http.route(
+        ["/instalacoes", "/filantropia/instalacoes"],
+        type="http",
+        auth="public",
+        website=True,
+    )
+    def instalacoes(self, **kwargs):
+        return self._render("filantropia_solar_public.page_instalacoes")
+
+    # ------------------------------------------------------------------
+    # Contact form (simple, separate from candidatura)
+    # ------------------------------------------------------------------
+    @http.route(
+        ["/contacto", "/contact", "/filantropia/contacto"],
+        type="http",
+        auth="public",
+        website=True,
+    )
+    def contacto(self, **kwargs):
+        return self._render("filantropia_solar_public.page_contacto")
+
+    @http.route(
+        "/contacto/enviar",
+        type="http",
+        auth="public",
+        website=True,
+        methods=["POST"],
+        csrf=True,
+    )
+    def contacto_enviar(self, **post):
+        name = (post.get("contact_name") or "").strip()
+        email = (post.get("contact_email") or "").strip()
+        phone = (post.get("contact_phone") or "").strip()
+        message = (post.get("contact_message") or "").strip()
+
+        lead = (
+            request.env["crm.lead"]
+            .sudo()
+            .create(
+                {
+                    "name": f"Filantropia Solar Contacto — {name or 'Visitante'}",
+                    "contact_name": name or False,
+                    "email_from": email or False,
+                    "phone": phone or False,
+                    "description": "\n".join(
+                        [
+                            "Contacto simples (não candidatura)",
+                            f"Telefone: {phone}",
+                            "",
+                            "Mensagem:",
+                            message,
+                        ]
+                    ),
+                }
+            )
+        )
+        _logger.info("Contact lead created: %s", lead.id)
+        return self._render(
+            "filantropia_solar_public.page_contacto",
+            contact_submitted=True,
+            contact_name=name,
+            contact_email=email,
+            contact_phone=phone,
+            contact_message=message,
+        )
+
+    # ------------------------------------------------------------------
+    # Candidatura multi-step page + funnel POSTs
+    # ------------------------------------------------------------------
+    @http.route(
+        [
+            "/candidatura",
+            "/filantropia/application",
+            "/filantropiasolar/candidatura",
+        ],
+        type="http",
+        auth="public",
+        website=True,
+    )
+    def candidatura(self, **kwargs):
+        return self._render(
+            "filantropia_solar_public.page_candidatura",
+            step=1,
+        )
 
     @http.route(
         "/candidatura/estimativa",
@@ -225,14 +396,30 @@ class FilantropiaSolarPublicController(http.Controller):
         step1_name = (post.get("step1_name") or "").strip()
         step1_email = (post.get("step1_email") or "").strip()
         location = (post.get("location") or "").strip()
+        location_custom = (post.get("location_custom") or "").strip()
+        location_lat = (post.get("location_lat") or "").strip()
+        location_lng = (post.get("location_lng") or "").strip()
+        if location == "outro" and location_custom:
+            location_label = location_custom
+        else:
+            location_label = location
         surface_type = (post.get("surface_type") or "").strip()
+        surface_other = (post.get("surface_other") or "").strip()
         available_area = self._as_float(post.get("available_area", "0"))
 
         panels, kwp = self._compute_panels(available_area)
         estimate: dict = {}
         form_error = None
         try:
-            estimate = self._estimate(location, None, None, kwp) or {}
+            estimate = (
+                self._estimate(
+                    location_label,
+                    location_lat or None,
+                    location_lng or None,
+                    kwp,
+                )
+                or {}
+            )
         except Exception as exc:
             form_error = (
                 "Não foi possível obter a estimativa automática. "
@@ -240,13 +427,17 @@ class FilantropiaSolarPublicController(http.Controller):
             )
             _logger.warning("Step 1 estimate failed: %s", exc)
 
-        return self._render_page(
-            "filantropia_solar_public.page_inicio",
+        return self._render(
+            "filantropia_solar_public.page_candidatura",
             step=2,
             step1_name=step1_name,
             step1_email=step1_email,
             location=location,
+            location_custom=location_custom,
+            location_lat=location_lat,
+            location_lng=location_lng,
             surface_type=surface_type,
+            surface_other=surface_other,
             available_area=str(available_area),
             capacity_kwp=f"{kwp:.2f}",
             panel_count=str(panels),
@@ -270,25 +461,35 @@ class FilantropiaSolarPublicController(http.Controller):
         step1_name = (post.get("step1_name") or "").strip()
         step1_email = (post.get("step1_email") or "").strip()
         location = (post.get("location") or "").strip()
+        location_custom = (post.get("location_custom") or "").strip()
+        location_lat = (post.get("location_lat") or "").strip()
+        location_lng = (post.get("location_lng") or "").strip()
         surface_type = (post.get("surface_type") or "").strip()
+        surface_other = (post.get("surface_other") or "").strip()
         available_area = (post.get("available_area") or "").strip()
         capacity_kwp = (post.get("capacity_kwp") or "").strip()
         panel_count = (post.get("panel_count") or "").strip()
         step2_org_name = (post.get("step2_org_name") or "").strip()
         step2_website = (post.get("step2_website") or "").strip()
+        step2_description = (post.get("step2_description") or "").strip()
         estimate = self._parse_estimate_data(post.get("estimate_data"))
 
         common = {
             "step1_name": step1_name,
             "step1_email": step1_email,
             "location": location,
+            "location_custom": location_custom,
+            "location_lat": location_lat,
+            "location_lng": location_lng,
             "surface_type": surface_type,
+            "surface_other": surface_other,
             "available_area": available_area,
             "capacity_kwp": capacity_kwp,
             "panel_count": panel_count,
             "step2_org_name": step2_org_name,
             "step2_org_type": org_type,
             "step2_website": step2_website,
+            "step2_description": step2_description,
             "estimate": estimate,
             "estimate_data": json.dumps(estimate),
             "contact_name": step1_name,
@@ -296,12 +497,13 @@ class FilantropiaSolarPublicController(http.Controller):
         }
 
         if org_type in _NGO_ORG_TYPES:
-            return self._render_page(
-                "filantropia_solar_public.page_inicio",
+            return self._render(
+                "filantropia_solar_public.page_candidatura",
                 step=3,
                 **common,
             )
 
+        loc_label = location_custom if location == "outro" else location
         lead = (
             request.env["crm.lead"]
             .sudo()
@@ -315,9 +517,10 @@ class FilantropiaSolarPublicController(http.Controller):
                         [
                             "NÃO ELEGÍVEL para Filantropia Solar (SME/for-profit referral)",
                             f"Org type: {org_type}",
-                            f"Location: {location}",
+                            f"Location: {loc_label}",
                             f"Available area: {available_area} m²",
                             f"Estimated capacity: {capacity_kwp} kWp",
+                            f"Description: {step2_description}",
                             "Handed off to WeRa Global.",
                         ]
                     ),
@@ -325,8 +528,8 @@ class FilantropiaSolarPublicController(http.Controller):
             )
         )
         _logger.info("SME lead created: %s -> WeRa referral", lead.id)
-        return self._render_page(
-            "filantropia_solar_public.page_inicio",
+        return self._render(
+            "filantropia_solar_public.page_candidatura",
             step="sme",
             **common,
         )
@@ -343,29 +546,37 @@ class FilantropiaSolarPublicController(http.Controller):
         step1_name = (post.get("step1_name") or "").strip()
         step1_email = (post.get("step1_email") or "").strip()
         location = (post.get("location") or "").strip()
+        location_custom = (post.get("location_custom") or "").strip()
+        location_lat = (post.get("location_lat") or "").strip()
+        location_lng = (post.get("location_lng") or "").strip()
         surface_type = (post.get("surface_type") or "").strip()
+        surface_other = (post.get("surface_other") or "").strip()
         available_area = (post.get("available_area") or "").strip()
         capacity_kwp = (post.get("capacity_kwp") or "").strip()
         panel_count = (post.get("panel_count") or "").strip()
         step2_org_name = (post.get("step2_org_name") or "").strip()
         step2_org_type = (post.get("step2_org_type") or "").strip()
         step2_website = (post.get("step2_website") or "").strip()
+        step2_description = (post.get("step2_description") or "").strip()
         step3_monthly_spend = (post.get("step3_monthly_spend") or "").strip()
         step3_price_kwh = (post.get("step3_price_kwh") or "").strip()
         step3_usage_pattern = (post.get("step3_usage_pattern") or "").strip()
         step3_description = (post.get("step3_description") or "").strip()
         estimate = self._parse_estimate_data(post.get("estimate_data"))
+        loc_label = location_custom if location == "outro" else location
+        surface_label = surface_other if surface_type == "other" else surface_type
 
         description_lines = [
-            "Filantropia Solar — Candidatura de doação (funnel 3-passos)",
+            "Filantropia Solar — Candidatura de doação (funnel multi-passos)",
             "",
             "Contacto:",
             f"- Nome: {step1_name}",
             f"- Email: {step1_email}",
             "",
             "Estimativa:",
-            f"- Localização: {location}",
-            f"- Superfície: {surface_type}",
+            f"- Localização: {loc_label}",
+            f"- Coordenadas: {location_lat}, {location_lng}",
+            f"- Superfície: {surface_label}",
             f"- Área disponível: {available_area} m²",
             f"- Painéis estimados: {panel_count}",
             f"- Capacidade estimada: {capacity_kwp} kWp",
@@ -374,7 +585,8 @@ class FilantropiaSolarPublicController(http.Controller):
             "Organização:",
             f"- Nome: {step2_org_name}",
             f"- Tipo: {step2_org_type}",
-            f"- Site/descrição: {step2_website}",
+            f"- Site: {step2_website}",
+            f"- Descrição: {step2_description}",
             "",
             "Padrão de consumo:",
             f"- Gasto mensal: {step3_monthly_spend} EUR",
@@ -399,24 +611,19 @@ class FilantropiaSolarPublicController(http.Controller):
         self._attach_files(lead)
         _logger.info("Donation application lead created: %s", lead.id)
 
-        return self._render_page(
-            "filantropia_solar_public.page_inicio",
-            step=3,
+        return self._render(
+            "filantropia_solar_public.page_candidatura",
+            step=4,
             submitted=True,
             step1_name=step1_name,
             step1_email=step1_email,
             location=location,
-            surface_type=surface_type,
+            location_custom=location_custom,
             available_area=available_area,
             capacity_kwp=capacity_kwp,
             panel_count=panel_count,
             step2_org_name=step2_org_name,
             step2_org_type=step2_org_type,
-            step2_website=step2_website,
-            step3_monthly_spend=step3_monthly_spend,
-            step3_price_kwh=step3_price_kwh,
-            step3_usage_pattern=step3_usage_pattern,
-            step3_description=step3_description,
             estimate=estimate,
             estimate_data=json.dumps(estimate),
             contact_name=step1_name,
