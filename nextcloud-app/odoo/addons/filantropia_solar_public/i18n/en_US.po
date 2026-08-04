@@ -6,8 +6,8 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Odoo Server 19.0\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-08-04 15:00+0000\n"
-"PO-Revision-Date: 2026-08-04 15:00+0000\n"
+"POT-Creation-Date: 2026-08-04 16:00+0000\n"
+"PO-Revision-Date: 2026-08-04 16:00+0000\n"
 "Last-Translator: \n"
 "Language-Team: \n"
 "Language: en_US\n"
@@ -65,28 +65,32 @@ msgid "Localizações:"
 msgstr "Locations:"
 
 #. module: filantropia_solar_public
-msgid "Total Money Saved:"
-msgstr "Total Money Saved:"
+msgid "Poupança total estimada:"
+msgstr "Estimated total savings:"
+
+#. module: filantropia_solar_public
+msgid "Estimativa indicativa (não é medição real): capacidade × produção específica de referência × preço médio de energia. O valor administrativo poderá ser configurado na app Nextcloud."
+msgstr "Indicative estimate (not a real measurement): capacity × reference specific yield × average energy price. The administrative value may be configured in the Nextcloud app."
 
 #. module: filantropia_solar_public
 msgid "Estações"
 msgstr "Stations"
 
 #. module: filantropia_solar_public
-msgid "Money Saved:"
-msgstr "Money Saved:"
+msgid "Poupança estimada:"
+msgstr "Estimated savings:"
 
 #. module: filantropia_solar_public
-msgid "Info:"
-msgstr "Info:"
+msgid "Informação:"
+msgstr "Information:"
 
 #. module: filantropia_solar_public
 msgid "Mapa"
 msgstr "Map"
 
 #. module: filantropia_solar_public
-msgid "Clique num marcador para ver potência, Money Saved e Info da estação."
-msgstr "Click a marker to see capacity, Money Saved and station Info."
+msgid "Clique num marcador para ver potência, poupança estimada e informação da estação."
+msgstr "Click a marker to see capacity, estimated savings and station information."
 
 #. module: filantropia_solar_public
 msgid "Casos de sucesso"
@@ -221,6 +225,10 @@ msgid "Instalações"
 msgstr "Installations"
 
 #. module: filantropia_solar_public
+msgid "Poupança estimada (EUR/ano)"
+msgstr "Estimated savings (EUR/year)"
+
+#. module: filantropia_solar_public
 msgid "Voltar ao início"
 msgstr "Back to home"
 
@@ -247,3 +255,19 @@ msgstr "Success Stories"
 #. module: filantropia_solar_public
 msgid "Início"
 msgstr "Home"
+
+#. module: filantropia_solar_public
+msgid "Confirmo que esta organização é uma entidade sem fins lucrativos registada em Portugal *"
+msgstr "I confirm this organisation is a non-profit registered in Portugal *"
+
+#. module: filantropia_solar_public
+msgid "Empresas com fins lucrativos não são elegíveis para a doação Filantropia Solar. Pode continuar para ser reencaminhado para a WeRa Global."
+msgstr "For-profit companies are not eligible for the Filantropia Solar donation. You may continue to be referred to WeRa Global."
+
+#. module: filantropia_solar_public
+msgid "Doação em espécie de equipamento e instalação solar para ONGs em Portugal. Candidatura gratuita."
+msgstr "In-kind donation of solar equipment and installation for NGOs in Portugal. Free application."
+
+#. module: filantropia_solar_public
+msgid "Filantropia Solar"
+msgstr "Filantropia Solar"
