@@ -101,31 +101,32 @@
 
                 <section class="container py-4" id="casos">
                     <h2 class="text-center mb-3">Casos de sucesso</h2>
+                    <t t-set="success_stories" t-value="success_stories or []"/>
                     <div class="row g-4">
-                        <div class="col-md-4">
-                            <div class="fs-card h-100">
-                                <h4>Abrigo dos Animais de Braga</h4>
-                                <p class="text-muted">Braga — 64.93 kWp</p>
-                                <p>Redução superior a 80% na fatura elétrica. Os fundos poupados são agora aplicados em alimentação, cuidados veterinários e melhorias das instalações.</p>
-                                <p class="small text-muted">Abrigo de animais — prioridade do programa.</p>
+                        <t t-if="success_stories">
+                            <t t-foreach="success_stories" t-as="story">
+                                <div class="col-md-4">
+                                    <div class="fs-card h-100 d-flex flex-column">
+                                        <h4 t-esc="story.get('name')"/>
+                                        <p class="text-muted" t-esc="story.get('subtitle')"/>
+                                        <p class="flex-grow-1" t-esc="story.get('teaser')"/>
+                                        <p class="mb-0 mt-2">
+                                            <a t-att-href="story.get('url') or '#'" class="btn btn-link px-0">Ler mais</a>
+                                        </p>
+                                    </div>
+                                </div>
+                            </t>
+                        </t>
+                        <t t-else="">
+                            <div class="col-12">
+                                <div class="fs-card text-center text-muted">
+                                    <p class="mb-0">Em breve publicaremos histórias completas da rede Filantropia Solar.</p>
+                                </div>
                             </div>
-                        </div>
-                        <div class="col-md-4">
-                            <div class="fs-card h-100">
-                                <h4>Associação de Proteção Animal de Tavira</h4>
-                                <p class="text-muted">Tavira — 46 kWp</p>
-                                <p>Redução de custos operacionais superior a 60%, permitindo expandir o número de animais resgatados.</p>
-                            </div>
-                        </div>
-                        <div class="col-md-4">
-                            <div class="fs-card h-100">
-                                <h4>Centro Comunitário de Lisboa</h4>
-                                <p class="text-muted">Lisboa — 46 kWp</p>
-                                <p>Mais de 70% do consumo elétrico coberto por energia solar, libertando orçamento para programas sociais.</p>
-                            </div>
-                        </div>
+                        </t>
                     </div>
-                    <div class="text-center mt-4">
+                    <div class="text-center mt-4 d-flex flex-wrap gap-2 justify-content-center">
+                        <a t-att-href="blog_all_url or '/blog'" class="btn fs-btn-secondary">Ver todos os casos de sucesso</a>
                         <a href="/candidatura" class="btn fs-btn-primary btn-lg">Candidatar instalação</a>
                     </div>
                 </section>

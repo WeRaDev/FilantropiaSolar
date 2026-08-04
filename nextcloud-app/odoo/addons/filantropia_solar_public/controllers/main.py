@@ -157,6 +157,71 @@ class FilantropiaSolarPublicController(http.Controller):
         dashboard, stations = self._enrich_metrics(stations, dashboard)
         return stations, dashboard, api_error
 
+    def _success_stories(self, limit: int = 3) -> list[dict]:
+        """Return published success-story blog posts for homepage teasers."""
+        stories: list[dict] = []
+        try:
+            BlogPost = request.env["blog.post"].sudo()
+            blog = request.env.ref(
+                "filantropia_solar_public.blog_casos_sucesso",
+                raise_if_not_found=False,
+            )
+            domain = [("is_published", "=", True)]
+            if blog:
+                domain = [*domain, ("blog_id", "=", blog.id)]
+            else:
+                # fallback: posts whose blog name matches
+                Blog = request.env["blog.blog"].sudo()
+                b = Blog.search(
+                    [
+                        "|",
+                        ("name", "ilike", "Casos"),
+                        ("name", "ilike", "Success"),
+                    ],
+                    limit=1,
+                )
+                if b:
+                    domain = [*domain, ("blog_id", "=", b.id)]
+            posts = BlogPost.search(domain, order="id asc", limit=limit)
+            for post in posts:
+                teaser = ""
+                if "teaser" in post._fields and post.teaser:
+                    teaser = post.teaser
+                elif post.content:
+                    # strip tags lightly without importing html
+                    raw = post.content or ""
+                    parts = []
+                    in_tag = False
+                    for ch in raw:
+                        if ch == "<":
+                            in_tag = True
+                            continue
+                        if ch == ">":
+                            in_tag = False
+                            parts.append(" ")
+                            continue
+                        if not in_tag:
+                            parts.append(ch)
+                    teaser = "".join(parts)
+                    teaser = " ".join(teaser.split())[:220]
+                url = (
+                    post.website_url
+                    if "website_url" in post._fields
+                    else f"/blog/{post.id}"
+                )
+                stories.append(
+                    {
+                        "id": post.id,
+                        "name": post.name,
+                        "subtitle": post.subtitle or "",
+                        "teaser": teaser,
+                        "url": url,
+                    }
+                )
+        except Exception as exc:
+            _logger.warning("Success stories fetch failed: %s", exc)
+        return stories
+
     def _as_float(self, value, default=0.0):
         try:
             if value is None or value == "":
@@ -260,8 +325,22 @@ class FilantropiaSolarPublicController(http.Controller):
             "contact_email": "",
             "contact_phone": "",
             "contact_message": "",
+            "success_stories": [],
+            "blog_all_url": "/blog",
         }
         values.update(extra)
+        if not values.get("success_stories"):
+            values["success_stories"] = self._success_stories()
+        # Prefer blog listing for the seeded blog when available
+        try:
+            blog = request.env.ref(
+                "filantropia_solar_public.blog_casos_sucesso",
+                raise_if_not_found=False,
+            )
+            if blog and getattr(blog, "website_url", None):
+                values["blog_all_url"] = blog.website_url
+        except Exception:
+            pass
 
         if extra.get("form_error"):
             values["api_error"] = extra["form_error"]

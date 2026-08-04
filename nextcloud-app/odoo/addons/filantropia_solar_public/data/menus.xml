@@ -12,6 +12,12 @@
         <field name="sequence">20</field>
         <field name="parent_id" ref="website.main_menu"/>
     </record>
+    <record id="menu_casos" model="website.menu">
+        <field name="name">Casos de Sucesso</field>
+        <field name="url">/blog</field>
+        <field name="sequence">25</field>
+        <field name="parent_id" ref="website.main_menu"/>
+    </record>
     <record id="menu_candidatura" model="website.menu">
         <field name="name">Candidatura</field>
         <field name="url">/candidatura</field>
