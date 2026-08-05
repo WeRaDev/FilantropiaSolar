@@ -271,3 +271,36 @@ msgstr "In-kind donation of solar equipment and installation for NGOs in Portuga
 #. module: filantropia_solar_public
 msgid "Filantropia Solar"
 msgstr "Filantropia Solar"
+
+#. module: filantropia_solar_public
+msgid "Ver condições"
+msgstr "See terms"
+
+#. module: filantropia_solar_public
+msgid "Que apoio de divulgação é pedido?"
+msgstr "What publicity support is requested?"
+
+#. module: filantropia_solar_public
+msgid "A organização beneficiária compromete-se a apoiar a divulgação pública da doação (por exemplo fotografias e menção nos seus canais), para que mais ONGs conheçam o programa. Os detalhes constam do regulamento."
+msgstr "The beneficiary organisation agrees to support public communication of the donation (for example photos and mentions on its channels), so more NGOs can learn about the programme. Details are in the regulations."
+
+#. module: filantropia_solar_public
+msgid "Lista detalhada das estações (atalho). No início, use o bloco expansível «Estações» junto ao mapa."
+msgstr "Detailed station list (shortcut). On the home page, use the expandable Stations block next to the map."
+
+#. module: filantropia_solar_public
+msgid "Ler mais →"
+msgstr "Read more →"
+
+#. module: filantropia_solar_public
+msgid "Candidatura gratuita à doação de equipamento e instalação solar para ONGs em Portugal. Estimativa e elegibilidade em passos."
+msgstr "Free application for donated solar equipment and installation for NGOs in Portugal. Estimate and eligibility in steps."
+
+#. module: filantropia_solar_public
+msgid "Contacte a equipa Filantropia Solar. Para candidatura à doação use o formulário de candidatura."
+msgstr "Contact the Filantropia Solar team. For donation applications use the application form."
+
+#. module: filantropia_solar_public
+msgid "Lista das estações da rede Filantropia Solar: localização, potência e poupança estimada."
+msgstr "Filantropia Solar network stations: location, capacity and estimated savings."
+

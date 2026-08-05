@@ -194,6 +194,48 @@ def _external_id(env, module: str, name: str, record):
     return record
 
 
+def _editorial_teasers():
+    """Curated PT/EN teasers and SEO for success-story posts."""
+    return {
+        "blog_post_braga": {
+            "teaser_pt": (
+                "Com 64.93 kWp, o abrigo reduziu a fatura elétrica em mais de 80%. "
+                "A poupança financia alimentação, veterinária e melhores instalações para os animais."
+            ),
+            "teaser_en": (
+                "With 64.93 kWp, the shelter cut its electricity bill by more than 80%. "
+                "Savings fund food, veterinary care and better facilities for the animals."
+            ),
+            "meta_pt": "Caso de sucesso Filantropia Solar: Abrigo dos Animais de Braga (64.93 kWp).",
+            "meta_en": "Filantropia Solar success story: Braga Animal Shelter (64.93 kWp).",
+        },
+        "blog_post_tavira": {
+            "teaser_pt": (
+                "A instalação de 46 kWp baixou custos operacionais em mais de 60%, "
+                "permitindo resgatar mais animais e reforçar cuidados veterinários."
+            ),
+            "teaser_en": (
+                "The 46 kWp installation cut operating costs by more than 60%, "
+                "enabling more rescues and stronger veterinary care."
+            ),
+            "meta_pt": "Caso de sucesso Filantropia Solar: Associação de Proteção Animal de Tavira.",
+            "meta_en": "Filantropia Solar success story: Tavira Animal Protection Association.",
+        },
+        "blog_post_lisboa": {
+            "teaser_pt": (
+                "O centro cobre mais de 70% do consumo com solar (46 kWp), "
+                "libertando orçamento para programas sociais e atividades comunitárias."
+            ),
+            "teaser_en": (
+                "The centre covers more than 70% of electricity use with solar (46 kWp), "
+                "freeing budget for social programmes and community activities."
+            ),
+            "meta_pt": "Caso de sucesso Filantropia Solar: Centro Comunitário de Lisboa.",
+            "meta_en": "Filantropia Solar success story: Lisbon Community Centre.",
+        },
+    }
+
+
 def _ensure_blog_posts(env):
     Blog = env["blog.blog"].sudo()
     Post = env["blog.post"].sudo()
@@ -243,6 +285,23 @@ def _ensure_blog_posts(env):
         else:
             post.with_context(lang="pt_PT").write(vals_pt)
         post.with_context(lang="en_US").write(spec["en"])
+
+        # Editorial teaser + SEO (animal-shelter-first order via creation order)
+        tip = _editorial_teasers().get(xml_name, {})
+        if tip:
+            pt_vals = {
+                "website_meta_title": spec["name"],
+                "website_meta_description": tip["meta_pt"],
+            }
+            en_vals = {
+                "website_meta_title": spec["en"]["name"],
+                "website_meta_description": tip["meta_en"],
+            }
+            if "teaser_manual" in post._fields:
+                pt_vals["teaser_manual"] = tip["teaser_pt"]
+                en_vals["teaser_manual"] = tip["teaser_en"]
+            post.with_context(lang="pt_PT").write(pt_vals)
+            post.with_context(lang="en_US").write(en_vals)
 
 
 def post_init_hook(env):

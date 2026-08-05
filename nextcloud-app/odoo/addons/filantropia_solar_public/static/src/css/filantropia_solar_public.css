@@ -190,3 +190,44 @@
     font-size: 0.85rem;
     color: #6c6758;
 }
+
+.fs-story-link {
+    display: block;
+    height: 100%;
+}
+.fs-story-card {
+    transition: box-shadow 0.15s ease, transform 0.15s ease;
+    cursor: pointer;
+}
+.fs-story-link:hover .fs-story-card,
+.fs-story-link:focus .fs-story-card {
+    box-shadow: 0 12px 28px rgba(168, 157, 63, 0.16);
+    transform: translateY(-2px);
+}
+.fs-story-more {
+    color: #7f7428;
+    font-weight: 600;
+}
+
+.fs-faq-q {
+    width: 100%;
+    text-align: left;
+    background: transparent;
+    border: 0;
+    padding: 0.15rem 0;
+    font-size: 1.05rem;
+    font-weight: 600;
+    color: #7f7428;
+    cursor: pointer;
+}
+.fs-faq-q:focus {
+    outline: 2px solid #c4b552;
+    outline-offset: 2px;
+}
+.fs-faq-a {
+    margin-top: 0.6rem;
+    color: #2c2b28;
+}
+.fs-faq-item {
+    padding: 1rem 1.15rem;
+}
