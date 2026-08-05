@@ -1,0 +1,13 @@
+# TRL4 host overrides — avoid Nextcloud AIO bind on 127.0.0.1:8080
+services:
+  nextcloud:
+    ports: !override
+      - "127.0.0.1:18080:80"
+    environment:
+      - NEXTCLOUD_TRUSTED_DOMAINS=localhost filantropia-nextcloud 127.0.0.1 filantropiasolar.wera.global wera-ss-pt-sn-1.tailfb390c.ts.net
+  odoo:
+    ports: !override
+      - "127.0.0.1:8069:8069"
+  ml-service:
+    ports: !override
+      - "127.0.0.1:8501:8501"

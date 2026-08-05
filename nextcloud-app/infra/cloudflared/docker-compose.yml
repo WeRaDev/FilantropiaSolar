@@ -1,10 +1,10 @@
-# Cloudflare tunnel sidecar for Filantropia Solar (TRL4 public edge)
+# Cloudflare tunnel sidecar for Filantropia Solar public edge (TRL5)
 #
 # Prerequisites:
 #   1. cloudflared login + tunnel create (see scripts/deploy-public-tunnel.sh)
-#   2. credentials.json present in this directory (gitignored)
-#   3. config.yml tunnel ID set
-#   4. Odoo stack up with proxy_mode
+#   2. credentials.json present in this directory (mode 644 for non-root image)
+#   3. config.yml tunnel ID set; ingress -> http://filantropia-odoo:8069
+#   4. Odoo stack up on the same Docker network
 #
 # Start: docker compose -f nextcloud-app/infra/cloudflared/docker-compose.yml up -d
 services:
@@ -16,8 +16,6 @@ services:
     volumes:
       - ./config.yml:/etc/cloudflared/config.yml:ro
       - ./credentials.json:/etc/cloudflared/credentials.json:ro
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
     networks:
       - filantropia-net
 

@@ -3,3 +3,5 @@
 infra/cloudflared/credentials.json
 infra/cloudflared/*.json
 !infra/cloudflared/config.yml
+
+.local-backups/

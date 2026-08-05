@@ -17,6 +17,42 @@ _logger = logging.getLogger(__name__)
 # NGO org types eligible for Filantropia Solar
 _NGO_ORG_TYPES = {"ong", "ipss", "fundacao", "cooperativa"}
 
+
+# Curated short station blurbs (PT). Keys matched against name/location (casefold).
+_STATION_INFO_PT = {
+    "braga": (
+        "Instalação prioritária em abrigo de animais na região de Braga. "
+        "Referência da rede Filantropia Solar para impacto social direto."
+    ),
+    "tavira": (
+        "Unidade no Algarve associada a proteção animal. "
+        "Exemplo de redução de custos operacionais com solar doado."
+    ),
+    "lisbon": (
+        "Instalação na área metropolitana de Lisboa. "
+        "Apoia organizações com consumo diurno elevado."
+    ),
+    "lisboa": (
+        "Instalação na área metropolitana de Lisboa. "
+        "Apoia organizações com consumo diurno elevado."
+    ),
+    "faro": (
+        "Estação no Algarve. Boa irradiação solar e perfil típico de consumo institucional."
+    ),
+    "setubal": (
+        "Instalação na península de Setúbal, integrada na rede de monitorização Filantropia Solar."
+    ),
+    "setúbal": (
+        "Instalação na península de Setúbal, integrada na rede de monitorização Filantropia Solar."
+    ),
+    "loule": (
+        "Unidade no interior algarvio (Loulé), parte do conjunto de estações de referência."
+    ),
+    "loulé": (
+        "Unidade no interior algarvio (Loulé), parte do conjunto de estações de referência."
+    ),
+}
+
 # Panel dimensions and power constants
 _PANEL_AREA_M2 = 2.0  # 2 m x 1 m per panel
 _PANEL_WATTS = 550  # 550 W per panel
@@ -133,7 +169,7 @@ class FilantropiaSolarPublicController(http.Controller):
                 saved = cap * _DISPLAY_SPECIFIC_YIELD_KWH_PER_KWP * _DISPLAY_EUR_PER_KWH
             row["money_saved_eur"] = float(saved or 0)
             row["money_saved_display"] = f"{int(float(saved or 0)):,}".replace(",", " ")
-            # Prefer API-provided description/info; else build a short PT blurb
+            # Prefer API description; else curated blurb; else generic indicative text
             info = (
                 row.get("info")
                 or row.get("description")
@@ -141,13 +177,26 @@ class FilantropiaSolarPublicController(http.Controller):
                 or ""
             ).strip()
             if not info:
-                loc = (row.get("location") or "Portugal").strip()
-                name = (row.get("name") or "Instalação").strip()
-                info = (
-                    f"{name} em {loc}: instalação da rede Filantropia Solar "
-                    f"({cap:g} kWp). Poupança anual estimada ~"
-                    f"{row['money_saved_display']} EUR (valor indicativo, não medido)."
-                )
+                loc = (row.get("location") or "").strip()
+                name = (row.get("name") or "").strip()
+                blob = f"{name} {loc}".casefold()
+                for key, text in _STATION_INFO_PT.items():
+                    if key in blob:
+                        info = text
+                        break
+                if not info:
+                    loc_disp = loc or "Portugal"
+                    name_disp = name or "Instalação"
+                    info = (
+                        f"{name_disp} em {loc_disp}: instalação da rede Filantropia Solar "
+                        f"({cap:g} kWp). Poupança anual estimada ~"
+                        f"{row['money_saved_display']} EUR (valor indicativo, não medido)."
+                    )
+                else:
+                    info = (
+                        f"{info} Capacidade {cap:g} kWp; poupança estimada ~"
+                        f"{row['money_saved_display']} EUR/ano (indicativa)."
+                    )
             row["info"] = info
             enriched.append(row)
         return dash, enriched
@@ -206,10 +255,24 @@ class FilantropiaSolarPublicController(http.Controller):
                 )
                 if b:
                     domain = [*domain, ("blog_id", "=", b.id)]
-            posts = BlogPost.search(domain, order="id asc", limit=limit)
+            posts = BlogPost.search(domain, order="id asc", limit=max(limit, 10))
+
+            # Animal-shelter-first editorial order
+            def _story_rank(p):
+                n = (p.name or "").casefold()
+                if "abrigo" in n or "shelter" in n or "animal" in n:
+                    return (0, p.id)
+                if "tavira" in n:
+                    return (1, p.id)
+                return (2, p.id)
+
+            ranked = sorted(posts, key=_story_rank)
+            posts = posts.browse([p.id for p in ranked[:limit]])
             for post in posts:
                 teaser = ""
-                if "teaser" in post._fields and post.teaser:
+                if "teaser_manual" in post._fields and post.teaser_manual:
+                    teaser = post.teaser_manual
+                elif "teaser" in post._fields and post.teaser:
                     teaser = post.teaser
                 elif post.content:
                     # strip tags lightly without importing html
