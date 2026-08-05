@@ -130,6 +130,7 @@ services:
     volumes:
       - odoo_data:/var/lib/odoo
       - ./odoo/addons:/mnt/extra-addons
+      - ./odoo/config/odoo.conf:/etc/odoo/odoo.conf:ro
     networks:
       - filantropia-net
     profiles:

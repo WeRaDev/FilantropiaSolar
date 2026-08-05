@@ -1,0 +1,11 @@
+tunnel: 6571cd54-a08d-46da-a4ca-9630c1a0d090
+credentials-file: /etc/cloudflared/credentials.json
+
+# Prefer Docker DNS to filantropia-odoo when cloudflared shares filantropia-net.
+# host.docker.internal only works if Odoo publishes on the host (and is reachable).
+ingress:
+  - hostname: filantropiasolar.wera.global
+    service: http://filantropia-odoo:8069
+    originRequest:
+      httpHostHeader: filantropiasolar.wera.global
+  - service: http_status:404
