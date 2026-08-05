@@ -6,16 +6,10 @@
         <field name="sequence">10</field>
         <field name="parent_id" ref="website.main_menu"/>
     </record>
-    <record id="menu_instalacoes" model="website.menu">
-        <field name="name">Instalações</field>
-        <field name="url">/instalacoes</field>
-        <field name="sequence">20</field>
-        <field name="parent_id" ref="website.main_menu"/>
-    </record>
     <record id="menu_casos" model="website.menu">
         <field name="name">Casos de Sucesso</field>
         <field name="url">/blog</field>
-        <field name="sequence">25</field>
+        <field name="sequence">20</field>
         <field name="parent_id" ref="website.main_menu"/>
     </record>
     <record id="menu_candidatura" model="website.menu">
@@ -30,4 +24,6 @@
         <field name="sequence">40</field>
         <field name="parent_id" ref="website.main_menu"/>
     </record>
+    <!-- menu_instalacoes removed from primary nav (P1): stations live in home expandable block.
+         Route /instalacoes remains as optional deep link. -->
 </odoo>

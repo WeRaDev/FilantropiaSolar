@@ -34,7 +34,8 @@
                     <h2 class="text-center mb-3">Como funciona</h2>
                     <t t-call="filantropia_solar_public.snippet_steps"/>
                     <div class="text-center mt-3">
-                        <a href="/candidatura" class="btn fs-btn-primary">Iniciar candidatura</a>
+                        <a href="#faq" class="btn fs-btn-secondary">Ver condições</a>
+                        <a href="/blog" class="btn btn-link">Casos de sucesso</a>
                     </div>
                 </section>
 
@@ -96,9 +97,6 @@
                             </div>
                         </div>
                     </div>
-                    <div class="text-center mt-4">
-                        <a href="/candidatura" class="btn fs-btn-primary">Candidatar instalação</a>
-                    </div>
                 </section>
 
                 <section class="container py-4" id="casos">
@@ -127,9 +125,8 @@
                             </div>
                         </t>
                     </div>
-                    <div class="text-center mt-4 d-flex flex-wrap gap-2 justify-content-center">
+                    <div class="text-center mt-4">
                         <a t-att-href="blog_all_url or '/blog'" class="btn fs-btn-secondary">Ver todos os casos de sucesso</a>
-                        <a href="/candidatura" class="btn fs-btn-primary btn-lg">Candidatar instalação</a>
                     </div>
                 </section>
 
@@ -201,7 +198,7 @@
             <div id="wrap" class="fs-public-wrap">
                 <section class="container py-5">
                     <h1 class="mb-3">Instalações</h1>
-                    <p class="text-muted">Lista das estações da rede Filantropia Solar.</p>
+                    <p class="text-muted">Lista detalhada das estações (atalho). No início, use o bloco expansível «Estações» junto ao mapa.</p>
                     <div class="table-responsive fs-card">
                         <table class="table table-striped mb-0">
                             <thead>
@@ -242,6 +239,9 @@
                         <div class="col-12 col-lg-7">
                             <h1 class="mb-3">Contacto</h1>
                             <p class="text-muted">Envie a sua questão. Este formulário não é a candidatura à doação.</p>
+                            <t t-if="api_error">
+                                <div class="alert alert-warning" t-esc="api_error"/>
+                            </t>
                             <t t-if="contact_submitted">
                                 <div class="alert alert-success">Obrigado. Entraremos em contacto em breve.</div>
                                 <a href="/inicio" class="btn fs-btn-primary">Voltar ao início</a>
@@ -289,6 +289,9 @@
                 <section class="container py-5">
                     <h1 class="mb-2">Candidatura à doação</h1>
                     <p class="text-muted mb-4">Processo gratuito, em passos. Não pagará nada pela candidatura.</p>
+                    <t t-if="api_error">
+                        <div class="alert alert-warning" t-esc="api_error"/>
+                    </t>
 
                     <!-- Progress bar -->
                     <div class="fs-progress mb-4">
@@ -367,8 +370,9 @@
                             <div class="col-12" id="pick_map_wrap" t-attf-class="col-12#{'' if location == 'outro' else ' d-none'}">
                                 <label class="form-label">Mapa — clique para definir a localização</label>
                                 <div id="fs-pick-map" class="fs-map fs-map-sm"/>
-                                <p class="fs-pick-map-hint mb-0">A localização no mapa grava latitude/longitude usadas na estimativa. Também pode escolher uma cidade na lista acima.</p>
+                                <p class="fs-pick-map-hint mb-0">Clique no mapa para gravar latitude/longitude (obrigatório neste modo).</p>
                                 <p class="small text-muted mb-0" id="fs-pick-coords"></p>
+                                <p class="small text-danger d-none mb-0" id="fs-pick-error">Selecione um ponto no mapa antes de continuar.</p>
                             </div>
                             <div class="col-md-6">
                                 <label class="form-label" for="surface_type">Tipo de superfície *</label>
@@ -407,7 +411,8 @@
                             </div>
                         </t>
                         <t t-else="">
-                            <form action="/candidatura/elegibilidade" method="post" class="row g-3">
+                            <p class="small mb-3"><a href="/candidatura" class="btn btn-link px-0">← Voltar ao passo 1</a></p>
+                            <form action="/candidatura/elegibilidade" method="post" class="row g-3" id="fs-step2-form">
                                 <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
                                 <input type="hidden" name="step1_name" t-att-value="step1_name or ''"/>
                                 <input type="hidden" name="step1_email" t-att-value="step1_email or ''"/>
@@ -460,7 +465,8 @@
                     <div t-attf-class="fs-card mb-4#{' d-none' if step != 3 else ''}">
                         <h3 class="fs-card-title">Passo 3 — Candidatar à doação</h3>
                         <p class="text-muted small">Não pagará nada. A doação é em espécie (equipamento + instalação).</p>
-                        <form action="/candidatura/enviar" method="post" enctype="multipart/form-data" class="row g-3">
+                        <p class="small mb-3"><a href="/candidatura" class="btn btn-link px-0">← Recomeçar candidatura</a></p>
+                        <form action="/candidatura/enviar" method="post" enctype="multipart/form-data" class="row g-3" id="fs-step3-form">
                             <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
                             <input type="hidden" name="step1_name" t-att-value="step1_name or ''"/>
                             <input type="hidden" name="step1_email" t-att-value="step1_email or ''"/>
@@ -501,8 +507,10 @@
                                 <textarea class="form-control" id="step3_description" name="step3_description" rows="2"/>
                             </div>
                             <div class="col-12">
-                                <label class="form-label" for="step3_bills">Fatura(s) de eletricidade (PDF/imagem)</label>
-                                <input class="form-control" id="step3_bills" name="step3_bills" type="file" accept="image/*,.pdf" multiple="multiple"/>
+                                <label class="form-label" for="step3_bills">Fatura(s) de eletricidade (PDF/imagem, máx. 5 MB cada, até 5 ficheiros)</label>
+                                <input class="form-control" id="step3_bills" name="step3_bills" type="file" accept="image/jpeg,image/png,image/webp,application/pdf,.pdf,.jpg,.jpeg,.png,.webp" multiple="multiple"/>
+                                <p class="small text-muted mb-0" id="fs-bills-hint">Formatos: PDF, JPG, PNG, WEBP.</p>
+                                <p class="small text-danger d-none mb-0" id="fs-bills-error"></p>
                             </div>
                             <div class="col-12">
                                 <button type="submit" class="btn fs-btn-primary w-100">Enviar candidatura</button>
@@ -583,8 +591,55 @@
                             if (coordsLbl) coordsLbl.textContent = 'Coordenadas: ' + e.latlng.lat.toFixed(5) + ', ' + e.latlng.lng.toFixed(5);
                             if (loc) loc.value = 'outro';
                             if (modeMap) modeMap.checked = true;
+                            var err = document.getElementById('fs-pick-error');
+                            if (err) err.classList.add('d-none');
                         });
                         setTimeout(function(){ map.invalidateSize(); }, 200);
+                    }
+
+                    var step1 = document.getElementById('fs-step1-form');
+                    if (step1) {
+                        step1.addEventListener('submit', function (ev) {
+                            var mapOn = modeMap &amp;&amp; modeMap.checked;
+                            var latEl = document.getElementById('location_lat');
+                            var lngEl = document.getElementById('location_lng');
+                            var err = document.getElementById('fs-pick-error');
+                            if (mapOn) {
+                                var lat = latEl &amp;&amp; latEl.value, lng = lngEl &amp;&amp; lngEl.value;
+                                if (!lat || !lng || !isFinite(parseFloat(lat)) || !isFinite(parseFloat(lng))) {
+                                    ev.preventDefault();
+                                    if (err) err.classList.remove('d-none');
+                                    initPickMap();
+                                    return false;
+                                }
+                            }
+                        });
+                    }
+                    var step3 = document.getElementById('fs-step3-form');
+                    if (step3) {
+                        step3.addEventListener('submit', function (ev) {
+                            var input = document.getElementById('step3_bills');
+                            var err = document.getElementById('fs-bills-error');
+                            if (!input || !input.files || !input.files.length) return;
+                            var maxBytes = 5 * 1024 * 1024;
+                            var maxFiles = 5;
+                            var okTypes = {
+                                'application/pdf':1,'image/jpeg':1,'image/png':1,'image/webp':1,'' :1
+                            };
+                            if (input.files.length > maxFiles) {
+                                ev.preventDefault();
+                                if (err) { err.textContent = 'Máximo de 5 ficheiros.'; err.classList.remove('d-none'); }
+                                return false;
+                            }
+                            for (var i = 0; i &lt; input.files.length; i++) {
+                                var f = input.files[i];
+                                if (f.size > maxBytes) {
+                                    ev.preventDefault();
+                                    if (err) { err.textContent = 'Ficheiro demasiado grande (máx. 5 MB): ' + f.name; err.classList.remove('d-none'); }
+                                    return false;
+                                }
+                            }
+                        });
                     }
                 });
             </script>
