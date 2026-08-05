@@ -19,7 +19,7 @@ if ! docker network inspect "$NET" >/dev/null 2>&1; then
     exit 1
 fi
 
-for c in filantropia-nextcloud filantropia-ml; do
+for c in filantropia-nextcloud filantropia-ml filantropia-odoo; do
     if ! docker ps --format '{{.Names}}' | grep -qx "$c"; then
         echo "WARN: container '$c' is not running; skipping." >&2
         continue
@@ -36,4 +36,4 @@ if [ -n "${TRL4_DOMAIN:-}" ]; then
         && echo "added trusted domain: $TRL4_DOMAIN" || echo "WARN: could not set trusted domain"
 fi
 
-echo "Done. Spirit probes filantropia-nextcloud:80; ML at filantropia-ml:8501 on $NET."
+echo "Done. Spirit probes filantropia-nextcloud:80; ML at filantropia-ml:8501; Odoo filantropia-odoo:8069 on $NET."

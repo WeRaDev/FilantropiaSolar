@@ -431,3 +431,7 @@ auto_generated/
 
 # local ops backups (never commit)
 .local-backups/
+
+# Cloudflare tunnel credentials
+nextcloud-app/infra/cloudflared/credentials.json
+nextcloud-app/infra/cloudflared/*.json

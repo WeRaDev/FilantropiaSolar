@@ -1,0 +1,9 @@
+tunnel: 6571cd54-a08d-46da-a4ca-9630c1a0d090
+credentials-file: /Users/mikhailananyin/Documents/WeRa Global/ProductionBase/FilantropiaSolar/nextcloud-app/infra/cloudflared/credentials.json
+
+ingress:
+  - hostname: filantropiasolar.wera.global
+    service: http://127.0.0.1:8069
+    originRequest:
+      httpHostHeader: filantropiasolar.wera.global
+  - service: http_status:404
