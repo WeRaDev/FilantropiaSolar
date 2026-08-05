@@ -106,14 +106,14 @@
                         <t t-if="success_stories">
                             <t t-foreach="success_stories" t-as="story">
                                 <div class="col-md-4">
-                                    <div class="fs-card h-100 d-flex flex-column">
-                                        <h4 t-esc="story.get('name')"/>
-                                        <p class="text-muted" t-esc="story.get('subtitle')"/>
-                                        <p class="flex-grow-1" t-esc="story.get('teaser')"/>
-                                        <p class="mb-0 mt-2">
-                                            <a t-att-href="story.get('url') or '#'" class="btn btn-link px-0">Ler mais</a>
-                                        </p>
-                                    </div>
+                                    <a t-att-href="story.get('url') or '#'" class="fs-story-link text-decoration-none text-reset">
+                                        <div class="fs-card fs-story-card h-100 d-flex flex-column">
+                                            <h4 t-esc="story.get('name')"/>
+                                            <p class="text-muted" t-esc="story.get('subtitle')"/>
+                                            <p class="flex-grow-1" t-esc="story.get('teaser')"/>
+                                            <p class="mb-0 mt-2 fs-story-more">Ler mais →</p>
+                                        </div>
+                                    </a>
                                 </div>
                             </t>
                         </t>
@@ -132,33 +132,54 @@
 
                 <section class="container py-4" id="faq">
                     <h2 class="text-center mb-3">FAQ e condições</h2>
-                    <div class="fs-card mb-3">
-                        <h4>O que é a Filantropia Solar?</h4>
-                        <p>É um programa de doação em espécie: equipamento solar e instalação a ONGs em Portugal, sem custo para a organização beneficiária. Não é um subsídio nem um financiamento.</p>
-                    </div>
-                    <div class="fs-card mb-3">
-                        <h4>Quem se pode candidatar?</h4>
-                        <p>ONGs, IPSS, fundações, cooperativas sociais e outras entidades sem fins lucrativos registadas em Portugal. Empresas com fins lucrativos não são elegíveis.</p>
-                    </div>
-                    <div class="fs-card mb-3">
-                        <h4>O que está incluído?</h4>
-                        <p>Equipamento (novo ou reutilizado/recondicionado) e instalação no local. A doação é em espécie — não é entregue valor monetário.</p>
-                    </div>
-                    <div class="fs-card mb-3">
-                        <h4>Quem faz a manutenção?</h4>
-                        <p>A Filantropia Solar não fornece manutenção continuada nem garantia de desempenho. A organização beneficiária é responsável pela manutenção corrente.</p>
-                    </div>
-                    <div class="fs-card mb-3">
-                        <h4>Há limite de potência?</h4>
-                        <p>Projetos normalmente enquadráveis no regime simplificado aplicável até 30 kW (DGEG).</p>
-                    </div>
-                    <div class="fs-card mb-3">
-                        <h4>O processo é gratuito?</h4>
-                        <p><strong>Sim.</strong> A candidatura é gratuita. A organização não paga o equipamento nem a instalação doados.</p>
+                    <div class="fs-faq accordion" id="fsFaqAccordion">
+                        <div class="fs-card mb-2 fs-faq-item">
+                            <button class="fs-faq-q" type="button" data-fs-faq="1" aria-expanded="true">O que é a Filantropia Solar?</button>
+                            <div class="fs-faq-a" data-fs-faq-panel="1">
+                                <p class="mb-0">É um programa de doação em espécie: equipamento solar e instalação a ONGs em Portugal, sem custo para a organização beneficiária. Não é um subsídio nem um financiamento.</p>
+                            </div>
+                        </div>
+                        <div class="fs-card mb-2 fs-faq-item">
+                            <button class="fs-faq-q" type="button" data-fs-faq="2" aria-expanded="false">Quem se pode candidatar?</button>
+                            <div class="fs-faq-a d-none" data-fs-faq-panel="2">
+                                <p class="mb-0">ONGs, IPSS, fundações, cooperativas sociais e outras entidades sem fins lucrativos registadas em Portugal. Empresas com fins lucrativos não são elegíveis.</p>
+                            </div>
+                        </div>
+                        <div class="fs-card mb-2 fs-faq-item">
+                            <button class="fs-faq-q" type="button" data-fs-faq="3" aria-expanded="false">O que está incluído?</button>
+                            <div class="fs-faq-a d-none" data-fs-faq-panel="3">
+                                <p class="mb-0">Equipamento (novo ou reutilizado/recondicionado) e instalação no local. A doação é em espécie — não é entregue valor monetário.</p>
+                            </div>
+                        </div>
+                        <div class="fs-card mb-2 fs-faq-item">
+                            <button class="fs-faq-q" type="button" data-fs-faq="4" aria-expanded="false">Quem faz a manutenção?</button>
+                            <div class="fs-faq-a d-none" data-fs-faq-panel="4">
+                                <p class="mb-0">A Filantropia Solar não fornece manutenção continuada nem garantia de desempenho. A organização beneficiária é responsável pela manutenção corrente.</p>
+                            </div>
+                        </div>
+                        <div class="fs-card mb-2 fs-faq-item">
+                            <button class="fs-faq-q" type="button" data-fs-faq="5" aria-expanded="false">Há limite de potência?</button>
+                            <div class="fs-faq-a d-none" data-fs-faq-panel="5">
+                                <p class="mb-0">Projetos normalmente enquadráveis no regime simplificado aplicável até 30 kW (DGEG).</p>
+                            </div>
+                        </div>
+                        <div class="fs-card mb-2 fs-faq-item">
+                            <button class="fs-faq-q" type="button" data-fs-faq="6" aria-expanded="false">O processo é gratuito?</button>
+                            <div class="fs-faq-a d-none" data-fs-faq-panel="6">
+                                <p class="mb-0"><strong>Sim.</strong> A candidatura é gratuita. A organização não paga o equipamento nem a instalação doados.</p>
+                            </div>
+                        </div>
+                        <div class="fs-card mb-2 fs-faq-item">
+                            <button class="fs-faq-q" type="button" data-fs-faq="7" aria-expanded="false">Que apoio de divulgação é pedido?</button>
+                            <div class="fs-faq-a d-none" data-fs-faq-panel="7">
+                                <p class="mb-0">A organização beneficiária compromete-se a apoiar a divulgação pública da doação (por exemplo fotografias e menção nos seus canais), para que mais ONGs conheçam o programa. Os detalhes constam do regulamento.</p>
+                            </div>
+                        </div>
                     </div>
                     <div class="text-center mt-4">
                         <a href="/candidatura" class="btn fs-btn-primary btn-lg">Candidatar à doação</a>
                         <a href="/contacto" class="btn btn-link">Contactos</a>
+                        <a href="/filantropia_solar_public/static/src/docs/filantropia-solar-regulamento.pdf" class="btn btn-link" target="_blank" rel="noopener">Regulamento (PDF)</a>
                     </div>
                 </section>
 
@@ -180,10 +201,31 @@
                 document.addEventListener('DOMContentLoaded', function () {
                     var btn = document.getElementById('fs-stations-toggle');
                     var body = document.getElementById('fs-stations-expand');
-                    if (!btn || !body) return;
-                    btn.addEventListener('click', function () {
-                        var open = body.classList.toggle('show');
-                        btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+                    if (btn &amp;&amp; body) {
+                        btn.addEventListener('click', function () {
+                            var open = body.classList.toggle('show');
+                            btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+                        });
+                    }
+                    var qs = document.querySelectorAll('[data-fs-faq]');
+                    qs.forEach(function (q) {
+                        q.addEventListener('click', function () {
+                            var id = q.getAttribute('data-fs-faq');
+                            var panel = document.querySelector('[data-fs-faq-panel="' + id + '"]');
+                            if (!panel) return;
+                            var open = panel.classList.contains('d-none');
+                            // close others
+                            document.querySelectorAll('[data-fs-faq-panel]').forEach(function (p) {
+                                p.classList.add('d-none');
+                            });
+                            document.querySelectorAll('[data-fs-faq]').forEach(function (b) {
+                                b.setAttribute('aria-expanded', 'false');
+                            });
+                            if (open) {
+                                panel.classList.remove('d-none');
+                                q.setAttribute('aria-expanded', 'true');
+                            }
+                        });
                     });
                 });
             </script>
@@ -193,6 +235,8 @@
     <!-- ========== INSTALLATIONS LIST ========== -->
     <template id="page_instalacoes" name="Filantropia Solar — Instalações">
         <t t-call="website.layout">
+            <t t-set="additional_title">Instalações</t>
+            <t t-set="website_meta_description">Lista das estações da rede Filantropia Solar: localização, potência e poupança estimada.</t>
             <t t-set="stations" t-value="stations or []"/>
             <t t-set="dashboard" t-value="dashboard or {}"/>
             <div id="wrap" class="fs-public-wrap">
@@ -233,6 +277,8 @@
     <!-- ========== CONTACT ========== -->
     <template id="page_contacto" name="Filantropia Solar — Contacto">
         <t t-call="website.layout">
+            <t t-set="additional_title">Contacto</t>
+            <t t-set="website_meta_description">Contacte a equipa Filantropia Solar. Para candidatura à doação use o formulário de candidatura.</t>
             <div id="wrap" class="fs-public-wrap">
                 <section class="container py-5">
                     <div class="row justify-content-center">
@@ -281,6 +327,8 @@
     <!-- ========== CANDIDATURA multi-step ========== -->
     <template id="page_candidatura" name="Filantropia Solar — Candidatura">
         <t t-call="website.layout">
+            <t t-set="additional_title">Candidatura</t>
+            <t t-set="website_meta_description">Candidatura gratuita à doação de equipamento e instalação solar para ONGs em Portugal. Estimativa e elegibilidade em passos.</t>
             <t t-set="step" t-value="step or 1"/>
             <t t-set="progress" t-value="progress or 10"/>
             <t t-set="submitted" t-value="submitted or False"/>
