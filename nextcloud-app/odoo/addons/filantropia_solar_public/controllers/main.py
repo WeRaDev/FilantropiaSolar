@@ -35,6 +35,22 @@ _STEP_PROGRESS = {
     "sme": 40,
 }
 
+_MAX_BILL_BYTES = 5 * 1024 * 1024
+_LAT_MIN, _LAT_MAX = -90.0, 90.0
+_LNG_MIN, _LNG_MAX = -180.0, 180.0
+_MAX_BILL_FILES = 5
+_ALLOWED_BILL_EXT = {".pdf", ".jpg", ".jpeg", ".png", ".webp"}
+_ALLOWED_BILL_MIME = {
+    "application/pdf",
+    "image/jpeg",
+    "image/png",
+    "image/webp",
+}
+# Simple per-IP rate limit for public POSTs (in-process; demo-grade)
+_RATE_LIMIT_WINDOW_SEC = 600
+_RATE_LIMIT_MAX_POSTS = 20
+_rate_buckets: dict[str, list[float]] = {}
+
 _CITY_OPTIONS = [
     "Lisboa",
     "Porto",
@@ -267,6 +283,77 @@ class FilantropiaSolarPublicController(http.Controller):
             return {}
         return data if isinstance(data, dict) else {}
 
+    def _client_ip(self) -> str:
+        req = request.httprequest
+        forwarded = (req.headers.get("X-Forwarded-For") or "").split(",")[0].strip()
+        return forwarded or (req.remote_addr or "unknown")
+
+    def _rate_limit_ok(self, bucket: str) -> bool:
+        """Return False if this client exceeded demo rate limits."""
+        import time
+
+        ip = self._client_ip()
+        key = f"{bucket}:{ip}"
+        now = time.time()
+        cutoff = now - _RATE_LIMIT_WINDOW_SEC
+        prior = [t for t in _rate_buckets.get(key, []) if t >= cutoff]
+        if len(prior) >= _RATE_LIMIT_MAX_POSTS:
+            _rate_buckets[key] = prior
+            return False
+        prior.append(now)
+        _rate_buckets[key] = prior
+        return True
+
+    def _validate_bill_uploads(self) -> str | None:
+        """Return error message if uploads invalid; else None."""
+        files = request.httprequest.files
+        if not files:
+            return None
+        count = 0
+        for _name in files:
+            for upload in files.getlist(_name):
+                if not upload or not upload.filename:
+                    continue
+                count += 1
+                if count > _MAX_BILL_FILES:
+                    return f"Máximo de {_MAX_BILL_FILES} ficheiros por candidatura."
+                fname = upload.filename.lower()
+                ext = "." + fname.rsplit(".", 1)[-1] if "." in fname else ""
+                if ext not in _ALLOWED_BILL_EXT:
+                    return f"Tipo de ficheiro não permitido: {upload.filename}"
+                # size: read stream length carefully
+                pos = upload.stream.tell()
+                upload.stream.seek(0, 2)
+                size = upload.stream.tell()
+                upload.stream.seek(pos)
+                if size > _MAX_BILL_BYTES:
+                    return f"Ficheiro demasiado grande (máx. 5 MB): {upload.filename}"
+                mime = (upload.mimetype or "").split(";")[0].strip().lower()
+                if (
+                    mime
+                    and mime not in _ALLOWED_BILL_MIME
+                    and mime != "application/octet-stream"
+                ):
+                    return f"Tipo MIME não permitido: {upload.filename}"
+        return None
+
+    def _location_label(self, location: str, location_custom: str) -> str:
+        if location == "outro" and location_custom:
+            return location_custom
+        return location
+
+    def _require_map_coords(self, location: str, lat: str, lng: str) -> str | None:
+        if location != "outro":
+            return None
+        try:
+            la = float(lat)
+            ln = float(lng)
+        except (TypeError, ValueError):
+            return "No modo mapa, clique no mapa para definir a localização."
+        if not (_LAT_MIN <= la <= _LAT_MAX and _LNG_MIN <= ln <= _LNG_MAX):
+            return "Coordenadas de mapa inválidas."
+        return None
+
     def _attach_files(self, lead):
         """Store uploaded form files as ir.attachment records on the lead."""
         Attachment = request.env["ir.attachment"].sudo()
@@ -431,6 +518,11 @@ class FilantropiaSolarPublicController(http.Controller):
         csrf=True,
     )
     def contacto_enviar(self, **post):
+        if not self._rate_limit_ok("contacto"):
+            return self._render(
+                "filantropia_solar_public.page_contacto",
+                form_error="Demasiados pedidos. Aguarde alguns minutos e tente novamente.",
+            )
         name = (post.get("contact_name") or "").strip()
         email = (post.get("contact_email") or "").strip()
         phone = (post.get("contact_phone") or "").strip()
@@ -495,16 +587,34 @@ class FilantropiaSolarPublicController(http.Controller):
         csrf=True,
     )
     def candidatura_estimativa(self, **post):
+        if not self._rate_limit_ok("estimativa"):
+            return self._render(
+                "filantropia_solar_public.page_candidatura",
+                step=1,
+                form_error="Demasiados pedidos. Aguarde alguns minutos e tente novamente.",
+            )
         step1_name = (post.get("step1_name") or "").strip()
         step1_email = (post.get("step1_email") or "").strip()
         location = (post.get("location") or "").strip()
         location_custom = (post.get("location_custom") or "").strip()
         location_lat = (post.get("location_lat") or "").strip()
         location_lng = (post.get("location_lng") or "").strip()
-        if location == "outro" and location_custom:
-            location_label = location_custom
-        else:
-            location_label = location
+        map_err = self._require_map_coords(location, location_lat, location_lng)
+        if map_err:
+            return self._render(
+                "filantropia_solar_public.page_candidatura",
+                step=1,
+                form_error=map_err,
+                step1_name=step1_name,
+                step1_email=step1_email,
+                location=location,
+                location_custom=location_custom,
+                location_lat=location_lat,
+                location_lng=location_lng,
+                surface_type=(post.get("surface_type") or "").strip(),
+                available_area=(post.get("available_area") or "").strip(),
+            )
+        location_label = self._location_label(location, location_custom)
         surface_type = (post.get("surface_type") or "").strip()
         surface_other = (post.get("surface_other") or "").strip()
         available_area = self._as_float(post.get("available_area", "0"))
@@ -559,6 +669,12 @@ class FilantropiaSolarPublicController(http.Controller):
         csrf=True,
     )
     def candidatura_elegibilidade(self, **post):
+        if not self._rate_limit_ok("elegibilidade"):
+            return self._render(
+                "filantropia_solar_public.page_candidatura",
+                step=2,
+                form_error="Demasiados pedidos. Aguarde alguns minutos e tente novamente.",
+            )
         org_type = (post.get("step2_org_type") or "").strip()
         step1_name = (post.get("step1_name") or "").strip()
         step1_email = (post.get("step1_email") or "").strip()
@@ -645,6 +761,29 @@ class FilantropiaSolarPublicController(http.Controller):
         csrf=True,
     )
     def candidatura_enviar(self, **post):
+        if not self._rate_limit_ok("enviar"):
+            return self._render(
+                "filantropia_solar_public.page_candidatura",
+                step=3,
+                form_error="Demasiados pedidos. Aguarde alguns minutos e tente novamente.",
+            )
+        bill_err = self._validate_bill_uploads()
+        if bill_err:
+            return self._render(
+                "filantropia_solar_public.page_candidatura",
+                step=3,
+                form_error=bill_err,
+                step1_name=(post.get("step1_name") or "").strip(),
+                step1_email=(post.get("step1_email") or "").strip(),
+                location=(post.get("location") or "").strip(),
+                location_custom=(post.get("location_custom") or "").strip(),
+                available_area=(post.get("available_area") or "").strip(),
+                capacity_kwp=(post.get("capacity_kwp") or "").strip(),
+                panel_count=(post.get("panel_count") or "").strip(),
+                step2_org_name=(post.get("step2_org_name") or "").strip(),
+                step2_org_type=(post.get("step2_org_type") or "").strip(),
+                estimate=self._parse_estimate_data(post.get("estimate_data")),
+            )
         step1_name = (post.get("step1_name") or "").strip()
         step1_email = (post.get("step1_email") or "").strip()
         location = (post.get("location") or "").strip()
@@ -654,8 +793,10 @@ class FilantropiaSolarPublicController(http.Controller):
         surface_type = (post.get("surface_type") or "").strip()
         surface_other = (post.get("surface_other") or "").strip()
         available_area = (post.get("available_area") or "").strip()
-        capacity_kwp = (post.get("capacity_kwp") or "").strip()
-        panel_count = (post.get("panel_count") or "").strip()
+        # Recompute panels/kWp server-side (do not trust client alone)
+        panels, kwp = self._compute_panels(self._as_float(available_area, 0.0))
+        capacity_kwp = f"{kwp:.2f}"
+        panel_count = str(panels)
         step2_org_name = (post.get("step2_org_name") or "").strip()
         step2_org_type = (post.get("step2_org_type") or "").strip()
         step2_website = (post.get("step2_website") or "").strip()
@@ -664,8 +805,21 @@ class FilantropiaSolarPublicController(http.Controller):
         step3_price_kwh = (post.get("step3_price_kwh") or "").strip()
         step3_usage_pattern = (post.get("step3_usage_pattern") or "").strip()
         step3_description = (post.get("step3_description") or "").strip()
-        estimate = self._parse_estimate_data(post.get("estimate_data"))
-        loc_label = location_custom if location == "outro" else location
+        # Recompute estimate from ML when possible; fall back to posted payload
+        loc_label = self._location_label(location, location_custom)
+        estimate = {}
+        try:
+            estimate = (
+                self._estimate(
+                    loc_label, location_lat or None, location_lng or None, kwp
+                )
+                or {}
+            )
+        except Exception as exc:
+            _logger.warning("Final estimate recompute failed: %s", exc)
+            estimate = self._parse_estimate_data(post.get("estimate_data"))
+        if not estimate:
+            estimate = self._parse_estimate_data(post.get("estimate_data"))
         surface_label = surface_other if surface_type == "other" else surface_type
 
         description_lines = [
