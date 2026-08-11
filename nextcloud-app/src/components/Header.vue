@@ -28,28 +28,10 @@
                 <span class="app-tagline">built by <span class="wera-we">we</span><span class="wera-ra">ra</span></span>
             </div>
             <span class="app-version">v3.2.3</span>
-            <nav class="app-nav" aria-label="Primary">
-                <button
-                    type="button"
-                    class="nav-btn"
-                    :class="{ active: activeView === 'admin' }"
-                    @click="$emit('set-view', 'admin')"
-                >
-                    Admin
-                </button>
-                <button
-                    type="button"
-                    class="nav-btn"
-                    :class="{ active: activeView === 'map' }"
-                    @click="$emit('set-view', 'map')"
-                >
-                    Map
-                </button>
-            </nav>
         </div>
 
         <!-- Center: KPI cards (map context) -->
-        <div v-if="activeView === 'map'" class="kpi-container">
+        <div class="kpi-container">
             <div class="kpi-card" :class="{ active: !activeFilter || activeFilter === 'all' }" @click="setFilter('all')">
                 <span class="kpi-value">{{ totalObjects }}</span>
                 <span class="kpi-label">Total Plants</span>
@@ -80,13 +62,6 @@ import { useAppStore } from '../store/app.js'
 
 export default {
     name: 'Header',
-    props: {
-        activeView: {
-            type: String,
-            default: 'admin',
-        },
-    },
-    emits: ['set-view'],
     setup() {
         const store = useAppStore()
         const activeFilter = ref(null)
@@ -188,32 +163,6 @@ export default {
     align-self: flex-start;
 }
 
-.app-nav {
-    display: flex;
-    gap: 6px;
-    margin-left: 8px;
-}
-
-.nav-btn {
-    border: 1px solid var(--color-border, #d8d8d8);
-    border-radius: 6px;
-    background: #fff;
-    padding: 6px 12px;
-    font-size: 13px;
-    font-weight: 600;
-    cursor: pointer;
-    color: var(--color-main-text, #1a1a1a);
-}
-
-.nav-btn:hover {
-    background: var(--color-background-hover, #ededed);
-}
-
-.nav-btn.active {
-    border-color: #A89D3F;
-    background: #FDFBF5;
-    color: #2D2D2D;
-}
 
 /* KPI Container - cards 120px wide per spec */
 .kpi-container {

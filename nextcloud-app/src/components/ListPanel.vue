@@ -17,34 +17,31 @@
             </span>
         </div>
 
-        <!-- Filter Chips (FR2.3) -->
-        <div class="filter-chips">
-            <button 
+        <!-- Lifecycle filter chips (ops) -->
+        <div class="filter-chips lifecycle-chips">
+            <button
                 class="chip"
-                :class="{ active: activeFilters.length === 0 }"
-                @click="clearFilters">
+                :class="{ active: lifecycleFilters.length === 0 }"
+                @click="clearLifecycleFilters">
                 All ({{ totalObjects }})
             </button>
-            <button 
-                class="chip chip-active"
-                :class="{ active: activeFilters.includes('active') }"
-                @click="toggleFilter('active')">
-                <span class="status-dot active"></span>
-                Active ({{ activeCount }})
+            <button
+                class="chip chip-virtual"
+                :class="{ active: lifecycleFilters.includes('virtual') }"
+                @click="toggleLifecycle('virtual')">
+                Virtual ({{ virtualCount }})
             </button>
-            <button 
-                class="chip chip-warning"
-                :class="{ active: activeFilters.includes('warning') }"
-                @click="toggleFilter('warning')">
-                <span class="status-dot warning"></span>
-                Warning ({{ warningCount }})
+            <button
+                class="chip chip-planned"
+                :class="{ active: lifecycleFilters.includes('planned') }"
+                @click="toggleLifecycle('planned')">
+                Planned ({{ plannedCount }})
             </button>
-            <button 
-                class="chip chip-offline"
-                :class="{ active: activeFilters.includes('offline') }"
-                @click="toggleFilter('offline')">
-                <span class="status-dot offline"></span>
-                Offline ({{ offlineCount }})
+            <button
+                class="chip chip-running"
+                :class="{ active: lifecycleFilters.includes('running') }"
+                @click="toggleLifecycle('running')">
+                Running ({{ runningCount }})
             </button>
         </div>
 
@@ -73,7 +70,7 @@
                 v-for="obj in filteredObjects" 
                 :key="obj.id"
                 class="list-item"
-                :class="{ selected: obj.id === selectedId, [obj.status || 'active']: true }"
+                :class="{ selected: obj.id === selectedId, [obj.status || 'active']: true, 'soft-removed': obj.soft_removed }"
                 @click="selectObject(obj.id)">
                 
                 <!-- Status indicator (left border + badge) -->
@@ -85,32 +82,73 @@
                 <div class="item-content">
                     <div class="item-primary">
                         <span class="item-name">{{ obj.name || obj.id }}</span>
-                        <span class="item-capacity">{{ obj.capacity_kwp || 0 }} kWp</span>
+                        <span class="item-capacity">{{ Number(obj.capacity_kwp || 0).toFixed(1) }} kWp</span>
                     </div>
                     <div class="item-secondary">
                         <span class="item-location">{{ obj.location || 'Unknown' }}</span>
-                        <span class="item-metric" v-if="obj.metrics">
-                            {{ (obj.metrics.efficiency * 100).toFixed(0) }}% eff.
+                        <span
+                            class="lifecycle-badge"
+                            :class="[lifecycleOf(obj), { removed: obj.soft_removed }]"
+                        >
+                            {{ lifecycleLabel(obj) }}
                         </span>
+                        <span
+                            v-if="publicLabel(obj)"
+                            class="public-badge"
+                            :class="publicClass(obj)"
+                        >
+                            {{ publicLabel(obj) }}
+                        </span>
+                    </div>
+                    <div class="item-lifecycle-actions">
+                        <button
+                            type="button"
+                            class="lc-btn"
+                            :disabled="!canPromote(obj) || actionBusy"
+                            title="Virtual → Planned (public map)"
+                            @click.stop="onPromote(obj)"
+                        >
+                            Promote
+                        </button>
+                        <button
+                            type="button"
+                            class="lc-btn"
+                            :disabled="!canInstall(obj) || actionBusy"
+                            title="Planned → Running / Existing"
+                            @click.stop="onInstall(obj)"
+                        >
+                            Install
+                        </button>
+                        <button
+                            type="button"
+                            class="lc-btn warn"
+                            :disabled="!canSoftRemove(obj) || actionBusy"
+                            title="Hide from public listing"
+                            @click.stop="onSoftRemove(obj)"
+                        >
+                            Soft-remove
+                        </button>
                     </div>
                 </div>
 
                 <!-- View Analysis button -->
-                <button 
-                    class="item-action" 
-                    @click.stop="viewAnalysis(obj.id)" 
-                    title="View Analysis">
+                <button
+                    class="item-action"
+                    @click.stop="viewAnalysis(obj.id)"
+                    title="View Analysis"
+                >
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                         <path d="M3 3v18h18"/>
                         <path d="m19 9-5 5-4-4-3 3"/>
                     </svg>
                 </button>
 
-                <!-- Delete button (hide from dashboard) -->
-                <button 
-                    class="item-action item-delete" 
-                    @click.stop="confirmDelete(obj)" 
-                    title="Remove from dashboard">
+                <!-- Hide from personal dashboard -->
+                <button
+                    class="item-action item-delete"
+                    @click.stop="confirmDelete(obj)"
+                    title="Remove from dashboard"
+                >
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                         <path d="M18 6 6 18M6 6l12 12"/>
                     </svg>
@@ -150,6 +188,7 @@ export default {
         const store = useAppStore()
         const searchTerm = ref('')
         const listRef = ref(null)
+        const actionBusy = ref(false)
 
         // Computed from store
         const filteredObjects = computed(() => store.filteredObjects)
@@ -157,9 +196,13 @@ export default {
         const activeCount = computed(() => store.activeObjectsCount)
         const warningCount = computed(() => store.warningObjectsCount)
         const offlineCount = computed(() => store.offlineObjectsCount)
+        const virtualCount = computed(() => store.virtualCount)
+        const plannedCount = computed(() => store.plannedCount)
+        const runningCount = computed(() => store.runningCount)
         const selectedId = computed(() => store.selectedObjectId)
         const isLoading = computed(() => store.isLoadingObjects)
         const activeFilters = computed(() => store.filters.status)
+        const lifecycleFilters = computed(() => store.filters.lifecycle || [])
 
         // Search handler with debounce
         let searchTimeout = null
@@ -239,17 +282,112 @@ export default {
             }
         })
 
+
+        const lifecycleOf = (obj) =>
+            obj.lifecycle_state || obj.customData?.lifecycleState || 'running'
+
+        const lifecycleLabel = (obj) => {
+            const state = lifecycleOf(obj)
+            return obj.soft_removed ? `${state} (removed)` : state
+        }
+
+        const publicLabel = (obj) => {
+            if (obj.soft_removed) return 'hidden'
+            const cat = obj.public_category || obj.customData?.publicCategory
+            if (!cat || cat === 'none') return 'hidden'
+            return cat
+        }
+
+        const publicClass = (obj) => {
+            const label = publicLabel(obj)
+            return {
+                planned: label === 'planned',
+                existing: label === 'existing',
+                none: label === 'hidden',
+            }
+        }
+
+        const canPromote = (obj) =>
+            !obj.soft_removed && lifecycleOf(obj) === 'virtual'
+
+        const canInstall = (obj) =>
+            !obj.soft_removed && lifecycleOf(obj) === 'planned'
+
+        const canSoftRemove = (obj) => !obj.soft_removed
+
+        const toggleLifecycle = (state) => {
+            const current = [...(store.filters.lifecycle || [])]
+            const index = current.indexOf(state)
+            if (index >= 0) {
+                current.splice(index, 1)
+            } else {
+                current.push(state)
+            }
+            store.setLifecycleFilter(current)
+        }
+
+        const clearLifecycleFilters = () => {
+            store.setLifecycleFilter([])
+        }
+
+        const onPromote = async (obj) => {
+            if (!confirm(`Promote "${obj.name}" to Planned (shows on public map)?`)) {
+                return
+            }
+            actionBusy.value = true
+            try {
+                await store.promotePlanned(obj.id)
+            } catch (e) {
+                alert(e.response?.data?.error || e.message || 'Promote failed')
+            } finally {
+                actionBusy.value = false
+            }
+        }
+
+        const onInstall = async (obj) => {
+            if (!confirm(`Mark "${obj.name}" as installed (Running / Existing)?\nCRM Won alone is not enough.`)) {
+                return
+            }
+            actionBusy.value = true
+            try {
+                await store.markInstalled(obj.id)
+            } catch (e) {
+                alert(e.response?.data?.error || e.message || 'Install failed')
+            } finally {
+                actionBusy.value = false
+            }
+        }
+
+        const onSoftRemove = async (obj) => {
+            if (!confirm(`Soft-remove "${obj.name}" from public listing?\nRow stays in the ops list.`)) {
+                return
+            }
+            actionBusy.value = true
+            try {
+                await store.softRemoveStation(obj.id)
+            } catch (e) {
+                alert(e.response?.data?.error || e.message || 'Soft-remove failed')
+            } finally {
+                actionBusy.value = false
+            }
+        }
+
         return {
             searchTerm,
             listRef,
+            actionBusy,
             filteredObjects,
             totalObjects,
             activeCount,
             warningCount,
             offlineCount,
+            virtualCount,
+            plannedCount,
+            runningCount,
             selectedId,
             isLoading,
             activeFilters,
+            lifecycleFilters,
             onSearch,
             toggleFilter,
             clearFilters,
@@ -259,7 +397,19 @@ export default {
             openCreateVirtual,
             confirmDelete,
             hasHiddenInstallations,
-            restoreAll
+            restoreAll,
+            lifecycleOf,
+            lifecycleLabel,
+            publicLabel,
+            publicClass,
+            canPromote,
+            canInstall,
+            canSoftRemove,
+            toggleLifecycle,
+            clearLifecycleFilters,
+            onPromote,
+            onInstall,
+            onSoftRemove,
         }
     }
 }
@@ -591,5 +741,82 @@ export default {
 
 .btn-add-virtual:hover {
     background: var(--color-primary-hover, #0070b0);
+}
+
+.lifecycle-chips {
+    border-bottom: 1px solid var(--color-border, #eee);
+}
+
+.chip-virtual.active {
+    border-color: #7b1fa2;
+    background: #f3e5f5;
+}
+
+.chip-planned.active {
+    border-color: #ef6c00;
+    background: #fff3e0;
+}
+
+.chip-running.active {
+    border-color: #2e7d32;
+    background: #e8f5e9;
+}
+
+.list-item.soft-removed {
+    opacity: 0.65;
+}
+
+.lifecycle-badge,
+.public-badge {
+    display: inline-block;
+    font-size: 10px;
+    font-weight: 600;
+    text-transform: lowercase;
+    padding: 1px 6px;
+    border-radius: 999px;
+    background: #eee;
+    color: #444;
+}
+
+.lifecycle-badge.virtual { background: #f3e5f5; color: #7b1fa2; }
+.lifecycle-badge.planned { background: #fff3e0; color: #ef6c00; }
+.lifecycle-badge.running { background: #e8f5e9; color: #2e7d32; }
+.lifecycle-badge.removed { text-decoration: line-through; }
+
+.public-badge.planned { background: #fff8e1; color: #f9a825; }
+.public-badge.existing { background: #e0f2f1; color: #00695c; }
+.public-badge.none { background: #eceff1; color: #607d8b; }
+
+.item-lifecycle-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    margin-top: 4px;
+}
+
+.lc-btn {
+    border: 1px solid var(--color-border, #d0d0d0);
+    background: #fff;
+    border-radius: 4px;
+    padding: 2px 6px;
+    font-size: 11px;
+    cursor: pointer;
+    color: #2962ff;
+}
+
+.lc-btn:disabled {
+    color: #9e9e9e;
+    cursor: not-allowed;
+}
+
+.lc-btn.warn {
+    color: #ef6c00;
+}
+
+.item-secondary {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px;
 }
 </style>

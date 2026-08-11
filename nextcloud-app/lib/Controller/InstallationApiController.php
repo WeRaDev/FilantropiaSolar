@@ -92,33 +92,27 @@ class InstallationApiController extends ApiController
             try {
                 $userInstallations = $this->mapper->findAllByUser($userId);
                 foreach ($userInstallations as $inst) {
-                    $state = $inst->getLifecycleState() !== ''
-                        ? $inst->getLifecycleState()
-                        : StationLifecycle::VIRTUAL;
-                    $dbInstallations[] = [
-                        'id' => 'virtual_' . $inst->getId(),
-                        'name' => $inst->getName(),
-                        'location' => $inst->getLocation(),
-                        'latitude' => $inst->getLatitude(),
-                        'longitude' => $inst->getLongitude(),
-                        'capacity_kwp' => (float) $inst->getCapacityKwp(),
-                        'serial_number' => $inst->getSerialNumber(),
-                        'is_virtual' => StationLifecycle::isVirtualFlag($state),
-                        'source' => 'user',
-                        'status' => 'warning',
-                        'db_id' => $inst->getId(),
-                        'lifecycle_state' => $state,
-                        'soft_removed' => $inst->getSoftRemoved(),
-                        'public_category' => StationLifecycle::publicCategory($state, $inst->getSoftRemoved()),
-                        'is_public' => StationLifecycle::isPublic($state, $inst->getSoftRemoved()),
-                    ];
+                    $dbInstallations[] = $this->userOrCrmRowToArray($inst, 'user');
                 }
             } catch (\Exception $dbEx) {
                 $this->logger->error('Failed to fetch user installations', ['exception' => $dbEx]);
             }
         }
 
-        // 3. Merge: dataset + user installations
+        // 3. CRM / ops stations (no user_id) — needed for dashboard lifecycle
+        try {
+            $crmRows = $this->mapper->findAllBySource('crm');
+            foreach ($crmRows as $inst) {
+                if ($inst->getSoftRemoved()) {
+                    // Still show to ops so soft-remove is visible/undo-aware later
+                }
+                $dbInstallations[] = $this->userOrCrmRowToArray($inst, 'crm');
+            }
+        } catch (\Exception $crmEx) {
+            $this->logger->error('Failed to fetch CRM installations', ['exception' => $crmEx]);
+        }
+
+        // 4. Merge: dataset + user + crm installations
         $merged = array_merge($mlInstallations, $dbInstallations);
 
         return new JSONResponse([
@@ -479,6 +473,194 @@ class InstallationApiController extends ApiController
             $this->logger->error('Failed to export installation data', ['id' => $id, 'exception' => $e]);
             return $this->errorResponse('Export failed: ' . $e->getMessage());
         }
+    }
+
+    /**
+     * Promote Virtual → Planned (session auth; dashboard ops).
+     *
+     * POST /api/v1/installations/{id}/promote-planned
+     */
+    #[NoAdminRequired]
+    #[NoCSRFRequired]
+    public function promotePlanned(string $id): JSONResponse
+    {
+        $station = $this->resolveStation($id);
+        if ($station === null) {
+            return $this->errorResponse('Installation not found', Http::STATUS_NOT_FOUND);
+        }
+
+        $state = $this->stateOf($station);
+        if (!StationLifecycle::canPromoteToPlanned($state, $station->getSoftRemoved())) {
+            return $this->errorResponse(
+                'Illegal transition to planned from ' . $state,
+                Http::STATUS_CONFLICT,
+            );
+        }
+
+        if ($state !== StationLifecycle::PLANNED) {
+            $station->applyLifecycleState(StationLifecycle::PLANNED);
+            $station->setUpdatedAt(new DateTime());
+            $station = $this->mapper->update($station);
+        }
+
+        return new JSONResponse([
+            'success' => true,
+            'installation' => $this->lifecyclePayload($station),
+            'message' => 'Station promoted to planned',
+        ]);
+    }
+
+    /**
+     * Mark Planned → Running / installed.
+     *
+     * POST /api/v1/installations/{id}/mark-installed
+     */
+    #[NoAdminRequired]
+    #[NoCSRFRequired]
+    public function markInstalled(string $id): JSONResponse
+    {
+        $station = $this->resolveStation($id);
+        if ($station === null) {
+            return $this->errorResponse('Installation not found', Http::STATUS_NOT_FOUND);
+        }
+
+        $state = $this->stateOf($station);
+        if (!StationLifecycle::canMarkInstalled($state, $station->getSoftRemoved())) {
+            return $this->errorResponse(
+                'Illegal transition to running from ' . $state,
+                Http::STATUS_CONFLICT,
+            );
+        }
+
+        $installedAtRaw = $this->request->getParam('installed_at');
+        if ($state !== StationLifecycle::RUNNING) {
+            $station->applyLifecycleState(StationLifecycle::RUNNING);
+            try {
+                $station->setInstalledAt(
+                    $installedAtRaw ? new DateTime((string) $installedAtRaw) : new DateTime(),
+                );
+            } catch (\Throwable) {
+                $station->setInstalledAt(new DateTime());
+            }
+            $station->setUpdatedAt(new DateTime());
+            $station = $this->mapper->update($station);
+        }
+
+        return new JSONResponse([
+            'success' => true,
+            'installation' => $this->lifecyclePayload($station),
+            'message' => 'Station marked installed (running)',
+        ]);
+    }
+
+    /**
+     * Soft-remove from public surfaces (row kept).
+     *
+     * POST /api/v1/installations/{id}/soft-remove
+     */
+    #[NoAdminRequired]
+    #[NoCSRFRequired]
+    public function softRemove(string $id): JSONResponse
+    {
+        $station = $this->resolveStation($id);
+        if ($station === null) {
+            return $this->errorResponse('Installation not found', Http::STATUS_NOT_FOUND);
+        }
+
+        if (!$station->getSoftRemoved()) {
+            $station->setSoftRemoved(true);
+            $station->setUpdatedAt(new DateTime());
+            $station = $this->mapper->update($station);
+        }
+
+        return new JSONResponse([
+            'success' => true,
+            'installation' => $this->lifecyclePayload($station),
+            'message' => 'Station soft-removed from public listing',
+        ]);
+    }
+
+    private function resolveStation(string $id): ?Installation
+    {
+        $id = trim($id);
+        if ($id === '') {
+            return null;
+        }
+
+        // virtual_<dbId> form used by dashboard
+        if (str_starts_with($id, 'virtual_')) {
+            $dbId = (int) substr($id, strlen('virtual_'));
+            if ($dbId > 0) {
+                try {
+                    return $this->mapper->find($dbId);
+                } catch (DoesNotExistException) {
+                    return null;
+                }
+            }
+        }
+
+        return $this->mapper->findByInstallationKey($id);
+    }
+
+    private function stateOf(Installation $station): string
+    {
+        $state = $station->getLifecycleState();
+        if ($state === null || $state === '') {
+            return StationLifecycle::defaultStateForNew($station->getIsVirtual(), $station->getSource());
+        }
+
+        return $state;
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function lifecyclePayload(Installation $station): array
+    {
+        $source = $station->getSource() ?: 'user';
+        if ($source === 'dataset') {
+            return $this->datasetRowToArray($station);
+        }
+
+        return $this->userOrCrmRowToArray($station, $source);
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function userOrCrmRowToArray(Installation $inst, string $source): array
+    {
+        $state = $inst->getLifecycleState() !== ''
+            ? $inst->getLifecycleState()
+            : StationLifecycle::defaultStateForNew($inst->getIsVirtual(), $source);
+        $soft = $inst->getSoftRemoved();
+
+        // Prefer stable installation_id key for lifecycle writes; keep virtual_ alias for UI
+        $publicId = $inst->getInstallationId();
+        if ($publicId === '' || $publicId === null) {
+            $publicId = ($source === 'user' ? 'virtual_' : 'crm_') . $inst->getId();
+        }
+
+        return [
+            'id' => $source === 'user' ? ('virtual_' . $inst->getId()) : $publicId,
+            'installation_id' => $publicId,
+            'name' => $inst->getName(),
+            'location' => $inst->getLocation(),
+            'latitude' => (float) $inst->getLatitude(),
+            'longitude' => (float) $inst->getLongitude(),
+            'capacity_kwp' => (float) $inst->getCapacityKwp(),
+            'serial_number' => $inst->getSerialNumber(),
+            'is_virtual' => StationLifecycle::isVirtualFlag($state),
+            'source' => $source,
+            'status' => $state === StationLifecycle::RUNNING ? 'active' : 'warning',
+            'db_id' => $inst->getId(),
+            'lifecycle_state' => $state,
+            'soft_removed' => $soft,
+            'public_category' => StationLifecycle::publicCategory($state, $soft),
+            'is_public' => StationLifecycle::isPublic($state, $soft),
+            'odoo_lead_id' => $inst->getOdooLeadId(),
+            'installed_at' => $inst->getInstalledAt()?->format('c'),
+        ];
     }
 
     /**

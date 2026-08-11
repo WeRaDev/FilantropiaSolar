@@ -24,6 +24,9 @@ return [
         ['name' => 'installation_api#export', 'url' => '/api/v1/installations/{id}/export', 'verb' => 'POST'],
         ['name' => 'installation_api#restoreDashboard', 'url' => '/api/v1/installations/restore-dashboard', 'verb' => 'POST'],
         ['name' => 'installation_api#stats', 'url' => '/api/v1/installations/{id}/stats', 'verb' => 'GET'],
+        ['name' => 'installation_api#promotePlanned', 'url' => '/api/v1/installations/{id}/promote-planned', 'verb' => 'POST'],
+        ['name' => 'installation_api#markInstalled', 'url' => '/api/v1/installations/{id}/mark-installed', 'verb' => 'POST'],
+        ['name' => 'installation_api#softRemove', 'url' => '/api/v1/installations/{id}/soft-remove', 'verb' => 'POST'],
 
         // Energy API
         ['name' => 'energy_api#readings', 'url' => '/api/v1/installations/{id}/readings', 'verb' => 'GET'],
