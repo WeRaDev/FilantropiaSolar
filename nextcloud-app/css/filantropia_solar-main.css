@@ -1,7 +1,7 @@
 .app-filantropia_solar{width:100%;height:calc(100vh - 50px);background-color:#fdfbf5;overflow:hidden}
 
 /* Header: 80px height per spec Section 5.1 */
-.app-header[data-v-49a88346] {
+.app-header[data-v-31271bda] {
     height: 80px;
     display: flex;
     align-items: center;
@@ -13,21 +13,21 @@
 }
 
 /* Branding */
-.header-branding[data-v-49a88346] {
+.header-branding[data-v-31271bda] {
     display: flex;
     align-items: center;
     gap: 12px;
     flex-shrink: 0;
 }
-.app-logo[data-v-49a88346] {
+.app-logo[data-v-31271bda] {
     display: flex;
 }
-.app-title-group[data-v-49a88346] {
+.app-title-group[data-v-31271bda] {
     display: flex;
     flex-direction: column;
     gap: 0;
 }
-.app-title[data-v-49a88346] {
+.app-title[data-v-31271bda] {
     font-family: Georgia, 'Times New Roman', serif;
     font-style: italic;
     font-size: 22px;
@@ -36,20 +36,20 @@
     margin: 0;
     line-height: 1.1;
 }
-.app-tagline[data-v-49a88346] {
+.app-tagline[data-v-31271bda] {
     font-size: 10px;
     color: var(--color-text-lighter, #767676);
     margin-left: 2px;
 }
-.wera-we[data-v-49a88346] {
+.wera-we[data-v-31271bda] {
     color: #A89D3F;
     font-weight: 500;
 }
-.wera-ra[data-v-49a88346] {
+.wera-ra[data-v-31271bda] {
     color: #E8A020;
     font-weight: 500;
 }
-.app-version[data-v-49a88346] {
+.app-version[data-v-31271bda] {
     font-size: 11px;
     color: var(--color-text-lighter, #767676);
     padding: 2px 6px;
@@ -57,15 +57,28 @@
     border-radius: 4px;
     align-self: flex-start;
 }
+.btn-admin[data-v-31271bda] {
+    margin-left: 4px;
+    border: 1px solid var(--color-border, #d8d8d8);
+    border-radius: 6px;
+    background: #fff;
+    padding: 4px 10px;
+    font-size: 12px;
+    cursor: pointer;
+    color: var(--color-main-text, #1a1a1a);
+}
+.btn-admin[data-v-31271bda]:hover {
+    background: var(--color-background-hover, #ededed);
+}
 
 /* KPI Container - cards 120px wide per spec */
-.kpi-container[data-v-49a88346] {
+.kpi-container[data-v-31271bda] {
     display: flex;
     gap: 16px;
     flex: 1;
     justify-content: center;
 }
-.kpi-card[data-v-49a88346] {
+.kpi-card[data-v-31271bda] {
     min-width: 100px;
     width: 120px;
     padding: 8px 16px;
@@ -76,21 +89,21 @@
     transition: all 0.2s ease;
     border: 2px solid transparent;
 }
-.kpi-card[data-v-49a88346]:hover {
+.kpi-card[data-v-31271bda]:hover {
     background: var(--color-background-hover, #ededed);
 }
-.kpi-card.active[data-v-49a88346] {
+.kpi-card.active[data-v-31271bda] {
     border-color: var(--color-primary, #0082c9);
 }
 
 /* KPI Values - 28px bold per spec */
-.kpi-value[data-v-49a88346] {
+.kpi-value[data-v-31271bda] {
     display: block;
     font-size: 28px;
     font-weight: 700;
     line-height: 1.2;
 }
-.kpi-label[data-v-49a88346] {
+.kpi-label[data-v-31271bda] {
     display: block;
     font-size: 11px;
     color: var(--color-text-lighter, #767676);
@@ -99,39 +112,39 @@
 }
 
 /* Status-specific colors per spec Section 5.2 */
-.kpi-active .kpi-value[data-v-49a88346] { color: #22A559;
+.kpi-active .kpi-value[data-v-31271bda] { color: #22A559;
 }
-.kpi-warning .kpi-value[data-v-49a88346] { color: #F5A623;
+.kpi-warning .kpi-value[data-v-31271bda] { color: #F5A623;
 }
-.kpi-offline .kpi-value[data-v-49a88346] { color: #CC2020;
+.kpi-offline .kpi-value[data-v-31271bda] { color: #CC2020;
 }
-.kpi-capacity .kpi-value[data-v-49a88346] { color: var(--color-primary, #0082c9);
+.kpi-capacity .kpi-value[data-v-31271bda] { color: var(--color-primary, #0082c9);
 }
 
 /* Responsive */
 @media (max-width: 1200px) {
-.kpi-card[data-v-49a88346] {
+.kpi-card[data-v-31271bda] {
         min-width: 80px;
         width: 100px;
         padding: 6px 12px;
 }
-.kpi-value[data-v-49a88346] {
+.kpi-value[data-v-31271bda] {
         font-size: 22px;
 }
 }
 @media (max-width: 768px) {
-.app-header[data-v-49a88346] {
+.app-header[data-v-31271bda] {
         height: auto;
         flex-wrap: wrap;
         padding: 12px 16px;
 }
-.kpi-container[data-v-49a88346] {
+.kpi-container[data-v-31271bda] {
         order: 3;
         width: 100%;
         justify-content: space-between;
         margin-top: 12px;
 }
-.kpi-card[data-v-49a88346] {
+.kpi-card[data-v-31271bda] {
         flex: 1;
         min-width: auto;
 }
@@ -1321,7 +1334,7 @@ svg.leaflet-image-layer.leaflet-interactive path {
 
 
 /* Dashboard Layout - Full viewport minus Nextcloud header */
-.dashboard-layout[data-v-24c84387] {
+.dashboard-layout[data-v-5159b733] {
     display: flex;
     flex-direction: column;
     height: 100%;
@@ -1331,7 +1344,7 @@ svg.leaflet-image-layer.leaflet-interactive path {
 }
 
 /* Main Content Area - Takes remaining space */
-.main-content[data-v-24c84387] {
+.main-content[data-v-5159b733] {
     display: flex;
     flex: 1;
     min-height: 0; /* Important for flex children to scroll */
@@ -1339,7 +1352,7 @@ svg.leaflet-image-layer.leaflet-interactive path {
 }
 
 /* List Section - 30-35% width per spec */
-.list-section[data-v-24c84387] {
+.list-section[data-v-5159b733] {
     width: 32%;
     min-width: 280px;
     max-width: 400px;
@@ -1347,29 +1360,29 @@ svg.leaflet-image-layer.leaflet-interactive path {
 }
 
 /* Map Section - 65-70% width per spec */
-.map-section[data-v-24c84387] {
+.map-section[data-v-5159b733] {
     flex: 1;
     min-width: 0;
 }
 
 /* Responsive breakpoints per spec Section 5.5 */
 @media (max-width: 1200px) {
-.list-section[data-v-24c84387] {
+.list-section[data-v-5159b733] {
         width: 35%;
         max-width: 350px;
 }
 }
 @media (max-width: 768px) {
-.main-content[data-v-24c84387] {
+.main-content[data-v-5159b733] {
         flex-direction: column;
 }
-.list-section[data-v-24c84387] {
+.list-section[data-v-5159b733] {
         width: 100%;
         max-width: none;
         height: 200px;
         min-width: auto;
 }
-.map-section[data-v-24c84387] {
+.map-section[data-v-5159b733] {
         flex: 1;
 }
 }

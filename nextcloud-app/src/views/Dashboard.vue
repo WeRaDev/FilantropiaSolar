@@ -1,7 +1,7 @@
 <template>
     <div class="dashboard-layout">
         <!-- Header Section - 80px height -->
-        <Header />
+        <Header @open-admin="showAdminPanel = true" />
         
         <!-- Main Content - List (30-35%) + Map (65-70%) -->
         <main class="main-content">

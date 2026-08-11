@@ -27,7 +27,15 @@
                 <h1 class="app-title">FilantropiaSolar</h1>
                 <span class="app-tagline">built by <span class="wera-we">we</span><span class="wera-ra">ra</span></span>
             </div>
-            <span class="app-version">v3.0.6</span>
+            <span class="app-version">v3.2.3</span>
+            <button
+                type="button"
+                class="btn-admin"
+                title="Open admin dashboard"
+                @click="$emit('open-admin')"
+            >
+                Admin
+            </button>
         </div>
 
         <!-- Center: KPI cards -->
@@ -62,6 +70,7 @@ import { useAppStore } from '../store/app.js'
 
 export default {
     name: 'Header',
+    emits: ['open-admin'],
     setup() {
         const store = useAppStore()
         const activeFilter = ref(null)
@@ -161,6 +170,21 @@ export default {
     background: var(--color-background-dark, #f5f5f5);
     border-radius: 4px;
     align-self: flex-start;
+}
+
+.btn-admin {
+    margin-left: 4px;
+    border: 1px solid var(--color-border, #d8d8d8);
+    border-radius: 6px;
+    background: #fff;
+    padding: 4px 10px;
+    font-size: 12px;
+    cursor: pointer;
+    color: var(--color-main-text, #1a1a1a);
+}
+
+.btn-admin:hover {
+    background: var(--color-background-hover, #ededed);
 }
 
 /* KPI Container - cards 120px wide per spec */
