@@ -44,6 +44,13 @@ return [
         ['name' => 'public_api#dashboard', 'url' => '/api/public/v1/dashboard', 'verb' => 'GET'],
         ['name' => 'public_api#estimate', 'url' => '/api/public/v1/estimate', 'verb' => 'POST'],
 
+        // Lifecycle API (token-authed) for Odoo CRM glue (MVP-2)
+        ['name' => 'lifecycle_api#createVirtual', 'url' => '/api/lifecycle/v1/stations/virtual', 'verb' => 'POST'],
+        ['name' => 'lifecycle_api#promotePlanned', 'url' => '/api/lifecycle/v1/stations/{installationId}/promote-planned', 'verb' => 'POST'],
+        ['name' => 'lifecycle_api#markInstalled', 'url' => '/api/lifecycle/v1/stations/{installationId}/mark-installed', 'verb' => 'POST'],
+        ['name' => 'lifecycle_api#softRemove', 'url' => '/api/lifecycle/v1/stations/{installationId}/soft-remove', 'verb' => 'POST'],
+        ['name' => 'lifecycle_api#show', 'url' => '/api/lifecycle/v1/stations/{installationId}', 'verb' => 'GET'],
+
         // Admin API (admin-only): global dataset stations + ML controls + admin settings
         ['name' => 'admin_api#bootstrap', 'url' => '/api/v1/admin/bootstrap', 'verb' => 'GET'],
         ['name' => 'admin_api#stations', 'url' => '/api/v1/admin/stations', 'verb' => 'GET'],
