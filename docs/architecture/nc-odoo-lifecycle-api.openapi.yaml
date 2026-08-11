@@ -1,0 +1,342 @@
+openapi: 3.0.3
+info:
+  title: FilantropiaSolar NC Lifecycle API (Odoo CRM glue)
+  version: 0.1.0-mvp
+  description: |
+    Idempotent lifecycle endpoints on Nextcloud for Odoo CRM automation (D1, D4, D7).
+    Authenticated with the same bearer token pattern as `/api/public/v1/*`
+    (`public_api_token`) or a dedicated `lifecycle_api_token` (preferred when implemented).
+
+    Base path suggestion (to implement): `/apps/filantropia_solar/api/lifecycle/v1`
+    Existing public read API remains under `/api/public/v1`.
+
+servers:
+  - url: https://{host}/apps/filantropia_solar
+    variables:
+      host:
+        default: nextcloud.example.local
+
+tags:
+  - name: lifecycle
+  - name: public-read
+
+paths:
+  /api/lifecycle/v1/stations/virtual:
+    post:
+      tags: [lifecycle]
+      operationId: createVirtualStation
+      summary: Create Virtual station from CRM lead (not public)
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/VirtualStationCreate'
+      responses:
+        '200':
+          description: Existing station returned (idempotent replay)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LifecycleStationResponse'
+        '201':
+          description: Virtual station created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LifecycleStationResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/lifecycle/v1/stations/{installationId}/promote-planned:
+    post:
+      tags: [lifecycle]
+      operationId: promotePlanned
+      summary: Virtual → Planned (public as planned)
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/installationId'
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/IdempotencyBody'
+      responses:
+        '200':
+          description: Station is Planned (created transition or already Planned)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LifecycleStationResponse'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          description: Illegal transition (e.g. already Running without force)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /api/lifecycle/v1/stations/{installationId}/mark-installed:
+    post:
+      tags: [lifecycle]
+      operationId: markInstalled
+      summary: Planned → Running (admin only; not CRM Won)
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/installationId'
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                installed_at:
+                  type: string
+                  format: date
+                actor:
+                  type: string
+                  description: Admin user id or email for audit
+                idempotency_key:
+                  type: string
+      responses:
+        '200':
+          description: Station Running (Existing on public map)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LifecycleStationResponse'
+        '409':
+          description: Not Planned / illegal state
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /api/lifecycle/v1/stations/{installationId}/soft-remove:
+    post:
+      tags: [lifecycle]
+      operationId: softRemove
+      summary: Hide from admin dashboard and public map; retain data for retrain
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/installationId'
+      responses:
+        '200':
+          description: Soft-removed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LifecycleStationResponse'
+
+  /api/lifecycle/v1/stations/{installationId}:
+    get:
+      tags: [lifecycle]
+      operationId: getLifecycleStation
+      summary: Fetch station lifecycle view for CRM sync
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/installationId'
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LifecycleStationResponse'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /api/public/v1/stations:
+    get:
+      tags: [public-read]
+      operationId: listPublicStations
+      summary: Public map/list — Existing + Planned only (never Virtual)
+      description: |
+        MVP change from current dataset-only implementation.
+        Must filter lifecycle_state in [planned, running] and not soft-removed.
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Public stations
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  count:
+                    type: integer
+                  stations:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/PublicStation'
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: opaque
+
+  parameters:
+    installationId:
+      name: installationId
+      in: path
+      required: true
+      schema:
+        type: string
+      description: NC installation_id (location_serial) or stable public id
+
+  responses:
+    BadRequest:
+      description: Validation error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    Unauthorized:
+      description: Missing/invalid bearer token
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    NotFound:
+      description: Station not found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+
+  schemas:
+    IdempotencyBody:
+      type: object
+      properties:
+        idempotency_key:
+          type: string
+        odoo_lead_id:
+          type: integer
+
+    VirtualStationCreate:
+      type: object
+      required: [odoo_lead_id, name, latitude, longitude, capacity_kwp]
+      properties:
+        odoo_lead_id:
+          type: integer
+          description: Idempotency key — one Virtual station per lead
+        name:
+          type: string
+        organization_name:
+          type: string
+        location_label:
+          type: string
+        latitude:
+          type: number
+        longitude:
+          type: number
+        capacity_kwp:
+          type: number
+          minimum: 0.01
+        grid_price_kwh:
+          type: number
+        contact_email:
+          type: string
+          format: email
+        estimate_snapshot:
+          type: object
+          additionalProperties: true
+        idempotency_key:
+          type: string
+
+    LifecycleStationResponse:
+      type: object
+      required: [success, station]
+      properties:
+        success:
+          type: boolean
+        station:
+          $ref: '#/components/schemas/LifecycleStation'
+
+    LifecycleStation:
+      type: object
+      required: [installation_id, lifecycle_state, is_public]
+      properties:
+        id:
+          type: integer
+        installation_id:
+          type: string
+        lifecycle_state:
+          type: string
+          enum: [virtual, planned, running]
+        running_mode:
+          type: string
+          enum: [offline, active]
+          nullable: true
+          description: Only when lifecycle_state=running; active if measured historical present
+        is_public:
+          type: boolean
+          description: true for planned|running and not soft-removed
+        public_category:
+          type: string
+          enum: [planned, existing, none]
+        soft_removed:
+          type: boolean
+        odoo_lead_id:
+          type: integer
+          nullable: true
+        capacity_kwp:
+          type: number
+        latitude:
+          type: number
+        longitude:
+          type: number
+        name:
+          type: string
+
+    PublicStation:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        location:
+          type: string
+        latitude:
+          type: number
+        longitude:
+          type: number
+        capacity_kwp:
+          type: number
+        public_category:
+          type: string
+          enum: [planned, existing]
+        from_date:
+          type: string
+          format: date
+          nullable: true
+        to_date:
+          type: string
+          format: date
+          nullable: true
+
+    Error:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: false
+        error:
+          type: string
+        code:
+          type: string
