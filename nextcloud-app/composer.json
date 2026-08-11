@@ -1,0 +1,16 @@
+{
+  "name": "wera/filantropia-solar-nc-app",
+  "require-dev": {
+    "phpunit/phpunit": "^10.5"
+  },
+  "autoload": {
+    "psr-4": {
+      "OCA\\FilantropiaSolar\\": "lib/"
+    }
+  },
+  "autoload-dev": {
+    "psr-4": {
+      "OCA\\FilantropiaSolar\\Tests\\": "tests/"
+    }
+  }
+}

@@ -23,7 +23,7 @@ Ops run lifecycle on **Nextcloud admin**; CRM **Qualify → Planned** only; **Wo
 
 ---
 
-### MVP-1 — NC lifecycle data model  
+### MVP-1 — NC lifecycle data model ✅  
 **Maps:** D3, D4  
 
 - Migration: `lifecycle_state` (`virtual|planned|running`), `soft_removed`, `odoo_lead_id` (unique nullable), optional `installed_at`.  

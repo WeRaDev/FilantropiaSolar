@@ -8,6 +8,7 @@ use DateTime;
 use OCA\FilantropiaSolar\AppInfo\Application;
 use OCA\FilantropiaSolar\Db\Installation;
 use OCA\FilantropiaSolar\Db\InstallationMapper;
+use OCA\FilantropiaSolar\Service\StationLifecycle;
 use OCP\AppFramework\ApiController;
 use OCP\AppFramework\Db\DoesNotExistException;
 use OCP\AppFramework\Http;
@@ -91,6 +92,9 @@ class InstallationApiController extends ApiController
             try {
                 $userInstallations = $this->mapper->findAllByUser($userId);
                 foreach ($userInstallations as $inst) {
+                    $state = $inst->getLifecycleState() !== ''
+                        ? $inst->getLifecycleState()
+                        : StationLifecycle::VIRTUAL;
                     $dbInstallations[] = [
                         'id' => 'virtual_' . $inst->getId(),
                         'name' => $inst->getName(),
@@ -99,10 +103,14 @@ class InstallationApiController extends ApiController
                         'longitude' => $inst->getLongitude(),
                         'capacity_kwp' => (float) $inst->getCapacityKwp(),
                         'serial_number' => $inst->getSerialNumber(),
-                        'is_virtual' => (bool) $inst->getIsVirtual(),
+                        'is_virtual' => StationLifecycle::isVirtualFlag($state),
                         'source' => 'user',
                         'status' => 'warning',
                         'db_id' => $inst->getId(),
+                        'lifecycle_state' => $state,
+                        'soft_removed' => $inst->getSoftRemoved(),
+                        'public_category' => StationLifecycle::publicCategory($state, $inst->getSoftRemoved()),
+                        'is_public' => StationLifecycle::isPublic($state, $inst->getSoftRemoved()),
                     ];
                 }
             } catch (\Exception $dbEx) {
@@ -190,7 +198,10 @@ class InstallationApiController extends ApiController
             if ($installationDate) {
                 $installation->setInstallationDate(new DateTime($installationDate));
             }
-            $installation->setIsVirtual($isVirtual);
+            $installation->setSource('user');
+            // User-created stations are virtual until promoted via lifecycle API.
+            $installation->applyLifecycleState(StationLifecycle::VIRTUAL);
+            $installation->setSoftRemoved(false);
 
             $now = new DateTime();
             $installation->setCreatedAt($now);
@@ -481,6 +492,10 @@ class InstallationApiController extends ApiController
             'error_flag' => $inst->getErrorFlag(),
         ];
 
+        $state = $inst->getLifecycleState() !== ''
+            ? $inst->getLifecycleState()
+            : StationLifecycle::RUNNING;
+
         return [
             'id' => $inst->getInstallationId(),
             'serial_number' => $inst->getSerialNumber(),
@@ -495,8 +510,14 @@ class InstallationApiController extends ApiController
             'to_date' => $toDate,
             'status' => $this->calculateStatus($statusMeta),
             'source' => 'dataset',
-            'is_virtual' => false,
+            'is_virtual' => StationLifecycle::isVirtualFlag($state),
             'db_id' => $inst->getId(),
+            'lifecycle_state' => $state,
+            'soft_removed' => $inst->getSoftRemoved(),
+            'public_category' => StationLifecycle::publicCategory($state, $inst->getSoftRemoved()),
+            'is_public' => StationLifecycle::isPublic($state, $inst->getSoftRemoved()),
+            'odoo_lead_id' => $inst->getOdooLeadId(),
+            'installed_at' => $inst->getInstalledAt()?->format('c'),
         ];
     }
 

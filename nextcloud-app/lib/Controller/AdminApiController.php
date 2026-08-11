@@ -8,6 +8,7 @@ use DateTime;
 use OCA\FilantropiaSolar\AppInfo\Application;
 use OCA\FilantropiaSolar\Db\Installation;
 use OCA\FilantropiaSolar\Db\InstallationMapper;
+use OCA\FilantropiaSolar\Service\StationLifecycle;
 use OCP\AppFramework\ApiController;
 use OCP\AppFramework\Http;
 use OCP\AppFramework\Http\Attribute\NoCSRFRequired;
@@ -340,10 +341,18 @@ class AdminApiController extends ApiController
         $station->setSource('dataset');
         $station->setIsVirtual(false);
         $station->setGridPriceKwh((string) Application::DEFAULT_GRID_PRICE);
+        if ($create) {
+            $station->applyLifecycleState(StationLifecycle::RUNNING);
+            $station->setSoftRemoved(false);
+        }
     }
 
     private function toStationArray(Installation $station): array
     {
+        $state = $station->getLifecycleState() !== ''
+            ? $station->getLifecycleState()
+            : StationLifecycle::defaultStateForNew($station->getIsVirtual(), $station->getSource());
+
         return [
             'id' => $station->getId(),
             'installation_id' => $station->getInstallationId(),
@@ -358,6 +367,13 @@ class AdminApiController extends ApiController
             'to_date' => $station->getToDate()?->format('Y-m-d'),
             'error_flag' => $station->getErrorFlag(),
             'source' => $station->getSource(),
+            'lifecycle_state' => $state,
+            'soft_removed' => $station->getSoftRemoved(),
+            'odoo_lead_id' => $station->getOdooLeadId(),
+            'installed_at' => $station->getInstalledAt()?->format('c'),
+            'is_public' => StationLifecycle::isPublic($state, $station->getSoftRemoved()),
+            'public_category' => StationLifecycle::publicCategory($state, $station->getSoftRemoved()),
+            'is_virtual' => StationLifecycle::isVirtualFlag($state),
         ];
     }
 

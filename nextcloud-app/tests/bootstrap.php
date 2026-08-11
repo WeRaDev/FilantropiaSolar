@@ -14,6 +14,11 @@ if (file_exists($composerAutoload)) {
     require_once $composerAutoload;
 }
 
+// Minimal OCP Entity stub (before app classes load)
+if (!class_exists('OCP\\AppFramework\\Db\\Entity', false)) {
+    require_once __DIR__ . '/mocks/Entity.php';
+}
+
 // App namespace autoloader
 spl_autoload_register(function (string $class): void {
     $prefix = 'OCA\\FilantropiaSolar\\';

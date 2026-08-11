@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace OCA\FilantropiaSolar\Tests\Unit\Db;
 
 use OCA\FilantropiaSolar\Db\Installation;
+use OCA\FilantropiaSolar\Service\StationLifecycle;
 use PHPUnit\Framework\TestCase;
 
 /**
@@ -12,99 +13,115 @@ use PHPUnit\Framework\TestCase;
  */
 class InstallationTest extends TestCase
 {
-    /**
-     * Test entity creation with all fields
-     */
-    public function testCreateInstallation(): void
-    {
-        $installation = new Installation();
-        $installation->setUserId('user123');
-        $installation->setName('Test Solar');
-        $installation->setLatitude('38.7223');
-        $installation->setLongitude('-9.1393');
-        $installation->setCapacityKwp('5.50');
-        $installation->setGridPriceKwh('0.15');
+	public function testCreateInstallation(): void
+	{
+		$installation = new Installation();
+		$installation->setUserId('user123');
+		$installation->setName('Test Solar');
+		$installation->setLatitude('38.7223');
+		$installation->setLongitude('-9.1393');
+		$installation->setCapacityKwp('5.50');
+		$installation->setGridPriceKwh('0.15');
 
-        $this->assertEquals('user123', $installation->getUserId());
-        $this->assertEquals('Test Solar', $installation->getName());
-        $this->assertEquals('38.7223', $installation->getLatitude());
-        $this->assertEquals('-9.1393', $installation->getLongitude());
-        $this->assertEquals('5.50', $installation->getCapacityKwp());
-        $this->assertEquals('0.15', $installation->getGridPriceKwh());
-    }
+		$this->assertEquals('user123', $installation->getUserId());
+		$this->assertEquals('Test Solar', $installation->getName());
+		$this->assertEquals('38.7223', $installation->getLatitude());
+		$this->assertEquals('-9.1393', $installation->getLongitude());
+		$this->assertEquals('5.50', $installation->getCapacityKwp());
+		$this->assertEquals('0.15', $installation->getGridPriceKwh());
+	}
 
-    /**
-     * Test getGridPriceFloat returns default when null
-     */
-    public function testGetGridPriceFloatDefault(): void
-    {
-        $installation = new Installation();
+	public function testGetGridPriceFloatDefault(): void
+	{
+		$installation = new Installation();
+		$this->assertEquals(0.15, $installation->getGridPriceFloat());
+	}
 
-        // Should return 0.15 (DEFAULT_GRID_PRICE from v1.2.x)
-        $this->assertEquals(0.15, $installation->getGridPriceFloat());
-    }
+	public function testGetGridPriceFloatCustom(): void
+	{
+		$installation = new Installation();
+		$installation->setGridPriceKwh('0.20');
+		$this->assertEquals(0.20, $installation->getGridPriceFloat());
+	}
 
-    /**
-     * Test getGridPriceFloat with custom value
-     */
-    public function testGetGridPriceFloatCustom(): void
-    {
-        $installation = new Installation();
-        $installation->setGridPriceKwh('0.20');
+	public function testGetCoordinates(): void
+	{
+		$installation = new Installation();
+		$installation->setLatitude('38.7223');
+		$installation->setLongitude('-9.1393');
+		$coords = $installation->getCoordinates();
+		$this->assertEqualsWithDelta(38.7223, $coords[0], 0.0001);
+		$this->assertEqualsWithDelta(-9.1393, $coords[1], 0.0001);
+	}
 
-        $this->assertEquals(0.20, $installation->getGridPriceFloat());
-    }
+	public function testJsonSerialize(): void
+	{
+		$installation = new Installation();
+		$installation->setUserId('user123');
+		$installation->setName('Test Solar');
+		$installation->setLatitude('38.7223');
+		$installation->setLongitude('-9.1393');
+		$installation->setCapacityKwp('5.50');
+		$installation->setLocation('Lisbon');
+		$installation->setSerialNumber('42');
+		$installation->applyLifecycleState(StationLifecycle::PLANNED);
+		$installation->setSoftRemoved(false);
+		$installation->setOdooLeadId(99);
 
-    /**
-     * Test getCoordinates helper method
-     */
-    public function testGetCoordinates(): void
-    {
-        $installation = new Installation();
-        $installation->setLatitude('38.7223');
-        $installation->setLongitude('-9.1393');
+		$json = $installation->jsonSerialize();
 
-        $coords = $installation->getCoordinates();
+		$this->assertArrayHasKey('lifecycle_state', $json);
+		$this->assertArrayHasKey('soft_removed', $json);
+		$this->assertArrayHasKey('odoo_lead_id', $json);
+		$this->assertArrayHasKey('is_public', $json);
+		$this->assertArrayHasKey('public_category', $json);
+		$this->assertEquals('Test Solar', $json['name']);
+		$this->assertSame('planned', $json['lifecycle_state']);
+		$this->assertFalse($json['soft_removed']);
+		$this->assertSame(99, $json['odoo_lead_id']);
+		$this->assertTrue($json['is_public']);
+		$this->assertSame('planned', $json['public_category']);
+		$this->assertFalse($json['is_virtual']);
+		$this->assertNull($json['running_mode']);
+	}
 
-        $this->assertEqualsWithDelta(38.7223, $coords['lat'], 0.0001);
-        $this->assertEqualsWithDelta(-9.1393, $coords['lon'], 0.0001);
-    }
+	public function testApplyLifecycleStateSyncsIsVirtual(): void
+	{
+		$installation = new Installation();
+		$installation->applyLifecycleState(StationLifecycle::VIRTUAL);
+		$this->assertTrue($installation->getIsVirtual());
+		$this->assertSame('virtual', $installation->getLifecycleState());
+		$this->assertFalse($installation->isPubliclyVisible());
 
-    /**
-     * Test jsonSerialize includes all required fields
-     */
-    public function testJsonSerialize(): void
-    {
-        $installation = new Installation();
-        $installation->setUserId('user123');
-        $installation->setName('Test Solar');
-        $installation->setLatitude('38.7223');
-        $installation->setLongitude('-9.1393');
-        $installation->setCapacityKwp('5.50');
+		$installation->applyLifecycleState(StationLifecycle::RUNNING);
+		$this->assertFalse($installation->getIsVirtual());
+		$this->assertSame('existing', $installation->getPublicCategory());
+	}
 
-        $json = $installation->jsonSerialize();
+	public function testRunningModeUsesMeasuredFlag(): void
+	{
+		$installation = new Installation();
+		$installation->applyLifecycleState(StationLifecycle::RUNNING);
+		$installation->setHasMeasuredData(false);
+		$this->assertSame('offline', $installation->getRunningMode());
+		$installation->setHasMeasuredData(true);
+		$this->assertSame('active', $installation->getRunningMode());
+	}
 
-        $this->assertArrayHasKey('id', $json);
-        $this->assertArrayHasKey('name', $json);
-        $this->assertArrayHasKey('latitude', $json);
-        $this->assertArrayHasKey('longitude', $json);
-        $this->assertArrayHasKey('capacity_kwp', $json);
-        $this->assertEquals('Test Solar', $json['name']);
-    }
+	public function testApplyLifecycleStateRejectsInvalid(): void
+	{
+		$this->expectException(\InvalidArgumentException::class);
+		$installation = new Installation();
+		$installation->applyLifecycleState('nope');
+	}
 
-    /**
-     * Test that coordinates can be set with float precision
-     */
-    public function testCoordinatePrecision(): void
-    {
-        $installation = new Installation();
-        $installation->setLatitude('38.72234567');
-        $installation->setLongitude('-9.13934567');
-
-        $coords = $installation->getCoordinates();
-
-        // Should maintain precision
-        $this->assertEqualsWithDelta(38.72234567, $coords['lat'], 0.00000001);
-        $this->assertEqualsWithDelta(-9.13934567, $coords['lon'], 0.00000001);
-    }
+	public function testCoordinatePrecision(): void
+	{
+		$installation = new Installation();
+		$installation->setLatitude('38.72234567');
+		$installation->setLongitude('-9.13934567');
+		$coords = $installation->getCoordinates();
+		$this->assertEqualsWithDelta(38.72234567, $coords[0], 0.00000001);
+		$this->assertEqualsWithDelta(-9.13934567, $coords[1], 0.00000001);
+	}
 }
