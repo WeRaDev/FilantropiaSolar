@@ -100,35 +100,6 @@
                             {{ publicLabel(obj) }}
                         </span>
                     </div>
-                    <div class="item-lifecycle-actions">
-                        <button
-                            type="button"
-                            class="lc-btn"
-                            :disabled="!canPromote(obj) || actionBusy"
-                            title="Virtual → Planned (public map)"
-                            @click.stop="onPromote(obj)"
-                        >
-                            Promote
-                        </button>
-                        <button
-                            type="button"
-                            class="lc-btn"
-                            :disabled="!canInstall(obj) || actionBusy"
-                            title="Planned → Running / Existing"
-                            @click.stop="onInstall(obj)"
-                        >
-                            Install
-                        </button>
-                        <button
-                            type="button"
-                            class="lc-btn warn"
-                            :disabled="!canSoftRemove(obj) || actionBusy"
-                            title="Hide from public listing"
-                            @click.stop="onSoftRemove(obj)"
-                        >
-                            Soft-remove
-                        </button>
-                    </div>
                 </div>
 
                 <!-- View Analysis button -->
@@ -188,7 +159,6 @@ export default {
         const store = useAppStore()
         const searchTerm = ref('')
         const listRef = ref(null)
-        const actionBusy = ref(false)
 
         // Computed from store
         const filteredObjects = computed(() => store.filteredObjects)
@@ -307,14 +277,6 @@ export default {
             }
         }
 
-        const canPromote = (obj) =>
-            !obj.soft_removed && lifecycleOf(obj) === 'virtual'
-
-        const canInstall = (obj) =>
-            !obj.soft_removed && lifecycleOf(obj) === 'planned'
-
-        const canSoftRemove = (obj) => !obj.soft_removed
-
         const toggleLifecycle = (state) => {
             const current = [...(store.filters.lifecycle || [])]
             const index = current.indexOf(state)
@@ -330,52 +292,9 @@ export default {
             store.setLifecycleFilter([])
         }
 
-        const onPromote = async (obj) => {
-            if (!confirm(`Promote "${obj.name}" to Planned (shows on public map)?`)) {
-                return
-            }
-            actionBusy.value = true
-            try {
-                await store.promotePlanned(obj.id)
-            } catch (e) {
-                alert(e.response?.data?.error || e.message || 'Promote failed')
-            } finally {
-                actionBusy.value = false
-            }
-        }
-
-        const onInstall = async (obj) => {
-            if (!confirm(`Mark "${obj.name}" as installed (Running / Existing)?\nCRM Won alone is not enough.`)) {
-                return
-            }
-            actionBusy.value = true
-            try {
-                await store.markInstalled(obj.id)
-            } catch (e) {
-                alert(e.response?.data?.error || e.message || 'Install failed')
-            } finally {
-                actionBusy.value = false
-            }
-        }
-
-        const onSoftRemove = async (obj) => {
-            if (!confirm(`Soft-remove "${obj.name}" from public listing?\nRow stays in the ops list.`)) {
-                return
-            }
-            actionBusy.value = true
-            try {
-                await store.softRemoveStation(obj.id)
-            } catch (e) {
-                alert(e.response?.data?.error || e.message || 'Soft-remove failed')
-            } finally {
-                actionBusy.value = false
-            }
-        }
-
         return {
             searchTerm,
             listRef,
-            actionBusy,
             filteredObjects,
             totalObjects,
             activeCount,
@@ -402,14 +321,8 @@ export default {
             lifecycleLabel,
             publicLabel,
             publicClass,
-            canPromote,
-            canInstall,
-            canSoftRemove,
             toggleLifecycle,
             clearLifecycleFilters,
-            onPromote,
-            onInstall,
-            onSoftRemove,
         }
     }
 }
@@ -787,31 +700,9 @@ export default {
 .public-badge.existing { background: #e0f2f1; color: #00695c; }
 .public-badge.none { background: #eceff1; color: #607d8b; }
 
-.item-lifecycle-actions {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 4px;
-    margin-top: 4px;
-}
 
-.lc-btn {
-    border: 1px solid var(--color-border, #d0d0d0);
-    background: #fff;
-    border-radius: 4px;
-    padding: 2px 6px;
-    font-size: 11px;
-    cursor: pointer;
-    color: #2962ff;
-}
 
-.lc-btn:disabled {
-    color: #9e9e9e;
-    cursor: not-allowed;
-}
 
-.lc-btn.warn {
-    color: #ef6c00;
-}
 
 .item-secondary {
     display: flex;

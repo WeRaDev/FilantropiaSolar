@@ -59,6 +59,22 @@
                     <span class="info-value">{{ selectedObject.capacity_kwp }} kWp</span>
                 </div>
                 <div class="info-row">
+                    <span class="info-label">Lifecycle</span>
+                    <span class="info-value">
+                        <span class="lc-badge" :class="[lifecycleOf(selectedObject), { removed: selectedObject.soft_removed }]">
+                            {{ lifecycleLabel(selectedObject) }}
+                        </span>
+                    </span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">Public</span>
+                    <span class="info-value">
+                        <span class="pub-badge" :class="publicClass(selectedObject)">
+                            {{ publicLabel(selectedObject) }}
+                        </span>
+                    </span>
+                </div>
+                <div class="info-row">
                     <span class="info-label">Avg. Yearly Production</span>
                     <span class="info-value highlight">{{ formatNumber(estimatedYearlyProduction) }} kWh</span>
                 </div>
@@ -68,10 +84,35 @@
                         {{ formatPercent(selectedObject.metrics?.efficiency || 0.85) }}
                     </span>
                 </div>
-                <div v-if="selectedObject.customData?.isVirtual" class="info-row">
-                    <span class="info-label">Type</span>
-                    <span class="info-value virtual-badge">Virtual</span>
-                </div>
+            </div>
+            <div class="info-lifecycle-actions">
+                <button
+                    type="button"
+                    class="lc-action"
+                    :disabled="!canPromote(selectedObject) || actionBusy"
+                    title="Virtual → Planned (public map)"
+                    @click="onPromote"
+                >
+                    Promote
+                </button>
+                <button
+                    type="button"
+                    class="lc-action"
+                    :disabled="!canInstall(selectedObject) || actionBusy"
+                    title="Planned → Running / Existing"
+                    @click="onInstall"
+                >
+                    Install
+                </button>
+                <button
+                    type="button"
+                    class="lc-action warn"
+                    :disabled="!canSoftRemove(selectedObject) || actionBusy"
+                    title="Hide from public listing"
+                    @click="onSoftRemove"
+                >
+                    Soft-remove
+                </button>
             </div>
             <div class="info-actions">
                 <button class="info-action" @click="viewDetails">View Analysis</button>
@@ -97,6 +138,7 @@ export default {
     setup() {
         const store = useAppStore()
         const mapContainer = ref(null)
+        const actionBusy = ref(false)
         let map = null
         let markers = []
 
@@ -244,7 +286,89 @@ export default {
                 }
             }
         }
-        
+
+        const lifecycleOf = (obj) =>
+            obj?.lifecycle_state || obj?.customData?.lifecycleState || 'running'
+
+        const lifecycleLabel = (obj) => {
+            if (!obj) return '—'
+            const state = lifecycleOf(obj)
+            return obj.soft_removed ? `${state} (removed)` : state
+        }
+
+        const publicLabel = (obj) => {
+            if (!obj) return '—'
+            if (obj.soft_removed) return 'hidden'
+            const cat = obj.public_category || obj.customData?.publicCategory
+            if (!cat || cat === 'none') return 'hidden'
+            return cat
+        }
+
+        const publicClass = (obj) => {
+            const label = publicLabel(obj)
+            return {
+                planned: label === 'planned',
+                existing: label === 'existing',
+                none: label === 'hidden',
+            }
+        }
+
+        const canPromote = (obj) =>
+            Boolean(obj) && !obj.soft_removed && lifecycleOf(obj) === 'virtual'
+
+        const canInstall = (obj) =>
+            Boolean(obj) && !obj.soft_removed && lifecycleOf(obj) === 'planned'
+
+        const canSoftRemove = (obj) => Boolean(obj) && !obj.soft_removed
+
+        const onPromote = async () => {
+            const obj = store.selectedObject
+            if (!obj) return
+            if (!confirm(`Promote "${obj.name}" to Planned (shows on public map)?`)) {
+                return
+            }
+            actionBusy.value = true
+            try {
+                await store.promotePlanned(obj.id)
+            } catch (e) {
+                alert(e.response?.data?.error || e.message || 'Promote failed')
+            } finally {
+                actionBusy.value = false
+            }
+        }
+
+        const onInstall = async () => {
+            const obj = store.selectedObject
+            if (!obj) return
+            if (!confirm(`Mark "${obj.name}" as installed (Running / Existing)?\nCRM Won alone is not enough.`)) {
+                return
+            }
+            actionBusy.value = true
+            try {
+                await store.markInstalled(obj.id)
+            } catch (e) {
+                alert(e.response?.data?.error || e.message || 'Install failed')
+            } finally {
+                actionBusy.value = false
+            }
+        }
+
+        const onSoftRemove = async () => {
+            const obj = store.selectedObject
+            if (!obj) return
+            if (!confirm(`Soft-remove "${obj.name}" from public listing?\nRow stays in the ops list.`)) {
+                return
+            }
+            actionBusy.value = true
+            try {
+                await store.softRemoveStation(obj.id)
+            } catch (e) {
+                alert(e.response?.data?.error || e.message || 'Soft-remove failed')
+            } finally {
+                actionBusy.value = false
+            }
+        }
+
         // Format helpers for info card
         const formatNumber = (num) => {
             if (num === null || num === undefined) return '0'
@@ -301,12 +425,23 @@ export default {
             mapContainer,
             selectedObject,
             estimatedYearlyProduction,
+            actionBusy,
             zoomIn,
             zoomOut,
             resetView,
             clearSelection,
             viewDetails,
             hideInstallation,
+            lifecycleOf,
+            lifecycleLabel,
+            publicLabel,
+            publicClass,
+            canPromote,
+            canInstall,
+            canSoftRemove,
+            onPromote,
+            onInstall,
+            onSoftRemove,
             formatNumber,
             formatPercent,
             getEfficiencyClass
@@ -407,7 +542,7 @@ export default {
     position: absolute;
     top: 16px;
     left: 16px;
-    width: 280px;
+    width: 300px;
     background: var(--color-main-background, #fff);
     border-radius: 8px;
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
@@ -501,6 +636,59 @@ export default {
 .virtual-badge {
     color: #9B59B6;
     font-style: italic;
+}
+
+.lc-badge,
+.pub-badge {
+    display: inline-block;
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: lowercase;
+    padding: 2px 8px;
+    border-radius: 999px;
+    background: #eee;
+    color: #444;
+}
+
+.lc-badge.virtual { background: #f3e5f5; color: #7b1fa2; }
+.lc-badge.planned { background: #fff3e0; color: #ef6c00; }
+.lc-badge.running { background: #e8f5e9; color: #2e7d32; }
+.lc-badge.removed { text-decoration: line-through; }
+
+.pub-badge.planned { background: #fff8e1; color: #f9a825; }
+.pub-badge.existing { background: #e0f2f1; color: #00695c; }
+.pub-badge.none { background: #eceff1; color: #607d8b; }
+
+.info-lifecycle-actions {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 6px;
+    padding: 0 12px 12px;
+}
+
+.lc-action {
+    border: 1px solid var(--color-border, #d0d0d0);
+    background: #fff;
+    border-radius: 6px;
+    padding: 8px 4px;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    color: #2962ff;
+}
+
+.lc-action:disabled {
+    color: #9e9e9e;
+    cursor: not-allowed;
+    background: #f7f7f7;
+}
+
+.lc-action.warn {
+    color: #ef6c00;
+}
+
+.lc-action:not(:disabled):hover {
+    background: var(--color-background-hover, #f5f5f5);
 }
 
 .info-actions {
