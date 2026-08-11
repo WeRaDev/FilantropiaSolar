@@ -55,13 +55,14 @@ Ops run lifecycle on **Nextcloud admin**; CRM **Qualify → Planned** only; **Wo
 
 ---
 
-### MVP-4 — NC admin UI lifecycle actions  
+### MVP-4 — NC admin UI lifecycle actions ✅  
 **Maps:** D2, D4  
 
 - Actions: promote planned, mark installed, soft-remove (hard-delete policy stub OK if soft-remove ships).  
 - List filters by state.  
 
-**AC:** Manual checklist in plan exit gates.
+**AC:** Manual checklist in plan exit gates.  
+**App version:** 3.2.3 — session-auth admin lifecycle endpoints + admin UI.
 
 ---
 

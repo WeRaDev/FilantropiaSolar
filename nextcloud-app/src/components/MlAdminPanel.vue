@@ -39,7 +39,18 @@ export default {
             name: 'AdminPanelBody',
             setup() {
                 const store = useAdminStore()
-                const { loading, actionLoading, stations, cacheStatus, modelInfo, settings, message, error } = storeToRefs(store)
+                const {
+                    loading,
+                    actionLoading,
+                    stations,
+                    stationFilters,
+                    cacheStatus,
+                    modelInfo,
+                    settings,
+                    message,
+                    error,
+                    lifecycleCounts,
+                } = storeToRefs(store)
                 const form = reactive({
                     id: null,
                     name: '',
@@ -101,6 +112,39 @@ export default {
                     await store.trainStation(station.installation_id || station.serial_number || String(station.id))
                 }
 
+                const promoteStation = async (station) => {
+                    if (!confirm(`Promote "${station.name}" to Planned (public map)?`)) {
+                        return
+                    }
+                    await store.promotePlanned(station)
+                }
+
+                const installStation = async (station) => {
+                    if (!confirm(`Mark "${station.name}" as installed (Running / Existing on public map)?\nWon in CRM is not enough — this is the ops install step.`)) {
+                        return
+                    }
+                    await store.markInstalled(station)
+                }
+
+                const softRemoveStation = async (station) => {
+                    if (!confirm(`Soft-remove "${station.name}" from public listing?\nRow is kept; hard delete remains dataset-only.`)) {
+                        return
+                    }
+                    await store.softRemove(station)
+                }
+
+                const onFilterLifecycle = async (value) => {
+                    await store.setLifecycleFilter(value)
+                }
+
+                const onFilterSource = async (value) => {
+                    await store.setSourceFilter(value)
+                }
+
+                const onFilterSoftRemoved = async (value) => {
+                    await store.setIncludeSoftRemoved(value)
+                }
+
                 const refreshAll = async () => {
                     await Promise.all([
                         store.fetchStations(),
@@ -117,6 +161,8 @@ export default {
                     loading,
                     actionLoading,
                     stations,
+                    stationFilters,
+                    lifecycleCounts,
                     cacheStatus,
                     modelInfo,
                     settings,
@@ -129,6 +175,12 @@ export default {
                     submitStation,
                     removeStation,
                     trainStation,
+                    promoteStation,
+                    installStation,
+                    softRemoveStation,
+                    onFilterLifecycle,
+                    onFilterSource,
+                    onFilterSoftRemoved,
                     refreshAll,
                     saveSettings: store.saveSettings,
                     clearCache: store.clearCache,
@@ -158,15 +210,26 @@ export default {
                             @refresh="refreshAll"
                             @clear-cache="clearCache"
                             @train-all="trainAll"
-                        />
+/>
 
                         <AdminGlobalStations
                             :stations="stations"
+                            :lifecycle-filter="stationFilters.lifecycle_state"
+                            :source-filter="stationFilters.source"
+                            :include-soft-removed="stationFilters.include_soft_removed"
+                            :counts="lifecycleCounts"
+                            :disabled="actionLoading"
                             @create="openCreate"
                             @edit="openEdit"
                             @delete="removeStation"
                             @train="trainStation"
                             @reimport="reimportDataset"
+                            @promote="promoteStation"
+                            @install="installStation"
+                            @soft-remove="softRemoveStation"
+                            @filter-lifecycle="onFilterLifecycle"
+                            @filter-source="onFilterSource"
+                            @filter-soft-removed="onFilterSoftRemoved"
                         />
 
                         <section v-if="showForm.value" class="admin-section station-form">

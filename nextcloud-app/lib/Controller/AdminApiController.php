@@ -22,7 +22,8 @@ use Psr\Log\LoggerInterface;
  * Admin API Controller.
  *
  * Admin-only endpoints for:
- * - global dataset station management (CRUD)
+ * - station management (CRUD for dataset; list all sources)
+ * - lifecycle actions (promote planned, mark installed, soft-remove)
  * - dataset re-import
  * - ML control actions proxied through Nextcloud
  * - app admin settings (ML URL)
@@ -62,20 +63,53 @@ class AdminApiController extends ApiController
     }
 
     /**
-     * List global dataset stations.
+     * List stations for admin lifecycle + dataset ops.
      *
      * GET /api/v1/admin/stations
+     *
+     * Query params:
+     * - source: dataset|user|crm|all (default all)
+     * - lifecycle_state: virtual|planned|running|all (default all)
+     * - include_soft_removed: 0|1 (default 1 so ops can restore visibility via soft-remove awareness)
      */
     #[NoCSRFRequired]
     public function stations(): JSONResponse
     {
-        $rows = $this->mapper->findAllBySource('dataset');
-        $stations = array_map(fn(Installation $row): array => $this->toStationArray($row), $rows);
+        $source = strtolower(trim((string) $this->request->getParam('source', 'all')));
+        $lifecycleFilter = strtolower(trim((string) $this->request->getParam('lifecycle_state', 'all')));
+        $includeSoftRemoved = filter_var(
+            $this->request->getParam('include_soft_removed', '1'),
+            FILTER_VALIDATE_BOOLEAN,
+        );
+
+        if ($source !== '' && $source !== 'all') {
+            $rows = $this->mapper->findAllBySource($source);
+        } else {
+            $rows = $this->mapper->findAll();
+        }
+
+        $stations = [];
+        foreach ($rows as $row) {
+            $payload = $this->toStationArray($row);
+            if (!$includeSoftRemoved && !empty($payload['soft_removed'])) {
+                continue;
+            }
+            if ($lifecycleFilter !== '' && $lifecycleFilter !== 'all'
+                && ($payload['lifecycle_state'] ?? '') !== $lifecycleFilter) {
+                continue;
+            }
+            $stations[] = $payload;
+        }
 
         return new JSONResponse([
             'success' => true,
             'stations' => $stations,
             'count' => count($stations),
+            'filters' => [
+                'source' => $source === '' ? 'all' : $source,
+                'lifecycle_state' => $lifecycleFilter === '' ? 'all' : $lifecycleFilter,
+                'include_soft_removed' => $includeSoftRemoved,
+            ],
         ]);
     }
 
@@ -250,6 +284,123 @@ class AdminApiController extends ApiController
     }
 
     /**
+     * Promote Virtual → Planned (session admin; MVP-4).
+     *
+     * POST /api/v1/admin/stations/{installationId}/promote-planned
+     */
+    #[NoCSRFRequired]
+    public function promotePlanned(string $installationId): JSONResponse
+    {
+        $station = $this->mapper->findByInstallationKey($installationId);
+        if ($station === null) {
+            return $this->error('Station not found', Http::STATUS_NOT_FOUND);
+        }
+
+        $state = $this->stateOf($station);
+        if (!StationLifecycle::canPromoteToPlanned($state, $station->getSoftRemoved())) {
+            return $this->error(
+                'Illegal transition to planned from ' . $state,
+                Http::STATUS_CONFLICT,
+            );
+        }
+
+        if ($state !== StationLifecycle::PLANNED) {
+            $station->applyLifecycleState(StationLifecycle::PLANNED);
+            $station->setUpdatedAt(new DateTime());
+            $station = $this->mapper->update($station);
+            $this->logger->info('Admin promote planned', [
+                'installation_id' => $station->getInstallationId(),
+            ]);
+        }
+
+        return new JSONResponse([
+            'success' => true,
+            'station' => $this->toStationArray($station),
+            'message' => 'Station promoted to planned',
+        ]);
+    }
+
+    /**
+     * Mark Planned → Running / installed (session admin; MVP-4 / D4 Won≠installed).
+     *
+     * POST /api/v1/admin/stations/{installationId}/mark-installed
+     */
+    #[NoCSRFRequired]
+    public function markInstalled(string $installationId): JSONResponse
+    {
+        $station = $this->mapper->findByInstallationKey($installationId);
+        if ($station === null) {
+            return $this->error('Station not found', Http::STATUS_NOT_FOUND);
+        }
+
+        $state = $this->stateOf($station);
+        if (!StationLifecycle::canMarkInstalled($state, $station->getSoftRemoved())) {
+            return $this->error(
+                'Illegal transition to running from ' . $state,
+                Http::STATUS_CONFLICT,
+            );
+        }
+
+        $installedAtRaw = $this->request->getParam('installed_at');
+        if ($state !== StationLifecycle::RUNNING) {
+            $station->applyLifecycleState(StationLifecycle::RUNNING);
+            try {
+                $station->setInstalledAt(
+                    $installedAtRaw ? new DateTime((string) $installedAtRaw) : new DateTime(),
+                );
+            } catch (\Throwable) {
+                $station->setInstalledAt(new DateTime());
+            }
+            $station->setUpdatedAt(new DateTime());
+            $station = $this->mapper->update($station);
+            $this->logger->info('Admin mark installed', [
+                'installation_id' => $station->getInstallationId(),
+            ]);
+        }
+
+        return new JSONResponse([
+            'success' => true,
+            'station' => $this->toStationArray($station),
+            'message' => 'Station marked installed (running)',
+        ]);
+    }
+
+    /**
+     * Soft-remove station from public surfaces (session admin; MVP-4).
+     *
+     * POST /api/v1/admin/stations/{installationId}/soft-remove
+     */
+    #[NoCSRFRequired]
+    public function softRemove(string $installationId): JSONResponse
+    {
+        $station = $this->mapper->findByInstallationKey($installationId);
+        if ($station === null) {
+            return $this->error('Station not found', Http::STATUS_NOT_FOUND);
+        }
+
+        if (!StationLifecycle::canSoftRemove($station->getSoftRemoved())) {
+            return new JSONResponse([
+                'success' => true,
+                'station' => $this->toStationArray($station),
+                'message' => 'Station already soft-removed',
+            ]);
+        }
+
+        $station->setSoftRemoved(true);
+        $station->setUpdatedAt(new DateTime());
+        $station = $this->mapper->update($station);
+        $this->logger->info('Admin soft-remove', [
+            'installation_id' => $station->getInstallationId(),
+        ]);
+
+        return new JSONResponse([
+            'success' => true,
+            'station' => $this->toStationArray($station),
+            'message' => 'Station soft-removed from public listing',
+        ]);
+    }
+
+    /**
      * GET /api/v1/admin/settings
      */
     #[NoCSRFRequired]
@@ -347,11 +498,19 @@ class AdminApiController extends ApiController
         }
     }
 
+    private function stateOf(Installation $station): string
+    {
+        $state = $station->getLifecycleState();
+        if ($state === null || $state === '') {
+            return StationLifecycle::defaultStateForNew($station->getIsVirtual(), $station->getSource());
+        }
+
+        return $state;
+    }
+
     private function toStationArray(Installation $station): array
     {
-        $state = $station->getLifecycleState() !== ''
-            ? $station->getLifecycleState()
-            : StationLifecycle::defaultStateForNew($station->getIsVirtual(), $station->getSource());
+        $state = $this->stateOf($station);
 
         return [
             'id' => $station->getId(),
