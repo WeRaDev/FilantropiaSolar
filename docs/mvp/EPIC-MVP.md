@@ -45,7 +45,7 @@ Ops run lifecycle on **Nextcloud admin**; CRM **Qualify → Planned** only; **Wo
 
 ---
 
-### MVP-3 — Public API filter Existing+Planned  
+### MVP-3 — Public API filter Existing+Planned ✅  
 **Maps:** D3, D9  
 
 - Change `GET /api/public/v1/stations` (and dashboard aggregates) to lifecycle public rules.  
