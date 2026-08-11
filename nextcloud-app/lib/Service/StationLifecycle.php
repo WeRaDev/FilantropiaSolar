@@ -87,4 +87,36 @@ final class StationLifecycle
 	{
 		return $lifecycleState === self::VIRTUAL;
 	}
+
+	/**
+	 * Whether Virtual → Planned is allowed (or already Planned = idempotent OK).
+	 */
+	public static function canPromoteToPlanned(string $lifecycleState, bool $softRemoved): bool
+	{
+		if ($softRemoved) {
+			return false;
+		}
+
+		return $lifecycleState === self::VIRTUAL || $lifecycleState === self::PLANNED;
+	}
+
+	/**
+	 * Whether Planned → Running is allowed (or already Running = idempotent OK).
+	 */
+	public static function canMarkInstalled(string $lifecycleState, bool $softRemoved): bool
+	{
+		if ($softRemoved) {
+			return false;
+		}
+
+		return $lifecycleState === self::PLANNED || $lifecycleState === self::RUNNING;
+	}
+
+	/**
+	 * Soft-remove is allowed for any non-already-removed station.
+	 */
+	public static function canSoftRemove(bool $softRemoved): bool
+	{
+		return !$softRemoved;
+	}
 }

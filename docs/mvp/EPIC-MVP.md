@@ -34,7 +34,7 @@ Ops run lifecycle on **Nextcloud admin**; CRM **Qualify → Planned** only; **Wo
 
 ---
 
-### MVP-2 — NC lifecycle write API  
+### MVP-2 — NC lifecycle write API ✅  
 **Maps:** D1, D4, D7  
 
 - Implement OpenAPI paths in `docs/architecture/nc-odoo-lifecycle-api.openapi.yaml`.  

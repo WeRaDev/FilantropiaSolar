@@ -307,6 +307,54 @@ class InstallationMapper extends QBMapper
     }
 
     /**
+     * Resolve station by public installation_id (location_serial) or numeric DB id.
+     */
+    public function findByInstallationKey(string $installationId): ?Installation
+    {
+        $installationId = trim($installationId);
+        if ($installationId === '') {
+            return null;
+        }
+
+        // Numeric DB primary key
+        if (ctype_digit($installationId)) {
+            try {
+                return $this->find((int) $installationId);
+            } catch (DoesNotExistException $e) {
+                // fall through to location_serial match
+            } catch (MultipleObjectsReturnedException $e) {
+                return null;
+            }
+        }
+
+        // location_serial form: "{location}_{serial}" — serial may contain underscores
+        $pos = strpos($installationId, '_');
+        if ($pos === false) {
+            return null;
+        }
+        $location = substr($installationId, 0, $pos);
+        $serial = substr($installationId, $pos + 1);
+        if ($location === '' || $serial === '') {
+            return null;
+        }
+
+        $qb = $this->db->getQueryBuilder();
+        $qb->select('*')
+            ->from($this->getTableName())
+            ->where($qb->expr()->eq('location', $qb->createNamedParameter($location)))
+            ->andWhere($qb->expr()->eq('serial_number', $qb->createNamedParameter($serial)))
+            ->setMaxResults(1);
+
+        try {
+            return $this->findEntity($qb);
+        } catch (DoesNotExistException $e) {
+            return null;
+        } catch (MultipleObjectsReturnedException $e) {
+            return $this->findEntities($qb)[0];
+        }
+    }
+
+    /**
      * Find stations by lifecycle state (optional soft-removed filter).
      *
      * @param list<string> $states

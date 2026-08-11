@@ -57,4 +57,26 @@ class StationLifecycleTest extends TestCase
 		$this->assertFalse(StationLifecycle::isVirtualFlag('planned'));
 		$this->assertFalse(StationLifecycle::isVirtualFlag('running'));
 	}
+
+	public function testCanPromoteToPlanned(): void
+	{
+		$this->assertTrue(StationLifecycle::canPromoteToPlanned('virtual', false));
+		$this->assertTrue(StationLifecycle::canPromoteToPlanned('planned', false));
+		$this->assertFalse(StationLifecycle::canPromoteToPlanned('running', false));
+		$this->assertFalse(StationLifecycle::canPromoteToPlanned('virtual', true));
+	}
+
+	public function testCanMarkInstalled(): void
+	{
+		$this->assertFalse(StationLifecycle::canMarkInstalled('virtual', false));
+		$this->assertTrue(StationLifecycle::canMarkInstalled('planned', false));
+		$this->assertTrue(StationLifecycle::canMarkInstalled('running', false));
+		$this->assertFalse(StationLifecycle::canMarkInstalled('planned', true));
+	}
+
+	public function testCanSoftRemove(): void
+	{
+		$this->assertTrue(StationLifecycle::canSoftRemove(false));
+		$this->assertFalse(StationLifecycle::canSoftRemove(true));
+	}
 }
