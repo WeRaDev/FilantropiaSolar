@@ -435,3 +435,7 @@ auto_generated/
 # Cloudflare tunnel credentials
 nextcloud-app/infra/cloudflared/credentials.json
 nextcloud-app/infra/cloudflared/*.json
+
+# PHP test deps (local)
+nextcloud-app/vendor/
+nextcloud-app/composer.lock

@@ -5,3 +5,6 @@ infra/cloudflared/*.json
 !infra/cloudflared/config.yml
 
 .local-backups/
+
+vendor/
+composer.lock

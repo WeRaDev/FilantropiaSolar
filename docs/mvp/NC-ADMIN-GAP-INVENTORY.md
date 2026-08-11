@@ -83,3 +83,6 @@ Public API correctly **excludes user virtuals** today by only listing `dataset`.
 1. **Candidatura today creates CRM lead only** — no Virtual station in NC. Public map never shows applicant sites; CRM Qualify cannot promote what does not exist. **Highest MVP priority.**  
 2. Expanding public `stations` beyond `dataset` without lifecycle filters could leak Virtual/user rows — implement filters before widening query.  
 3. `source=dataset` vs CRM-origin stations needs a clear rule (e.g. `source=crm` + lifecycle Planned).
+
+## Update (MVP-1)
+Lifecycle columns and helpers landed on `feat/mvp-1-nc-lifecycle-model` (app 3.2.0). Remaining gaps: lifecycle HTTP API (MVP-2), public filter switch (MVP-3), admin UI (MVP-4).

@@ -185,4 +185,30 @@ class EnergyReadingMapper extends QBMapper
 
         return $qb->executeStatement();
     }
+
+    /**
+     * Whether any measured readings exist for the installation (Active vs Offline).
+     */
+    public function hasMeasuredData(int $installationId): bool
+    {
+        $qb = $this->db->getQueryBuilder();
+
+        $qb->select($qb->createFunction('COUNT(*)'))
+            ->from($this->getTableName())
+            ->where($qb->expr()->eq(
+                'installation_id',
+                $qb->createNamedParameter($installationId, IQueryBuilder::PARAM_INT),
+            ))
+            ->andWhere($qb->expr()->gt(
+                'production_kwh',
+                $qb->createNamedParameter(0, IQueryBuilder::PARAM_INT),
+            ))
+            ->setMaxResults(1);
+
+        $result = $qb->executeQuery();
+        $count = (int) $result->fetchOne();
+        $result->closeCursor();
+
+        return $count > 0;
+    }
 }

@@ -259,4 +259,83 @@ class InstallationMapper extends QBMapper
 
         return $count;
     }
+
+    /**
+     * Public map/list: Planned + Running, not soft-removed, never Virtual.
+     *
+     * @return Installation[]
+     */
+    public function findPublicStations(): array
+    {
+        $qb = $this->db->getQueryBuilder();
+
+        $qb->select('*')
+            ->from($this->getTableName())
+            ->where($qb->expr()->in(
+                'lifecycle_state',
+                $qb->createNamedParameter(['planned', 'running'], IQueryBuilder::PARAM_STR_ARRAY),
+            ))
+            ->andWhere($qb->expr()->orX(
+                $qb->expr()->eq('soft_removed', $qb->createNamedParameter(0, IQueryBuilder::PARAM_INT)),
+                $qb->expr()->isNull('soft_removed'),
+            ))
+            ->orderBy('location', 'ASC')
+            ->addOrderBy('name', 'ASC');
+
+        return $this->findEntities($qb);
+    }
+
+    /**
+     * Find by Odoo CRM lead id (idempotent virtual create).
+     */
+    public function findByOdooLeadId(int $odooLeadId): ?Installation
+    {
+        $qb = $this->db->getQueryBuilder();
+
+        $qb->select('*')
+            ->from($this->getTableName())
+            ->where($qb->expr()->eq('odoo_lead_id', $qb->createNamedParameter($odooLeadId, IQueryBuilder::PARAM_INT)))
+            ->setMaxResults(1);
+
+        try {
+            return $this->findEntity($qb);
+        } catch (DoesNotExistException $e) {
+            return null;
+        } catch (MultipleObjectsReturnedException $e) {
+            return $this->findEntities($qb)[0];
+        }
+    }
+
+    /**
+     * Find stations by lifecycle state (optional soft-removed filter).
+     *
+     * @param list<string> $states
+     * @return Installation[]
+     */
+    public function findByLifecycleStates(array $states, bool $includeSoftRemoved = false): array
+    {
+        if ($states === []) {
+            return [];
+        }
+
+        $qb = $this->db->getQueryBuilder();
+
+        $qb->select('*')
+            ->from($this->getTableName())
+            ->where($qb->expr()->in(
+                'lifecycle_state',
+                $qb->createNamedParameter(array_values($states), IQueryBuilder::PARAM_STR_ARRAY),
+            ));
+
+        if (!$includeSoftRemoved) {
+            $qb->andWhere($qb->expr()->orX(
+                $qb->expr()->eq('soft_removed', $qb->createNamedParameter(0, IQueryBuilder::PARAM_INT)),
+                $qb->expr()->isNull('soft_removed'),
+            ));
+        }
+
+        $qb->orderBy('location', 'ASC')->addOrderBy('name', 'ASC');
+
+        return $this->findEntities($qb);
+    }
 }
