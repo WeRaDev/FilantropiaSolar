@@ -38,49 +38,53 @@
             </div>
         </div>
 
-        <!-- Enhanced info card (shows full details like popup used to) -->
         <div v-if="selectedObject" class="info-card">
             <div class="info-header">
-                <span class="info-status" :class="selectedObject.status || 'active'"></span>
+                <span class="info-status" :class="onlineClass(selectedObject)"></span>
                 <h3>{{ selectedObject.name || selectedObject.id }}</h3>
-                <button class="info-close" @click="clearSelection">
+                <button class="info-close" @click="clearSelection" type="button">
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                         <path d="M18 6 6 18M6 6l12 12"/>
                     </svg>
                 </button>
             </div>
             <div class="info-body">
-                <div class="info-row">
-                    <span class="info-label">Location</span>
-                    <span class="info-value">{{ selectedObject.location }}</span>
+                <div v-if="selectedObject.website" class="info-row">
+                    <span class="info-label">Website</span>
+                    <a class="info-value link" :href="normalizedWebsite(selectedObject.website)" target="_blank" rel="noopener">{{ selectedObject.website }}</a>
                 </div>
                 <div class="info-row">
-                    <span class="info-label">Capacity</span>
-                    <span class="info-value">{{ selectedObject.capacity_kwp }} kWp</span>
+                    <span class="info-label">Total production</span>
+                    <span class="info-value highlight">{{ formatNumber(selectedObject.total_production_kwh) }} kWh/yr</span>
                 </div>
                 <div class="info-row">
-                    <span class="info-label">Avg. Yearly Production</span>
-                    <span class="info-value highlight">{{ formatNumber(estimatedYearlyProduction) }} kWh</span>
+                    <span class="info-label">Total savings</span>
+                    <span class="info-value">€{{ formatNumber(selectedObject.total_savings_eur) }}/yr</span>
                 </div>
                 <div class="info-row">
-                    <span class="info-label">Efficiency</span>
-                    <span class="info-value" :class="getEfficiencyClass(selectedObject.metrics?.efficiency || 0.85)">
-                        {{ formatPercent(selectedObject.metrics?.efficiency || 0.85) }}
+                    <span class="info-label">Current efficiency</span>
+                    <span class="info-value" :class="getEfficiencyClass(selectedObject.efficiency || 0.85)">
+                        {{ formatPercent(selectedObject.efficiency || 0.85) }}
                     </span>
                 </div>
-                <div v-if="selectedObject.customData?.isVirtual" class="info-row">
-                    <span class="info-label">Type</span>
-                    <span class="info-value virtual-badge">Virtual</span>
+                <div class="info-row">
+                    <span class="info-label">Lifecycle</span>
+                    <span class="info-value">
+                        <span class="lc-badge" :class="[lifecycleOf(selectedObject), { removed: selectedObject.soft_removed }]">
+                            {{ lifecycleLabel(selectedObject) }}
+                        </span>
+                    </span>
                 </div>
+                <p v-if="selectedObject.short_description" class="info-desc">{{ selectedObject.short_description }}</p>
+                <p v-else class="info-desc muted">No short description yet. Use Edit to add one.</p>
+            </div>
+            <div class="info-lifecycle-actions">
+                <button type="button" class="lc-action" @click="openLifecycle">Lifecycle</button>
+                <button type="button" class="lc-action danger" @click="hideInstallation">Delete</button>
             </div>
             <div class="info-actions">
-                <button class="info-action" @click="viewDetails">View Analysis</button>
-                <button class="info-action-secondary" @click="hideInstallation" title="Remove from dashboard">
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <path d="M18 6 6 18M6 6l12 12"/>
-                    </svg>
-                    Hide
-                </button>
+                <button class="info-action" type="button" @click="viewDetails">View Analysis</button>
+                <button class="info-action-secondary" type="button" @click="openEdit">Edit</button>
             </div>
         </div>
     </div>
@@ -97,6 +101,7 @@ export default {
     setup() {
         const store = useAppStore()
         const mapContainer = ref(null)
+        const actionBusy = ref(false)
         let map = null
         let markers = []
 
@@ -244,7 +249,103 @@ export default {
                 }
             }
         }
-        
+
+        const onlineClass = (obj) => {
+            const lc = obj?.lifecycle_state || obj?.customData?.lifecycleState || 'running'
+            if (!obj || lc !== 'running' || obj.soft_removed) return 'neutral'
+            return (obj.status || 'active') === 'active' ? 'online' : 'offline'
+        }
+
+        const normalizedWebsite = (w) => {
+            if (!w) return '#'
+            return /^https?:\/\//i.test(w) ? w : `https://${w}`
+        }
+
+        const openLifecycle = () => store.openLifecycleModal()
+        const openEdit = () => store.openEditStationModal()
+
+        const lifecycleOf = (obj) =>
+            obj?.lifecycle_state || obj?.customData?.lifecycleState || 'running'
+
+        const lifecycleLabel = (obj) => {
+            if (!obj) return '—'
+            const state = lifecycleOf(obj)
+            return obj.soft_removed ? `${state} (removed)` : state
+        }
+
+        const publicLabel = (obj) => {
+            if (!obj) return '—'
+            if (obj.soft_removed) return 'hidden'
+            const cat = obj.public_category || obj.customData?.publicCategory
+            if (!cat || cat === 'none') return 'hidden'
+            return cat
+        }
+
+        const publicClass = (obj) => {
+            const label = publicLabel(obj)
+            return {
+                planned: label === 'planned',
+                existing: label === 'existing',
+                none: label === 'hidden',
+            }
+        }
+
+        const canPromote = (obj) =>
+            Boolean(obj) && !obj.soft_removed && lifecycleOf(obj) === 'virtual'
+
+        const canInstall = (obj) =>
+            Boolean(obj) && !obj.soft_removed && lifecycleOf(obj) === 'planned'
+
+        const canSoftRemove = (obj) => Boolean(obj) && !obj.soft_removed
+
+        const onPromote = async () => {
+            const obj = store.selectedObject
+            if (!obj) return
+            if (!confirm(`Promote "${obj.name}" to Planned (shows on public map)?`)) {
+                return
+            }
+            actionBusy.value = true
+            try {
+                await store.promotePlanned(obj.id)
+            } catch (e) {
+                alert(e.response?.data?.error || e.message || 'Promote failed')
+            } finally {
+                actionBusy.value = false
+            }
+        }
+
+        const onInstall = async () => {
+            const obj = store.selectedObject
+            if (!obj) return
+            if (!confirm(`Mark "${obj.name}" as installed (Running / Existing)?\nCRM Won alone is not enough.`)) {
+                return
+            }
+            actionBusy.value = true
+            try {
+                await store.markInstalled(obj.id)
+            } catch (e) {
+                alert(e.response?.data?.error || e.message || 'Install failed')
+            } finally {
+                actionBusy.value = false
+            }
+        }
+
+        const onSoftRemove = async () => {
+            const obj = store.selectedObject
+            if (!obj) return
+            if (!confirm(`Soft-remove "${obj.name}" from public listing?\nRow stays in the ops list.`)) {
+                return
+            }
+            actionBusy.value = true
+            try {
+                await store.softRemoveStation(obj.id)
+            } catch (e) {
+                alert(e.response?.data?.error || e.message || 'Soft-remove failed')
+            } finally {
+                actionBusy.value = false
+            }
+        }
+
         // Format helpers for info card
         const formatNumber = (num) => {
             if (num === null || num === undefined) return '0'
@@ -301,12 +402,27 @@ export default {
             mapContainer,
             selectedObject,
             estimatedYearlyProduction,
+            actionBusy,
             zoomIn,
             zoomOut,
             resetView,
             clearSelection,
             viewDetails,
             hideInstallation,
+            lifecycleOf,
+            lifecycleLabel,
+            publicLabel,
+            publicClass,
+            canPromote,
+            canInstall,
+            canSoftRemove,
+            onPromote,
+            onInstall,
+            onSoftRemove,
+            onlineClass,
+            normalizedWebsite,
+            openLifecycle,
+            openEdit,
             formatNumber,
             formatPercent,
             getEfficiencyClass
@@ -407,7 +523,7 @@ export default {
     position: absolute;
     top: 16px;
     left: 16px;
-    width: 280px;
+    width: 300px;
     background: var(--color-main-background, #fff);
     border-radius: 8px;
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
@@ -501,6 +617,72 @@ export default {
 .virtual-badge {
     color: #9B59B6;
     font-style: italic;
+}
+
+.lc-badge,
+.pub-badge {
+    display: inline-block;
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: lowercase;
+    padding: 2px 8px;
+    border-radius: 999px;
+    background: #eee;
+    color: #444;
+}
+
+.lc-badge.virtual { background: #f3e5f5; color: #7b1fa2; }
+.lc-badge.planned { background: #fff3e0; color: #ef6c00; }
+.lc-badge.running { background: #e8f5e9; color: #2e7d32; }
+.lc-badge.removed { text-decoration: line-through; }
+
+.pub-badge.planned { background: #fff8e1; color: #f9a825; }
+.pub-badge.existing { background: #e0f2f1; color: #00695c; }
+.pub-badge.none { background: #eceff1; color: #607d8b; }
+
+.info-desc {
+    margin: 10px 0 0;
+    font-size: 12px;
+    line-height: 1.4;
+    color: var(--color-main-text, #333);
+}
+.info-desc.muted { color: #888; font-style: italic; }
+.info-value.link { color: #2962ff; text-decoration: none; max-width: 160px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; display: inline-block; }
+.info-status.online { background: #22A559; }
+.info-status.offline { background: #CC2020; }
+.info-status.neutral { background: #bdbdbd; }
+.lc-action.danger { color: #c62828; }
+.info-lifecycle-actions {
+
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 6px;
+    padding: 0 12px 12px;
+}
+
+.lc-action {
+    border: 1px solid var(--color-border, #d0d0d0);
+    background: #fff;
+    border-radius: 6px;
+    padding: 8px 4px;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    color: #2962ff;
+}
+
+.lc-action:disabled {
+    color: #9e9e9e;
+    cursor: not-allowed;
+    background: #f7f7f7;
+}
+
+.lc-action.warn {
+    color: #ef6c00;
+}
+
+.lc-action:not(:disabled):hover {
+    background: var(--color-background-hover, #f5f5f5);
 }
 
 .info-actions {

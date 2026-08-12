@@ -24,6 +24,10 @@ return [
         ['name' => 'installation_api#export', 'url' => '/api/v1/installations/{id}/export', 'verb' => 'POST'],
         ['name' => 'installation_api#restoreDashboard', 'url' => '/api/v1/installations/restore-dashboard', 'verb' => 'POST'],
         ['name' => 'installation_api#stats', 'url' => '/api/v1/installations/{id}/stats', 'verb' => 'GET'],
+        ['name' => 'installation_api#promotePlanned', 'url' => '/api/v1/installations/{id}/promote-planned', 'verb' => 'POST'],
+        ['name' => 'installation_api#markInstalled', 'url' => '/api/v1/installations/{id}/mark-installed', 'verb' => 'POST'],
+        ['name' => 'installation_api#softRemove', 'url' => '/api/v1/installations/{id}/soft-remove', 'verb' => 'POST'],
+        ['name' => 'installation_api#setLifecycle', 'url' => '/api/v1/installations/{id}/set-lifecycle', 'verb' => 'POST'],
 
         // Energy API
         ['name' => 'energy_api#readings', 'url' => '/api/v1/installations/{id}/readings', 'verb' => 'GET'],
@@ -57,6 +61,9 @@ return [
         ['name' => 'admin_api#createStation', 'url' => '/api/v1/admin/stations', 'verb' => 'POST'],
         ['name' => 'admin_api#updateStation', 'url' => '/api/v1/admin/stations/{id}', 'verb' => 'PUT'],
         ['name' => 'admin_api#deleteStation', 'url' => '/api/v1/admin/stations/{id}', 'verb' => 'DELETE'],
+        ['name' => 'admin_api#promotePlanned', 'url' => '/api/v1/admin/stations/{installationId}/promote-planned', 'verb' => 'POST'],
+        ['name' => 'admin_api#markInstalled', 'url' => '/api/v1/admin/stations/{installationId}/mark-installed', 'verb' => 'POST'],
+        ['name' => 'admin_api#softRemove', 'url' => '/api/v1/admin/stations/{installationId}/soft-remove', 'verb' => 'POST'],
         ['name' => 'admin_api#reimportDataset', 'url' => '/api/v1/admin/dataset/reimport', 'verb' => 'POST'],
         ['name' => 'admin_api#getCacheStatus', 'url' => '/api/v1/admin/ml/cache', 'verb' => 'GET'],
         ['name' => 'admin_api#clearCache', 'url' => '/api/v1/admin/ml/cache/clear', 'verb' => 'POST'],

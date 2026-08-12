@@ -17,35 +17,14 @@
             </span>
         </div>
 
-        <!-- Filter Chips (FR2.3) -->
-        <div class="filter-chips">
-            <button 
-                class="chip"
-                :class="{ active: activeFilters.length === 0 }"
-                @click="clearFilters">
-                All ({{ totalObjects }})
-            </button>
-            <button 
-                class="chip chip-active"
-                :class="{ active: activeFilters.includes('active') }"
-                @click="toggleFilter('active')">
-                <span class="status-dot active"></span>
-                Active ({{ activeCount }})
-            </button>
-            <button 
-                class="chip chip-warning"
-                :class="{ active: activeFilters.includes('warning') }"
-                @click="toggleFilter('warning')">
-                <span class="status-dot warning"></span>
-                Warning ({{ warningCount }})
-            </button>
-            <button 
-                class="chip chip-offline"
-                :class="{ active: activeFilters.includes('offline') }"
-                @click="toggleFilter('offline')">
-                <span class="status-dot offline"></span>
-                Offline ({{ offlineCount }})
-            </button>
+        <!-- Station filters -->
+        <div class="filter-chips lifecycle-chips">
+            <button class="chip" :class="{ active: lifecycleFilters.length === 0 }" @click="clearLifecycleFilters">All</button>
+            <button class="chip chip-virtual" :class="{ active: lifecycleFilters.includes('virtual') }" @click="toggleLifecycle('virtual')">Virtual</button>
+            <button class="chip chip-planned" :class="{ active: lifecycleFilters.includes('planned') }" @click="toggleLifecycle('planned')">Planned</button>
+            <button class="chip chip-running" :class="{ active: lifecycleFilters.includes('running') }" @click="toggleLifecycle('running')">Running</button>
+            <button class="chip chip-offline" :class="{ active: lifecycleFilters.includes('offline') }" @click="toggleLifecycle('offline')">Offline</button>
+            <button class="chip chip-online" :class="{ active: lifecycleFilters.includes('online') }" @click="toggleLifecycle('online')">Online</button>
         </div>
 
         <!-- Object List (FR2.1) -->
@@ -73,48 +52,24 @@
                 v-for="obj in filteredObjects" 
                 :key="obj.id"
                 class="list-item"
-                :class="{ selected: obj.id === selectedId, [obj.status || 'active']: true }"
+                :class="{ selected: obj.id === selectedId, [obj.status || 'active']: true, 'soft-removed': obj.soft_removed }"
                 @click="selectObject(obj.id)">
                 
-                <!-- Status indicator (left border + badge) -->
                 <div class="item-status">
-                    <span class="status-badge" :class="obj.status || 'active'"></span>
+                    <span class="status-dot-lg" :class="onlineClass(obj)"></span>
                 </div>
-
-                <!-- Main content -->
                 <div class="item-content">
                     <div class="item-primary">
                         <span class="item-name">{{ obj.name || obj.id }}</span>
-                        <span class="item-capacity">{{ obj.capacity_kwp || 0 }} kWp</span>
+                        <span class="item-capacity">{{ Number(obj.capacity_kwp || 0).toFixed(1) }} kWp</span>
                     </div>
                     <div class="item-secondary">
                         <span class="item-location">{{ obj.location || 'Unknown' }}</span>
-                        <span class="item-metric" v-if="obj.metrics">
-                            {{ (obj.metrics.efficiency * 100).toFixed(0) }}% eff.
+                        <span class="lifecycle-badge" :class="[lifecycleOf(obj), { removed: obj.soft_removed }]">
+                            {{ lifecycleLabel(obj) }}
                         </span>
                     </div>
                 </div>
-
-                <!-- View Analysis button -->
-                <button 
-                    class="item-action" 
-                    @click.stop="viewAnalysis(obj.id)" 
-                    title="View Analysis">
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <path d="M3 3v18h18"/>
-                        <path d="m19 9-5 5-4-4-3 3"/>
-                    </svg>
-                </button>
-
-                <!-- Delete button (hide from dashboard) -->
-                <button 
-                    class="item-action item-delete" 
-                    @click.stop="confirmDelete(obj)" 
-                    title="Remove from dashboard">
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <path d="M18 6 6 18M6 6l12 12"/>
-                    </svg>
-                </button>
             </div>
         </div>
 
@@ -157,9 +112,13 @@ export default {
         const activeCount = computed(() => store.activeObjectsCount)
         const warningCount = computed(() => store.warningObjectsCount)
         const offlineCount = computed(() => store.offlineObjectsCount)
+        const virtualCount = computed(() => store.virtualCount)
+        const plannedCount = computed(() => store.plannedCount)
+        const runningCount = computed(() => store.runningCount)
         const selectedId = computed(() => store.selectedObjectId)
         const isLoading = computed(() => store.isLoadingObjects)
         const activeFilters = computed(() => store.filters.status)
+        const lifecycleFilters = computed(() => store.filters.lifecycle || [])
 
         // Search handler with debounce
         let searchTimeout = null
@@ -239,6 +198,53 @@ export default {
             }
         })
 
+
+        const lifecycleOf = (obj) =>
+            obj.lifecycle_state || obj.customData?.lifecycleState || 'running'
+
+        const onlineClass = (obj) => {
+            const lc = lifecycleOf(obj)
+            if (lc !== 'running' || obj.soft_removed) return 'neutral'
+            return (obj.status || 'active') === 'active' ? 'online' : 'offline'
+        }
+
+
+        const lifecycleLabel = (obj) => {
+            const state = lifecycleOf(obj)
+            return obj.soft_removed ? `${state} (removed)` : state
+        }
+
+        const publicLabel = (obj) => {
+            if (obj.soft_removed) return 'hidden'
+            const cat = obj.public_category || obj.customData?.publicCategory
+            if (!cat || cat === 'none') return 'hidden'
+            return cat
+        }
+
+        const publicClass = (obj) => {
+            const label = publicLabel(obj)
+            return {
+                planned: label === 'planned',
+                existing: label === 'existing',
+                none: label === 'hidden',
+            }
+        }
+
+        const toggleLifecycle = (state) => {
+            const current = [...(store.filters.lifecycle || [])]
+            const index = current.indexOf(state)
+            if (index >= 0) {
+                current.splice(index, 1)
+            } else {
+                current.push(state)
+            }
+            store.setLifecycleFilter(current)
+        }
+
+        const clearLifecycleFilters = () => {
+            store.setLifecycleFilter([])
+        }
+
         return {
             searchTerm,
             listRef,
@@ -247,9 +253,13 @@ export default {
             activeCount,
             warningCount,
             offlineCount,
+            virtualCount,
+            plannedCount,
+            runningCount,
             selectedId,
             isLoading,
             activeFilters,
+            lifecycleFilters,
             onSearch,
             toggleFilter,
             clearFilters,
@@ -259,7 +269,14 @@ export default {
             openCreateVirtual,
             confirmDelete,
             hasHiddenInstallations,
-            restoreAll
+            restoreAll,
+            lifecycleOf,
+            onlineClass,
+            lifecycleLabel,
+            publicLabel,
+            publicClass,
+            toggleLifecycle,
+            clearLifecycleFilters,
         }
     }
 }
@@ -592,4 +609,73 @@ export default {
 .btn-add-virtual:hover {
     background: var(--color-primary-hover, #0070b0);
 }
+
+.lifecycle-chips {
+    border-bottom: 1px solid var(--color-border, #eee);
+}
+
+.chip-virtual.active {
+    border-color: #7b1fa2;
+    background: #f3e5f5;
+}
+
+.chip-planned.active {
+    border-color: #ef6c00;
+    background: #fff3e0;
+}
+
+.chip-running.active {
+    border-color: #2e7d32;
+    background: #e8f5e9;
+}
+
+.list-item.soft-removed {
+    opacity: 0.65;
+}
+
+.lifecycle-badge,
+.public-badge {
+    display: inline-block;
+    font-size: 10px;
+    font-weight: 600;
+    text-transform: lowercase;
+    padding: 1px 6px;
+    border-radius: 999px;
+    background: #eee;
+    color: #444;
+}
+
+.lifecycle-badge.virtual { background: #f3e5f5; color: #7b1fa2; }
+.lifecycle-badge.planned { background: #fff3e0; color: #ef6c00; }
+.lifecycle-badge.running { background: #e8f5e9; color: #2e7d32; }
+.lifecycle-badge.removed { text-decoration: line-through; }
+
+.public-badge.planned { background: #fff8e1; color: #f9a825; }
+.public-badge.existing { background: #e0f2f1; color: #00695c; }
+.public-badge.none { background: #eceff1; color: #607d8b; }
+
+
+
+
+
+.item-secondary {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px;
+}
+
+.status-dot-lg {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    display: inline-block;
+    margin-top: 4px;
+}
+.status-dot-lg.online { background: #22A559; }
+.status-dot-lg.offline { background: #CC2020; }
+.status-dot-lg.neutral { background: #bdbdbd; }
+.chip-online.active { border-color: #22A559; background: #e8f5e9; }
+.chip-offline.active { border-color: #CC2020; background: #ffebee; }
+.item-content { flex: 1; min-width: 0; }
 </style>

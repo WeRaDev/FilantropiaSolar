@@ -119,4 +119,16 @@ final class StationLifecycle
 	{
 		return !$softRemoved;
 	}
+
+	/**
+	 * Ops may set any non-soft-removed station to any valid lifecycle state.
+	 */
+	public static function canSetLifecycleState(string $lifecycleState, bool $softRemoved): bool
+	{
+		if ($softRemoved) {
+			return false;
+		}
+
+		return self::isValidState($lifecycleState);
+	}
 }

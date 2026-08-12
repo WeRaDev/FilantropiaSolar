@@ -22,6 +22,7 @@ export const useAppStore = defineStore('app', {
         },
         filters: {
             status: [], // ['active', 'warning', 'offline'] - empty means all
+            lifecycle: [], // ['virtual','planned','running'] - empty means all
             searchTerm: ''
         },
 
@@ -35,6 +36,12 @@ export const useAppStore = defineStore('app', {
 
         // Create Virtual Modal state
         createVirtualModalOpen: false,
+
+        // Edit station modal
+        editStationModalOpen: false,
+
+        // Lifecycle chooser modal
+        lifecycleModalOpen: false,
 
         // Loading states
         isLoadingObjects: false,
@@ -67,6 +74,19 @@ export const useAppStore = defineStore('app', {
                 result = result.filter(o => state.filters.status.includes(o.status || 'active'))
             }
 
+            // Filter by lifecycle chips (supports virtual/planned/running/online/offline)
+            if (state.filters.lifecycle && state.filters.lifecycle.length > 0) {
+                result = result.filter(o => {
+                    const lc = o.lifecycle_state || o.customData?.lifecycleState || 'running'
+                    const st = o.status || 'active'
+                    return state.filters.lifecycle.some((f) => {
+                        if (f === 'online') return lc === 'running' && st === 'active' && !o.soft_removed
+                        if (f === 'offline') return lc === 'running' && st !== 'active' && !o.soft_removed
+                        return lc === f
+                    })
+                })
+            }
+
             // Filter by search term
             if (state.filters.searchTerm) {
                 const term = state.filters.searchTerm.toLowerCase()
@@ -95,6 +115,27 @@ export const useAppStore = defineStore('app', {
         totalCapacity: (state) => 
             state.objects.reduce((sum, o) => sum + parseFloat(o.capacity_kwp || 0), 0),
 
+        virtualCount: (state) =>
+            state.objects.filter(o => (o.lifecycle_state || o.customData?.lifecycleState) === 'virtual' && !o.soft_removed).length,
+        plannedCount: (state) =>
+            state.objects.filter(o => (o.lifecycle_state || o.customData?.lifecycleState) === 'planned' && !o.soft_removed).length,
+        runningCount: (state) =>
+            state.objects.filter(o => (o.lifecycle_state || o.customData?.lifecycleState || 'running') === 'running' && !o.soft_removed).length,
+        onlineCount: (state) =>
+            state.objects.filter(o => {
+                const lc = o.lifecycle_state || o.customData?.lifecycleState || 'running'
+                return !o.soft_removed && lc === 'running' && (o.status || 'active') === 'active'
+            }).length,
+        offlineRunningCount: (state) =>
+            state.objects.filter(o => {
+                const lc = o.lifecycle_state || o.customData?.lifecycleState || 'running'
+                return !o.soft_removed && lc === 'running' && (o.status || 'active') !== 'active'
+            }).length,
+        totalEnergyKwh: (state) =>
+            state.objects.reduce((sum, o) => sum + Number(o.total_production_kwh || 0), 0),
+        totalSavingsEur: (state) =>
+            state.objects.reduce((sum, o) => sum + Number(o.total_savings_eur || 0), 0),
+
         // Group objects by location for map clustering
         objectsByLocation: (state) => {
             const grouped = {}
@@ -120,33 +161,60 @@ export const useAppStore = defineStore('app', {
                 const installations = response.data.installations || response.data.data || []
                 
                 // Map to layout spec object model
-                this.objects = installations.map(inst => ({
-                    id: inst.id,
-                    name: inst.name || `${inst.location} PV Plant`,
-                    // Use API-provided status (calculated from to_date)
-                    status: inst.status || this.calculateClientStatus(inst),
-                    location: inst.location || inst.nearest_location,
-                    metrics: {
-                        powerOutput: inst.capacity_kwp || 0,
-                        efficiency: 0.85
-                    },
-                    customData: {
-                        serialNumber: inst.serial_number,
-                        fromDate: inst.from_date,
-                        toDate: inst.to_date,
-                        isVirtual: inst.is_virtual || false,
-                        source: inst.source || 'dataset',
-                        dbId: inst.db_id || null
-                    },
-                    // Use actual API coordinates if available, otherwise fallback to location lookup
-                    coordinates: (inst.latitude && inst.longitude)
-                        ? { lat: parseFloat(inst.latitude), lng: parseFloat(inst.longitude) }
-                        : this.getLocationCoordinates(inst.location || inst.nearest_location),
-                    capacity_kwp: inst.capacity_kwp,
-                    latitude: inst.latitude,
-                    longitude: inst.longitude,
-                    lastUpdate: new Date().toISOString()
-                }))
+                this.objects = installations.map(inst => {
+                    const lifecycle = inst.lifecycle_state
+                        || (inst.is_virtual ? 'virtual' : 'running')
+                    const softRemoved = Boolean(inst.soft_removed)
+                    return {
+                        id: inst.id,
+                        installation_id: inst.installation_id || inst.id,
+                        name: inst.name || `${inst.location} PV Plant`,
+                        // Use API-provided status (calculated from to_date)
+                        status: inst.status || this.calculateClientStatus(inst),
+                        location: inst.location || inst.nearest_location,
+                        metrics: {
+                            powerOutput: inst.capacity_kwp || 0,
+                            efficiency: 0.85
+                        },
+                        customData: {
+                            serialNumber: inst.serial_number,
+                            fromDate: inst.from_date,
+                            toDate: inst.to_date,
+                            isVirtual: inst.is_virtual || lifecycle === 'virtual',
+                            source: inst.source || 'dataset',
+                            dbId: inst.db_id || null,
+                            lifecycleState: lifecycle,
+                            softRemoved,
+                            publicCategory: inst.public_category
+                                || (softRemoved || lifecycle === 'virtual'
+                                    ? 'none'
+                                    : (lifecycle === 'planned' ? 'planned' : 'existing')),
+                            isPublic: Boolean(inst.is_public),
+                            odooLeadId: inst.odoo_lead_id ?? null,
+                            installedAt: inst.installed_at || null,
+                            website: inst.website || '',
+                            shortDescription: inst.short_description || '',
+                            gridPriceKwh: inst.grid_price_kwh != null ? Number(inst.grid_price_kwh) : 0.15,
+                        },
+                        lifecycle_state: lifecycle,
+                        soft_removed: softRemoved,
+                        public_category: inst.public_category || null,
+                        website: inst.website || '',
+                        short_description: inst.short_description || '',
+                        grid_price_kwh: inst.grid_price_kwh != null ? Number(inst.grid_price_kwh) : 0.15,
+                        total_production_kwh: Number(inst.capacity_kwp || 0) * 1500,
+                        total_savings_eur: Number(inst.capacity_kwp || 0) * 1500 * (inst.grid_price_kwh != null ? Number(inst.grid_price_kwh) : 0.15),
+                        efficiency: 0.85,
+                        // Use actual API coordinates if available, otherwise fallback to location lookup
+                        coordinates: (inst.latitude && inst.longitude)
+                            ? { lat: parseFloat(inst.latitude), lng: parseFloat(inst.longitude) }
+                            : this.getLocationCoordinates(inst.location || inst.nearest_location),
+                        capacity_kwp: inst.capacity_kwp,
+                        latitude: inst.latitude,
+                        longitude: inst.longitude,
+                        lastUpdate: new Date().toISOString()
+                    }
+                })
             } catch (error) {
                 this.error = error.message || 'Failed to load installations'
             } finally {
@@ -224,8 +292,14 @@ export const useAppStore = defineStore('app', {
         // Clear all filters (FR2.4)
         clearFilters() {
             this.filters.status = []
+            this.filters.lifecycle = []
             this.filters.searchTerm = ''
         },
+
+        setLifecycleFilter(states) {
+            this.filters.lifecycle = states || []
+        },
+
 
         // Set time range (FR1.3)
         setTimeRange(start, end, label = 'Custom') {
@@ -358,6 +432,164 @@ export const useAppStore = defineStore('app', {
             this.createVirtualModalOpen = false
         },
 
+        openEditStationModal() {
+            this.editStationModalOpen = true
+        },
+        closeEditStationModal() {
+            this.editStationModalOpen = false
+        },
+        openLifecycleModal() {
+            this.lifecycleModalOpen = true
+        },
+        closeLifecycleModal() {
+            this.lifecycleModalOpen = false
+        },
+
+
+        stationApiKey(objOrId) {
+            if (objOrId && typeof objOrId === 'object') {
+                const obj = objOrId
+                if (obj.customData?.dbId) {
+                    return String(obj.customData.dbId)
+                }
+                if (obj.installation_id) {
+                    return String(obj.installation_id)
+                }
+                return String(obj.id || '')
+            }
+            const id = String(objOrId || '')
+            const obj = this.objects.find(o => o.id === id || o.installation_id === id)
+            if (obj?.customData?.dbId) {
+                return String(obj.customData.dbId)
+            }
+            if (obj?.installation_id) {
+                return String(obj.installation_id)
+            }
+            // virtual_123 -> 123
+            if (id.startsWith('virtual_')) {
+                return id.slice('virtual_'.length)
+            }
+            return id
+        },
+
+        lifecycleKey(obj) {
+            return this.stationApiKey(obj)
+        },
+
+        async promotePlanned(objectId) {
+            const obj = this.objects.find(o => o.id === objectId)
+            const key = this.stationApiKey(objectId)
+            try {
+                const response = await axios.post(
+                    generateUrl(`/apps/filantropia_solar/api/v1/installations/${encodeURIComponent(key)}/promote-planned`),
+                    {},
+                )
+                if (!response.data?.success) {
+                    throw new Error(response.data?.error || 'Promote failed')
+                }
+                await this.fetchObjects()
+                return response.data
+            } catch (error) {
+                this.error = error.response?.data?.error || error.message || 'Promote failed'
+                throw error
+            }
+        },
+
+        async markInstalled(objectId) {
+            const obj = this.objects.find(o => o.id === objectId)
+            const key = this.stationApiKey(objectId)
+            try {
+                const response = await axios.post(
+                    generateUrl(`/apps/filantropia_solar/api/v1/installations/${encodeURIComponent(key)}/mark-installed`),
+                    {},
+                )
+                if (!response.data?.success) {
+                    throw new Error(response.data?.error || 'Mark installed failed')
+                }
+                await this.fetchObjects()
+                return response.data
+            } catch (error) {
+                this.error = error.response?.data?.error || error.message || 'Mark installed failed'
+                throw error
+            }
+        },
+
+        async softRemoveStation(objectId) {
+            const obj = this.objects.find(o => o.id === objectId)
+            const key = this.stationApiKey(objectId)
+            try {
+                const response = await axios.post(
+                    generateUrl(`/apps/filantropia_solar/api/v1/installations/${encodeURIComponent(key)}/soft-remove`),
+                    {},
+                )
+                if (!response.data?.success) {
+                    throw new Error(response.data?.error || 'Soft-remove failed')
+                }
+                await this.fetchObjects()
+                return response.data
+            } catch (error) {
+                this.error = error.response?.data?.error || error.message || 'Soft-remove failed'
+                throw error
+            }
+        },
+
+        async setLifecycle(objectId, lifecycleState) {
+            const obj = this.objects.find(o => o.id === objectId)
+            const key = this.stationApiKey(objectId)
+            try {
+                const response = await axios.post(
+                    generateUrl(`/apps/filantropia_solar/api/v1/installations/${encodeURIComponent(key)}/set-lifecycle`),
+                    { lifecycle_state: lifecycleState },
+                )
+                if (!response.data?.success) {
+                    throw new Error(response.data?.error || 'Lifecycle update failed')
+                }
+                await this.fetchObjects()
+                // reselect same logical station if possible
+                if (this.selectedObjectId) {
+                    const still = this.objects.find(o => o.id === objectId || o.installation_id === key)
+                    if (still) this.selectedObjectId = still.id
+                }
+                return response.data
+            } catch (error) {
+                this.error = error.response?.data?.error || error.message || 'Lifecycle update failed'
+                throw error
+            }
+        },
+
+        async updateStation(objectId, fields) {
+            const obj = this.objects.find(o => o.id === objectId)
+            const key = this.stationApiKey(objectId)
+            try {
+                const response = await axios.put(
+                    generateUrl(`/apps/filantropia_solar/api/v1/installations/${encodeURIComponent(key)}`),
+                    fields,
+                )
+                if (!response.data?.success) {
+                    throw new Error(response.data?.error || 'Update failed')
+                }
+                await this.fetchObjects()
+                return response.data
+            } catch (error) {
+                this.error = error.response?.data?.error || error.message || 'Update failed'
+                throw error
+            }
+        },
+
+        async importHistoricalReadings(objectId, readings) {
+            const key = this.stationApiKey(objectId)
+            try {
+                const response = await axios.post(
+                    generateUrl(`/apps/filantropia_solar/api/v1/installations/${encodeURIComponent(key)}/import`),
+                    { readings },
+                )
+                return response.data
+            } catch (error) {
+                this.error = error.response?.data?.error || error.message || 'Import failed'
+                throw error
+            }
+        },
+
         // Create a new virtual installation
         async createVirtualInstallation(data) {
             const virtualObj = {
@@ -402,12 +634,12 @@ export const useAppStore = defineStore('app', {
                 }
             } catch (error) {
                 // If backend fails, still add locally (virtual mode)
+                this.objects.push(virtualObj)
+                return { success: true, installation: virtualObj }
             }
-            
-            // Always add to local objects array
-            this.objects.push(virtualObj)
-            
-            return { success: true, installation: virtualObj }
+
+            await this.fetchObjects()
+            return { success: true }
         },
 
         // Simulate energy production for an installation using weather API

@@ -117,6 +117,16 @@
                     <div class="ml-info-row"><span class="ml-info-label">Model MAE:</span> {{ analysisData?.model_info?.mae != null ? analysisData.model_info.mae.toFixed(4) : 'N/A (physics-based)' }}</div>
                 </div>
             </div>
+            <button
+                class="btn-export"
+                type="button"
+                title="Add historical production data"
+                @click="$emit('add-historical')">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M12 5v14M5 12h14"/>
+                </svg>
+                <span>Add historical data</span>
+            </button>
             <!-- Export Data button -->
             <button
                 class="btn-export"
@@ -190,6 +200,7 @@ export default {
         'update:weatherLayers',
         'weather-change',
         'export',
+        'add-historical',
         'close',
     ],
     data() {

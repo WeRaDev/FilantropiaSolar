@@ -92,33 +92,27 @@ class InstallationApiController extends ApiController
             try {
                 $userInstallations = $this->mapper->findAllByUser($userId);
                 foreach ($userInstallations as $inst) {
-                    $state = $inst->getLifecycleState() !== ''
-                        ? $inst->getLifecycleState()
-                        : StationLifecycle::VIRTUAL;
-                    $dbInstallations[] = [
-                        'id' => 'virtual_' . $inst->getId(),
-                        'name' => $inst->getName(),
-                        'location' => $inst->getLocation(),
-                        'latitude' => $inst->getLatitude(),
-                        'longitude' => $inst->getLongitude(),
-                        'capacity_kwp' => (float) $inst->getCapacityKwp(),
-                        'serial_number' => $inst->getSerialNumber(),
-                        'is_virtual' => StationLifecycle::isVirtualFlag($state),
-                        'source' => 'user',
-                        'status' => 'warning',
-                        'db_id' => $inst->getId(),
-                        'lifecycle_state' => $state,
-                        'soft_removed' => $inst->getSoftRemoved(),
-                        'public_category' => StationLifecycle::publicCategory($state, $inst->getSoftRemoved()),
-                        'is_public' => StationLifecycle::isPublic($state, $inst->getSoftRemoved()),
-                    ];
+                    $dbInstallations[] = $this->userOrCrmRowToArray($inst, 'user');
                 }
             } catch (\Exception $dbEx) {
                 $this->logger->error('Failed to fetch user installations', ['exception' => $dbEx]);
             }
         }
 
-        // 3. Merge: dataset + user installations
+        // 3. CRM / ops stations (no user_id) — needed for dashboard lifecycle
+        try {
+            $crmRows = $this->mapper->findAllBySource('crm');
+            foreach ($crmRows as $inst) {
+                if ($inst->getSoftRemoved()) {
+                    // Still show to ops so soft-remove is visible/undo-aware later
+                }
+                $dbInstallations[] = $this->userOrCrmRowToArray($inst, 'crm');
+            }
+        } catch (\Exception $crmEx) {
+            $this->logger->error('Failed to fetch CRM installations', ['exception' => $crmEx]);
+        }
+
+        // 4. Merge: dataset + user + crm installations
         $merged = array_merge($mlInstallations, $dbInstallations);
 
         return new JSONResponse([
@@ -233,71 +227,68 @@ class InstallationApiController extends ApiController
      * PUT /api/v1/installations/{id}
      */
     #[NoAdminRequired]
-    public function update(
-        int $id,
-        ?string $name = null,
-        ?string $location = null,
-        ?float $latitude = null,
-        ?float $longitude = null,
-        ?float $capacityKwp = null,
-        ?string $serialNumber = null,
-        ?float $connectionPowerKwn = null,
-        ?float $gridPriceKwh = null,
-        ?string $installationDate = null,
-    ): JSONResponse {
+    public function update(string $id): JSONResponse
+    {
         $userId = $this->getUserId();
         if (!$userId) {
             return $this->errorResponse('Unauthorized', Http::STATUS_UNAUTHORIZED);
         }
 
-        try {
-            $installation = $this->mapper->findByUser($id, $userId);
+        $installation = $this->resolveStation($id);
+        if ($installation === null) {
+            return $this->errorResponse('Installation not found', Http::STATUS_NOT_FOUND);
+        }
 
-            // Update only provided fields
-            if ($name !== null) {
-                $installation->setName($name);
+        $payload = $this->request->getParams();
+        try {
+            if (array_key_exists('name', $payload) && $payload['name'] !== null && $payload['name'] !== '') {
+                $installation->setName((string) $payload['name']);
             }
-            if ($location !== null) {
-                $installation->setLocation($location);
+            if (array_key_exists('location', $payload) && $payload['location'] !== null && $payload['location'] !== '') {
+                $installation->setLocation((string) $payload['location']);
             }
-            if ($latitude !== null) {
-                $installation->setLatitude((string) $latitude);
+            if (array_key_exists('latitude', $payload) && $payload['latitude'] !== null && $payload['latitude'] !== '') {
+                $installation->setLatitude((string) $payload['latitude']);
             }
-            if ($longitude !== null) {
-                $installation->setLongitude((string) $longitude);
+            if (array_key_exists('longitude', $payload) && $payload['longitude'] !== null && $payload['longitude'] !== '') {
+                $installation->setLongitude((string) $payload['longitude']);
             }
-            if ($capacityKwp !== null) {
-                if ($capacityKwp <= 0) {
+            if (array_key_exists('capacity_kwp', $payload) || array_key_exists('capacityKwp', $payload)) {
+                $cap = (float) ($payload['capacity_kwp'] ?? $payload['capacityKwp']);
+                if ($cap <= 0) {
                     return $this->errorResponse('Capacity must be positive', Http::STATUS_BAD_REQUEST);
                 }
-                $installation->setCapacityKwp((string) $capacityKwp);
+                $installation->setCapacityKwp((string) $cap);
             }
-            if ($serialNumber !== null) {
-                $installation->setSerialNumber($serialNumber);
+            if (array_key_exists('grid_price_kwh', $payload) || array_key_exists('gridPriceKwh', $payload)) {
+                $price = $payload['grid_price_kwh'] ?? $payload['gridPriceKwh'];
+                if ($price !== null && $price !== '') {
+                    $installation->setGridPriceKwh((string) $price);
+                }
             }
-            if ($connectionPowerKwn !== null) {
-                $installation->setConnectionPowerKwn((string) $connectionPowerKwn);
+            if (array_key_exists('website', $payload)) {
+                $w = $payload['website'];
+                $installation->setWebsite($w !== null && $w !== '' ? (string) $w : null);
             }
-            if ($gridPriceKwh !== null) {
-                $installation->setGridPriceKwh((string) $gridPriceKwh);
+            if (array_key_exists('short_description', $payload) || array_key_exists('shortDescription', $payload)) {
+                $d = $payload['short_description'] ?? $payload['shortDescription'];
+                $installation->setShortDescription($d !== null && $d !== '' ? (string) $d : null);
             }
-            if ($installationDate !== null) {
-                $installation->setInstallationDate(new DateTime($installationDate));
+            if (array_key_exists('installation_date', $payload) || array_key_exists('effective_date', $payload) || array_key_exists('installationDate', $payload)) {
+                $raw = $payload['installation_date'] ?? $payload['effective_date'] ?? $payload['installationDate'];
+                if ($raw) {
+                    $installation->setInstallationDate(new DateTime((string) $raw));
+                }
             }
 
             $installation->setUpdatedAt(new DateTime());
             $updated = $this->mapper->update($installation);
 
-            $this->logger->info('Installation updated', ['id' => $id]);
-
             return new JSONResponse([
                 'success' => true,
-                'installation' => $updated,
+                'installation' => $this->lifecyclePayload($updated),
                 'message' => 'Installation updated successfully',
             ]);
-
-        } catch (DoesNotExistException $e) {
-            return $this->errorResponse('Installation not found', Http::STATUS_NOT_FOUND);
         } catch (\Exception $e) {
             $this->logger->error('Failed to update installation', ['id' => $id, 'exception' => $e]);
             return $this->errorResponse('Failed to update installation');
@@ -482,6 +473,273 @@ class InstallationApiController extends ApiController
     }
 
     /**
+     * Promote Virtual → Planned (session auth; dashboard ops).
+     *
+     * POST /api/v1/installations/{id}/promote-planned
+     */
+    #[NoAdminRequired]
+    #[NoCSRFRequired]
+    public function promotePlanned(string $id): JSONResponse
+    {
+        $station = $this->resolveStation($id);
+        if ($station === null) {
+            return $this->errorResponse('Installation not found', Http::STATUS_NOT_FOUND);
+        }
+
+        $state = $this->stateOf($station);
+        if (!StationLifecycle::canPromoteToPlanned($state, $station->getSoftRemoved())) {
+            return $this->errorResponse(
+                'Illegal transition to planned from ' . $state,
+                Http::STATUS_CONFLICT,
+            );
+        }
+
+        if ($state !== StationLifecycle::PLANNED) {
+            $station->applyLifecycleState(StationLifecycle::PLANNED);
+            $station->setUpdatedAt(new DateTime());
+            $station = $this->mapper->update($station);
+        }
+
+        return new JSONResponse([
+            'success' => true,
+            'installation' => $this->lifecyclePayload($station),
+            'message' => 'Station promoted to planned',
+        ]);
+    }
+
+    /**
+     * Mark Planned → Running / installed.
+     *
+     * POST /api/v1/installations/{id}/mark-installed
+     */
+    #[NoAdminRequired]
+    #[NoCSRFRequired]
+    public function markInstalled(string $id): JSONResponse
+    {
+        $station = $this->resolveStation($id);
+        if ($station === null) {
+            return $this->errorResponse('Installation not found', Http::STATUS_NOT_FOUND);
+        }
+
+        $state = $this->stateOf($station);
+        if (!StationLifecycle::canMarkInstalled($state, $station->getSoftRemoved())) {
+            return $this->errorResponse(
+                'Illegal transition to running from ' . $state,
+                Http::STATUS_CONFLICT,
+            );
+        }
+
+        $installedAtRaw = $this->request->getParam('installed_at');
+        if ($state !== StationLifecycle::RUNNING) {
+            $station->applyLifecycleState(StationLifecycle::RUNNING);
+            try {
+                $station->setInstalledAt(
+                    $installedAtRaw ? new DateTime((string) $installedAtRaw) : new DateTime(),
+                );
+            } catch (\Throwable) {
+                $station->setInstalledAt(new DateTime());
+            }
+            $station->setUpdatedAt(new DateTime());
+            $station = $this->mapper->update($station);
+        }
+
+        return new JSONResponse([
+            'success' => true,
+            'installation' => $this->lifecyclePayload($station),
+            'message' => 'Station marked installed (running)',
+        ]);
+    }
+
+    /**
+     * Soft-remove from public surfaces (row kept).
+     *
+     * POST /api/v1/installations/{id}/soft-remove
+     */
+    #[NoAdminRequired]
+    #[NoCSRFRequired]
+    public function softRemove(string $id): JSONResponse
+    {
+        $station = $this->resolveStation($id);
+        if ($station === null) {
+            return $this->errorResponse('Installation not found', Http::STATUS_NOT_FOUND);
+        }
+
+        if (!$station->getSoftRemoved()) {
+            $station->setSoftRemoved(true);
+            $station->setUpdatedAt(new DateTime());
+            $station = $this->mapper->update($station);
+        }
+
+        return new JSONResponse([
+            'success' => true,
+            'installation' => $this->lifecyclePayload($station),
+            'message' => 'Station soft-removed from public listing',
+        ]);
+    }
+
+    /**
+     * Set lifecycle state explicitly (Virtual | Planned | Running).
+     *
+     * POST /api/v1/installations/{id}/set-lifecycle
+     */
+    #[NoAdminRequired]
+    #[NoCSRFRequired]
+    public function setLifecycle(string $id): JSONResponse
+    {
+        $station = $this->resolveStation($id);
+        if ($station === null) {
+            return $this->errorResponse('Installation not found', Http::STATUS_NOT_FOUND);
+        }
+
+        $payload = $this->request->getParams();
+        $target = strtolower(trim((string) ($payload['lifecycle_state'] ?? $this->request->getParam('lifecycle_state', ''))));
+        if (!StationLifecycle::isValidState($target)) {
+            return $this->errorResponse('Invalid lifecycle_state', Http::STATUS_BAD_REQUEST);
+        }
+        if (!StationLifecycle::canSetLifecycleState($target, $station->getSoftRemoved())) {
+            return $this->errorResponse('Cannot change lifecycle while soft-removed', Http::STATUS_CONFLICT);
+        }
+
+        $prev = $this->stateOf($station);
+        if ($prev !== $target) {
+            $station->applyLifecycleState($target);
+            if ($target === StationLifecycle::RUNNING && $station->getInstalledAt() === null) {
+                $station->setInstalledAt(new DateTime());
+            }
+            if ($target === StationLifecycle::VIRTUAL) {
+                // demote: clear installed_at optional
+            }
+            $station->setUpdatedAt(new DateTime());
+            $station = $this->mapper->update($station);
+            $this->logger->info('Lifecycle set', [
+                'installation_id' => $station->getInstallationId(),
+                'from' => $prev,
+                'to' => $target,
+            ]);
+        }
+
+        return new JSONResponse([
+            'success' => true,
+            'installation' => $this->lifecyclePayload($station),
+            'message' => 'Lifecycle updated to ' . $target,
+        ]);
+    }
+
+    private function resolveStation(string $id): ?Installation
+    {
+        $id = trim($id);
+        if ($id === '') {
+            return null;
+        }
+
+        // virtual_<dbId> / crm_<dbId> forms used by dashboard
+        foreach (['virtual_', 'crm_'] as $prefix) {
+            if (str_starts_with($id, $prefix)) {
+                $dbId = (int) substr($id, strlen($prefix));
+                if ($dbId > 0) {
+                    try {
+                        return $this->mapper->find($dbId);
+                    } catch (DoesNotExistException) {
+                        return null;
+                    }
+                }
+            }
+        }
+
+        // bare numeric DB id (preferred for ops writes)
+        if (ctype_digit($id)) {
+            try {
+                return $this->mapper->find((int) $id);
+            } catch (DoesNotExistException) {
+                // fall through
+            }
+        }
+
+        // location_serial and dotted names: try installation key, then scan by name
+        $found = $this->mapper->findByInstallationKey($id);
+        if ($found !== null) {
+            return $found;
+        }
+
+        // Fallback: name match (e.g. SolarSeed.Torres.Vedras) among all rows
+        try {
+            foreach ($this->mapper->findAll() as $row) {
+                if ($row->getName() === $id || $row->getInstallationId() === $id) {
+                    return $row;
+                }
+            }
+        } catch (\Throwable) {
+            // ignore
+        }
+
+        return null;
+    }
+
+    private function stateOf(Installation $station): string
+    {
+        $state = $station->getLifecycleState();
+        if ($state === null || $state === '') {
+            return StationLifecycle::defaultStateForNew($station->getIsVirtual(), $station->getSource());
+        }
+
+        return $state;
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function lifecyclePayload(Installation $station): array
+    {
+        $source = $station->getSource() ?: 'user';
+        if ($source === 'dataset') {
+            return $this->datasetRowToArray($station);
+        }
+
+        return $this->userOrCrmRowToArray($station, $source);
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function userOrCrmRowToArray(Installation $inst, string $source): array
+    {
+        $state = $inst->getLifecycleState() !== ''
+            ? $inst->getLifecycleState()
+            : StationLifecycle::defaultStateForNew($inst->getIsVirtual(), $source);
+        $soft = $inst->getSoftRemoved();
+
+        // Prefer stable installation_id key for lifecycle writes; keep virtual_ alias for UI
+        $publicId = $inst->getInstallationId();
+        if ($publicId === '' || $publicId === null) {
+            $publicId = ($source === 'user' ? 'virtual_' : 'crm_') . $inst->getId();
+        }
+
+        return [
+            'id' => $source === 'user' ? ('virtual_' . $inst->getId()) : $publicId,
+            'installation_id' => $publicId,
+            'name' => $inst->getName(),
+            'location' => $inst->getLocation(),
+            'latitude' => (float) $inst->getLatitude(),
+            'longitude' => (float) $inst->getLongitude(),
+            'capacity_kwp' => (float) $inst->getCapacityKwp(),
+            'serial_number' => $inst->getSerialNumber(),
+            'is_virtual' => StationLifecycle::isVirtualFlag($state),
+            'source' => $source,
+            'status' => $state === StationLifecycle::RUNNING ? 'active' : 'warning',
+            'db_id' => $inst->getId(),
+            'lifecycle_state' => $state,
+            'soft_removed' => $soft,
+            'public_category' => StationLifecycle::publicCategory($state, $soft),
+            'is_public' => StationLifecycle::isPublic($state, $soft),
+            'odoo_lead_id' => $inst->getOdooLeadId(),
+            'installed_at' => $inst->getInstalledAt()?->format('c'),
+            'website' => $inst->getWebsite(),
+            'short_description' => $inst->getShortDescription(),
+            'grid_price_kwh' => $inst->getGridPriceKwh() !== null ? (float) $inst->getGridPriceKwh() : null,
+        ];
+    }
+
+    /**
      * Map a dataset Installation entity to the API array shape (ML-compatible).
      */
     private function datasetRowToArray(Installation $inst): array
@@ -518,6 +776,9 @@ class InstallationApiController extends ApiController
             'is_public' => StationLifecycle::isPublic($state, $inst->getSoftRemoved()),
             'odoo_lead_id' => $inst->getOdooLeadId(),
             'installed_at' => $inst->getInstalledAt()?->format('c'),
+            'website' => $inst->getWebsite(),
+            'short_description' => $inst->getShortDescription(),
+            'grid_price_kwh' => $inst->getGridPriceKwh() !== null ? (float) $inst->getGridPriceKwh() : null,
         ];
     }
 

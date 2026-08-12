@@ -20,6 +20,7 @@
                         @date-change="onDateChange"
                         @set-timeframe="setTimeframe"
                         @weather-change="renderCombinedChart"
+                        @add-historical="onAddHistorical"
                         @export="exportData"
                         @close="closeModal"
                     />
