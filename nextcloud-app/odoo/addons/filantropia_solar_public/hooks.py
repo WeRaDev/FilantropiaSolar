@@ -124,17 +124,55 @@ def _ensure_legacy_redirect(env):
         )
 
 
+def _active_lang(env, code: str):
+    """Return active res.lang for code, installing from lang pack when needed."""
+    Lang = env["res.lang"].sudo()
+    lang = Lang.search([("code", "=", code)], limit=1)
+    if lang and lang.active:
+        return lang
+    # Cold install: language row may be inactive or missing until installed
+    try:
+        if hasattr(Lang, "_activate_lang"):
+            Lang._activate_lang(code)
+        elif hasattr(Lang, "install_lang"):
+            Lang.install_lang(code)
+        # Fallback: toggle active if row exists
+        elif lang and not lang.active:
+            lang.active = True
+    except Exception:
+        _logger.exception(
+            "filantropia_solar_public: failed to activate language %s", code
+        )
+        return Lang.browse()
+    lang = Lang.search([("code", "=", code), ("active", "=", True)], limit=1)
+    if lang:
+        _logger.info(
+            "filantropia_solar_public: language %s active id=%s", code, lang.id
+        )
+    return lang
+
+
+def _write_lang(records, code: str, vals: dict) -> None:
+    """Write vals in language code only when that language is active."""
+    if not records or not vals:
+        return
+    lang = (
+        records.env["res.lang"]
+        .sudo()
+        .search([("code", "=", code), ("active", "=", True)], limit=1)
+    )
+    if not lang:
+        _logger.warning(
+            "filantropia_solar_public: skip write lang=%s (not active)", code
+        )
+        return
+    records.with_context(lang=code).write(vals)
+
+
 def _ensure_site_identity(env):
     """Brand all websites + company as Filantropia Solar; PT default; /inicio home."""
-    Lang = env["res.lang"]
-    for code in ("pt_PT", "en_US"):
-        lang = Lang.search([("code", "=", code)], limit=1)
-        if lang and not lang.active:
-            lang.active = True
-            _logger.info("filantropia_solar_public: activated language %s", code)
-
-    pt = Lang.search([("code", "=", "pt_PT"), ("active", "=", True)], limit=1)
-    en = Lang.search([("code", "=", "en_US"), ("active", "=", True)], limit=1)
+    pt = _active_lang(env, "pt_PT")
+    en = _active_lang(env, "en_US")
     if not pt:
         _logger.warning("filantropia_solar_public: pt_PT not available")
         return
@@ -237,6 +275,9 @@ def _editorial_teasers():
 
 
 def _ensure_blog_posts(env):
+    # Ensure translated writes won't raise Invalid language code on cold install
+    _active_lang(env, "pt_PT")
+    _active_lang(env, "en_US")
     Blog = env["blog.blog"].sudo()
     Post = env["blog.post"].sudo()
 
@@ -253,19 +294,23 @@ def _ensure_blog_posts(env):
             "filantropia_solar_public: created blog Casos de Sucesso id=%s", blog.id
         )
     else:
-        # Keep PT as source values
-        blog.with_context(lang="pt_PT").write(
+        # Keep PT as source values when pt_PT is active
+        _write_lang(
+            blog,
+            "pt_PT",
             {
                 "name": "Casos de Sucesso",
                 "subtitle": "Histórias reais da rede Filantropia Solar",
-            }
+            },
         )
 
-    blog.with_context(lang="en_US").write(
+    _write_lang(
+        blog,
+        "en_US",
         {
             "name": "Success Stories",
             "subtitle": "Real stories from the Filantropia Solar network",
-        }
+        },
     )
 
     for spec in _POSTS_PT:
@@ -283,8 +328,8 @@ def _ensure_blog_posts(env):
             _external_id(env, "filantropia_solar_public", xml_name, post)
             _logger.info("filantropia_solar_public: created post %s", spec["name"])
         else:
-            post.with_context(lang="pt_PT").write(vals_pt)
-        post.with_context(lang="en_US").write(spec["en"])
+            _write_lang(post, "pt_PT", vals_pt)
+        _write_lang(post, "en_US", spec["en"])
 
         # Editorial teaser + SEO (animal-shelter-first order via creation order)
         tip = _editorial_teasers().get(xml_name, {})
@@ -300,8 +345,8 @@ def _ensure_blog_posts(env):
             if "teaser_manual" in post._fields:
                 pt_vals["teaser_manual"] = tip["teaser_pt"]
                 en_vals["teaser_manual"] = tip["teaser_en"]
-            post.with_context(lang="pt_PT").write(pt_vals)
-            post.with_context(lang="en_US").write(en_vals)
+            _write_lang(post, "pt_PT", pt_vals)
+            _write_lang(post, "en_US", en_vals)
 
 
 _FS_VIEW_KEYS = (

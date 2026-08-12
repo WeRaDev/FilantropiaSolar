@@ -10,9 +10,9 @@
 # Idempotent: safe to re-run. Run from anywhere:
 #   bash nextcloud-app/scripts/setup.sh
 #
-# Optional Odoo public site afterwards:
-#   export FS_PUBLIC_API_TOKEN=$(cat ../SolarSeed-v3/.secrets/filantropia_public_api_token)
-#   (cd nextcloud-app && docker compose --profile odoo up -d --build)
+# Optional Odoo public site + queue_job afterwards:
+#   bash nextcloud-app/scripts/setup-odoo.sh
+#   bash nextcloud-app/scripts/setup-odoo.sh --smoke
 
 cd "$(dirname "$0")/.." || exit 1   # -> nextcloud-app/
 
@@ -89,4 +89,5 @@ echo
 echo "Done."
 echo "  Nextcloud admin dashboard: http://localhost:8080  (admin / admin)"
 echo "  ML service:                http://localhost:8501"
-echo "  Odoo public site (opt):    export FS_PUBLIC_API_TOKEN=\$(cat ../SolarSeed-v3/.secrets/filantropia_public_api_token) && docker compose --profile odoo up -d --build"
+echo "  Odoo public site (opt):    bash nextcloud-app/scripts/setup-odoo.sh"
+echo "  Odoo + job smoke (opt):    bash nextcloud-app/scripts/setup-odoo.sh --smoke"
