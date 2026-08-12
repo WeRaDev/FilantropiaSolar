@@ -304,8 +304,39 @@ def _ensure_blog_posts(env):
             post.with_context(lang="en_US").write(en_vals)
 
 
+
+
+_FS_VIEW_KEYS = (
+    "filantropia_solar_public.page_inicio",
+    "filantropia_solar_public.page_instalacoes",
+    "filantropia_solar_public.page_contacto",
+    "filantropia_solar_public.page_candidatura",
+    "filantropia_solar_public.snippet_leaflet_map",
+    "filantropia_solar_public.snippet_steps",
+)
+
+
+def _reset_website_cows(env):
+    """Drop website-editor COW copies so module XML remains source of truth."""
+    View = env["ir.ui.view"].sudo()
+    cows = View.search([
+        ("website_id", "!=", False),
+        ("key", "in", list(_FS_VIEW_KEYS)),
+    ])
+    if cows:
+        keys = sorted({c.key for c in cows})
+        n = len(cows)
+        cows.unlink()
+        _logger.info(
+            "filantropia_solar_public: removed %s website COW view(s): %s",
+            n,
+            ", ".join(keys),
+        )
+
+
 def post_init_hook(env):
     """Run after module install/update."""
     _ensure_legacy_redirect(env)
     _ensure_site_identity(env)
     _ensure_blog_posts(env)
+    _reset_website_cows(env)
