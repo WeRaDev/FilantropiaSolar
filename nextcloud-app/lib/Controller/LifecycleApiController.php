@@ -53,6 +53,12 @@ class LifecycleApiController extends ApiController
 		$capacityKwp = (float) ($payload['capacity_kwp'] ?? $this->request->getParam('capacity_kwp', 0));
 		$locationLabel = trim((string) ($payload['location_label'] ?? $this->request->getParam('location_label', '')));
 		$orgName = trim((string) ($payload['organization_name'] ?? $this->request->getParam('organization_name', '')));
+		$website = trim((string) ($payload['website'] ?? $this->request->getParam('website', '')));
+		$shortDescription = trim((string) (
+			$payload['short_description']
+			?? $payload['shortDescription']
+			?? $this->request->getParam('short_description', '')
+		));
 		$gridPrice = $payload['grid_price_kwh'] ?? $this->request->getParam('grid_price_kwh', null);
 
 		if ($odooLeadId <= 0) {
@@ -94,6 +100,15 @@ class LifecycleApiController extends ApiController
 			}
 			if ($orgName !== '') {
 				$station->setNearestLocation($orgName);
+			}
+			if ($website !== '') {
+				$station->setWebsite($website);
+			}
+			if ($shortDescription !== '') {
+				$station->setShortDescription($shortDescription);
+			} elseif ($orgName !== '') {
+				// Fallback public blurb from organisation name when form description empty
+				$station->setShortDescription($orgName);
 			}
 			$now = new DateTime();
 			$station->setCreatedAt($now);
@@ -292,6 +307,8 @@ class LifecycleApiController extends ApiController
 			'location' => $station->getLocation(),
 			'source' => $station->getSource(),
 			'installed_at' => $station->getInstalledAt()?->format('c'),
+			'website' => $station->getWebsite(),
+			'short_description' => $station->getShortDescription(),
 		];
 	}
 

@@ -80,9 +80,15 @@
                                                     <span>Poupança estimada: <t t-esc="station.get('money_saved_display', '—')"/> EUR/ano</span>
                                                 </div>
                                                 <div class="fs-station-info small">
-                                                    <strong>Informação:</strong>
+                                                    <strong>Descrição:</strong>
                                                     <span t-esc="station.get('info', '')"/>
                                                 </div>
+                                                <t t-if="station.get('website_href') or station.get('website')">
+                                                    <div class="fs-station-web small">
+                                                        <a t-att-href="station.get('website_href') or station.get('website')"
+                                                           target="_blank" rel="noopener">Website</a>
+                                                    </div>
+                                                </t>
                                             </li>
                                         </t>
                                     </ul>
@@ -251,6 +257,8 @@
                                     <th>Localização</th>
                                     <th>Potência (kWp)</th>
                                     <th>Poupança estimada (EUR/ano)</th>
+                                    <th>Descrição</th>
+                                    <th>Website</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -259,7 +267,20 @@
                                         <td t-esc="station.get('name')"/>
                                         <td t-esc="station.get('location')"/>
                                         <td t-esc="station.get('capacity_kwp')"/>
-                                        <td t-esc="station.get('money_saved_display', '—')"/>
+                                        <td>
+                                            <span t-esc="station.get('money_saved_display', '—')"/>
+                                            <t t-if="station.get('savings_is_indicative')">
+                                                <span class="small text-muted"> (indicativa)</span>
+                                            </t>
+                                        </td>
+                                        <td class="small" t-esc="station.get('info') or station.get('short_description') or '—'"/>
+                                        <td>
+                                            <t t-if="station.get('website_href') or station.get('website')">
+                                                <a t-att-href="station.get('website_href') or station.get('website')"
+                                                   target="_blank" rel="noopener">Website</a>
+                                            </t>
+                                            <t t-else="">—</t>
+                                        </td>
                                     </tr>
                                 </t>
                             </tbody>

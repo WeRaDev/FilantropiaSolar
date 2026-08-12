@@ -113,8 +113,16 @@
                         + esc(s.location || '') + '<br/>'
                         + esc(s.capacity_kwp || 0) + ' kWp<br/>'
                         + '<strong>Poupança estimada:</strong> ' + esc(saved) + ' EUR/ano';
+                    if (s.savings_is_indicative) {
+                        html += ' <em>(indicativa)</em>';
+                    }
                     if (info) {
-                        html += '<br/><strong>Informação:</strong> ' + esc(info);
+                        html += '<br/><strong>Descrição:</strong> ' + esc(info);
+                    }
+                    if (s.website) {
+                        var w = String(s.website);
+                        if (!/^https?:\/\//i.test(w)) { w = 'https://' + w; }
+                        html += '<br/><a href="' + esc(w) + '" target="_blank" rel="noopener">Website</a>';
                     }
                     m.bindPopup(html);
                     markers.push(m);

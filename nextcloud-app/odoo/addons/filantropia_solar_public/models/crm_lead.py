@@ -70,6 +70,11 @@ class CrmLead(models.Model):
         digits=(8, 4),
         copy=False,
     )
+    fs_station_website = fields.Char(string="Organisation website", copy=False)
+    fs_station_short_description = fields.Text(
+        string="Organisation short description",
+        copy=False,
+    )
     fs_is_donation_application = fields.Boolean(
         string="Filantropia donation application",
         default=False,
@@ -128,6 +133,11 @@ class CrmLead(models.Model):
         }
         if self.fs_station_grid_price_kwh:
             payload["grid_price_kwh"] = float(self.fs_station_grid_price_kwh)
+        if self.fs_station_website:
+            payload["website"] = (self.fs_station_website or "").strip()
+        short = (self.fs_station_short_description or "").strip()
+        if short:
+            payload["short_description"] = short
 
         try:
             result = self._fs_client().create_virtual(payload)
