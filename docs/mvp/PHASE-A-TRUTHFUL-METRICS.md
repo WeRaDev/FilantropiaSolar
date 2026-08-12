@@ -22,3 +22,11 @@
 - Seed 11 fleet sites from `docs/ops/REAL-FLEET-INVENTORY.md` (confirm W vs kWp; add lat/lon) so ops list and public map refill.
 - Phase B: provenance + ML gap-fill.
 - Clean smoke CRM test rows if undesired.
+
+
+## Fleet seed (follow-up)
+
+- `nextcloud-app/data/real_fleet.json` + `scripts/seed_real_fleet.py`
+- Capacity: inventory W / 1000 → kWp (40.23 kWp total)
+- PurposeFlow 2026 → `planned`; others → `running`
+- Coords: approximate placeholders until survey GPS
