@@ -446,16 +446,39 @@ export const useAppStore = defineStore('app', {
         },
 
 
+        stationApiKey(objOrId) {
+            if (objOrId && typeof objOrId === 'object') {
+                const obj = objOrId
+                if (obj.customData?.dbId) {
+                    return String(obj.customData.dbId)
+                }
+                if (obj.installation_id) {
+                    return String(obj.installation_id)
+                }
+                return String(obj.id || '')
+            }
+            const id = String(objOrId || '')
+            const obj = this.objects.find(o => o.id === id || o.installation_id === id)
+            if (obj?.customData?.dbId) {
+                return String(obj.customData.dbId)
+            }
+            if (obj?.installation_id) {
+                return String(obj.installation_id)
+            }
+            // virtual_123 -> 123
+            if (id.startsWith('virtual_')) {
+                return id.slice('virtual_'.length)
+            }
+            return id
+        },
+
         lifecycleKey(obj) {
-            return obj?.installation_id
-                || obj?.customData?.dbId && obj?.id
-                || obj?.id
-                || ''
+            return this.stationApiKey(obj)
         },
 
         async promotePlanned(objectId) {
             const obj = this.objects.find(o => o.id === objectId)
-            const key = obj?.installation_id || objectId
+            const key = this.stationApiKey(objectId)
             try {
                 const response = await axios.post(
                     generateUrl(`/apps/filantropia_solar/api/v1/installations/${encodeURIComponent(key)}/promote-planned`),
@@ -474,7 +497,7 @@ export const useAppStore = defineStore('app', {
 
         async markInstalled(objectId) {
             const obj = this.objects.find(o => o.id === objectId)
-            const key = obj?.installation_id || objectId
+            const key = this.stationApiKey(objectId)
             try {
                 const response = await axios.post(
                     generateUrl(`/apps/filantropia_solar/api/v1/installations/${encodeURIComponent(key)}/mark-installed`),
@@ -493,7 +516,7 @@ export const useAppStore = defineStore('app', {
 
         async softRemoveStation(objectId) {
             const obj = this.objects.find(o => o.id === objectId)
-            const key = obj?.installation_id || objectId
+            const key = this.stationApiKey(objectId)
             try {
                 const response = await axios.post(
                     generateUrl(`/apps/filantropia_solar/api/v1/installations/${encodeURIComponent(key)}/soft-remove`),
@@ -512,7 +535,7 @@ export const useAppStore = defineStore('app', {
 
         async setLifecycle(objectId, lifecycleState) {
             const obj = this.objects.find(o => o.id === objectId)
-            const key = obj?.installation_id || objectId
+            const key = this.stationApiKey(objectId)
             try {
                 const response = await axios.post(
                     generateUrl(`/apps/filantropia_solar/api/v1/installations/${encodeURIComponent(key)}/set-lifecycle`),
@@ -536,7 +559,7 @@ export const useAppStore = defineStore('app', {
 
         async updateStation(objectId, fields) {
             const obj = this.objects.find(o => o.id === objectId)
-            const key = obj?.installation_id || objectId
+            const key = this.stationApiKey(objectId)
             try {
                 const response = await axios.put(
                     generateUrl(`/apps/filantropia_solar/api/v1/installations/${encodeURIComponent(key)}`),
@@ -554,9 +577,7 @@ export const useAppStore = defineStore('app', {
         },
 
         async importHistoricalReadings(objectId, readings) {
-            const obj = this.objects.find(o => o.id === objectId)
-            const dbId = obj?.customData?.dbId
-            const key = dbId || obj?.installation_id || objectId
+            const key = this.stationApiKey(objectId)
             try {
                 const response = await axios.post(
                     generateUrl(`/apps/filantropia_solar/api/v1/installations/${encodeURIComponent(key)}/import`),

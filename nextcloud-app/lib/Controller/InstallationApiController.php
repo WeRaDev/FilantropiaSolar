@@ -632,19 +632,47 @@ class InstallationApiController extends ApiController
             return null;
         }
 
-        // virtual_<dbId> form used by dashboard
-        if (str_starts_with($id, 'virtual_')) {
-            $dbId = (int) substr($id, strlen('virtual_'));
-            if ($dbId > 0) {
-                try {
-                    return $this->mapper->find($dbId);
-                } catch (DoesNotExistException) {
-                    return null;
+        // virtual_<dbId> / crm_<dbId> forms used by dashboard
+        foreach (['virtual_', 'crm_'] as $prefix) {
+            if (str_starts_with($id, $prefix)) {
+                $dbId = (int) substr($id, strlen($prefix));
+                if ($dbId > 0) {
+                    try {
+                        return $this->mapper->find($dbId);
+                    } catch (DoesNotExistException) {
+                        return null;
+                    }
                 }
             }
         }
 
-        return $this->mapper->findByInstallationKey($id);
+        // bare numeric DB id (preferred for ops writes)
+        if (ctype_digit($id)) {
+            try {
+                return $this->mapper->find((int) $id);
+            } catch (DoesNotExistException) {
+                // fall through
+            }
+        }
+
+        // location_serial and dotted names: try installation key, then scan by name
+        $found = $this->mapper->findByInstallationKey($id);
+        if ($found !== null) {
+            return $found;
+        }
+
+        // Fallback: name match (e.g. SolarSeed.Torres.Vedras) among all rows
+        try {
+            foreach ($this->mapper->findAll() as $row) {
+                if ($row->getName() === $id || $row->getInstallationId() === $id) {
+                    return $row;
+                }
+            }
+        } catch (\Throwable) {
+            // ignore
+        }
+
+        return null;
     }
 
     private function stateOf(Installation $station): string

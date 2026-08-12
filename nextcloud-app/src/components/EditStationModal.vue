@@ -90,27 +90,54 @@ export default {
 
 <style scoped>
 .modal-overlay {
-	position: fixed; inset: 0; background: rgba(0,0,0,.45);
+	position: fixed; inset: 0; background: rgba(0,0,0,.55);
 	display: flex; align-items: center; justify-content: center; z-index: 11000; padding: 20px;
 }
 .modal-card {
-	width: 100%; max-width: 420px; background: #fff; border-radius: 10px; overflow: hidden;
-	box-shadow: 0 12px 40px rgba(0,0,0,.2);
+	width: 100%; max-width: 440px;
+	background: #ffffff;
+	color: #1a1a1a;
+	border-radius: 12px;
+	overflow: hidden;
+	box-shadow: 0 16px 48px rgba(0,0,0,.4);
 }
 .modal-head, .modal-foot {
 	display: flex; align-items: center; justify-content: space-between;
-	padding: 12px 16px; border-bottom: 1px solid #eee;
+	padding: 12px 16px;
+	background: #fafafa;
 }
-.modal-foot { border-bottom: 0; border-top: 1px solid #eee; justify-content: flex-end; gap: 8px; }
-.modal-head h3 { margin: 0; font-size: 16px; }
-.modal-body { padding: 16px; display: grid; gap: 10px; }
-label { display: grid; gap: 4px; font-size: 12px; color: #555; }
+.modal-head { border-bottom: 1px solid #e6e6e6; }
+.modal-foot { border-top: 1px solid #e6e6e6; justify-content: flex-end; gap: 8px; }
+.modal-head h3 { margin: 0; font-size: 16px; font-weight: 700; color: #111; }
+.modal-body { padding: 16px; display: grid; gap: 10px; background: #fff; }
+label { display: grid; gap: 4px; font-size: 12px; color: #333; font-weight: 600; }
 input, textarea {
-	border: 1px solid #d8d8d8; border-radius: 6px; padding: 8px 10px; font-size: 13px;
+	border: 1px solid #cfcfcf;
+	border-radius: 6px;
+	padding: 8px 10px;
+	font-size: 13px;
+	background: #fff;
+	color: #111;
 }
-.btn { border: 1px solid #d8d8d8; background: #fff; border-radius: 6px; padding: 8px 12px; cursor: pointer; }
+.btn {
+	border: 1px solid #cfcfcf;
+	background: #fff;
+	color: #111;
+	border-radius: 6px;
+	padding: 8px 12px;
+	cursor: pointer;
+	font-weight: 600;
+}
 .btn.primary { background: #0082c9; color: #fff; border-color: #0082c9; }
 .btn:disabled { opacity: .6; cursor: not-allowed; }
-.x { border: none; background: transparent; cursor: pointer; }
-.err { color: #c62828; margin: 0; font-size: 12px; }
+.x {
+	border: 1px solid #ddd;
+	background: #fff;
+	color: #333;
+	border-radius: 6px;
+	padding: 4px 10px;
+	cursor: pointer;
+	font-size: 12px;
+}
+.err { color: #b71c1c; margin: 0; font-size: 12px; }
 </style>

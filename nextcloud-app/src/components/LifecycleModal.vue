@@ -69,26 +69,61 @@ export default {
 
 <style scoped>
 .modal-overlay {
-	position: fixed; inset: 0; background: rgba(0,0,0,.45);
+	position: fixed; inset: 0; background: rgba(0,0,0,.55);
 	display: flex; align-items: center; justify-content: center; z-index: 11000; padding: 20px;
 }
 .modal-card {
-	width: 100%; max-width: 360px; background: #fff; border-radius: 10px; overflow: hidden;
+	width: 100%; max-width: 380px;
+	background: #ffffff;
+	color: #1a1a1a;
+	border-radius: 12px;
+	overflow: hidden;
+	box-shadow: 0 16px 48px rgba(0,0,0,.4);
 }
 .modal-head {
 	display: flex; justify-content: space-between; align-items: center;
-	padding: 12px 16px; border-bottom: 1px solid #eee;
+	padding: 14px 16px; border-bottom: 1px solid #e6e6e6;
+	background: #fafafa;
 }
-.modal-head h3 { margin: 0; font-size: 16px; }
-.modal-body { padding: 16px; }
-.hint { margin: 0 0 12px; font-size: 13px; color: #555; }
+.modal-head h3 {
+	margin: 0; font-size: 16px; font-weight: 700; color: #111;
+}
+.modal-body { padding: 16px; background: #fff; }
+.hint { margin: 0 0 14px; font-size: 13px; color: #333; }
+.hint strong { color: #111; }
 .choices { display: grid; gap: 8px; }
 .choice {
-	border: 1px solid #d8d8d8; background: #fff; border-radius: 8px;
-	padding: 12px; font-weight: 600; cursor: pointer;
+	border: 1px solid #cfcfcf;
+	background: #fff;
+	color: #111;
+	border-radius: 8px;
+	padding: 12px;
+	font-size: 14px;
+	font-weight: 600;
+	cursor: pointer;
 }
-.choice.active { border-color: #A89D3F; background: #FDFBF5; }
-.choice:disabled { opacity: .5; cursor: not-allowed; }
-.x { border: none; background: transparent; cursor: pointer; }
-.err { color: #c62828; font-size: 12px; }
+.choice:hover:not(:disabled) {
+	background: #f7f7f7;
+	border-color: #A89D3F;
+}
+.choice.active {
+	border-color: #A89D3F;
+	background: #FDFBF5;
+	color: #111;
+	box-shadow: inset 0 0 0 1px #A89D3F;
+}
+.choice:disabled {
+	opacity: .55;
+	cursor: not-allowed;
+}
+.x {
+	border: 1px solid #ddd;
+	background: #fff;
+	color: #333;
+	border-radius: 6px;
+	padding: 4px 10px;
+	cursor: pointer;
+	font-size: 12px;
+}
+.err { color: #b71c1c; font-size: 12px; margin: 10px 0 0; }
 </style>
