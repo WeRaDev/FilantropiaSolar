@@ -349,6 +349,9 @@ def _ensure_blog_posts(env):
             _write_lang(post, "en_US", en_vals)
 
 
+# Keys that Website Builder may COW. Published COWs (TRL5/prod) must survive
+# module upgrade — never unlink them from post_init. Optional forced reset is
+# opt-in only via ir.config_parameter (see _maybe_reset_website_cows).
 _FS_VIEW_KEYS = (
     "filantropia_solar_public.page_inicio",
     "filantropia_solar_public.page_instalacoes",
@@ -358,9 +361,47 @@ _FS_VIEW_KEYS = (
     "filantropia_solar_public.snippet_steps",
 )
 
+_RESET_COWS_PARAM = "filantropia_solar_public.reset_website_cows"
 
-def _reset_website_cows(env):
-    """Drop website-editor COW copies so module XML remains source of truth."""
+
+def _log_website_cows(env):
+    """Inventory website COWs for Filantropia keys (no delete)."""
+    View = env["ir.ui.view"].sudo()
+    cows = View.search(
+        [
+            ("website_id", "!=", False),
+            ("key", "in", list(_FS_VIEW_KEYS)),
+        ]
+    )
+    if not cows:
+        _logger.info("filantropia_solar_public: no website COW views for FS keys")
+        return
+    detail = ", ".join(
+        sorted(
+            {f"{c.key}(ws={c.website_id.id},len={len(c.arch_db or '')})" for c in cows}
+        )
+    )
+    _logger.info(
+        "filantropia_solar_public: preserving %s website COW view(s): %s",
+        len(cows),
+        detail,
+    )
+
+
+def _maybe_reset_website_cows(env):
+    """Opt-in only: delete FS website COWs when config param is truthy.
+
+    Default is preserve. Destructive reset was used once to unstick broken
+    Website Builder overrides of station map/list markup; running it on TRL5
+    would wipe the published home page. Set ir.config_parameter
+    filantropia_solar_public.reset_website_cows=1 for one upgrade only, then
+    clear the param.
+    """
+    ICP = env["ir.config_parameter"].sudo()
+    raw = (ICP.get_param(_RESET_COWS_PARAM) or "").strip().lower()
+    if raw not in ("1", "true", "yes", "on"):
+        _log_website_cows(env)
+        return
     View = env["ir.ui.view"].sudo()
     cows = View.search(
         [
@@ -372,11 +413,14 @@ def _reset_website_cows(env):
         keys = sorted({c.key for c in cows})
         n = len(cows)
         cows.unlink()
-        _logger.info(
-            "filantropia_solar_public: removed %s website COW view(s): %s",
+        _logger.warning(
+            "filantropia_solar_public: FORCE-removed %s website COW view(s) (%s=1): %s",
             n,
+            _RESET_COWS_PARAM,
             ", ".join(keys),
         )
+    # One-shot: clear flag so the next -u does not delete again
+    ICP.set_param(_RESET_COWS_PARAM, "0")
 
 
 def post_init_hook(env):
@@ -384,4 +428,5 @@ def post_init_hook(env):
     _ensure_legacy_redirect(env)
     _ensure_site_identity(env)
     _ensure_blog_posts(env)
-    _reset_website_cows(env)
+    # Do NOT delete published Website Builder COWs on upgrade (TRL5/prod).
+    _maybe_reset_website_cows(env)
