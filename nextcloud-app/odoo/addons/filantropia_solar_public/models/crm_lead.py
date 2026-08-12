@@ -2,11 +2,16 @@
 
 from __future__ import annotations
 
+import contextlib
 import logging
 
 from odoo import fields, models
 
-from ..services.nc_lifecycle_client import NcLifecycleClient, NcLifecycleError, redact_secrets
+from ..services.nc_lifecycle_client import (
+    NcLifecycleClient,
+    NcLifecycleError,
+    redact_secrets,
+)
 from ..services.stage_map import lifecycle_action_for_stage_change
 
 _logger = logging.getLogger(__name__)
@@ -51,9 +56,15 @@ class CrmLead(models.Model):
 
     # Snapshot used to create the Virtual station (set by candidatura controller)
     fs_station_location_label = fields.Char(string="Station location label", copy=False)
-    fs_station_latitude = fields.Float(string="Station latitude", digits=(10, 6), copy=False)
-    fs_station_longitude = fields.Float(string="Station longitude", digits=(10, 6), copy=False)
-    fs_station_capacity_kwp = fields.Float(string="Station capacity kWp", digits=(12, 3), copy=False)
+    fs_station_latitude = fields.Float(
+        string="Station latitude", digits=(10, 6), copy=False
+    )
+    fs_station_longitude = fields.Float(
+        string="Station longitude", digits=(10, 6), copy=False
+    )
+    fs_station_capacity_kwp = fields.Float(
+        string="Station capacity kWp", digits=(12, 3), copy=False
+    )
     fs_station_grid_price_kwh = fields.Float(
         string="Station grid price EUR/kWh",
         digits=(8, 4),
@@ -79,10 +90,8 @@ class CrmLead(models.Model):
         if station.get("installation_id"):
             vals["fs_nc_installation_id"] = station["installation_id"]
         if station.get("id") is not None:
-            try:
+            with contextlib.suppress(TypeError, ValueError):
                 vals["fs_nc_db_id"] = int(station["id"])
-            except (TypeError, ValueError):
-                pass
         if station.get("lifecycle_state"):
             vals["fs_nc_lifecycle_state"] = station["lifecycle_state"]
         self.write(vals)
@@ -114,9 +123,7 @@ class CrmLead(models.Model):
             "latitude": float(self.fs_station_latitude or 0.0),
             "longitude": float(self.fs_station_longitude or 0.0),
             "capacity_kwp": capacity,
-            "location_label": self.fs_station_location_label
-            or self.city
-            or "Portugal",
+            "location_label": self.fs_station_location_label or self.city or "Portugal",
             "organization_name": self.partner_name or "",
         }
         if self.fs_station_grid_price_kwh:
