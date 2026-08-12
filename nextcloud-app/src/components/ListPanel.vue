@@ -169,16 +169,14 @@ export default {
         // Whether there are hidden installations that can be restored
         const hasHiddenInstallations = computed(() => store.hiddenObjectIds.length > 0)
 
-        // Delete installation with confirmation
+        // Hard-delete station with confirmation
         const confirmDelete = async (obj) => {
-            const msg = obj.customData?.isVirtual
-                ? `Delete "${obj.name}" permanently?`
-                : `Hide "${obj.name}" from your dashboard? You can restore it later.`
+            const msg = `Permanently delete "${obj.name}" from Nextcloud? This removes the station and its readings. This cannot be undone.`
             if (confirm(msg)) {
                 try {
                     await store.deleteInstallation(obj.id)
                 } catch (e) {
-                    alert(e.message || 'Failed to delete')
+                    alert(e.response?.data?.error || e.message || 'Failed to delete')
                 }
             }
         }

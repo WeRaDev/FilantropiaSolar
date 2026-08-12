@@ -711,33 +711,35 @@ export const useAppStore = defineStore('app', {
             }
         },
 
-        // Hide any installation from the user's dashboard
+        // Hard-delete station from Nextcloud DB (ops fleet/user/crm). Not a map hide.
         async deleteInstallation(objectId) {
             const obj = this.objects.find(o => o.id === objectId)
             if (!obj) return
 
-            // For user-created (virtual) installations, also delete from DB
-            if (obj.customData?.source === 'user' || obj.customData?.isVirtual) {
-                const dbId = obj.customData?.dbId || objectId.replace('virtual_', '')
-                try {
-                    await axios.delete(
-                        generateUrl(`/apps/filantropia_solar/api/v1/installations/${dbId}`)
-                    )
-                } catch (error) {
-                    // If backend fails, still hide locally
+            const key = this.stationApiKey(objectId)
+            try {
+                const response = await axios.delete(
+                    generateUrl(`/apps/filantropia_solar/api/v1/installations/${encodeURIComponent(key)}`),
+                )
+                if (response.data && response.data.success === false) {
+                    throw new Error(response.data.error || 'Delete failed')
                 }
-                // Remove from objects array entirely
-                this.objects = this.objects.filter(o => o.id !== objectId)
-            } else {
-                // For dataset installations, just hide from dashboard (no backend change)
-                this.hiddenObjectIds.push(objectId)
-                localStorage.setItem('fs_hidden_installations', JSON.stringify(this.hiddenObjectIds))
+            } catch (error) {
+                this.error = error.response?.data?.error || error.message || 'Delete failed'
+                throw error
             }
 
-            // Clear selection if this was selected
+            // Drop from client state immediately, then refresh for truth
+            this.objects = this.objects.filter(o => o.id !== objectId)
             if (this.selectedObjectId === objectId) {
                 this.selectedObjectId = null
             }
+            // Clear legacy localStorage hide entry if present
+            if (this.hiddenObjectIds.includes(objectId)) {
+                this.hiddenObjectIds = this.hiddenObjectIds.filter(id => id !== objectId)
+                localStorage.setItem('fs_hidden_installations', JSON.stringify(this.hiddenObjectIds))
+            }
+            await this.fetchObjects()
         },
 
         // Add a dataset installation to the user's dashboard (bookmark)
