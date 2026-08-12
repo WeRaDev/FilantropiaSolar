@@ -195,6 +195,7 @@ class InstallationApiController extends ApiController
      * PUT /api/v1/installations/{id}
      */
     #[NoAdminRequired]
+    #[NoCSRFRequired]
     public function update(string $id): JSONResponse
     {
         $userId = $this->getUserId();
