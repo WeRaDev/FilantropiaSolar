@@ -17,32 +17,14 @@
             </span>
         </div>
 
-        <!-- Lifecycle filter chips (ops) -->
+        <!-- Station filters -->
         <div class="filter-chips lifecycle-chips">
-            <button
-                class="chip"
-                :class="{ active: lifecycleFilters.length === 0 }"
-                @click="clearLifecycleFilters">
-                All ({{ totalObjects }})
-            </button>
-            <button
-                class="chip chip-virtual"
-                :class="{ active: lifecycleFilters.includes('virtual') }"
-                @click="toggleLifecycle('virtual')">
-                Virtual ({{ virtualCount }})
-            </button>
-            <button
-                class="chip chip-planned"
-                :class="{ active: lifecycleFilters.includes('planned') }"
-                @click="toggleLifecycle('planned')">
-                Planned ({{ plannedCount }})
-            </button>
-            <button
-                class="chip chip-running"
-                :class="{ active: lifecycleFilters.includes('running') }"
-                @click="toggleLifecycle('running')">
-                Running ({{ runningCount }})
-            </button>
+            <button class="chip" :class="{ active: lifecycleFilters.length === 0 }" @click="clearLifecycleFilters">All</button>
+            <button class="chip chip-virtual" :class="{ active: lifecycleFilters.includes('virtual') }" @click="toggleLifecycle('virtual')">Virtual</button>
+            <button class="chip chip-planned" :class="{ active: lifecycleFilters.includes('planned') }" @click="toggleLifecycle('planned')">Planned</button>
+            <button class="chip chip-running" :class="{ active: lifecycleFilters.includes('running') }" @click="toggleLifecycle('running')">Running</button>
+            <button class="chip chip-offline" :class="{ active: lifecycleFilters.includes('offline') }" @click="toggleLifecycle('offline')">Offline</button>
+            <button class="chip chip-online" :class="{ active: lifecycleFilters.includes('online') }" @click="toggleLifecycle('online')">Online</button>
         </div>
 
         <!-- Object List (FR2.1) -->
@@ -73,12 +55,9 @@
                 :class="{ selected: obj.id === selectedId, [obj.status || 'active']: true, 'soft-removed': obj.soft_removed }"
                 @click="selectObject(obj.id)">
                 
-                <!-- Status indicator (left border + badge) -->
                 <div class="item-status">
-                    <span class="status-badge" :class="obj.status || 'active'"></span>
+                    <span class="status-dot-lg" :class="onlineClass(obj)"></span>
                 </div>
-
-                <!-- Main content -->
                 <div class="item-content">
                     <div class="item-primary">
                         <span class="item-name">{{ obj.name || obj.id }}</span>
@@ -86,44 +65,11 @@
                     </div>
                     <div class="item-secondary">
                         <span class="item-location">{{ obj.location || 'Unknown' }}</span>
-                        <span
-                            class="lifecycle-badge"
-                            :class="[lifecycleOf(obj), { removed: obj.soft_removed }]"
-                        >
+                        <span class="lifecycle-badge" :class="[lifecycleOf(obj), { removed: obj.soft_removed }]">
                             {{ lifecycleLabel(obj) }}
-                        </span>
-                        <span
-                            v-if="publicLabel(obj)"
-                            class="public-badge"
-                            :class="publicClass(obj)"
-                        >
-                            {{ publicLabel(obj) }}
                         </span>
                     </div>
                 </div>
-
-                <!-- View Analysis button -->
-                <button
-                    class="item-action"
-                    @click.stop="viewAnalysis(obj.id)"
-                    title="View Analysis"
-                >
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <path d="M3 3v18h18"/>
-                        <path d="m19 9-5 5-4-4-3 3"/>
-                    </svg>
-                </button>
-
-                <!-- Hide from personal dashboard -->
-                <button
-                    class="item-action item-delete"
-                    @click.stop="confirmDelete(obj)"
-                    title="Remove from dashboard"
-                >
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <path d="M18 6 6 18M6 6l12 12"/>
-                    </svg>
-                </button>
             </div>
         </div>
 
@@ -256,6 +202,13 @@ export default {
         const lifecycleOf = (obj) =>
             obj.lifecycle_state || obj.customData?.lifecycleState || 'running'
 
+        const onlineClass = (obj) => {
+            const lc = lifecycleOf(obj)
+            if (lc !== 'running' || obj.soft_removed) return 'neutral'
+            return (obj.status || 'active') === 'active' ? 'online' : 'offline'
+        }
+
+
         const lifecycleLabel = (obj) => {
             const state = lifecycleOf(obj)
             return obj.soft_removed ? `${state} (removed)` : state
@@ -318,6 +271,7 @@ export default {
             hasHiddenInstallations,
             restoreAll,
             lifecycleOf,
+            onlineClass,
             lifecycleLabel,
             publicLabel,
             publicClass,
@@ -710,4 +664,18 @@ export default {
     align-items: center;
     gap: 6px;
 }
+
+.status-dot-lg {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    display: inline-block;
+    margin-top: 4px;
+}
+.status-dot-lg.online { background: #22A559; }
+.status-dot-lg.offline { background: #CC2020; }
+.status-dot-lg.neutral { background: #bdbdbd; }
+.chip-online.active { border-color: #22A559; background: #e8f5e9; }
+.chip-offline.active { border-color: #CC2020; background: #ffebee; }
+.item-content { flex: 1; min-width: 0; }
 </style>

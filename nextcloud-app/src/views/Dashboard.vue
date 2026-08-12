@@ -9,6 +9,8 @@
 
 		<AnalyticsModal />
 		<CreateVirtualModal />
+		<EditStationModal />
+		<LifecycleModal />
 	</div>
 </template>
 
@@ -25,6 +27,12 @@ const AnalyticsModal = defineAsyncComponent(() =>
 const CreateVirtualModal = defineAsyncComponent(() =>
 	import('../components/CreateVirtualModal.vue'),
 )
+const EditStationModal = defineAsyncComponent(() =>
+	import('../components/EditStationModal.vue'),
+)
+const LifecycleModal = defineAsyncComponent(() =>
+	import('../components/LifecycleModal.vue'),
+)
 
 export default {
 	name: 'Dashboard',
@@ -34,6 +42,8 @@ export default {
 		MapPanel,
 		AnalyticsModal,
 		CreateVirtualModal,
+		EditStationModal,
+		LifecycleModal,
 	},
 	setup() {
 		const store = useAppStore()

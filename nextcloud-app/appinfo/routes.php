@@ -27,6 +27,7 @@ return [
         ['name' => 'installation_api#promotePlanned', 'url' => '/api/v1/installations/{id}/promote-planned', 'verb' => 'POST'],
         ['name' => 'installation_api#markInstalled', 'url' => '/api/v1/installations/{id}/mark-installed', 'verb' => 'POST'],
         ['name' => 'installation_api#softRemove', 'url' => '/api/v1/installations/{id}/soft-remove', 'verb' => 'POST'],
+        ['name' => 'installation_api#setLifecycle', 'url' => '/api/v1/installations/{id}/set-lifecycle', 'verb' => 'POST'],
 
         // Energy API
         ['name' => 'energy_api#readings', 'url' => '/api/v1/installations/{id}/readings', 'verb' => 'GET'],

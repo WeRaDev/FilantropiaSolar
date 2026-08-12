@@ -1,0 +1,33 @@
+
+.modal-overlay[data-v-08c90c5b] {
+	position: fixed; inset: 0; background: rgba(0,0,0,.45);
+	display: flex; align-items: center; justify-content: center; z-index: 11000; padding: 20px;
+}
+.modal-card[data-v-08c90c5b] {
+	width: 100%; max-width: 360px; background: #fff; border-radius: 10px; overflow: hidden;
+}
+.modal-head[data-v-08c90c5b] {
+	display: flex; justify-content: space-between; align-items: center;
+	padding: 12px 16px; border-bottom: 1px solid #eee;
+}
+.modal-head h3[data-v-08c90c5b] { margin: 0; font-size: 16px;
+}
+.modal-body[data-v-08c90c5b] { padding: 16px;
+}
+.hint[data-v-08c90c5b] { margin: 0 0 12px; font-size: 13px; color: #555;
+}
+.choices[data-v-08c90c5b] { display: grid; gap: 8px;
+}
+.choice[data-v-08c90c5b] {
+	border: 1px solid #d8d8d8; background: #fff; border-radius: 8px;
+	padding: 12px; font-weight: 600; cursor: pointer;
+}
+.choice.active[data-v-08c90c5b] { border-color: #A89D3F; background: #FDFBF5;
+}
+.choice[data-v-08c90c5b]:disabled { opacity: .5; cursor: not-allowed;
+}
+.x[data-v-08c90c5b] { border: none; background: transparent; cursor: pointer;
+}
+.err[data-v-08c90c5b] { color: #c62828; font-size: 12px;
+}
+

@@ -58,6 +58,10 @@ use OCP\AppFramework\Db\Entity;
  * @method void setOdooLeadId(?int $odooLeadId)
  * @method DateTime|null getInstalledAt()
  * @method void setInstalledAt(?DateTime $installedAt)
+ * @method string|null getWebsite()
+ * @method void setWebsite(?string $website)
+ * @method string|null getShortDescription()
+ * @method void setShortDescription(?string $shortDescription)
  */
 class Installation extends Entity implements JsonSerializable
 {
@@ -83,6 +87,8 @@ class Installation extends Entity implements JsonSerializable
 	protected bool $softRemoved = false;
 	protected ?int $odooLeadId = null;
 	protected ?DateTime $installedAt = null;
+	protected ?string $website = null;
+	protected ?string $shortDescription = null;
 
 	/** @var bool|null Transient: measured readings present (not persisted). */
 	private ?bool $hasMeasuredData = null;
@@ -111,6 +117,8 @@ class Installation extends Entity implements JsonSerializable
 		$this->addType('softRemoved', 'boolean');
 		$this->addType('odooLeadId', 'integer');
 		$this->addType('installedAt', 'datetime');
+		$this->addType('website', 'string');
+		$this->addType('shortDescription', 'string');
 	}
 
 	/**
@@ -209,6 +217,8 @@ class Installation extends Entity implements JsonSerializable
 			'soft_removed' => $this->softRemoved,
 			'odoo_lead_id' => $this->odooLeadId,
 			'installed_at' => $this->installedAt?->format('c'),
+			'website' => $this->website,
+			'short_description' => $this->shortDescription,
 			'is_public' => StationLifecycle::isPublic($state, $this->softRemoved),
 			'public_category' => StationLifecycle::publicCategory($state, $this->softRemoved),
 			'running_mode' => StationLifecycle::runningMode(

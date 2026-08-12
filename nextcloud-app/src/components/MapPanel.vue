@@ -38,25 +38,34 @@
             </div>
         </div>
 
-        <!-- Enhanced info card (shows full details like popup used to) -->
         <div v-if="selectedObject" class="info-card">
             <div class="info-header">
-                <span class="info-status" :class="selectedObject.status || 'active'"></span>
+                <span class="info-status" :class="onlineClass(selectedObject)"></span>
                 <h3>{{ selectedObject.name || selectedObject.id }}</h3>
-                <button class="info-close" @click="clearSelection">
+                <button class="info-close" @click="clearSelection" type="button">
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                         <path d="M18 6 6 18M6 6l12 12"/>
                     </svg>
                 </button>
             </div>
             <div class="info-body">
-                <div class="info-row">
-                    <span class="info-label">Location</span>
-                    <span class="info-value">{{ selectedObject.location }}</span>
+                <div v-if="selectedObject.website" class="info-row">
+                    <span class="info-label">Website</span>
+                    <a class="info-value link" :href="normalizedWebsite(selectedObject.website)" target="_blank" rel="noopener">{{ selectedObject.website }}</a>
                 </div>
                 <div class="info-row">
-                    <span class="info-label">Capacity</span>
-                    <span class="info-value">{{ selectedObject.capacity_kwp }} kWp</span>
+                    <span class="info-label">Total production</span>
+                    <span class="info-value highlight">{{ formatNumber(selectedObject.total_production_kwh) }} kWh/yr</span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">Total savings</span>
+                    <span class="info-value">€{{ formatNumber(selectedObject.total_savings_eur) }}/yr</span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">Current efficiency</span>
+                    <span class="info-value" :class="getEfficiencyClass(selectedObject.efficiency || 0.85)">
+                        {{ formatPercent(selectedObject.efficiency || 0.85) }}
+                    </span>
                 </div>
                 <div class="info-row">
                     <span class="info-label">Lifecycle</span>
@@ -66,62 +75,16 @@
                         </span>
                     </span>
                 </div>
-                <div class="info-row">
-                    <span class="info-label">Public</span>
-                    <span class="info-value">
-                        <span class="pub-badge" :class="publicClass(selectedObject)">
-                            {{ publicLabel(selectedObject) }}
-                        </span>
-                    </span>
-                </div>
-                <div class="info-row">
-                    <span class="info-label">Avg. Yearly Production</span>
-                    <span class="info-value highlight">{{ formatNumber(estimatedYearlyProduction) }} kWh</span>
-                </div>
-                <div class="info-row">
-                    <span class="info-label">Efficiency</span>
-                    <span class="info-value" :class="getEfficiencyClass(selectedObject.metrics?.efficiency || 0.85)">
-                        {{ formatPercent(selectedObject.metrics?.efficiency || 0.85) }}
-                    </span>
-                </div>
+                <p v-if="selectedObject.short_description" class="info-desc">{{ selectedObject.short_description }}</p>
+                <p v-else class="info-desc muted">No short description yet. Use Edit to add one.</p>
             </div>
             <div class="info-lifecycle-actions">
-                <button
-                    type="button"
-                    class="lc-action"
-                    :disabled="!canPromote(selectedObject) || actionBusy"
-                    title="Virtual → Planned (public map)"
-                    @click="onPromote"
-                >
-                    Promote
-                </button>
-                <button
-                    type="button"
-                    class="lc-action"
-                    :disabled="!canInstall(selectedObject) || actionBusy"
-                    title="Planned → Running / Existing"
-                    @click="onInstall"
-                >
-                    Install
-                </button>
-                <button
-                    type="button"
-                    class="lc-action warn"
-                    :disabled="!canSoftRemove(selectedObject) || actionBusy"
-                    title="Hide from public listing"
-                    @click="onSoftRemove"
-                >
-                    Soft-remove
-                </button>
+                <button type="button" class="lc-action" @click="openLifecycle">Lifecycle</button>
+                <button type="button" class="lc-action danger" @click="hideInstallation">Delete</button>
             </div>
             <div class="info-actions">
-                <button class="info-action" @click="viewDetails">View Analysis</button>
-                <button class="info-action-secondary" @click="hideInstallation" title="Remove from dashboard">
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <path d="M18 6 6 18M6 6l12 12"/>
-                    </svg>
-                    Hide
-                </button>
+                <button class="info-action" type="button" @click="viewDetails">View Analysis</button>
+                <button class="info-action-secondary" type="button" @click="openEdit">Edit</button>
             </div>
         </div>
     </div>
@@ -287,6 +250,20 @@ export default {
             }
         }
 
+        const onlineClass = (obj) => {
+            const lc = obj?.lifecycle_state || obj?.customData?.lifecycleState || 'running'
+            if (!obj || lc !== 'running' || obj.soft_removed) return 'neutral'
+            return (obj.status || 'active') === 'active' ? 'online' : 'offline'
+        }
+
+        const normalizedWebsite = (w) => {
+            if (!w) return '#'
+            return /^https?:\/\//i.test(w) ? w : `https://${w}`
+        }
+
+        const openLifecycle = () => store.openLifecycleModal()
+        const openEdit = () => store.openEditStationModal()
+
         const lifecycleOf = (obj) =>
             obj?.lifecycle_state || obj?.customData?.lifecycleState || 'running'
 
@@ -442,6 +419,10 @@ export default {
             onPromote,
             onInstall,
             onSoftRemove,
+            onlineClass,
+            normalizedWebsite,
+            openLifecycle,
+            openEdit,
             formatNumber,
             formatPercent,
             getEfficiencyClass
@@ -659,7 +640,20 @@ export default {
 .pub-badge.existing { background: #e0f2f1; color: #00695c; }
 .pub-badge.none { background: #eceff1; color: #607d8b; }
 
+.info-desc {
+    margin: 10px 0 0;
+    font-size: 12px;
+    line-height: 1.4;
+    color: var(--color-main-text, #333);
+}
+.info-desc.muted { color: #888; font-style: italic; }
+.info-value.link { color: #2962ff; text-decoration: none; max-width: 160px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; display: inline-block; }
+.info-status.online { background: #22A559; }
+.info-status.offline { background: #CC2020; }
+.info-status.neutral { background: #bdbdbd; }
+.lc-action.danger { color: #c62828; }
 .info-lifecycle-actions {
+
     display: grid;
     grid-template-columns: 1fr 1fr 1fr;
     gap: 6px;
