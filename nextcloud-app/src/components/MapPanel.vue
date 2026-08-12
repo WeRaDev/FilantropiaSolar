@@ -111,8 +111,8 @@ export default {
         let map = null
         let markers = []
 
-        // Computed
-        const objects = computed(() => store.objects)
+        // Map markers follow the same filters as the station list (lifecycle chips, search)
+        const objects = computed(() => store.filteredObjects)
         const selectedObject = computed(() => store.selectedObject)
         const mapCenter = computed(() => store.mapCenter)
         const mapZoom = computed(() => store.mapZoom)
@@ -240,18 +240,16 @@ export default {
             }
         }
 
-        // Hide installation from dashboard
+        // Hard-delete station from Nextcloud (not a map-only hide)
         const hideInstallation = async () => {
             const obj = store.selectedObject
             if (!obj) return
-            const msg = obj.customData?.isVirtual
-                ? `Delete "${obj.name}" permanently?`
-                : `Hide "${obj.name}" from your dashboard? You can restore it later.`
+            const msg = `Permanently delete "${obj.name}" from Nextcloud? This removes the station and its readings. This cannot be undone.`
             if (confirm(msg)) {
                 try {
                     await store.deleteInstallation(obj.id)
                 } catch (e) {
-                    alert(e.message || 'Failed to remove')
+                    alert(e.response?.data?.error || e.message || 'Failed to delete station')
                 }
             }
         }
@@ -369,9 +367,13 @@ export default {
             return 'efficiency-low'
         }
 
-        // Watch for object changes
-        watch(objects, () => {
+        // Watch for filtered object changes (list chips / search)
+        watch(objects, (list) => {
             updateMarkers()
+            // Drop selection if the selected station is no longer in the filtered set
+            if (store.selectedObjectId && !list.some(o => o.id === store.selectedObjectId)) {
+                store.clearSelection()
+            }
         }, { deep: true })
 
         // Watch for selection changes

@@ -195,6 +195,7 @@ class InstallationApiController extends ApiController
      * PUT /api/v1/installations/{id}
      */
     #[NoAdminRequired]
+    #[NoCSRFRequired]
     public function update(string $id): JSONResponse
     {
         $userId = $this->getUserId();
@@ -264,12 +265,14 @@ class InstallationApiController extends ApiController
     }
 
     /**
-     * Delete installation.
+     * Hard-delete an ops station (fleet/user/crm) and cascade readings.
+     * Mendeley training corpus (source=dataset) cannot be deleted here.
      *
      * DELETE /api/v1/installations/{id}
      */
     #[NoAdminRequired]
-    public function destroy(int $id): JSONResponse
+    #[NoCSRFRequired]
+    public function destroy(string $id): JSONResponse
     {
         $userId = $this->getUserId();
         if (!$userId) {
@@ -277,18 +280,40 @@ class InstallationApiController extends ApiController
         }
 
         try {
-            $installation = $this->mapper->findByUser($id, $userId);
+            $installation = $this->resolveStation($id);
+            if ($installation === null) {
+                return $this->errorResponse('Installation not found', Http::STATUS_NOT_FOUND);
+            }
+
+            $source = $installation->getSource() ?: 'user';
+            if ($source === 'dataset') {
+                return $this->errorResponse(
+                    'Dataset (training) stations cannot be deleted from ops. Use admin dataset tools.',
+                    Http::STATUS_FORBIDDEN,
+                );
+            }
+
+            $dbId = (int) $installation->getId();
+            $deletedReadings = 0;
+            if ($dbId > 0) {
+                $deletedReadings = $this->readingMapper->deleteByInstallation($dbId);
+            }
+
             $this->mapper->delete($installation);
 
-            $this->logger->info('Installation deleted', ['id' => $id]);
+            $this->logger->info('Installation hard-deleted', [
+                'id' => $dbId,
+                'source' => $source,
+                'readings_removed' => $deletedReadings,
+                'by' => $userId,
+            ]);
 
             return new JSONResponse([
                 'success' => true,
                 'message' => 'Installation deleted successfully',
+                'id' => $dbId,
+                'readings_removed' => $deletedReadings,
             ]);
-
-        } catch (DoesNotExistException $e) {
-            return $this->errorResponse('Installation not found', Http::STATUS_NOT_FOUND);
         } catch (\Exception $e) {
             $this->logger->error('Failed to delete installation', ['id' => $id, 'exception' => $e]);
             return $this->errorResponse('Failed to delete installation');

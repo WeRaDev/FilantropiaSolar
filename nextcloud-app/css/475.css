@@ -1,0 +1,98 @@
+
+.modal-overlay[data-v-fe6530da] {
+	position: fixed; inset: 0; background: rgba(0,0,0,.55);
+	display: flex; align-items: center; justify-content: center; z-index: 11000; padding: 20px;
+}
+.modal-card[data-v-fe6530da] {
+	width: 100%; max-width: 520px;
+	max-height: 90vh;
+	background: #ffffff;
+	color: #1a1a1a;
+	border-radius: 12px;
+	overflow: hidden;
+	box-shadow: 0 16px 48px rgba(0,0,0,.4);
+	display: flex;
+	flex-direction: column;
+}
+.modal-head[data-v-fe6530da], .modal-foot[data-v-fe6530da] {
+	display: flex; align-items: center; justify-content: space-between;
+	padding: 12px 16px;
+	background: #fafafa;
+	flex-shrink: 0;
+}
+.modal-head[data-v-fe6530da] { border-bottom: 1px solid #e6e6e6;
+}
+.modal-foot[data-v-fe6530da] { border-top: 1px solid #e6e6e6; justify-content: flex-end; gap: 8px;
+}
+.modal-head h3[data-v-fe6530da] { margin: 0; font-size: 16px; font-weight: 700; color: #111;
+}
+.modal-body[data-v-fe6530da] {
+	padding: 16px;
+	display: grid;
+	gap: 10px;
+	background: #fff;
+	overflow-y: auto;
+}
+label[data-v-fe6530da] { display: grid; gap: 4px; font-size: 12px; color: #333; font-weight: 600;
+}
+input[data-v-fe6530da], textarea[data-v-fe6530da], select[data-v-fe6530da] {
+	border: 1px solid #cfcfcf;
+	border-radius: 6px;
+	padding: 8px 10px;
+	font-size: 13px;
+	background: #fff;
+	color: #111;
+	width: 100%;
+	box-sizing: border-box;
+}
+.custom-location-section[data-v-fe6530da] {
+	display: grid;
+	gap: 8px;
+	padding: 10px;
+	border: 1px solid #e6e6e6;
+	border-radius: 8px;
+	background: #fafafa;
+}
+.map-hint[data-v-fe6530da] {
+	margin: 0;
+	font-size: 12px;
+	color: #555;
+	font-weight: 500;
+}
+.location-map[data-v-fe6530da] {
+	width: 100%;
+	height: 200px;
+	border-radius: 8px;
+	border: 1px solid #cfcfcf;
+	z-index: 1;
+}
+.coord-row[data-v-fe6530da] {
+	display: grid;
+	grid-template-columns: 1fr 1fr;
+	gap: 8px;
+}
+.btn[data-v-fe6530da] {
+	border: 1px solid #cfcfcf;
+	background: #fff;
+	color: #111;
+	border-radius: 6px;
+	padding: 8px 12px;
+	cursor: pointer;
+	font-weight: 600;
+}
+.btn.primary[data-v-fe6530da] { background: #0082c9; color: #fff; border-color: #0082c9;
+}
+.btn[data-v-fe6530da]:disabled { opacity: .6; cursor: not-allowed;
+}
+.x[data-v-fe6530da] {
+	border: 1px solid #ddd;
+	background: #fff;
+	color: #333;
+	border-radius: 6px;
+	padding: 4px 10px;
+	cursor: pointer;
+	font-size: 12px;
+}
+.err[data-v-fe6530da] { color: #b71c1c; margin: 0; font-size: 12px;
+}
+
