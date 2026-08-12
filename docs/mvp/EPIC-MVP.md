@@ -66,7 +66,7 @@ Ops run lifecycle on **Nextcloud admin**; CRM **Qualify → Planned** only; **Wo
 
 ---
 
-### MVP-5 — Odoo lead fields + NC client  
+### MVP-5 — Odoo lead fields + NC client ✅  
 **Maps:** D1, D4  
 
 - Lead fields for NC ids/sync state.  
