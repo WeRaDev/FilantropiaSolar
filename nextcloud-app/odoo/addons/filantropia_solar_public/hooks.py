@@ -304,8 +304,6 @@ def _ensure_blog_posts(env):
             post.with_context(lang="en_US").write(en_vals)
 
 
-
-
 _FS_VIEW_KEYS = (
     "filantropia_solar_public.page_inicio",
     "filantropia_solar_public.page_instalacoes",
@@ -319,10 +317,12 @@ _FS_VIEW_KEYS = (
 def _reset_website_cows(env):
     """Drop website-editor COW copies so module XML remains source of truth."""
     View = env["ir.ui.view"].sudo()
-    cows = View.search([
-        ("website_id", "!=", False),
-        ("key", "in", list(_FS_VIEW_KEYS)),
-    ])
+    cows = View.search(
+        [
+            ("website_id", "!=", False),
+            ("key", "in", list(_FS_VIEW_KEYS)),
+        ]
+    )
     if cows:
         keys = sorted({c.key for c in cows})
         n = len(cows)
