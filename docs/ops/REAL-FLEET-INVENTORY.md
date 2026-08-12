@@ -20,7 +20,7 @@ Until confirmed, treat numbers as **watts peak (W)** and convert to kWp as `valu
 | Year | Site | Capacity (raw) | Organisation / notes |
 |------|------|----------------|----------------------|
 | 2023 | Vazinha | 540 | (blank) |
-| 2024 | ARIA Alcabideche | 4500 | NGO (spelling: Alcabideche) |
+| 2024 | ARIA Alcabadeche | 4500 | NGO |
 | 2024 | Gatos do Jardim | 3680 | NGO |
 | 2024 | Almocagem Farm | 800 | |
 | 2024 | Penedo off-grid | 960 | off-grid |
