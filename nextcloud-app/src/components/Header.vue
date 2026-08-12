@@ -21,7 +21,7 @@
 		</div>
 
 		<div class="kpi-container">
-			<div class="kpi-card" :class="{ active: activeFilter === 'all' }" @click="setFilter('all')">
+			<div class="kpi-card kpi-neutral" :class="{ active: activeFilter === 'all' }" @click="setFilter('all')">
 				<span class="kpi-value">{{ totalObjects }}</span>
 				<span class="kpi-label">Total stations</span>
 			</div>
@@ -37,15 +37,15 @@
 				<span class="kpi-value">{{ plannedCount }}</span>
 				<span class="kpi-label">Planned</span>
 			</div>
-			<div class="kpi-card">
+			<div class="kpi-card kpi-neutral">
 				<span class="kpi-value">{{ formatKwp(totalCapacity) }}</span>
 				<span class="kpi-label">Total kWp</span>
 			</div>
-			<div class="kpi-card">
+			<div class="kpi-card kpi-energy">
 				<span class="kpi-value">{{ formatEnergy(totalEnergy) }}</span>
 				<span class="kpi-label">Total energy</span>
 			</div>
-			<div class="kpi-card">
+			<div class="kpi-card kpi-savings">
 				<span class="kpi-value">{{ formatMoney(totalSavings) }}</span>
 				<span class="kpi-label">Total savings</span>
 			</div>
@@ -186,7 +186,10 @@ export default {
 	text-transform: uppercase;
 	letter-spacing: 0.02em;
 }
+.kpi-neutral .kpi-value { color: #111111; }
 .kpi-online .kpi-value { color: #22A559; }
 .kpi-offline .kpi-value { color: #CC2020; }
 .kpi-planned .kpi-value { color: #ef6c00; }
+.kpi-energy .kpi-value { color: #CC2020; }
+.kpi-savings .kpi-value { color: #22A559; }
 </style>
