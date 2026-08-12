@@ -100,6 +100,9 @@ No fixed calendar deadline. Ship by **quality gates** (lint, types, tests, deplo
 - `docs/architecture/nc-odoo-lifecycle-api.openapi.yaml`  
 - `docs/mvp/EPIC-MVP.md`  
 - `docs/adr/0001`–`0005`  
+- `docs/architecture/METRICS-NC-SERIES-SOT.md` (fleet vs Mendeley; truthful series)  
+- `docs/ops/REAL-FLEET-INVENTORY.md`  
+- `docs/adr/0006-nc-series-sot-and-fleet-vs-mendeley.md`  
 
 ## Change control
 
