@@ -7,14 +7,15 @@ Capacity: inventory raw W / 1000 -> kWp (see data/real_fleet.json).
 Usage (from host with docker):
   python3 nextcloud-app/scripts/seed_real_fleet.py
 """
+
 from __future__ import annotations
 
+from datetime import UTC, datetime
 import json
+from pathlib import Path
 import re
 import subprocess
 import sys
-from datetime import datetime, timezone
-from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 FLEET_PATH = ROOT / "data" / "real_fleet.json"
@@ -22,6 +23,8 @@ DB_CONTAINER = "filantropia-db"
 DB_USER = "nextcloud"
 DB_PASS = "nextcloud_dev_password"
 DB_NAME = "nextcloud"
+# Stations dated on/after this calendar year stay planned until ops marks installed.
+PLANNED_FROM_YEAR = 2026
 
 
 def sql_escape(value: str | None) -> str:
@@ -50,7 +53,7 @@ def run_sql(sql: str) -> str:
         "-e",
         sql,
     ]
-    proc = subprocess.run(cmd, capture_output=True, text=True)
+    proc = subprocess.run(cmd, capture_output=True, text=True, check=False)
     if proc.returncode != 0:
         raise RuntimeError(proc.stderr or proc.stdout or "mariadb failed")
     return proc.stdout
@@ -60,7 +63,7 @@ def main() -> int:
     data = json.loads(FLEET_PATH.read_text(encoding="utf-8"))
     unit = data.get("capacity_unit", "W")
     stations = data["stations"]
-    now = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
+    now = datetime.now(UTC).strftime("%Y-%m-%d %H:%M:%S")
     created = 0
     updated = 0
 
@@ -70,13 +73,12 @@ def main() -> int:
         raw = float(st["capacity_raw"])
         kwp = raw / 1000.0 if unit.upper() in {"W", "WP", "W_P"} else raw
         year = int(st["year"])
-        # 2026 PurposeFlow stays planned until ops marks installed
-        if year >= 2026 or "planned" in (st.get("notes") or "").lower():
-            lifecycle = "running" if year < 2026 else "planned"
+        notes_l = (st.get("notes") or "").lower()
+        # Future-year or explicitly planned inventory stays planned until ops marks installed
+        if year >= PLANNED_FROM_YEAR or "planned" in notes_l:
+            lifecycle = "planned"
         else:
             lifecycle = "running"
-        if year >= 2026:
-            lifecycle = "planned"
         is_virtual = 1 if lifecycle == "virtual" else 0
         install_date = f"{year}-01-01"
         installed_at = f"{year}-01-01 00:00:00" if lifecycle == "running" else "NULL"
@@ -110,7 +112,7 @@ UPDATE oc_fs_installations SET
   is_virtual={is_virtual},
   soft_removed=0,
   installation_date={sql_escape(install_date)},
-  installed_at={installed_at if installed_at == 'NULL' else sql_escape(installed_at)},
+  installed_at={installed_at if installed_at == "NULL" else sql_escape(installed_at)},
   short_description={sql_escape(short_description)},
   nearest_location={sql_escape(location)},
   grid_price_kwh=0.1500,
@@ -142,7 +144,7 @@ INSERT INTO oc_fs_installations (
   'fleet',
   {sql_escape(lifecycle)},
   0,
-  {installed_at if installed_at == 'NULL' else sql_escape(installed_at)},
+  {installed_at if installed_at == "NULL" else sql_escape(installed_at)},
   {sql_escape(short_description)},
   {sql_escape(location)},
   0
@@ -163,6 +165,6 @@ INSERT INTO oc_fs_installations (
 if __name__ == "__main__":
     try:
         raise SystemExit(main())
-    except Exception as exc:  # noqa: BLE001
+    except Exception as exc:
         print(f"ERROR: {exc}", file=sys.stderr)
-        raise SystemExit(1)
+        raise SystemExit(1) from exc
