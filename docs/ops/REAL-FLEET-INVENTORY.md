@@ -56,3 +56,13 @@ Until confirmed, treat numbers as **watts peak (W)** and convert to kWp as `valu
 ## Change control
 
 Updates to this table require ops confirmation and a PR touching this file + any seed script.
+
+
+## Seed artifact
+
+Machine-readable inventory + approximate coordinates:
+
+- `nextcloud-app/data/real_fleet.json`
+- Seed script: `python3 nextcloud-app/scripts/seed_real_fleet.py`
+
+Coordinates are **approximate Portugal placeholders** for map/weather until ops supplies survey GPS.
