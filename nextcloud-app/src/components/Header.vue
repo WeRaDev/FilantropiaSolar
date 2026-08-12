@@ -27,7 +27,7 @@
 			</div>
 			<div class="kpi-card kpi-online" :class="{ active: activeFilter === 'online' }" @click="setFilter('online')">
 				<span class="kpi-value">{{ onlineCount }}</span>
-				<span class="kpi-label">Online</span>
+				<span class="kpi-label">Active</span>
 			</div>
 			<div class="kpi-card kpi-offline" :class="{ active: activeFilter === 'offline' }" @click="setFilter('offline')">
 				<span class="kpi-value">{{ offlineCount }}</span>

@@ -7,6 +7,7 @@ namespace OCA\FilantropiaSolar\Controller;
 use DateTime;
 use OCA\FilantropiaSolar\AppInfo\Application;
 use OCA\FilantropiaSolar\Db\Installation;
+use OCA\FilantropiaSolar\Db\EnergyReadingMapper;
 use OCA\FilantropiaSolar\Db\InstallationMapper;
 use OCA\FilantropiaSolar\Service\StationLifecycle;
 use OCP\AppFramework\ApiController;
@@ -35,6 +36,7 @@ class InstallationApiController extends ApiController
         IRequest $request,
         private readonly IUserSession $userSession,
         private readonly InstallationMapper $mapper,
+        private readonly EnergyReadingMapper $readingMapper,
         private readonly IClientService $clientService,
         private readonly IRootFolder $rootFolder,
         private readonly LoggerInterface $logger,
@@ -51,74 +53,40 @@ class InstallationApiController extends ApiController
     #[NoCSRFRequired]
     public function index(): JSONResponse
     {
-        $mlInstallations = [];
-        $dbInstallations = [];
+        // M0: ops list is fleet/user/crm only — never Mendeley training corpus.
+        $includeDataset = filter_var(
+            $this->request->getParam('include_dataset', '0'),
+            FILTER_VALIDATE_BOOLEAN,
+        );
 
-        // 1. Dataset stations: MariaDB is the source of truth (imported Mendeley
-        //    dataset). Fall back to the ML service only if the import has not run.
+        $rows = [];
         try {
-            $datasetRows = $this->mapper->findAllBySource('dataset');
-            foreach ($datasetRows as $inst) {
-                $mlInstallations[] = $this->datasetRowToArray($inst);
+            if ($includeDataset) {
+                $rows = $this->mapper->findAll();
+            } else {
+                $rows = $this->mapper->findOpsStations();
             }
-        } catch (\Exception $dbEx) {
-            $this->logger->error('Failed to read dataset installations from DB', ['exception' => $dbEx]);
+        } catch (\Exception $e) {
+            $this->logger->error('Failed to list ops installations', ['exception' => $e]);
+            return $this->errorResponse('Failed to list installations');
         }
 
-        if (count($mlInstallations) === 0) {
-            try {
-                $client = $this->clientService->newClient();
-                $response = $client->get(self::ML_SERVICE_URL . '/data/installations');
-                $data = json_decode($response->getBody(), true);
-
-                if (isset($data['installations']) && is_array($data['installations'])) {
-                    $mlInstallations = array_map(
-                        fn($inst) => array_merge($inst, [
-                            'status' => $this->calculateStatus($inst),
-                            'source' => 'dataset',
-                            'is_virtual' => false,
-                        ]),
-                        $data['installations']
-                    );
-                }
-            } catch (\Exception $e) {
-                $this->logger->error('Failed to fetch from ML service', ['exception' => $e]);
+        $installations = [];
+        foreach ($rows as $inst) {
+            $source = $inst->getSource() ?: 'user';
+            if ($source === 'dataset') {
+                $payload = $this->datasetRowToArray($inst);
+            } else {
+                $payload = $this->userOrCrmRowToArray($inst, $source === '' ? 'user' : $source);
             }
+            $installations[] = $this->attachSeriesStats($payload, (int) $inst->getId());
         }
-
-        // 2. Fetch user-created installations from DB
-        $userId = $this->getUserId();
-        if ($userId) {
-            try {
-                $userInstallations = $this->mapper->findAllByUser($userId);
-                foreach ($userInstallations as $inst) {
-                    $dbInstallations[] = $this->userOrCrmRowToArray($inst, 'user');
-                }
-            } catch (\Exception $dbEx) {
-                $this->logger->error('Failed to fetch user installations', ['exception' => $dbEx]);
-            }
-        }
-
-        // 3. CRM / ops stations (no user_id) — needed for dashboard lifecycle
-        try {
-            $crmRows = $this->mapper->findAllBySource('crm');
-            foreach ($crmRows as $inst) {
-                if ($inst->getSoftRemoved()) {
-                    // Still show to ops so soft-remove is visible/undo-aware later
-                }
-                $dbInstallations[] = $this->userOrCrmRowToArray($inst, 'crm');
-            }
-        } catch (\Exception $crmEx) {
-            $this->logger->error('Failed to fetch CRM installations', ['exception' => $crmEx]);
-        }
-
-        // 4. Merge: dataset + user + crm installations
-        $merged = array_merge($mlInstallations, $dbInstallations);
 
         return new JSONResponse([
             'success' => true,
-            'installations' => $merged,
-            'count' => count($merged),
+            'installations' => $installations,
+            'count' => count($installations),
+            'includes_dataset' => $includeDataset,
         ]);
     }
 
@@ -780,6 +748,57 @@ class InstallationApiController extends ApiController
             'short_description' => $inst->getShortDescription(),
             'grid_price_kwh' => $inst->getGridPriceKwh() !== null ? (float) $inst->getGridPriceKwh() : null,
         ];
+    }
+
+
+    /**
+     * Attach NC series aggregates (truthful metrics Phase A).
+     *
+     * @param array<string, mixed> $payload
+     * @return array<string, mixed>
+     */
+    private function attachSeriesStats(array $payload, int $dbId): array
+    {
+        if ($dbId <= 0) {
+            $payload['total_production_kwh'] = 0.0;
+            $payload['total_savings_eur'] = 0.0;
+            $payload['readings_count'] = 0;
+            $payload['has_series_data'] = false;
+            $payload['series_source'] = 'none';
+            return $payload;
+        }
+
+        try {
+            $production = $this->readingMapper->sumProductionAll($dbId);
+            $count = $this->readingMapper->countByInstallation($dbId);
+            $hasMeasured = $this->readingMapper->hasMeasuredData($dbId);
+        } catch (\Throwable $e) {
+            $this->logger->warning('Series stats failed', ['id' => $dbId, 'exception' => $e]);
+            $production = 0.0;
+            $count = 0;
+            $hasMeasured = false;
+        }
+
+        $price = isset($payload['grid_price_kwh']) ? (float) $payload['grid_price_kwh'] : (float) Application::DEFAULT_GRID_PRICE;
+        $capacity = (float) ($payload['capacity_kwp'] ?? 0);
+        // D8 capacity factor proxy when we have series: kWh / (kWp * hours) not available without window;
+        // expose simple kWh/kWp if capacity > 0 else 0.
+        $efficiency = ($capacity > 0 && $production > 0) ? min(1.0, $production / ($capacity * 1500.0)) : 0.0;
+
+        $payload['total_production_kwh'] = round($production, 4);
+        $payload['total_savings_eur'] = round($production * $price, 4);
+        $payload['readings_count'] = $count;
+        $payload['has_series_data'] = $count > 0;
+        $payload['has_measured_data'] = $hasMeasured;
+        $payload['series_source'] = $count > 0 ? 'nc_readings' : 'none';
+        $payload['efficiency'] = round($efficiency, 4);
+        // Ops status: for running stations, active=measured, offline=no measured series
+        $lc = (string) ($payload['lifecycle_state'] ?? 'running');
+        if ($lc === StationLifecycle::RUNNING && empty($payload['soft_removed'])) {
+            $payload['status'] = $hasMeasured ? 'active' : 'offline';
+        }
+
+        return $payload;
     }
 
     /**

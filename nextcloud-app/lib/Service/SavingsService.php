@@ -145,7 +145,7 @@ class SavingsService
                 $qb->createFunction('MONTH(timestamp) as month'),
                 $qb->createFunction('SUM(production_kwh) as total_production')
             )
-                ->from('filantropia_readings')
+                ->from('fs_readings')
                 ->where($qb->expr()->eq('installation_id', $qb->createNamedParameter($installationId)))
                 ->andWhere($qb->expr()->eq($qb->createFunction('YEAR(timestamp)'), $qb->createNamedParameter($year)))
                 ->groupBy('month')
@@ -183,7 +183,7 @@ class SavingsService
     {
         $qb = $this->db->getQueryBuilder();
         $qb->select($qb->createFunction('SUM(production_kwh)'))
-            ->from('filantropia_readings')
+            ->from('fs_readings')
             ->where($qb->expr()->eq('installation_id', $qb->createNamedParameter($installationId)))
             ->andWhere($qb->expr()->gte('timestamp', $qb->createNamedParameter($start->format('Y-m-d H:i:s'))))
             ->andWhere($qb->expr()->lte('timestamp', $qb->createNamedParameter($end->format('Y-m-d H:i:s'))));
@@ -202,7 +202,7 @@ class SavingsService
     {
         $qb = $this->db->getQueryBuilder();
         $qb->select($qb->createFunction('SUM(production_kwh)'))
-            ->from('filantropia_readings')
+            ->from('fs_readings')
             ->where($qb->expr()->eq('installation_id', $qb->createNamedParameter($installationId)));
 
         if ($since) {

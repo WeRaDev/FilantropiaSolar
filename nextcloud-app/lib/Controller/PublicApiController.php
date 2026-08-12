@@ -157,10 +157,10 @@ class PublicApiController extends ApiController
 		try {
 			return $this->mapper->findPublicStations();
 		} catch (\Throwable $e) {
-			$this->logger->warning('findPublicStations failed; falling back to dataset source', [
+			$this->logger->warning('findPublicStations failed; returning empty (dataset is not public fleet)', [
 				'exception' => $e,
 			]);
-			return $this->mapper->findAllBySource('dataset');
+			return [];
 		}
 	}
 

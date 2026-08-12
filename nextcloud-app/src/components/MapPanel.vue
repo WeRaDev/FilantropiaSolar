@@ -55,11 +55,17 @@
                 </div>
                 <div class="info-row">
                     <span class="info-label">Total production</span>
-                    <span class="info-value highlight">{{ formatNumber(selectedObject.total_production_kwh) }} kWh/yr</span>
+                    <span class="info-value highlight">
+                        <template v-if="selectedObject.has_series_data">{{ formatNumber(selectedObject.total_production_kwh) }} kWh</template>
+                        <template v-else>No series data</template>
+                    </span>
                 </div>
                 <div class="info-row">
                     <span class="info-label">Total savings</span>
-                    <span class="info-value">€{{ formatNumber(selectedObject.total_savings_eur) }}/yr</span>
+                    <span class="info-value">
+                        <template v-if="selectedObject.has_series_data">€{{ formatNumber(selectedObject.total_savings_eur) }}</template>
+                        <template v-else>—</template>
+                    </span>
                 </div>
                 <div class="info-row">
                     <span class="info-label">Current efficiency</span>
@@ -111,10 +117,10 @@ export default {
         const mapCenter = computed(() => store.mapCenter)
         const mapZoom = computed(() => store.mapZoom)
         
-        // Estimated yearly production (capacity * 1500 kWh/kWp for Portugal)
+        // Series totals come from NC readings (Phase A). No capacity×1500 fallback.
         const estimatedYearlyProduction = computed(() => {
             if (!selectedObject.value) return 0
-            return (selectedObject.value.capacity_kwp || 0) * 1500
+            return Number(selectedObject.value.total_production_kwh || 0)
         })
 
         // Status colors per spec
