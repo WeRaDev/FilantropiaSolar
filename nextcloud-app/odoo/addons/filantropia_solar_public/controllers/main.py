@@ -932,11 +932,11 @@ class FilantropiaSolarPublicController(http.Controller):
             lead_vals["fs_station_grid_price_kwh"] = price_kwh
         lead = request.env["crm.lead"].sudo().create(lead_vals)
         self._attach_files(lead)
-        # Best-effort Virtual station on NC (idempotent by odoo_lead_id)
+        # Async Virtual station on NC (queue_job); idempotent by odoo_lead_id
         try:
-            lead.fs_create_virtual_station()
+            lead.fs_enqueue_create_virtual()
         except Exception as exc:
-            _logger.warning("NC virtual sync after candidatura failed: %s", exc)
+            _logger.warning("NC virtual enqueue after candidatura failed: %s", exc)
         _logger.info("Donation application lead created: %s", lead.id)
 
         return self._render(

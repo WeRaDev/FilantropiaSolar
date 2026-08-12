@@ -76,7 +76,7 @@ Ops run lifecycle on **Nextcloud admin**; CRM **Qualify → Planned** only; **Wo
 
 ---
 
-### MVP-6 — queue_job (or ADR interim cron)  
+### MVP-6 — queue_job (or ADR interim cron) ✅  
 **Maps:** D7  
 
 - Package queue_job on Odoo 19 Community **or** ADR + cron interim.  

@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo noupdate="1">
+  <!-- Dedicated channel under root for Filantropia NC lifecycle jobs -->
+  <record id="channel_filantropia" model="queue.job.channel">
+    <field name="name">filantropia</field>
+    <field name="parent_id" ref="queue_job.channel_root"/>
+  </record>
+</odoo>
