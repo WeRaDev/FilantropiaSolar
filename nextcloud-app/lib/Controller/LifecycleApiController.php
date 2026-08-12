@@ -53,6 +53,12 @@ class LifecycleApiController extends ApiController
 		$capacityKwp = (float) ($payload['capacity_kwp'] ?? $this->request->getParam('capacity_kwp', 0));
 		$locationLabel = trim((string) ($payload['location_label'] ?? $this->request->getParam('location_label', '')));
 		$orgName = trim((string) ($payload['organization_name'] ?? $this->request->getParam('organization_name', '')));
+		$website = trim((string) ($payload['website'] ?? $this->request->getParam('website', '')));
+		$shortDescription = trim((string) (
+			$payload['short_description']
+			?? $payload['shortDescription']
+			?? $this->request->getParam('short_description', '')
+		));
 		$gridPrice = $payload['grid_price_kwh'] ?? $this->request->getParam('grid_price_kwh', null);
 
 		if ($odooLeadId <= 0) {
@@ -67,6 +73,34 @@ class LifecycleApiController extends ApiController
 
 		$existing = $this->mapper->findByOdooLeadId($odooLeadId);
 		if ($existing !== null) {
+			// Refresh public snapshot fields on idempotent replay (CRM re-sync).
+			$dirty = false;
+			if ($website !== '') {
+				$existing->setWebsite($website);
+				$dirty = true;
+			}
+			if ($shortDescription !== '') {
+				$existing->setShortDescription($shortDescription);
+				$dirty = true;
+			}
+			if ($locationLabel !== '') {
+				$existing->setLocation($locationLabel);
+				$dirty = true;
+			}
+			if ($capacityKwp > 0) {
+				$existing->setCapacityKwp((string) $capacityKwp);
+				$dirty = true;
+			}
+			if ($latitude != 0.0 || $longitude != 0.0) {
+				$existing->setLatitude((string) $latitude);
+				$existing->setLongitude((string) $longitude);
+				$dirty = true;
+			}
+			if ($dirty) {
+				$existing->setUpdatedAt(new DateTime());
+				$existing = $this->mapper->update($existing);
+			}
+
 			return new JSONResponse([
 				'success' => true,
 				'station' => $this->toLifecycleArray($existing),
@@ -94,6 +128,15 @@ class LifecycleApiController extends ApiController
 			}
 			if ($orgName !== '') {
 				$station->setNearestLocation($orgName);
+			}
+			if ($website !== '') {
+				$station->setWebsite($website);
+			}
+			if ($shortDescription !== '') {
+				$station->setShortDescription($shortDescription);
+			} elseif ($orgName !== '') {
+				// Fallback public blurb from organisation name when form description empty
+				$station->setShortDescription($orgName);
 			}
 			$now = new DateTime();
 			$station->setCreatedAt($now);
@@ -292,6 +335,8 @@ class LifecycleApiController extends ApiController
 			'location' => $station->getLocation(),
 			'source' => $station->getSource(),
 			'installed_at' => $station->getInstalledAt()?->format('c'),
+			'website' => $station->getWebsite(),
+			'short_description' => $station->getShortDescription(),
 		];
 	}
 

@@ -164,16 +164,33 @@ class FilantropiaSolarPublicController(http.Controller):
         for s in stations or []:
             row = dict(s)
             cap = self._as_float(row.get("capacity_kwp"), 0.0)
+            # Prefer NC series-backed savings; else indicative annual estimate
             saved = row.get("money_saved_eur")
             if saved is None:
+                saved = row.get("total_savings_eur")
+            indicative = bool(row.get("savings_is_indicative"))
+            if saved is None:
                 saved = cap * _DISPLAY_SPECIFIC_YIELD_KWH_PER_KWP * _DISPLAY_EUR_PER_KWH
+                indicative = True
+            elif (
+                row.get("has_series_data") is False
+                and row.get("savings_is_indicative") is None
+            ):
+                indicative = True
             row["money_saved_eur"] = float(saved or 0)
             row["money_saved_display"] = f"{int(float(saved or 0)):,}".replace(",", " ")
-            # Prefer API description; else curated blurb; else generic indicative text
+            row["savings_is_indicative"] = indicative
+            website = (row.get("website") or "").strip()
+            if website and not website.lower().startswith(("http://", "https://")):
+                row["website_href"] = "https://" + website
+            else:
+                row["website_href"] = website or None
+            row["website"] = website or None
+            # Prefer NC short_description; else curated blurb; else generic text
             info = (
                 row.get("info")
-                or row.get("description")
                 or row.get("short_description")
+                or row.get("description")
                 or ""
             ).strip()
             if not info:
@@ -189,15 +206,10 @@ class FilantropiaSolarPublicController(http.Controller):
                     name_disp = name or "Instalação"
                     info = (
                         f"{name_disp} em {loc_disp}: instalação da rede Filantropia Solar "
-                        f"({cap:g} kWp). Poupança anual estimada ~"
-                        f"{row['money_saved_display']} EUR (valor indicativo, não medido)."
-                    )
-                else:
-                    info = (
-                        f"{info} Capacidade {cap:g} kWp; poupança estimada ~"
-                        f"{row['money_saved_display']} EUR/ano (indicativa)."
+                        f"({cap:g} kWp)."
                     )
             row["info"] = info
+            row["short_description"] = info
             enriched.append(row)
         return dash, enriched
 
@@ -926,6 +938,8 @@ class FilantropiaSolarPublicController(http.Controller):
             "fs_station_latitude": self._as_float(location_lat, 0.0),
             "fs_station_longitude": self._as_float(location_lng, 0.0),
             "fs_station_capacity_kwp": kwp,
+            "fs_station_website": step2_website or False,
+            "fs_station_short_description": step2_description or False,
             "fs_nc_sync_state": "pending",
         }
         if price_kwh > 0:

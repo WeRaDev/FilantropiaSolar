@@ -26,6 +26,8 @@
             <field name="fs_station_longitude"/>
             <field name="fs_station_capacity_kwp"/>
             <field name="fs_station_grid_price_kwh"/>
+            <field name="fs_station_website"/>
+            <field name="fs_station_short_description"/>
           </group>
           <group>
             <button name="fs_create_virtual_station" type="object" string="Sync Virtual to NC"

@@ -83,48 +83,8 @@
         <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
         <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"/>
         <script type="text/javascript">
-            document.addEventListener('DOMContentLoaded', function () {
-                if (typeof L === 'undefined') return;
-                var mapEl = document.getElementById('fs-stations-map');
-                if (!mapEl) return;
-                var map = L.map('fs-stations-map');
-                L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-                    maxZoom: 18,
-                    attribution: '&amp;copy; OpenStreetMap contributors'
-                }).addTo(map);
-                var stations = <t t-out="stations_json"/>;
-                var markers = [];
-                stations.forEach(function(s) {
-                    var lat = parseFloat(s.latitude), lng = parseFloat(s.longitude);
-                    if (!isFinite(lat) || !isFinite(lng)) return;
-                    var m = L.marker([lat, lng]).addTo(map);
-                    var saved = (s.money_saved_display != null &amp;&amp; s.money_saved_display !== '')
-                        ? s.money_saved_display
-                        : (s.money_saved_eur != null ? Math.round(Number(s.money_saved_eur)) : '\u2014');
-                    var info = (s.info || s.description || '');
-                    function esc(t) {
-                        return String(t == null ? '' : t)
-                            .replace(/&amp;/g, '&amp;amp;')
-                            .replace(/\x3c/g, '&amp;lt;')
-                            .replace(/\x3e/g, '&amp;gt;')
-                            .replace(/"/g, '&amp;quot;');
-                    }
-                    var html = '<strong>' + esc(s.name || 'Station') + '</strong><br/>'
-                        + esc(s.location || '') + '<br/>'
-                        + esc(s.capacity_kwp || 0) + ' kWp<br/>'
-                        + '<strong>Poupança estimada:</strong> ' + esc(saved) + ' EUR/ano';
-                    if (info) {
-                        html += '<br/><strong>Informação:</strong> ' + esc(info);
-                    }
-                    m.bindPopup(html);
-                    markers.push(m);
-                });
-                if (markers.length) {
-                    map.fitBounds(L.featureGroup(markers).getBounds().pad(0.15));
-                } else {
-                    map.setView([38.7223,-9.1393], 5);
-                }
-            });
+            window.FS_STATIONS = <t t-out="stations_json"/>;
         </script>
+        <script type="text/javascript" src="/filantropia_solar_public/static/src/js/stations_map.js"/>
     </template>
 </odoo>

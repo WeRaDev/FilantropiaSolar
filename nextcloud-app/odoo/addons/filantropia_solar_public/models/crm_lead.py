@@ -70,6 +70,11 @@ class CrmLead(models.Model):
         digits=(8, 4),
         copy=False,
     )
+    fs_station_website = fields.Char(string="Organisation website", copy=False)
+    fs_station_short_description = fields.Text(
+        string="Organisation short description",
+        copy=False,
+    )
     fs_is_donation_application = fields.Boolean(
         string="Filantropia donation application",
         default=False,
@@ -94,6 +99,10 @@ class CrmLead(models.Model):
                 vals["fs_nc_db_id"] = int(station["id"])
         if station.get("lifecycle_state"):
             vals["fs_nc_lifecycle_state"] = station["lifecycle_state"]
+        if station.get("website") and not self.fs_station_website:
+            vals["fs_station_website"] = station["website"]
+        if station.get("short_description") and not self.fs_station_short_description:
+            vals["fs_station_short_description"] = station["short_description"]
         self.write(vals)
 
     def _fs_mark_error(self, exc: Exception) -> None:
@@ -128,6 +137,14 @@ class CrmLead(models.Model):
         }
         if self.fs_station_grid_price_kwh:
             payload["grid_price_kwh"] = float(self.fs_station_grid_price_kwh)
+        website = (self.fs_station_website or "").strip()
+        if website:
+            if not website.lower().startswith(("http://", "https://")):
+                website = "https://" + website
+            payload["website"] = website
+        short = (self.fs_station_short_description or "").strip()
+        if short:
+            payload["short_description"] = short
 
         try:
             result = self._fs_client().create_virtual(payload)
@@ -150,15 +167,22 @@ class CrmLead(models.Model):
     def fs_promote_planned(self) -> bool:
         """Promote linked NC station Virtual → Planned."""
         self.ensure_one()
-        installation_id = self.fs_nc_installation_id
-        if not installation_id:
-            # Try create first if donation app never synced
-            if self.fs_is_donation_application:
-                self.fs_create_virtual_station()
-                installation_id = self.fs_nc_installation_id
-            if not installation_id:
-                self._fs_mark_error(NcLifecycleError("missing fs_nc_installation_id"))
+        installation_id = (self.fs_nc_installation_id or "").strip()
+        if not installation_id and self.fs_is_donation_application:
+            # Ensure Virtual exists first (covers failed/async create races)
+            if not self.fs_create_virtual_station():
+                # fs_create_virtual_station already marked error state
                 return False
+            # refresh from DB after write inside create
+            installation_id = (self.fs_nc_installation_id or "").strip()
+        if not installation_id:
+            self._fs_mark_error(
+                NcLifecycleError(
+                    "missing fs_nc_installation_id after virtual create; "
+                    "check FS_LIFECYCLE_API_BASE_URL / token and NC connectivity"
+                )
+            )
+            return False
         try:
             result = self._fs_client().promote_planned(installation_id)
             self._fs_apply_station_payload(result)
