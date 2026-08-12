@@ -439,3 +439,7 @@ nextcloud-app/infra/cloudflared/*.json
 # PHP test deps (local)
 nextcloud-app/vendor/
 nextcloud-app/composer.lock
+
+# Keep Odoo addon Python packages (models/ is a generic ignore elsewhere)
+!nextcloud-app/odoo/addons/**/models/
+!nextcloud-app/odoo/addons/**/models/**
