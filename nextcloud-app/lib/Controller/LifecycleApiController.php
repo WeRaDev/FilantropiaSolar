@@ -73,6 +73,34 @@ class LifecycleApiController extends ApiController
 
 		$existing = $this->mapper->findByOdooLeadId($odooLeadId);
 		if ($existing !== null) {
+			// Refresh public snapshot fields on idempotent replay (CRM re-sync).
+			$dirty = false;
+			if ($website !== '') {
+				$existing->setWebsite($website);
+				$dirty = true;
+			}
+			if ($shortDescription !== '') {
+				$existing->setShortDescription($shortDescription);
+				$dirty = true;
+			}
+			if ($locationLabel !== '') {
+				$existing->setLocation($locationLabel);
+				$dirty = true;
+			}
+			if ($capacityKwp > 0) {
+				$existing->setCapacityKwp((string) $capacityKwp);
+				$dirty = true;
+			}
+			if ($latitude != 0.0 || $longitude != 0.0) {
+				$existing->setLatitude((string) $latitude);
+				$existing->setLongitude((string) $longitude);
+				$dirty = true;
+			}
+			if ($dirty) {
+				$existing->setUpdatedAt(new DateTime());
+				$existing = $this->mapper->update($existing);
+			}
+
 			return new JSONResponse([
 				'success' => true,
 				'station' => $this->toLifecycleArray($existing),

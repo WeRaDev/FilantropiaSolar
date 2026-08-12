@@ -188,7 +188,7 @@ class PublicApiController extends ApiController
 		$category = $this->publicCategoryOf($i);
 		$stats = $this->seriesStatsFor($i);
 		$short = $i->getShortDescription();
-		$website = $i->getWebsite();
+		$website = $this->normalizeWebsite($i->getWebsite());
 
 		return [
 			'id' => $i->getInstallationId(),
@@ -201,7 +201,7 @@ class PublicApiController extends ApiController
 			'to_date' => $i->getToDate()?->format('Y-m-d'),
 			'public_category' => $category,
 			'lifecycle_state' => $this->stateOf($i),
-			'website' => $website !== null && $website !== '' ? $website : null,
+			'website' => $website,
 			'short_description' => $short !== null && $short !== '' ? $short : null,
 			'description' => $short !== null && $short !== '' ? $short : null,
 			'total_production_kwh' => $stats['total_production_kwh'],
@@ -283,6 +283,22 @@ class PublicApiController extends ApiController
 	private function publicCategoryOf(Installation $i): string
 	{
 		return StationLifecycle::publicCategory($this->stateOf($i), $i->getSoftRemoved());
+	}
+
+	/**
+	 * Ensure public website URLs are absolute (scheme-prefixed).
+	 */
+	private function normalizeWebsite(?string $website): ?string
+	{
+		$website = trim((string) $website);
+		if ($website === '') {
+			return null;
+		}
+		if (!preg_match('#^https?://#i', $website)) {
+			$website = 'https://' . $website;
+		}
+
+		return $website;
 	}
 
 	/**
