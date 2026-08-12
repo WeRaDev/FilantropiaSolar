@@ -82,6 +82,42 @@ class EnergyReadingMapper extends QBMapper
     /**
      * Sum production for an installation within a time range.
      */
+    /**
+     * Sum all production for an installation (entire series).
+     */
+    public function sumProductionAll(int $installationId): float
+    {
+        $qb = $this->db->getQueryBuilder();
+
+        $qb->select($qb->createFunction('COALESCE(SUM(production_kwh), 0)'))
+            ->from($this->getTableName())
+            ->where($qb->expr()->eq('installation_id', $qb->createNamedParameter($installationId, IQueryBuilder::PARAM_INT)));
+
+        $result = $qb->executeQuery();
+        $sum = (float) $result->fetchOne();
+        $result->closeCursor();
+
+        return $sum;
+    }
+
+    /**
+     * Count reading rows for an installation.
+     */
+    public function countByInstallation(int $installationId): int
+    {
+        $qb = $this->db->getQueryBuilder();
+
+        $qb->select($qb->createFunction('COUNT(*)'))
+            ->from($this->getTableName())
+            ->where($qb->expr()->eq('installation_id', $qb->createNamedParameter($installationId, IQueryBuilder::PARAM_INT)));
+
+        $result = $qb->executeQuery();
+        $count = (int) $result->fetchOne();
+        $result->closeCursor();
+
+        return $count;
+    }
+
     public function sumProduction(int $installationId, DateTime $since, DateTime $until): float
     {
         $qb = $this->db->getQueryBuilder();

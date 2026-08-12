@@ -142,7 +142,7 @@ class EnergyApiController extends OCSController
             foreach ($readings as $reading) {
                 try {
                     $qb = $this->db->getQueryBuilder();
-                    $qb->insert('filantropia_readings')
+                    $qb->insert('fs_readings')
                         ->values([
                             'installation_id' => $qb->createNamedParameter($id),
                             'timestamp' => $qb->createNamedParameter($reading['timestamp']),
@@ -186,7 +186,7 @@ class EnergyApiController extends OCSController
     {
         $qb = $this->db->getQueryBuilder();
         $qb->select($qb->createFunction('SUM(production_kwh)'))
-            ->from('filantropia_readings')
+            ->from('fs_readings')
             ->where($qb->expr()->eq('installation_id', $qb->createNamedParameter($installationId)))
             ->andWhere($qb->expr()->gte('timestamp', $qb->createNamedParameter($start->format('Y-m-d H:i:s'))))
             ->andWhere($qb->expr()->lte('timestamp', $qb->createNamedParameter($end->format('Y-m-d H:i:s'))));

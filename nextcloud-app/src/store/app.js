@@ -121,15 +121,16 @@ export const useAppStore = defineStore('app', {
             state.objects.filter(o => (o.lifecycle_state || o.customData?.lifecycleState) === 'planned' && !o.soft_removed).length,
         runningCount: (state) =>
             state.objects.filter(o => (o.lifecycle_state || o.customData?.lifecycleState || 'running') === 'running' && !o.soft_removed).length,
+        // Active (measured): Running with NC measured samples. Live "Online" feed is future (M4).
         onlineCount: (state) =>
             state.objects.filter(o => {
                 const lc = o.lifecycle_state || o.customData?.lifecycleState || 'running'
-                return !o.soft_removed && lc === 'running' && (o.status || 'active') === 'active'
+                return !o.soft_removed && lc === 'running' && (o.has_measured_data || o.status === 'active')
             }).length,
         offlineRunningCount: (state) =>
             state.objects.filter(o => {
                 const lc = o.lifecycle_state || o.customData?.lifecycleState || 'running'
-                return !o.soft_removed && lc === 'running' && (o.status || 'active') !== 'active'
+                return !o.soft_removed && lc === 'running' && !(o.has_measured_data || o.status === 'active')
             }).length,
         totalEnergyKwh: (state) =>
             state.objects.reduce((sum, o) => sum + Number(o.total_production_kwh || 0), 0),
@@ -174,14 +175,14 @@ export const useAppStore = defineStore('app', {
                         location: inst.location || inst.nearest_location,
                         metrics: {
                             powerOutput: inst.capacity_kwp || 0,
-                            efficiency: 0.85
+                            efficiency: Number(inst.efficiency != null ? inst.efficiency : 0)
                         },
                         customData: {
                             serialNumber: inst.serial_number,
                             fromDate: inst.from_date,
                             toDate: inst.to_date,
                             isVirtual: inst.is_virtual || lifecycle === 'virtual',
-                            source: inst.source || 'dataset',
+                            source: inst.source || 'user',
                             dbId: inst.db_id || null,
                             lifecycleState: lifecycle,
                             softRemoved,
@@ -202,9 +203,13 @@ export const useAppStore = defineStore('app', {
                         website: inst.website || '',
                         short_description: inst.short_description || '',
                         grid_price_kwh: inst.grid_price_kwh != null ? Number(inst.grid_price_kwh) : 0.15,
-                        total_production_kwh: Number(inst.capacity_kwp || 0) * 1500,
-                        total_savings_eur: Number(inst.capacity_kwp || 0) * 1500 * (inst.grid_price_kwh != null ? Number(inst.grid_price_kwh) : 0.15),
-                        efficiency: 0.85,
+                        total_production_kwh: Number(inst.total_production_kwh || 0),
+                        total_savings_eur: Number(inst.total_savings_eur || 0),
+                        readings_count: Number(inst.readings_count || 0),
+                        has_series_data: Boolean(inst.has_series_data),
+                        has_measured_data: Boolean(inst.has_measured_data),
+                        series_source: inst.series_source || 'none',
+                        efficiency: Number(inst.efficiency != null ? inst.efficiency : 0),
                         // Use actual API coordinates if available, otherwise fallback to location lookup
                         coordinates: (inst.latitude && inst.longitude)
                             ? { lat: parseFloat(inst.latitude), lng: parseFloat(inst.longitude) }

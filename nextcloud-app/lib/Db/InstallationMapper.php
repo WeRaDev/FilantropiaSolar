@@ -260,6 +260,26 @@ class InstallationMapper extends QBMapper
         return $count;
     }
 
+
+    /**
+     * Ops dashboard stations: everything except Mendeley training corpus (source=dataset).
+     * Includes fleet, user, crm, and any future non-dataset sources.
+     *
+     * @return Installation[]
+     */
+    public function findOpsStations(): array
+    {
+        $qb = $this->db->getQueryBuilder();
+
+        $qb->select('*')
+            ->from($this->getTableName())
+            ->where($qb->expr()->neq('source', $qb->createNamedParameter('dataset')))
+            ->orderBy('location', 'ASC')
+            ->addOrderBy('name', 'ASC');
+
+        return $this->findEntities($qb);
+    }
+
     /**
      * Public map/list: Planned + Running, not soft-removed, never Virtual.
      *
@@ -279,6 +299,8 @@ class InstallationMapper extends QBMapper
                 $qb->expr()->eq('soft_removed', $qb->createNamedParameter(0, IQueryBuilder::PARAM_INT)),
                 $qb->expr()->isNull('soft_removed'),
             ))
+            // Mendeley training corpus is never public fleet (M0)
+            ->andWhere($qb->expr()->neq('source', $qb->createNamedParameter('dataset')))
             ->orderBy('location', 'ASC')
             ->addOrderBy('name', 'ASC');
 

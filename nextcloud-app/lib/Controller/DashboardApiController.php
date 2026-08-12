@@ -132,8 +132,8 @@ class DashboardApiController extends OCSController
 
             $qb = $this->db->getQueryBuilder();
             $qb->select($qb->createFunction('SUM(r.production_kwh) as total'))
-                ->from('filantropia_readings', 'r')
-                ->innerJoin('r', 'filantropia_installations', 'i', $qb->expr()->eq('r.installation_id', 'i.id'))
+                ->from('fs_readings', 'r')
+                ->innerJoin('r', 'fs_installations', 'i', $qb->expr()->eq('r.installation_id', 'i.id'))
                 ->where($qb->expr()->eq('i.user_id', $qb->createNamedParameter($this->userId)))
                 ->andWhere($qb->expr()->gte('r.timestamp', $qb->createNamedParameter($startOfMonth)))
                 ->andWhere($qb->expr()->lte('r.timestamp', $qb->createNamedParameter($now)));
