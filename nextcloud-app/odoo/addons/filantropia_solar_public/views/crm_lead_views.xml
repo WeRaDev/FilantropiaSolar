@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+  <record id="view_crm_lead_form_fs_nc" model="ir.ui.view">
+    <field name="name">crm.lead.form.filantropia.nc</field>
+    <field name="model">crm.lead</field>
+    <field name="inherit_id" ref="crm.crm_lead_view_form"/>
+    <field name="arch" type="xml">
+      <xpath expr="//notebook" position="inside">
+        <page string="Filantropia NC" name="fs_nc_lifecycle">
+          <group>
+            <group string="Sync">
+              <field name="fs_is_donation_application"/>
+              <field name="fs_nc_sync_state"/>
+              <field name="fs_nc_last_sync_at" readonly="1"/>
+              <field name="fs_nc_sync_error" readonly="1"/>
+            </group>
+            <group string="Nextcloud station">
+              <field name="fs_nc_installation_id" readonly="1"/>
+              <field name="fs_nc_db_id" readonly="1"/>
+              <field name="fs_nc_lifecycle_state" readonly="1"/>
+            </group>
+          </group>
+          <group string="Station snapshot (from candidatura)">
+            <field name="fs_station_location_label"/>
+            <field name="fs_station_latitude"/>
+            <field name="fs_station_longitude"/>
+            <field name="fs_station_capacity_kwp"/>
+            <field name="fs_station_grid_price_kwh"/>
+          </group>
+          <group>
+            <button name="fs_create_virtual_station" type="object" string="Sync Virtual to NC"
+                    class="btn-secondary"
+                    invisible="not fs_is_donation_application"/>
+            <button name="fs_promote_planned" type="object" string="Promote Planned on NC"
+                    class="btn-primary"
+                    invisible="not fs_is_donation_application"/>
+          </group>
+        </page>
+      </xpath>
+    </field>
+  </record>
+</odoo>

@@ -127,6 +127,8 @@ services:
       - PASSWORD=odoo_dev_password
       - FS_API_BASE_URL=http://filantropia-nextcloud/apps/filantropia_solar/api/public/v1
       - FS_PUBLIC_API_TOKEN=${FS_PUBLIC_API_TOKEN:-REPLACE_ME}
+      - FS_LIFECYCLE_API_BASE_URL=http://filantropia-nextcloud/apps/filantropia_solar/api/lifecycle/v1
+      - FS_LIFECYCLE_API_TOKEN=${FS_LIFECYCLE_API_TOKEN:-${FS_PUBLIC_API_TOKEN:-REPLACE_ME}}
     volumes:
       - odoo_data:/var/lib/odoo
       - ./odoo/addons:/mnt/extra-addons
