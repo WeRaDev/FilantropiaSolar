@@ -4,7 +4,7 @@ target-version = "py311"
 line-length = 88
 
 # archive/ is a frozen preservation area; do not lint or format it
-extend-exclude = ["archive"]
+extend-exclude = ["archive", "nextcloud-app/odoo/addons/queue_job"]
 
 [lint]
 select = [

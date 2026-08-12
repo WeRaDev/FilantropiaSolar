@@ -129,6 +129,10 @@ services:
       - FS_PUBLIC_API_TOKEN=${FS_PUBLIC_API_TOKEN:-REPLACE_ME}
       - FS_LIFECYCLE_API_BASE_URL=http://filantropia-nextcloud/apps/filantropia_solar/api/lifecycle/v1
       - FS_LIFECYCLE_API_TOKEN=${FS_LIFECYCLE_API_TOKEN:-${FS_PUBLIC_API_TOKEN:-REPLACE_ME}}
+      - ODOO_QUEUE_JOB_CHANNELS=root:2
+      - ODOO_QUEUE_JOB_PORT=8069
+      - ODOO_QUEUE_JOB_HOST=localhost
+      - ODOO_QUEUE_JOB_SCHEME=http
     volumes:
       - odoo_data:/var/lib/odoo
       - ./odoo/addons:/mnt/extra-addons

@@ -177,6 +177,39 @@ class CrmLead(models.Model):
             )
             return False
 
+    def fs_enqueue_create_virtual(self):
+        """Enqueue Virtual create (non-blocking). Falls back to sync if queue_job unavailable."""
+        for lead in self:
+            if not lead.fs_is_donation_application:
+                continue
+            lead.write({"fs_nc_sync_state": "pending", "fs_nc_sync_error": False})
+            if hasattr(lead, "with_delay"):
+                lead.with_delay(
+                    priority=10,
+                    description=f"NC Virtual create for lead {lead.id}",
+                    channel="root.filantropia",
+                    identity_key=f"fs-virtual-{lead.id}",
+                ).fs_create_virtual_station()
+            else:
+                lead.fs_create_virtual_station()
+        return True
+
+    def fs_enqueue_promote_planned(self):
+        """Enqueue promote Planned (non-blocking). Falls back to sync if queue_job unavailable."""
+        for lead in self:
+            if not lead.fs_is_donation_application:
+                continue
+            if hasattr(lead, "with_delay"):
+                lead.with_delay(
+                    priority=10,
+                    description=f"NC promote Planned for lead {lead.id}",
+                    channel="root.filantropia",
+                    identity_key=f"fs-promote-{lead.id}",
+                ).fs_promote_planned()
+            else:
+                lead.fs_promote_planned()
+        return True
+
     def write(self, vals):
         old_stages = {lead.id: lead.stage_id for lead in self}
         res = super().write(vals)
@@ -192,7 +225,7 @@ class CrmLead(models.Model):
                 new_is_won=bool(new_stage.is_won) if new_stage else False,
             )
             if action == "promote_planned" and lead.fs_is_donation_application:
-                # Best-effort sync; failures stay on lead.fs_nc_sync_*
-                lead.fs_promote_planned()
+                # Async job; failures stay on lead.fs_nc_sync_* / queue.job
+                lead.fs_enqueue_promote_planned()
             # Won: intentionally no NC call (D4 Won ≠ installed)
         return res

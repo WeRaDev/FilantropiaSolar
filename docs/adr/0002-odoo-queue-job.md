@@ -15,3 +15,5 @@ If packaging blocks: `ir.cron` + `nc_sync_state` on lead, documented in a follow
 ## Consequences
 - Compose/addons_path must include queue_job.  
 - Need job runner process/channel in deploy.
+## Implementation note (2026-08-12)
+Vendored OCA `queue_job` 19.0.2.0.3; jobrunner via `workers=2` + `server_wide_modules=web,queue_job`. Filantropia channel `root.filantropia`.
