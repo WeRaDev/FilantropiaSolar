@@ -69,10 +69,31 @@
                       ? Math.round(Number(s.money_saved_eur))
                       : "\u2014";
             var info = s.info || s.description || s.short_description || "";
+            var cat = String(s.public_category || s.lifecycle_state || "").toLowerCase();
+            var statusLabel =
+                cat === "planned"
+                    ? "Planeada"
+                    : cat === "existing" || cat === "running"
+                      ? "Em opera\u00e7\u00e3o"
+                      : cat || "";
             var html =
                 "<strong>" +
                 esc(s.name || "Station") +
-                "</strong><br/>" +
+                "</strong>";
+            if (statusLabel) {
+                html +=
+                    " <span class=\"fs-status-badge fs-status-" +
+                    (cat === "planned"
+                        ? "planned"
+                        : cat === "existing" || cat === "running"
+                          ? "running"
+                          : "other") +
+                    "\">" +
+                    esc(statusLabel) +
+                    "</span>";
+            }
+            html +=
+                "<br/>" +
                 esc(s.location || "") +
                 "<br/>" +
                 esc(s.capacity_kwp || 0) +

@@ -9,6 +9,7 @@ use OCA\FilantropiaSolar\AppInfo\Application;
 use OCA\FilantropiaSolar\Db\Installation;
 use OCA\FilantropiaSolar\Db\EnergyReadingMapper;
 use OCA\FilantropiaSolar\Db\InstallationMapper;
+use OCA\FilantropiaSolar\Service\OdooLifecycleMirror;
 use OCA\FilantropiaSolar\Service\StationLifecycle;
 use OCP\AppFramework\ApiController;
 use OCP\AppFramework\Db\DoesNotExistException;
@@ -40,6 +41,7 @@ class InstallationApiController extends ApiController
         private readonly IClientService $clientService,
         private readonly IRootFolder $rootFolder,
         private readonly LoggerInterface $logger,
+        private readonly OdooLifecycleMirror $odooMirror,
     ) {
         parent::__construct(Application::APP_ID, $request);
     }
@@ -170,6 +172,7 @@ class InstallationApiController extends ApiController
             $installation->setUpdatedAt($now);
 
             $created = $this->mapper->insert($installation);
+            $this->odooMirror->notify($created);
 
             $this->logger->info('Installation created', [
                 'id' => $created->getId(),
@@ -492,6 +495,7 @@ class InstallationApiController extends ApiController
             $station->setUpdatedAt(new DateTime());
             $station = $this->mapper->update($station);
         }
+        $this->odooMirror->notify($station);
 
         return new JSONResponse([
             'success' => true,
@@ -535,6 +539,7 @@ class InstallationApiController extends ApiController
             $station->setUpdatedAt(new DateTime());
             $station = $this->mapper->update($station);
         }
+        $this->odooMirror->notify($station);
 
         return new JSONResponse([
             'success' => true,
@@ -562,6 +567,7 @@ class InstallationApiController extends ApiController
             $station->setUpdatedAt(new DateTime());
             $station = $this->mapper->update($station);
         }
+        $this->odooMirror->notify($station);
 
         return new JSONResponse([
             'success' => true,
@@ -610,6 +616,7 @@ class InstallationApiController extends ApiController
                 'to' => $target,
             ]);
         }
+        $this->odooMirror->notify($station);
 
         return new JSONResponse([
             'success' => true,

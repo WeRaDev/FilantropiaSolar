@@ -8,6 +8,7 @@ use DateTime;
 use OCA\FilantropiaSolar\AppInfo\Application;
 use OCA\FilantropiaSolar\Db\Installation;
 use OCA\FilantropiaSolar\Db\InstallationMapper;
+use OCA\FilantropiaSolar\Service\OdooLifecycleMirror;
 use OCA\FilantropiaSolar\Service\StationLifecycle;
 use OCP\AppFramework\ApiController;
 use OCP\AppFramework\Http;
@@ -30,6 +31,7 @@ class LifecycleApiController extends ApiController
 		private readonly InstallationMapper $mapper,
 		private readonly IConfig $config,
 		private readonly LoggerInterface $logger,
+		private readonly OdooLifecycleMirror $odooMirror,
 	) {
 		parent::__construct(Application::APP_ID, $request);
 	}
@@ -285,6 +287,7 @@ class LifecycleApiController extends ApiController
 			]);
 		}
 
+		$this->notifyOdooMirror($station);
 		return new JSONResponse([
 			'success' => true,
 			'station' => $this->toLifecycleArray($station),
@@ -562,39 +565,7 @@ class LifecycleApiController extends ApiController
 	 */
 	private function notifyOdooMirror(Installation $station): void
 	{
-		$url = (string) $this->config->getAppValue(Application::APP_ID, 'odoo_lifecycle_webhook_url', '');
-		if ($url === '') {
-			// Common local compose default
-			$url = 'http://filantropia-odoo:8069/filantropia/nc/lifecycle/http';
-		}
-		$token = (string) $this->config->getAppValue(Application::APP_ID, 'lifecycle_api_token', '');
-		if ($token === '') {
-			$token = (string) $this->config->getAppValue(Application::APP_ID, 'public_api_token', '');
-		}
-		if ($token === '') {
-			return;
-		}
-		$payload = json_encode([
-			'success' => true,
-			'station' => $this->toLifecycleArray($station),
-		]);
-		if ($payload === false) {
-			return;
-		}
-		try {
-			$ctx = stream_context_create([
-				'http' => [
-					'method' => 'POST',
-					'header' => "Content-Type: application/json\r\nAuthorization: Bearer {$token}\r\n",
-					'content' => $payload,
-					'timeout' => 5,
-					'ignore_errors' => true,
-				],
-			]);
-			@file_get_contents($url, false, $ctx);
-		} catch (\Throwable $e) {
-			$this->logger->warning('Odoo lifecycle webhook failed', ['exception' => $e]);
-		}
+		$this->odooMirror->notify($station);
 	}
 
 	private function authorized(): bool

@@ -240,4 +240,43 @@
 .fs-station-list-item.is-active {
   outline: 2px solid #E8A020;
   outline-offset: 2px;
+  background: #fff8e8;
+}
+.fs-station-title-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+.fs-status-badge {
+  display: inline-block;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  border-radius: 999px;
+  padding: 0.15rem 0.55rem;
+  line-height: 1.2;
+  white-space: nowrap;
+}
+.fs-status-planned {
+  background: #fff3cd;
+  color: #7a5b00;
+  border: 1px solid #e0c36a;
+}
+.fs-status-running,
+.fs-status-existing {
+  background: #e5f6ea;
+  color: #1f6b3a;
+  border: 1px solid #8fcea5;
+}
+.fs-status-other {
+  background: #eee;
+  color: #555;
+  border: 1px solid #ccc;
+}
+.leaflet-popup-content .fs-status-badge {
+  margin-left: 0.35rem;
+  vertical-align: middle;
 }
