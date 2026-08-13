@@ -90,22 +90,44 @@ export function useEnergyChart({
 
 
     const renderHourlyChart = (ctx) => {
+        const dateKey = (ts) => {
+            const s = String(ts || '')
+            if (!s) return ''
+            // Handle ISO with/without Z and space-separated datetimes
+            if (s.includes('T')) return s.split('T')[0]
+            return s.slice(0, 10)
+        }
         const dates = [...new Set(
-            hourlyData.value.map(p => (p.timestamp || '').split('T')[0]),
-        )].sort()
-        const currentDate = dates[currentDayIndex.value]
+            hourlyData.value.map(p => dateKey(p.timestamp)),
+        )].filter(Boolean).sort()
+        if (!dates.length) return
+
+        // Clamp day index so predicted (often 1 day) never lands on undefined
+        const idx = Math.min(
+            Math.max(0, currentDayIndex.value || 0),
+            Math.max(0, dates.length - 1),
+        )
+        const currentDate = dates[idx]
         let dayData = hourlyData.value.filter(
-            p => (p.timestamp || '').split('T')[0] === currentDate,
+            p => dateKey(p.timestamp) === currentDate,
         )
 
         if (dayData.length === 0) return
 
         // Normalize hour from timestamp when API omits hour (NC historical SoT)
-        dayData = dayData.map(d => ({ ...d, hour: rowHour(d) }))
+        dayData = dayData.map(d => ({
+            ...d,
+            hour: rowHour(d),
+            // ML predicted uses radiation; historical uses shortwave_radiation
+            radiation: d.radiation ?? d.shortwave_radiation ?? null,
+            temperature: d.temperature ?? d.temperature_2m ?? null,
+            cloud_cover: d.cloud_cover ?? null,
+            humidity: d.humidity ?? d.relative_humidity_2m ?? null,
+            wind_speed: d.wind_speed ?? d.wind_speed_10m ?? null,
+        }))
         dayData.sort((a, b) => a.hour - b.hour)
 
-        // Keep full daytime window; include zero/null production so labels stay 0-23
-        // (historical future hours are null; still show slot with 0 bar)
+        // Always render 0-23 slots so Day axis is stable (historical future = empty/0)
         const byH = new Map(dayData.map(d => [d.hour, d]))
         const fullDay = []
         for (let h = 0; h < 24; h++) {
@@ -116,18 +138,19 @@ export function useEnergyChart({
                 cloud_cover: null,
                 humidity: null,
                 wind_speed: null,
+                radiation: null,
             })
         }
         dayData = fullDay
 
-        const labels = dayData.map(d => `${d.hour}:00`)
+        const labels = dayData.map(d => `${String(d.hour).padStart(1, '0')}:00`)
 
         const datasets = [
             {
                 label: 'Energy (kWh)',
                 type: 'bar',
-                data: dayData.map(d => (d.production_kwh == null ? 0 : d.production_kwh)),
-                backgroundColor: dayData.map(d => getRankingColor(d.production_kwh || 0, 1)),
+                data: dayData.map(d => (d.production_kwh == null || d.production_kwh === '' ? 0 : Number(d.production_kwh))),
+                backgroundColor: dayData.map(d => getRankingColor(Number(d.production_kwh) || 0, 1)),
                 borderWidth: 1,
                 yAxisID: 'y',
                 order: 4,

@@ -30,33 +30,40 @@ export function useAnalyticsDateRange({ selectedObject, analysisData, generateAn
         return tf?.days || 1
     })
 
-    /** NC series bounds preferred; fall back to installation from/to dates. */
-    const seriesMinDate = computed(() => {
+    /** YYYY-MM-DD helper */
+    const ymd = (v) => {
+        if (!v) return null
+        const s = String(v)
+        return s.includes('T') ? s.split('T')[0] : s.slice(0, 10)
+    }
+
+    /**
+     * Historical calendar scope = installation/operation start → today.
+     * Prefer installed_at / installation_date / from_date; series bounds only as fallback.
+     * Never allow future dates in Historical mode.
+     */
+    const minDate = computed(() => {
         const o = selectedObject.value
-        return (
-            o?.customData?.seriesFromDate
-            || o?.customData?.fromDate?.split?.('T')?.[0]
-            || o?.from_date
-            || null
-        )
+        const cd = o?.customData || {}
+        const candidates = [
+            ymd(cd.installedAt),
+            ymd(cd.installationDate),
+            ymd(cd.fromDate),
+            ymd(o?.installed_at),
+            ymd(o?.installation_date),
+            ymd(o?.from_date),
+            ymd(cd.seriesFromDate),
+            ymd(o?.series_from_date),
+        ].filter(Boolean)
+        if (!candidates.length) return null
+        return candidates.reduce((a, b) => (a < b ? a : b))
     })
 
-    const seriesMaxDate = computed(() => {
-        const o = selectedObject.value
+    const maxDate = computed(() => {
         const today = new Date().toISOString().split('T')[0]
-        const seriesTo = o?.customData?.seriesToDate || null
-        const toDate = o?.customData?.toDate?.split?.('T')?.[0] || o?.to_date || null
-        // Historical calendar cannot go past today or last NC sample
-        const candidates = [today]
-        if (seriesTo) candidates.push(seriesTo)
-        if (toDate) candidates.push(toDate)
-        return candidates.sort()[0] // earliest upper bound among today/series
-            ? candidates.reduce((a, b) => (a < b ? a : b))
-            : today
+        // Historical: never beyond today (dataset/sim only covers past+current)
+        return today
     })
-
-    const maxDate = computed(() => seriesMaxDate.value)
-    const minDate = computed(() => seriesMinDate.value)
 
     const effectiveMaxDate = computed(() => {
         if (analysisMode.value === 'predicted') {

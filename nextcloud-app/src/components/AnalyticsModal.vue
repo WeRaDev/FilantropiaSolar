@@ -123,7 +123,10 @@ export default {
                 timeframeDays.value,
                 mode,
             )
-            currentDayIndex.value = Math.floor(totalDays.value / 2)
+            // Day charts: always first/only day. Multi-day: center of window.
+            currentDayIndex.value = currentTimeframe.value === 'day'
+                ? 0
+                : Math.max(0, Math.floor((totalDays.value || 1) / 2))
             await nextTick()
             renderCombinedChart()
         }
@@ -240,7 +243,7 @@ export default {
                 initForOpen()
                 store.setAnalyticsTimeframe('day')
                 await generateAnalysis()
-                currentDayIndex.value = Math.max(0, Math.floor(totalDays.value / 2))
+                currentDayIndex.value = 0
                 await nextTick()
                 setTimeout(() => renderCombinedChart(), 100)
             }

@@ -181,6 +181,8 @@ export const useAppStore = defineStore('app', {
                             serialNumber: inst.serial_number,
                             fromDate: inst.from_date || inst.series_from_date || null,
                             toDate: inst.to_date || inst.series_to_date || null,
+                            installedAt: inst.installed_at || null,
+                            installationDate: inst.installation_date || null,
                             seriesFromDate: inst.series_from_date || null,
                             seriesToDate: inst.series_to_date || null,
                             isVirtual: inst.is_virtual || lifecycle === 'virtual',
