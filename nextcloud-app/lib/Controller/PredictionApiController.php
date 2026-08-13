@@ -228,6 +228,15 @@ class PredictionApiController extends OCSController
                 }
             }
 
+            // Predicted/sim: enrich body from NC station so ML never depends on Excel ids
+            if (in_array($mode, ['simulated', 'custom', 'predicted'], true)) {
+                $requestData = $this->enrichPredictedRequest($requestData);
+                // Prefer explicit custom/sim path (not corpus lookup)
+                if (($requestData['mode'] ?? '') !== 'custom') {
+                    $requestData['mode'] = 'simulated';
+                }
+            }
+
             $client = $this->clientService->newClient();
             $response = $client->post(self::ML_SERVICE_URL . '/predict/period', [
                 'headers' => ['Content-Type' => 'application/json'],
@@ -235,11 +244,38 @@ class PredictionApiController extends OCSController
                 'timeout' => 120,
             ]);
             $data = json_decode((string) $response->getBody(), true) ?: [];
+
+            // Retry once as custom if ML still says installation not found
+            if (
+                empty($data['success'])
+                && in_array($mode, ['simulated', 'custom', 'predicted'], true)
+            ) {
+                $retry = $requestData;
+                $retry['mode'] = 'custom';
+                if (empty($retry['capacity_kwp'])) {
+                    $retry['capacity_kwp'] = 5.0;
+                }
+                if (empty($retry['location'])) {
+                    $retry['location'] = 'Lisbon';
+                }
+                $response = $client->post(self::ML_SERVICE_URL . '/predict/period', [
+                    'headers' => ['Content-Type' => 'application/json'],
+                    'body' => json_encode($retry),
+                    'timeout' => 120,
+                ]);
+                $data = json_decode((string) $response->getBody(), true) ?: [];
+            }
+
             // Predicted path: force simulated badge semantics for UI
             if (in_array($mode, ['simulated', 'custom', 'predicted'], true)) {
-                $data['mode'] = $mode === 'historical' ? 'historical' : 'simulated';
+                $data['mode'] = 'simulated';
                 $data['series_label'] = 'SIMULATED';
-                $data['provenance_mix'] = ['measured' => 0, 'simulated' => count($data['hourly_data'] ?? []), 'total' => count($data['hourly_data'] ?? [])];
+                $data['data_mode_label'] = 'SIMULATED';
+                $data['provenance_mix'] = [
+                    'measured' => 0,
+                    'simulated' => count($data['hourly_data'] ?? []),
+                    'total' => count($data['hourly_data'] ?? []),
+                ];
             }
             return new JSONResponse($data);
         } catch (\Exception $e) {
@@ -497,5 +533,69 @@ class PredictionApiController extends OCSController
             'hourly_data' => $hourly,
             'daily_data' => [],
         ];
+    }
+
+    /**
+     * Fill capacity/location/coords from NC station for Predicted/sim requests.
+     *
+     * @param array<string, mixed> $requestData
+     * @return array<string, mixed>
+     */
+    private function enrichPredictedRequest(array $requestData): array
+    {
+        $installationId = (string) ($requestData['installation_id'] ?? '');
+        $station = null;
+        if ($installationId !== '') {
+            if (ctype_digit($installationId)) {
+                try {
+                    $station = $this->installationMapper->find((int) $installationId);
+                } catch (\Throwable) {
+                    $station = null;
+                }
+            }
+            if ($station === null) {
+                try {
+                    $station = $this->installationMapper->findByInstallationKey($installationId);
+                } catch (\Throwable) {
+                    $station = null;
+                }
+            }
+            if ($station === null && str_starts_with($installationId, 'virtual_')) {
+                $num = substr($installationId, strlen('virtual_'));
+                if (ctype_digit($num)) {
+                    try {
+                        $station = $this->installationMapper->find((int) $num);
+                    } catch (\Throwable) {
+                        $station = null;
+                    }
+                }
+            }
+        }
+
+        if ($station !== null) {
+            if (empty($requestData['capacity_kwp'])) {
+                $requestData['capacity_kwp'] = (float) $station->getCapacityKwp();
+            }
+            if (empty($requestData['location'])) {
+                $requestData['location'] = $station->getLocation() ?: 'Lisbon';
+            }
+            if (!isset($requestData['latitude']) || $requestData['latitude'] === '' || $requestData['latitude'] === null) {
+                $requestData['latitude'] = (float) $station->getLatitude();
+            }
+            if (!isset($requestData['longitude']) || $requestData['longitude'] === '' || $requestData['longitude'] === null) {
+                $requestData['longitude'] = (float) $station->getLongitude();
+            }
+            // Keep NC db id for traceability; ML sim path ignores corpus lookup
+            $requestData['installation_id'] = (string) $station->getId();
+        }
+
+        if (empty($requestData['capacity_kwp'])) {
+            $requestData['capacity_kwp'] = 5.0;
+        }
+        if (empty($requestData['location'])) {
+            $requestData['location'] = 'Lisbon';
+        }
+
+        return $requestData;
     }
 }

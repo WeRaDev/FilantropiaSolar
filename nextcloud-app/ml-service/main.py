@@ -1237,13 +1237,15 @@ async def get_weather_history(
 class PeriodPredictionRequest(BaseModel):
     """Request for generating 21-day analysis."""
 
-    mode: str  # 'historical' or 'simulation' or 'custom'
+    mode: str  # 'historical' or 'simulation' or 'custom' or 'simulated' or 'predicted'
     installation_id: str | None = None
     center_date: str  # YYYY-MM-DD
     days: int = 21
-    # For custom station simulation
+    # For custom / ops-station simulation (not in Mendeley corpus)
     location: str | None = None
     capacity_kwp: float | None = None
+    latitude: float | None = None
+    longitude: float | None = None
 
 
 class HourlyData(BaseModel):
@@ -1738,26 +1740,48 @@ async def predict_period(request: PeriodPredictionRequest):
         end_date = center_date + timedelta(days=half_period)
 
         # Determine installation info
-        if request.mode == "custom":
-            # Custom station simulation
+        # Predicted/sim/custom: never require Mendeley Excel ids (ops NC stations use db ids).
+        mode_l = (request.mode or "").lower()
+        sim_modes = {"custom", "simulated", "predicted", "simulation"}
+        if mode_l in sim_modes:
             location = request.location or "Lisbon"
-            capacity_kwp = request.capacity_kwp or 5.0
+            # Prefer nearest known location name for weather files when coords given
+            if getattr(request, "latitude", None) is not None and getattr(
+                request, "longitude", None
+            ) is not None:
+                try:
+                    lat_f = float(request.latitude)
+                    lon_f = float(request.longitude)
+                    if LOCATION_COORDS and (
+                        not location or location.startswith("Custom")
+                    ):
+                        location = min(
+                            LOCATION_COORDS.keys(),
+                            key=lambda k: (
+                                (LOCATION_COORDS[k]["lat"] - lat_f) ** 2
+                                + (LOCATION_COORDS[k]["lon"] - lon_f) ** 2
+                            ),
+                        )
+                except (TypeError, ValueError):
+                    pass
+            capacity_kwp = float(request.capacity_kwp or 5.0)
+            if capacity_kwp <= 0:
+                capacity_kwp = 5.0
             installation_info = {
-                "id": "custom",
-                "name": f"Custom Station ({location})",
+                "id": request.installation_id or "custom",
+                "name": f"Predicted ({location})",
                 "location": location,
                 "capacity_kwp": capacity_kwp,
-                "serial_number": "CUSTOM",
+                "serial_number": "SIMULATED",
             }
         else:
-            # Load installation from Excel
+            # Load installation from Excel (historical / dataset paths)
             installations = load_installations_from_excel()
             if request.installation_id not in installations:
-                # Fallback: if location and capacity are provided (e.g. virtual installations),
-                # treat as a custom station instead of returning error
+                # Fallback: location/capacity (virtual / ops without corpus id)
                 if request.location and request.capacity_kwp:
                     location = request.location
-                    capacity_kwp = request.capacity_kwp
+                    capacity_kwp = float(request.capacity_kwp)
                     installation_info = {
                         "id": request.installation_id or "custom",
                         "name": f"Custom Station ({location})",

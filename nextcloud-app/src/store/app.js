@@ -29,6 +29,7 @@ export const useAppStore = defineStore('app', {
         // Analytics data
         analysisData: null,
         analysisLoading: false,
+        analysisError: null,
 
         // Analytics Modal state
         analyticsModalOpen: false,
@@ -376,41 +377,52 @@ export const useAppStore = defineStore('app', {
             this.analysisLoading = true
             // Clear previous mode payload so UI never mixes Historical metrics into Predicted
             this.analysisData = null
+            this.analysisError = null
 
             try {
                 const obj = this.objects.find(o => o.id === objectId)
-                
+                    || this.objects.find(o => String(o.installation_id) === String(objectId))
+                    || this.objects.find(o => String(o.customData?.dbId) === String(objectId))
+
                 // Prefer NC db id for ops stations (including virtual_* list ids).
                 const installationKey = obj?.customData?.dbId
                     || (String(objectId).startsWith('virtual_') ? String(objectId).slice('virtual_'.length) : objectId)
                 const hasNcDb = !!obj?.customData?.dbId || /^\d+$/.test(String(installationKey))
-                // Historical with NC rows must use mode=historical (NC SoT).
-                // Only force ML 'custom' for predicted/sim when station is virtual AND has no db id.
                 const isVirtual = obj?.customData?.isVirtual || String(objectId).startsWith('virtual_')
+                const source = obj?.customData?.source || ''
+
+                // Historical with NC rows must use mode=historical (NC SoT).
+                // Predicted for ops/user stations: always 'simulated' with capacity/coords
+                // (ML corpus only has Mendeley dataset ids).
                 let effectiveMode = mode
                 if (mode === 'historical' && hasNcDb) {
                     effectiveMode = 'historical'
-                } else if (isVirtual && mode !== 'historical') {
-                    effectiveMode = 'custom'
+                } else if (mode !== 'historical') {
+                    effectiveMode = (isVirtual || source === 'user' || hasNcDb || source !== 'dataset')
+                        ? 'simulated'
+                        : 'simulated'
                 }
-                
+
+                const capacity = Number(obj?.capacity_kwp ?? obj?.metrics?.powerOutput ?? 0) || null
+                const lat = obj?.latitude != null ? Number(obj.latitude) : (obj?.coordinates?.lat != null ? Number(obj.coordinates.lat) : null)
+                const lng = obj?.longitude != null ? Number(obj.longitude) : (obj?.coordinates?.lng != null ? Number(obj.coordinates.lng) : null)
+
                 const response = await axios.post(
                     generateUrl('/apps/filantropia_solar/api/v1/predict/period'),
                     {
                         mode: effectiveMode,
-                        installation_id: installationKey,
+                        installation_id: String(installationKey),
                         center_date: centerDate,
                         days: days,
-                        // Include location/capacity/coords for ML custom/simulated path
-                        location: obj?.location,
-                        capacity_kwp: obj?.capacity_kwp,
-                        latitude: obj?.latitude ?? obj?.coordinates?.lat,
-                        longitude: obj?.longitude ?? obj?.coordinates?.lng,
-                    }
+                        location: obj?.location || 'Lisbon',
+                        capacity_kwp: capacity,
+                        latitude: lat,
+                        longitude: lng,
+                    },
                 )
 
-                if (response.data.success) {
-                    const data = { ...response.data, mode: mode }
+                if (response.data?.success) {
+                    const data = { ...response.data, mode }
                     // Normalize hour on every hourly point for chart labels (0:00 bug)
                     if (Array.isArray(data.hourly_data)) {
                         data.hourly_data = data.hourly_data.map((h) => {
@@ -425,13 +437,19 @@ export const useAppStore = defineStore('app', {
                     }
                     // Predicted badge always SIMULATED
                     if (mode === 'simulated' || mode === 'custom' || mode === 'predicted') {
-                        data.series_label = data.series_label || 'SIMULATED'
-                        data.data_mode_label = data.data_mode_label || 'SIMULATED'
+                        data.series_label = 'SIMULATED'
+                        data.data_mode_label = 'SIMULATED'
                     }
                     this.analysisData = data
+                    this.analysisError = null
+                } else {
+                    this.analysisData = null
+                    this.analysisError = response.data?.error || 'Analysis returned no data'
                 }
                 return response.data
             } catch (error) {
+                this.analysisData = null
+                this.analysisError = error.response?.data?.error || error.message || 'Analysis failed'
                 throw error
             } finally {
                 this.analysisLoading = false

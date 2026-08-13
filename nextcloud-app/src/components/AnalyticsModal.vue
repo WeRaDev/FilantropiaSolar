@@ -33,6 +33,7 @@
                             :state="isLoading ? 'loading' : 'no-data'"
                             :loading-message="loadingMessage"
                             :timeframe-days="timeframeDays"
+                            :error-message="analysisError || ''"
                             @generate="generateAnalysis"
                         />
 
@@ -126,6 +127,7 @@ export default {
         const selectedObject = computed(() => store.selectedObject)
         const analysisData = computed(() => store.analysisData)
         const isLoading = computed(() => store.analysisLoading)
+        const analysisError = computed(() => store.analysisError || '')
         const loadingMessage = computed(() => isSimulating.value ? 'Running simulation...' : 'Generating analysis...')
 
         // Analysis generation (hoisted so the date-range composable can receive it)
@@ -354,6 +356,7 @@ export default {
             selectedObject,
             analysisData,
             isLoading,
+            analysisError,
             loadingMessage,
             isExporting,
             viewDataOpen,
