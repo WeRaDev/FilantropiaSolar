@@ -1,28 +1,39 @@
 # MVP-7 — Automated + manual gates + TRL5 deploy
 
-**Status:** Local gates exercised post PR #30 merge (`893a8eb`). TRL5 production cutover remains operator-signed.  
-**Depends on:** MVP-1…6, series epic (NC 3.2.16 / Odoo 19.0.2.22.0).
+**Status:** Automated local + CI gates re-exercised on `main` after PR #31 merge (`ad444b7`, NC **3.2.26**). Operator CRM lifecycle script and TRL5 production cutover remain open (sign-off tables below).  
+**Depends on:** MVP-1…6, series epic (NC 3.2.16+ / Odoo 19.0.2.22.0), analytics PR #31.
 
 ## Automated gates
 
-| Gate | How | Local result (2026-08-13) |
+| Gate | How | Local result (2026-08-14) |
 |------|-----|---------------------------|
-| CI quality gates | Gitea Actions on PR #30 | PASS |
-| Revisor QA | Gitea Actions on PR #30 | PASS |
-| Desktop pytest | `cd desktop && pytest -q` | 42 passed, 1 skipped |
-| Ruff format/lint | `ruff format --check . && ruff check .` | PASS |
-| NC app version | `occ` / `appinfo/info.xml` | **3.2.21** (PR #31 analytics + ML ops sim) |
-| Migration columns | MySQL `provenance`, `grid_connection_type` | present |
-| Off-grid seeds | Penedo off-grid, WeRa Global | `off_grid` |
-| ML `/simulate/hourly` | POST fleet-by-meta | success |
-| ML production accuracy | `python3 nextcloud-app/scripts/verify-ml-production.py` | **PASS** (2026-08-13; mean ML/PVGIS ~1.15, linearity 10.0) |
-| Predicted ops stations | `/predict/period` simulated + capacity (NC id not in Excel) | success (WeRa etc.) |
-| FilantropiaSolarAdmin ACL | viewer 403 on edit/lifecycle; measured upload 200 | PASS |
+| CI quality gates | Gitea Actions on PR #31 tip `c0fb7ae` | PASS (run 229) |
+| Revisor QA | Gitea Actions on PR #31 tip `c0fb7ae` | PASS (run 230) |
+| PR merge | Gitea PR #31 → `main` | **merged** `ad444b7` |
+| Desktop pytest | `cd desktop && ../.ci-venv/bin/python -m pytest -q` | 42 passed, 1 skipped |
+| Ruff format/lint (desktop) | `.ci-venv/bin/ruff format --check desktop && ruff check desktop` | PASS |
+| NC vitest | `cd nextcloud-app && npm test` | 18 passed |
+| NC app version | `occ` / `appinfo/info.xml` | **3.2.26** (`needsDbUpgrade: false`) |
+| Migration columns | MySQL `oc_fs_readings.provenance`, `oc_fs_installations.grid_connection_type` | present |
+| Off-grid seeds | Penedo off-grid, WeRa Global | `off_grid` + `running` |
+| ML `/health` | `curl :8501/health` | healthy, 9 models |
+| ML production accuracy | `python3 nextcloud-app/scripts/verify-ml-production.py --skip-pvgis` | **PASS** (linearity 10.0; PVGIS optional full run also PASS ~1.15) |
+| Predicted ops stations | `/predict/period` simulated + capacity (NC id not in Excel) | success (WeRa etc.; PR #31) |
+| FilantropiaSolarAdmin ACL | viewer 403 on edit/lifecycle; measured upload 200 | PASS (prior) |
 | CRM field | `crm_lead.fs_station_grid_connection_type` | present (module 19.0.2.22.0) |
-| Series jobs registered | `occ background-job:list` | Backfill + RollForward IDs present |
-| Measured wins | import measured over simulated | PASS |
+| Series jobs registered | `occ background-job:list` | Backfill **id 68**, RollForward **id 69** |
+| SeriesRollForward interval | `occ background-job:execute 69 --force-execute -vvv` | **timed**, next = last + **3600s** (1h) |
+| Measured wins | import measured over simulated | PASS (prior / PR #31 upload path) |
+| Analytics UX (PR #31) | Historical SoT, Predicted chart, Lisbon TZ, dual I/O, map pin, upload stacking | shipped 3.2.22–3.2.26 |
 
 App-only PHPUnit (SavingsService/FilantropiaAccess) needs full Nextcloud OCP bootstrap; treat as SKIP_ENV when CI desktop gates are green.
+
+### Remaining automated (optional)
+
+| Gate | Notes |
+|------|--------|
+| Full PVGIS verifier | `verify-ml-production.py` without `--skip-pvgis` (network); already PASS historically |
+| ACL re-probe | Re-run viewer vs FilantropiaSolarAdmin on fresh TRL5 after cutover |
 
 ## Manual CRM ↔ NC lifecycle script
 
@@ -53,8 +64,9 @@ Run on a non-production CRM lead (or TRL5 after backup). Do **not** log tokens.
    - Expect: mirror both ways within reconcile window.
 
 7. **Series / metrics (Running)**  
-   - After SeriesRollForwardJob / SeriesBackfillJob chunk: ops list shows `has_series_data`, non-zero production when hours filled; efficiency = last hour kWh/kWp; savings use 0.4/1.0 by `grid_connection_type`.  
-   - Upload measured hour as non-admin: provenance `measured`; sim cannot overwrite.
+   - After SeriesRollForwardJob / SeriesBackfillJob chunk: ops list shows `has_series_data`, non-zero production when hours filled; efficiency = last complete Europe/Lisbon hour kWh/kWp; savings use 0.4/1.0 by `grid_connection_type`.  
+   - Upload measured hour as non-admin: provenance `measured`; sim cannot overwrite.  
+   - Upload modal stacks above Analysis (z-index 20050) with black text.
 
 **Sign-off (operator):**
 
@@ -71,7 +83,8 @@ Run on a non-production CRM lead (or TRL5 after backup). Do **not** log tokens.
 ## TRL5 deploy note (wera-ss-pt-tv-1)
 
 **Hostname:** `wera-ss-pt-tv-1.tailfb390c.ts.net` · public `filantropiasolar.wera.global`  
-**Compose:** `docker-compose.yml` + `docker-compose.trl5.yml` (NC `:18080`, Odoo `:8069`, ML `:8501`).
+**Compose:** `docker-compose.yml` + `docker-compose.trl5.yml` (NC `:18080`, Odoo `:8069`, ML `:8501`).  
+**Minimum NC on cutover:** **3.2.26** (PR #31 analytics + series roll-forward hourly).
 
 ### Before touch
 
@@ -80,7 +93,7 @@ Run on a non-production CRM lead (or TRL5 after backup). Do **not** log tokens.
    - NC DB dump.  
    - **Never** `reset_website_cows=1` without a restore path.
 
-2. Confirm local PR #30 validation is green (this doc automated table).
+2. Confirm automated table above is green on the `main` SHA you deploy (currently `ad444b7`+).
 
 ### Deploy sequence
 
@@ -113,17 +126,20 @@ docker compose --profile odoo up -d odoo
 ### Series jobs on TRL5
 
 - Jobs are registered via `info.xml` after app enable/upgrade: `SeriesBackfillJob`, `SeriesRollForwardJob`.  
+- **SeriesRollForwardJob** is a **TimedJob** with **interval 3600s (1 hour)**; production window 05:00–22:00 Europe/Lisbon; fills last 1–2 complete hours only.  
 - **Do not** force full multi-year backfill in one shot on first boot under load.  
 - Prefer: verify ML `POST /simulate/hourly` from NC network, then  
   `occ background-job:execute <rollforward-id> --force-execute`  
   then optional backfill (chunked: 7 days/station/run).  
-- Backfill is incremental (`BACKFILL_CHUNK_DAYS = 7`); repeat runs catch up history.
+- Backfill is incremental (`BACKFILL_CHUNK_DAYS = 7`); repeat runs catch up history.  
+- Note: `occ background-job:list` does **not** show interval; use `background-job:execute -vvv` (Next execution = last + 1h) or runtime `TimedJob::interval`.
 
 ### Post-deploy smoke
 
 | Check | Expect |
 |-------|--------|
 | `curl NC/status.php` | installed, needsDbUpgrade false |
+| NC app version | **3.2.26+** |
 | `curl ML/health` | healthy |
 | `verify-ml-production.py` | exit 0 PASS |
 | Odoo `/web/login`, `/instalacoes` | 200; COW map intact |
@@ -131,19 +147,21 @@ docker compose --profile odoo up -d odoo
 | Ops list | efficiency/savings keys; off-grid factor 1.0 |
 | CRM NC Stations | import/reconcile symmetry |
 | Analytics Predicted (ops station) | chart + SIMULATED badge |
+| Analytics Historical + upload | chart; upload above modal; black text |
+| SeriesRollForward | force-execute; next +1h |
 
 **TRL5 sign-off:**
 
 | Item | Pass | Initials | Date |
 |------|------|----------|------|
 | Backup taken | | | |
-| NC 3.2.21+ + upgrade | | | |
+| NC 3.2.26+ + upgrade | | | |
 | Odoo 19.0.2.22.0 | | | |
 | COW map OK | | | |
 | Webhook/token OK | | | |
 | ML hourly OK | | | |
 | ML production accuracy gate | | | |
-| Series job smoke (12h) | | | |
+| Series job smoke (1h interval) | | | |
 | Public site smoke | | | |
 | Analytics Historical + Predicted smoke | | | |
 
@@ -156,3 +174,4 @@ docker compose --profile odoo up -d odoo
 - `docs/ops/PR31-DEPLOY-SMOKE.md`  
 - `nextcloud-app/scripts/verify-ml-production.py`  
 - `nextcloud-app/scripts/setup-trl5.sh`  
+- Gitea PR #31: `/wera-global/FilantropiaSolar/pulls/31` (merged)

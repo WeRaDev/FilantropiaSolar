@@ -92,14 +92,15 @@ Ops run lifecycle on **Nextcloud admin**; CRM stages mirror NC (**Qualified→Vi
 
 ### MVP-7 — Automated + manual gates  
 **Maps:** D10  
+**Status:** Automated gates green on `main` after PR #31 (`ad444b7`, NC **3.2.26**). Operator CRM script + TRL5 cutover sign-off still open.  
 
 - Tests: promote/remove; Won noop; public filter.  
 - Manual script: form → New (no NC) → Qualify → Virtual → Proposition → Planned on map → Installed → Running/Existing.  
 - Deploy note TRL5: NC + Odoo; no secret echo.  
 
-**AC:** CI green; manual checklist signed in PR.  
-**Checklist:** `docs/mvp/MVP-7-GATES-TRL5.md` (automated gates exercised post PR #30; operator sign-off tables for CRM script + TRL5 cutover).  
-**Also:** series epic on `main` (NC 3.2.16+) — provenance, grid_connection_type, FilantropiaSolarAdmin, chunked SeriesBackfillJob + 12h SeriesRollForwardJob.
+**AC:** CI green; manual checklist signed by operator (CRM + TRL5 tables).  
+**Checklist:** `docs/mvp/MVP-7-GATES-TRL5.md`.  
+**Also on main:** series epic + analytics PR #31 — provenance, grid_connection_type, FilantropiaSolarAdmin, chunked SeriesBackfillJob + **hourly** SeriesRollForwardJob (3600s), NC Historical SoT / Predicted ops sim / Lisbon TZ / dual I/O.
 
 ---
 
