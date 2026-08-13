@@ -1,5 +1,26 @@
 <?xml version="1.0" encoding="utf-8"?>
 <odoo>
+  <!-- Full NC ops mirror: no "Assigned to me" default (standard Pipeline hides
+       stations owned by OdooBot / other users). Includes Won/Installed. -->
+  <record id="action_fs_nc_stations" model="ir.actions.act_window">
+    <field name="name">NC Stations</field>
+    <field name="res_model">crm.lead</field>
+    <field name="view_mode">kanban,list,form</field>
+    <field name="domain">[('type', '=', 'opportunity'), ('fs_nc_installation_id', '!=', False)]</field>
+    <field name="context">{
+      'default_type': 'opportunity',
+      'default_fs_is_donation_application': True,
+    }</field>
+    <field name="help" type="html">
+      <p class="o_view_nocontent_smiling_face">
+        No mirrored Nextcloud stations yet
+      </p>
+      <p>
+        Use Filantropia → NC Dashboard → Import NC stations, or wait for the hourly reconcile.
+      </p>
+    </field>
+  </record>
+
   <record id="view_crm_lead_form_fs_nc" model="ir.ui.view">
     <field name="name">crm.lead.form.filantropia.nc</field>
     <field name="model">crm.lead</field>

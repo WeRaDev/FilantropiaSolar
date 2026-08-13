@@ -9,6 +9,7 @@
           <button name="action_refresh" type="object" string="Refresh" class="btn-secondary"/>
           <button name="action_open_nextcloud" type="object" string="Open Nextcloud" class="btn-primary"/>
           <button name="action_import_nc_stations" type="object" string="Import NC stations to CRM" class="btn-secondary"/>
+          <button name="action_open_nc_stations" type="object" string="Open CRM stations" class="btn-secondary"/>
         </header>
         <sheet>
           <div class="oe_title">
@@ -51,4 +52,9 @@
             parent="menu_fs_root"
             action="action_fs_dashboard"
             sequence="10"/>
+  <menuitem id="menu_fs_nc_stations"
+            name="NC Stations"
+            parent="menu_fs_root"
+            action="action_fs_nc_stations"
+            sequence="20"/>
 </odoo>

@@ -29,6 +29,27 @@ class FsStationSync(models.AbstractModel):
         return self.env.ref(xmlid, raise_if_not_found=False)
 
     @api.model
+    def _default_mirror_user(self):
+        """Salesperson visible in CRM Pipeline (not OdooBot/__system__)."""
+        admin = self.env.ref("base.user_admin", raise_if_not_found=False)
+        if admin and admin.active and not admin.share:
+            return admin
+        return (
+            self.env["res.users"]
+            .sudo()
+            .search([("share", "=", False), ("active", "=", True)], order="id", limit=1)
+        )
+
+    @api.model
+    def _default_mirror_team(self):
+        team = self.env.ref(
+            "sales_team.team_sales_department", raise_if_not_found=False
+        )
+        if team:
+            return team
+        return self.env["crm.team"].sudo().search([], order="id", limit=1)
+
+    @api.model
     def upsert_from_nc_station(self, station: dict, *, origin: str = "nc"):
         """Create/update crm.lead from NC lifecycle station payload."""
         Lead = self.env["crm.lead"].sudo()
@@ -53,6 +74,7 @@ class FsStationSync(models.AbstractModel):
         name = station.get("name") or installation_id or "NC station"
         vals = {
             "type": "opportunity",
+            "active": True,
             "fs_is_donation_application": True,
             "fs_nc_installation_id": installation_id or False,
             "fs_nc_lifecycle_state": station.get("lifecycle_state") or False,
@@ -75,6 +97,21 @@ class FsStationSync(models.AbstractModel):
         # Always force stage from NC lifecycle so reconcile heals drift.
         if stage:
             vals["stage_id"] = stage.id
+
+        # CRM Pipeline defaults to "My Pipeline" (assigned_to_me). Mirror leads
+        # created under sudo often land on OdooBot and disappear for admin.
+        mirror_user = self._default_mirror_user()
+        mirror_team = self._default_mirror_team()
+        system_user = self.env.ref("base.user_root", raise_if_not_found=False)
+        need_user = (
+            not lead
+            or not lead.user_id
+            or (system_user and lead.user_id == system_user)
+        )
+        if need_user and mirror_user:
+            vals["user_id"] = mirror_user.id
+        if (not lead or not lead.team_id) and mirror_team:
+            vals["team_id"] = mirror_team.id
 
         if lead:
             lead.with_context(fs_skip_nc_enqueue=True).write(vals)

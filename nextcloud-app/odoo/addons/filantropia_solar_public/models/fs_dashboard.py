@@ -124,3 +124,23 @@ class FsDashboard(models.TransientModel):
                 "type": "success" if result.get("ok") else "danger",
             },
         }
+
+    def action_open_nc_stations(self):
+        """Open unfiltered CRM list of mirrored NC stations."""
+        action = self.env.ref(
+            "filantropia_solar_public.action_fs_nc_stations",
+            raise_if_not_found=False,
+        )
+        if action:
+            return action.read()[0]
+        return {
+            "type": "ir.actions.act_window",
+            "name": "NC Stations",
+            "res_model": "crm.lead",
+            "view_mode": "kanban,list,form",
+            "domain": [
+                ("type", "=", "opportunity"),
+                ("fs_nc_installation_id", "!=", False),
+            ],
+            "context": {"default_type": "opportunity"},
+        }
