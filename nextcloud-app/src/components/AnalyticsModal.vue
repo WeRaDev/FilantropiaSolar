@@ -51,6 +51,7 @@
                                 @prev-day="prevDay"
                                 @next-day="nextDay"
                                 @canvas-el="onCanvasEl"
+                                @view-data="viewDataOpen = true"
                             />
 
                             <!-- Right: Overview Metrics -->
@@ -66,6 +67,15 @@
                     </div>
                 </div>
             </div>
+            <ViewDataTable
+                :open="viewDataOpen"
+                :hourly-data="hourlyData"
+                :station-name="selectedObject?.name || ''"
+                :range-label="dateRangeLabel || currentDayLabel"
+                :mode-label="dataModeLabel"
+                :analysis-mode="analysisMode"
+                @close="viewDataOpen = false"
+            />
         </transition>
     </teleport>
 </template>
@@ -82,6 +92,7 @@ import ChartSection from './analytics/ChartSection.vue'
 import ModalStatePanel from './analytics/ModalStatePanel.vue'
 import KeyMetricsPanel from './analytics/KeyMetricsPanel.vue'
 import DailySummaryPanel from './analytics/DailySummaryPanel.vue'
+import ViewDataTable from './analytics/ViewDataTable.vue'
 
 export default {
     name: 'AnalyticsModal',
@@ -91,6 +102,7 @@ export default {
         ModalStatePanel,
         KeyMetricsPanel,
         DailySummaryPanel,
+        ViewDataTable,
     },
     setup() {
         const store = useAppStore()
@@ -274,6 +286,7 @@ export default {
             isLoading,
             loadingMessage,
             isExporting,
+            viewDataOpen,
             dataMode,
             dataModeLabel,
             timeframes,

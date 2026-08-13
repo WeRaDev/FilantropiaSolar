@@ -2,6 +2,19 @@
     <div class="chart-section">
         <div class="chart-header">
             <h3>{{ chartTitle }}</h3>
+            <div class="chart-header-actions">
+                <button
+                    type="button"
+                    class="view-data-btn"
+                    title="View station dataset table"
+                    @click="$emit('view-data')"
+                >
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M3 5h18M3 12h18M3 19h18"/>
+                        <path d="M8 5v14M16 5v14"/>
+                    </svg>
+                    View data
+                </button>
             <!-- Day navigation only for 'day' timeframe -->
             <div v-if="currentTimeframe === 'day'" class="day-nav">
                 <button class="nav-btn" :disabled="currentDayIndex <= 0" @click="$emit('prev-day')">
@@ -18,6 +31,7 @@
             </div>
             <div v-else class="timeframe-info">
                 <span>{{ totalDays }} days: {{ dateRangeLabel }}</span>
+            </div>
             </div>
         </div>
         <div class="chart-container">
@@ -45,7 +59,7 @@ export default {
         dataMode: { type: String, required: true },
         dataModeLabel: { type: String, required: true },
     },
-    emits: ['prev-day', 'next-day', 'canvas-el'],
+    emits: ['prev-day', 'next-day', 'canvas-el', 'view-data'],
     setup(props, { emit }) {
         const canvasEl = ref(null)
 
@@ -74,7 +88,34 @@ export default {
     display: flex;
     align-items: center;
     justify-content: space-between;
+    gap: 12px;
     margin-bottom: 16px;
+}
+
+.chart-header-actions {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+}
+
+.view-data-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    border: 1px solid var(--color-border, #ddd);
+    background: var(--color-background-dark, #f7f7f7);
+    color: inherit;
+    border-radius: 6px;
+    padding: 5px 10px;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.view-data-btn:hover {
+    background: var(--color-background-hover, #ececec);
 }
 
 .chart-header h3 {
