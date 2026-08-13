@@ -207,32 +207,32 @@ export default {
 
 		const pickFromNextcloud = async () => {
 			error.value = ''
+			// Prefer OC.dialogs.filepicker when available (no extra webpack graph).
 			try {
-				const mod = await import('@nextcloud/dialogs')
-				const builder = mod.getFilePickerBuilder
-					? mod.getFilePickerBuilder('Select measured CSV')
-					: null
-				if (!builder) {
-					error.value = 'Nextcloud file picker unavailable; paste a Files path below.'
+				const OC = window.OC
+				if (OC?.dialogs?.filepicker) {
+					await new Promise((resolve) => {
+						OC.dialogs.filepicker(
+							'Select measured CSV',
+							(path) => {
+								if (path) {
+									const clean = String(path).replace(/^\/+/, '')
+									ncPath.value = clean
+									ncPathManual.value = clean
+								}
+								resolve()
+							},
+							false,
+							['text/csv', 'text/plain'],
+							true,
+						)
+					})
 					return
 				}
-				const picker = builder
-					.setMultiSelect(false)
-					.addMimeTypeFilter('text/csv')
-					.addMimeTypeFilter('text/plain')
-					.allowDirectories(false)
-					.build()
-				const picked = await picker.pick()
-				const path = Array.isArray(picked) ? picked[0] : picked
-				if (path) {
-					ncPath.value = String(path).replace(/^\/+/, '')
-					ncPathManual.value = ncPath.value
-				}
 			} catch (e) {
-				// User cancel or picker missing
-				if (e && String(e).toLowerCase().includes('cancel')) return
-				error.value = e?.message || 'Could not open Nextcloud file picker. Paste a path instead.'
+				// fall through to path paste
 			}
+			error.value = 'File picker unavailable in this view — paste a path under your Files home below.'
 		}
 
 		const submit = async () => {
