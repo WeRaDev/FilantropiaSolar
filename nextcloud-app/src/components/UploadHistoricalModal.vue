@@ -1,6 +1,16 @@
 <template>
-	<div v-if="isOpen" class="modal-overlay" @click.self="close">
-		<div class="modal-card" role="dialog" aria-labelledby="upload-hist-title">
+	<teleport to="body">
+		<div
+			v-if="isOpen"
+			class="modal-overlay upload-historical-overlay"
+			@click.self="close"
+		>
+			<div
+				class="modal-card upload-historical-card"
+				role="dialog"
+				aria-modal="true"
+				aria-labelledby="upload-hist-title"
+			>
 			<header class="modal-head">
 				<div>
 					<h3 id="upload-hist-title">Add historical data</h3>
@@ -88,8 +98,9 @@
 					{{ busy ? 'Uploading…' : 'Import measured' }}
 				</button>
 			</footer>
+			</div>
 		</div>
-	</div>
+	</teleport>
 </template>
 
 <script>
@@ -286,22 +297,28 @@ export default {
 </script>
 
 <style scoped>
-.modal-overlay {
+/* Above analytics modal (z-index 10000) and View data (12000) */
+.upload-historical-overlay {
 	position: fixed;
 	inset: 0;
-	z-index: 13000;
-	background: rgba(0, 0, 0, 0.45);
+	z-index: 20050;
+	background: rgba(0, 0, 0, 0.55);
 	display: flex;
 	align-items: center;
 	justify-content: center;
 	padding: 16px;
+	box-sizing: border-box;
 }
-.modal-card {
+.upload-historical-card,
+.upload-historical-card * {
+	box-sizing: border-box;
+}
+.upload-historical-card {
 	width: min(560px, 96vw);
-	background: #fff;
+	background: #ffffff;
 	border-radius: 12px;
-	box-shadow: 0 16px 48px rgba(0, 0, 0, 0.28);
-	color: #1a1a1a;
+	box-shadow: 0 16px 48px rgba(0, 0, 0, 0.35);
+	color: #000000;
 	display: flex;
 	flex-direction: column;
 	overflow: hidden;
@@ -309,81 +326,147 @@ export default {
 .modal-head {
 	display: flex;
 	justify-content: space-between;
+	align-items: flex-start;
 	gap: 12px;
 	padding: 14px 16px;
-	border-bottom: 1px solid #e6e6e6;
-	background: #fafafa;
+	border-bottom: 1px solid #e0e0e0;
+	background: #f5f5f5;
+	color: #000000;
 }
-.modal-head h3 { margin: 0 0 4px; font-size: 16px; }
-.sub { margin: 0; font-size: 12px; color: #666; }
+.modal-head h3 {
+	margin: 0 0 4px;
+	font-size: 16px;
+	font-weight: 700;
+	color: #000000;
+}
+.sub {
+	margin: 0;
+	font-size: 12px;
+	color: #000000;
+}
 .x {
-	border: none;
-	background: transparent;
+	border: 1px solid #ccc;
+	background: #fff;
+	border-radius: 6px;
 	cursor: pointer;
 	font-size: 13px;
+	color: #000000;
+	padding: 4px 10px;
 }
-.modal-body { padding: 16px; display: flex; flex-direction: column; gap: 12px; }
-.hint { margin: 0; font-size: 13px; color: #444; line-height: 1.4; }
-.hint-sm { margin: 8px 0 0; font-size: 12px; color: #666; }
+.modal-body {
+	padding: 16px;
+	display: flex;
+	flex-direction: column;
+	gap: 12px;
+	color: #000000;
+	background: #ffffff;
+}
+.hint {
+	margin: 0;
+	font-size: 13px;
+	color: #000000;
+	line-height: 1.45;
+}
+.hint code,
+.path-line code {
+	color: #000000;
+	background: #f0f0f0;
+	padding: 1px 4px;
+	border-radius: 3px;
+}
+.hint-sm {
+	margin: 8px 0 0;
+	font-size: 12px;
+	color: #000000;
+}
 .source-tabs {
 	display: flex;
 	gap: 8px;
 }
 .tab {
 	flex: 1;
-	border: 1px solid #ccc;
-	background: #f7f7f7;
+	border: 1px solid #999;
+	background: #f0f0f0;
 	border-radius: 6px;
 	padding: 8px 10px;
 	cursor: pointer;
 	font-size: 13px;
+	color: #000000;
 }
 .tab.active {
 	background: #0082c9;
 	border-color: #0082c9;
-	color: #fff;
+	color: #ffffff;
 }
 .file-upload-area {
-	border: 1px dashed #bbb;
+	border: 1px dashed #666;
 	border-radius: 8px;
 	padding: 28px 12px;
 	text-align: center;
 	cursor: pointer;
 	background: #fafafa;
 	font-size: 13px;
+	color: #000000;
 }
-.file-upload-area:hover { border-color: #888; }
-.nc-files-block { display: flex; flex-direction: column; gap: 8px; }
-.path-line { margin: 0; font-size: 12px; word-break: break-all; }
+.file-upload-area:hover {
+	border-color: #000;
+	background: #f5f5f5;
+}
+.nc-files-block {
+	display: flex;
+	flex-direction: column;
+	gap: 8px;
+	color: #000000;
+}
+.path-line {
+	margin: 0;
+	font-size: 12px;
+	word-break: break-all;
+	color: #000000;
+}
 .path-input {
 	width: 100%;
-	box-sizing: border-box;
 	padding: 8px 10px;
-	border: 1px solid #ccc;
+	border: 1px solid #666;
 	border-radius: 6px;
 	font-size: 13px;
+	color: #000000;
+	background: #ffffff;
 }
-.err { color: #c62828; margin: 0; font-size: 13px; }
-.ok { color: #2e7d32; margin: 0; font-size: 13px; }
+.err {
+	color: #b71c1c;
+	margin: 0;
+	font-size: 13px;
+}
+.ok {
+	color: #1b5e20;
+	margin: 0;
+	font-size: 13px;
+}
 .modal-foot {
 	display: flex;
 	justify-content: flex-end;
 	gap: 8px;
 	padding: 12px 16px;
-	border-top: 1px solid #eee;
+	border-top: 1px solid #e0e0e0;
+	background: #fafafa;
 }
 .btn {
-	border: 1px solid #ccc;
-	background: #fff;
+	border: 1px solid #666;
+	background: #ffffff;
 	border-radius: 6px;
 	padding: 8px 14px;
 	cursor: pointer;
 	font-size: 13px;
+	color: #000000;
 }
 .btn.primary {
 	background: #0082c9;
 	border-color: #0082c9;
-	color: #fff;
+	color: #ffffff;
 }
-.btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.btn:disabled {
+	opacity: 0.5;
+	cursor: not-allowed;
+}
 </style>
