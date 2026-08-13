@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+  <!-- Align core CRM pipeline with ADR 0006 names (no extra stage rows). -->
+  <record id="crm.stage_lead1" model="crm.stage">
+    <field name="name">New</field>
+    <field name="sequence">1</field>
+  </record>
+  <record id="crm.stage_lead2" model="crm.stage">
+    <field name="name">Qualified</field>
+    <field name="sequence">10</field>
+  </record>
+  <record id="crm.stage_lead3" model="crm.stage">
+    <field name="name">Proposition</field>
+    <field name="sequence">20</field>
+  </record>
+  <record id="crm.stage_lead4" model="crm.stage">
+    <field name="name">Installed</field>
+    <field name="sequence">70</field>
+    <field name="is_won" eval="True"/>
+  </record>
+</odoo>

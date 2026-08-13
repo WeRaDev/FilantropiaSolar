@@ -70,8 +70,19 @@
                                 <div id="fs-stations-expand" class="fs-expand-body collapse" role="region" aria-labelledby="fs-stations-toggle">
                                     <ul class="list-unstyled fs-station-list mb-0">
                                         <t t-foreach="stations" t-as="station">
-                                            <li class="fs-station-item">
-                                                <strong t-esc="station.get('name')"/>
+                                            <t t-set="fs_cat" t-value="(station.get('public_category') or station.get('lifecycle_state') or '')"/>
+                                            <t t-set="fs_cat_l" t-value="(fs_cat or '').lower()"/>
+                                            <t t-set="fs_status_label" t-value="'Planeada' if fs_cat_l in ('planned',) else ('Em operação' if fs_cat_l in ('existing', 'running') else (fs_cat or '—'))"/>
+                                            <t t-set="fs_status_cls" t-value="'fs-status-planned' if fs_cat_l in ('planned',) else ('fs-status-running' if fs_cat_l in ('existing', 'running') else 'fs-status-other')"/>
+                                            <li class="fs-station-list-item fs-station-item"
+                                                t-att-data-station-id="station.get('id') or station.get('installation_id')"
+                                                t-att-data-lat="station.get('latitude')"
+                                                t-att-data-lng="station.get('longitude')"
+                                                t-att-data-status="fs_cat_l">
+                                                <div class="fs-station-title-row">
+                                                    <strong t-esc="station.get('name')"/>
+                                                    <span t-attf-class="fs-status-badge #{fs_status_cls}" t-esc="fs_status_label"/>
+                                                </div>
                                                 <div class="fs-station-meta text-muted small">
                                                     <span t-esc="station.get('location', 'Desconhecido')"/>
                                                     <span>|</span>
@@ -99,7 +110,7 @@
                             <div class="fs-card">
                                 <h3 class="fs-card-title">Mapa</h3>
                                 <div id="fs-stations-map" class="fs-map"/>
-                                <p class="small text-muted mt-2 mb-0">Clique num marcador para ver potência, poupança estimada e informação da estação.</p>
+                                <p class="small text-muted mt-2 mb-0">Clique numa estação da lista ou num marcador para focar o mapa. Estados: Planeada / Em operação.</p>
                             </div>
                         </div>
                     </div>
@@ -254,6 +265,7 @@
                             <thead>
                                 <tr>
                                     <th>Nome</th>
+                                    <th>Estado</th>
                                     <th>Localização</th>
                                     <th>Potência (kWp)</th>
                                     <th>Poupança estimada (EUR/ano)</th>
@@ -263,8 +275,17 @@
                             </thead>
                             <tbody>
                                 <t t-foreach="stations" t-as="station">
-                                    <tr>
+                                    <t t-set="fs_cat" t-value="(station.get('public_category') or station.get('lifecycle_state') or '')"/>
+                                    <t t-set="fs_cat_l" t-value="(fs_cat or '').lower()"/>
+                                    <t t-set="fs_status_label" t-value="'Planeada' if fs_cat_l in ('planned',) else ('Em operação' if fs_cat_l in ('existing', 'running') else (fs_cat or '—'))"/>
+                                    <t t-set="fs_status_cls" t-value="'fs-status-planned' if fs_cat_l in ('planned',) else ('fs-status-running' if fs_cat_l in ('existing', 'running') else 'fs-status-other')"/>
+                                    <tr class="fs-station-list-item"
+                                        t-att-data-station-id="station.get('id') or station.get('installation_id')"
+                                        t-att-data-lat="station.get('latitude')"
+                                        t-att-data-lng="station.get('longitude')"
+                                        t-att-data-status="fs_cat_l">
                                         <td t-esc="station.get('name')"/>
+                                        <td><span t-attf-class="fs-status-badge #{fs_status_cls}" t-esc="fs_status_label"/></td>
                                         <td t-esc="station.get('location')"/>
                                         <td t-esc="station.get('capacity_kwp')"/>
                                         <td>

@@ -370,6 +370,22 @@ class InstallationMapper extends QBMapper
         try {
             return $this->findEntity($qb);
         } catch (DoesNotExistException $e) {
+            // getInstallationId() falls back to "{location}_{id}" when serial is null.
+            if (ctype_digit($serial)) {
+                try {
+                    $byId = $this->find((int) $serial);
+                    if ($byId->getLocation() === $location) {
+                        $sn = $byId->getSerialNumber();
+                        if ($sn === null || $sn === '') {
+                            return $byId;
+                        }
+                    }
+                } catch (DoesNotExistException $e2) {
+                    return null;
+                } catch (MultipleObjectsReturnedException $e2) {
+                    return null;
+                }
+            }
             return null;
         } catch (MultipleObjectsReturnedException $e) {
             return $this->findEntities($qb)[0];

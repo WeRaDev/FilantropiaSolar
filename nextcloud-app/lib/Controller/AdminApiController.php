@@ -8,6 +8,7 @@ use DateTime;
 use OCA\FilantropiaSolar\AppInfo\Application;
 use OCA\FilantropiaSolar\Db\Installation;
 use OCA\FilantropiaSolar\Db\InstallationMapper;
+use OCA\FilantropiaSolar\Service\OdooLifecycleMirror;
 use OCA\FilantropiaSolar\Service\StationLifecycle;
 use OCP\AppFramework\ApiController;
 use OCP\AppFramework\Http;
@@ -38,6 +39,7 @@ class AdminApiController extends ApiController
         private readonly IClientService $clientService,
         private readonly IConfig $config,
         private readonly LoggerInterface $logger,
+        private readonly OdooLifecycleMirror $odooMirror,
     ) {
         parent::__construct(Application::APP_ID, $request);
     }
@@ -135,6 +137,7 @@ class AdminApiController extends ApiController
             $station->setUpdatedAt($now);
 
             $created = $this->mapper->insert($station);
+            $this->odooMirror->notify($created);
 
             return new JSONResponse([
                 'success' => true,
@@ -170,6 +173,7 @@ class AdminApiController extends ApiController
             $this->hydrateStation($station, $payload, false);
             $station->setUpdatedAt(new DateTime());
             $updated = $this->mapper->update($station);
+            $this->odooMirror->notify($updated);
 
             return new JSONResponse([
                 'success' => true,
@@ -312,6 +316,7 @@ class AdminApiController extends ApiController
                 'installation_id' => $station->getInstallationId(),
             ]);
         }
+        $this->odooMirror->notify($station);
 
         return new JSONResponse([
             'success' => true,
@@ -357,6 +362,7 @@ class AdminApiController extends ApiController
                 'installation_id' => $station->getInstallationId(),
             ]);
         }
+        $this->odooMirror->notify($station);
 
         return new JSONResponse([
             'success' => true,
@@ -392,6 +398,7 @@ class AdminApiController extends ApiController
         $this->logger->info('Admin soft-remove', [
             'installation_id' => $station->getInstallationId(),
         ]);
+        $this->odooMirror->notify($station);
 
         return new JSONResponse([
             'success' => true,

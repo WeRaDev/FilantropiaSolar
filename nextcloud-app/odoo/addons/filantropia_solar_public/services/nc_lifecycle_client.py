@@ -145,3 +145,70 @@ class NcLifecycleClient:
     def get_station(self, installation_id: str) -> dict[str, Any]:
         enc = quote(str(installation_id), safe="")
         return self._request("GET", f"stations/{enc}")
+
+    def mark_installed(
+        self,
+        installation_id: str,
+        *,
+        installed_at: str | None = None,
+        actor: str | None = None,
+    ) -> dict[str, Any]:
+        enc = quote(str(installation_id), safe="")
+        body: dict[str, Any] = {}
+        if installed_at:
+            body["installed_at"] = installed_at
+        if actor:
+            body["actor"] = actor
+        return self._request("POST", f"stations/{enc}/mark-installed", body or {})
+
+    def list_stations(
+        self,
+        *,
+        include_soft_removed: bool = False,
+        include_dataset: bool = False,
+    ) -> dict[str, Any]:
+        """List stations for CRM mirror (ops only unless include_dataset)."""
+        parts = [
+            "include_soft_removed=1"
+            if include_soft_removed
+            else "include_soft_removed=0",
+            "include_dataset=1" if include_dataset else "include_dataset=0",
+        ]
+        return self._request("GET", f"stations?{'&'.join(parts)}")
+
+    def bind_lead(self, installation_id: str, odoo_lead_id: int) -> dict[str, Any]:
+        """Attach CRM lead id on NC station (idempotent)."""
+        enc = quote(str(installation_id), safe="")
+        return self._request(
+            "POST",
+            f"stations/{enc}/bind-lead",
+            {"odoo_lead_id": int(odoo_lead_id)},
+        )
+
+    def set_lifecycle(
+        self,
+        installation_id: str,
+        lifecycle_state: str,
+        *,
+        actor: str | None = None,
+    ) -> dict[str, Any]:
+        """Set NC lifecycle explicitly (supports demotion)."""
+        enc = quote(str(installation_id), safe="")
+        body: dict[str, Any] = {"lifecycle_state": str(lifecycle_state)}
+        if actor:
+            body["actor"] = actor
+        return self._request("POST", f"stations/{enc}/set-lifecycle", body)
+
+    def update_profile(
+        self,
+        installation_id: str,
+        payload: dict[str, Any],
+        *,
+        actor: str | None = None,
+    ) -> dict[str, Any]:
+        """Update NC station public snapshot fields from CRM."""
+        enc = quote(str(installation_id), safe="")
+        body = dict(payload or {})
+        if actor:
+            body["actor"] = actor
+        return self._request("POST", f"stations/{enc}/profile", body)

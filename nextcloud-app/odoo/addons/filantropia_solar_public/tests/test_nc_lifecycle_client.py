@@ -22,9 +22,13 @@ from services.nc_lifecycle_client import (
     redact_secrets,
 )
 from services.stage_map import (
+    is_installed_stage,
+    is_proposition_stage,
     is_qualified_stage,
     is_won_stage,
     lifecycle_action_for_stage_change,
+    nc_state_for_stage,
+    stage_xmlid_for_nc_state,
 )
 
 
@@ -34,23 +38,65 @@ class StageMapTests(unittest.TestCase):
         self.assertTrue(is_qualified_stage("Qualificação"))
         self.assertFalse(is_qualified_stage("New"))
 
-    def test_won_never_qualified(self):
-        self.assertFalse(is_qualified_stage("Qualified", is_won=True))
-        self.assertTrue(is_won_stage(is_won=True))
-        self.assertTrue(is_won_stage(stage_name="Won"))
+    def test_proposition_and_installed(self):
+        self.assertTrue(is_proposition_stage("Proposition"))
+        self.assertTrue(is_proposition_stage("Proposta"))
+        self.assertTrue(is_installed_stage(stage_name="Installed"))
+        self.assertTrue(is_installed_stage(is_won=True))
+        self.assertTrue(is_won_stage(stage_name="Won"))  # alias
 
-    def test_stage_change_promote_only(self):
+    def test_nc_state_for_stage(self):
+        self.assertIsNone(nc_state_for_stage("New"))
+        self.assertEqual(nc_state_for_stage("Qualified"), "virtual")
+        self.assertEqual(nc_state_for_stage("Proposition"), "planned")
+        self.assertEqual(nc_state_for_stage("Installed", is_won=True), "running")
+
+    def test_stage_change_matrix(self):
         self.assertEqual(
             lifecycle_action_for_stage_change("New", "Qualified"),
+            "ensure_virtual",
+        )
+        self.assertEqual(
+            lifecycle_action_for_stage_change("Qualified", "Proposition"),
             "promote_planned",
         )
-        self.assertIsNone(
-            lifecycle_action_for_stage_change("New", "Won", new_is_won=True)
+        self.assertEqual(
+            lifecycle_action_for_stage_change(
+                "Proposition", "Installed", new_is_won=True
+            ),
+            "mark_installed",
         )
-        self.assertIsNone(
-            lifecycle_action_for_stage_change("Qualified", "Won", new_is_won=True)
+        # Won name still maps to installed action (rename transition)
+        self.assertEqual(
+            lifecycle_action_for_stage_change("Proposition", "Won", new_is_won=True),
+            "mark_installed",
         )
         self.assertIsNone(lifecycle_action_for_stage_change("Qualified", "Qualified"))
+        self.assertIsNone(lifecycle_action_for_stage_change("New", "New"))
+
+    def test_demotion_matrix(self):
+        self.assertEqual(
+            lifecycle_action_for_stage_change(
+                "Installed", "Qualified", old_is_won=True
+            ),
+            "set_lifecycle_virtual",
+        )
+        self.assertEqual(
+            lifecycle_action_for_stage_change(
+                "Installed", "Proposition", old_is_won=True
+            ),
+            "set_lifecycle_planned",
+        )
+        self.assertEqual(
+            lifecycle_action_for_stage_change("Proposition", "Qualified"),
+            "set_lifecycle_virtual",
+        )
+
+    def test_inbound_stage_xmlids(self):
+        self.assertEqual(stage_xmlid_for_nc_state("virtual"), "crm.stage_lead2")
+        self.assertEqual(stage_xmlid_for_nc_state("planned"), "crm.stage_lead3")
+        self.assertEqual(stage_xmlid_for_nc_state("running"), "crm.stage_lead4")
+        self.assertIsNone(stage_xmlid_for_nc_state(None))
 
 
 class RedactTests(unittest.TestCase):
@@ -119,6 +165,136 @@ class ClientHttpTests(unittest.TestCase):
             self.assertEqual(req.get_method(), "POST")
             self.assertTrue(req.full_url.endswith("/stations/virtual"))
             self.assertIn("Bearer ", req.headers.get("Authorization", ""))
+
+    def test_mark_installed_posts(self):
+        response_body = json.dumps(
+            {
+                "success": True,
+                "station": {
+                    "id": 9,
+                    "installation_id": "x",
+                    "lifecycle_state": "running",
+                },
+            }
+        ).encode()
+        mock_resp = MagicMock()
+        mock_resp.read.return_value = response_body
+        mock_resp.__enter__.return_value = mock_resp
+        mock_resp.__exit__.return_value = False
+        with patch(
+            "services.nc_lifecycle_client.urllib.request.urlopen",
+            return_value=mock_resp,
+        ) as urlopen:
+            client = NcLifecycleClient(
+                base_url="http://nc/api/lifecycle/v1", token="tok"
+            )
+            result = client.mark_installed("abc", actor="odoo-lead-1")
+            self.assertEqual(result["station"]["lifecycle_state"], "running")
+            req = urlopen.call_args[0][0]
+            self.assertEqual(req.get_method(), "POST")
+            self.assertTrue(req.full_url.endswith("/stations/abc/mark-installed"))
+
+    def test_list_stations_excludes_dataset_by_default(self):
+        response_body = json.dumps(
+            {"success": True, "stations": [], "count": 0}
+        ).encode()
+        mock_resp = MagicMock()
+        mock_resp.read.return_value = response_body
+        mock_resp.__enter__.return_value = mock_resp
+        mock_resp.__exit__.return_value = False
+        with patch(
+            "services.nc_lifecycle_client.urllib.request.urlopen",
+            return_value=mock_resp,
+        ) as urlopen:
+            client = NcLifecycleClient(
+                base_url="http://nc/api/lifecycle/v1", token="tok"
+            )
+            client.list_stations()
+            req = urlopen.call_args[0][0]
+            self.assertIn("include_dataset=0", req.full_url)
+            self.assertIn("include_soft_removed=0", req.full_url)
+
+    def test_bind_lead_posts(self):
+        response_body = json.dumps(
+            {
+                "success": True,
+                "station": {
+                    "installation_id": "fleet_x",
+                    "odoo_lead_id": 54,
+                },
+            }
+        ).encode()
+        mock_resp = MagicMock()
+        mock_resp.read.return_value = response_body
+        mock_resp.__enter__.return_value = mock_resp
+        mock_resp.__exit__.return_value = False
+        with patch(
+            "services.nc_lifecycle_client.urllib.request.urlopen",
+            return_value=mock_resp,
+        ) as urlopen:
+            client = NcLifecycleClient(
+                base_url="http://nc/api/lifecycle/v1", token="tok"
+            )
+            result = client.bind_lead("fleet_x", 54)
+            self.assertEqual(result["station"]["odoo_lead_id"], 54)
+            req = urlopen.call_args[0][0]
+            self.assertEqual(req.get_method(), "POST")
+            self.assertTrue(req.full_url.endswith("/stations/fleet_x/bind-lead"))
+
+    def test_set_lifecycle_posts(self):
+        response_body = json.dumps(
+            {
+                "success": True,
+                "station": {
+                    "installation_id": "x",
+                    "lifecycle_state": "virtual",
+                },
+            }
+        ).encode()
+        mock_resp = MagicMock()
+        mock_resp.read.return_value = response_body
+        mock_resp.__enter__.return_value = mock_resp
+        mock_resp.__exit__.return_value = False
+        with patch(
+            "services.nc_lifecycle_client.urllib.request.urlopen",
+            return_value=mock_resp,
+        ) as urlopen:
+            client = NcLifecycleClient(
+                base_url="http://nc/api/lifecycle/v1", token="tok"
+            )
+            result = client.set_lifecycle("x", "virtual", actor="odoo-lead-1")
+            self.assertEqual(result["station"]["lifecycle_state"], "virtual")
+            req = urlopen.call_args[0][0]
+            self.assertEqual(req.get_method(), "POST")
+            self.assertTrue(req.full_url.endswith("/stations/x/set-lifecycle"))
+
+    def test_update_profile_posts(self):
+        response_body = json.dumps(
+            {
+                "success": True,
+                "station": {
+                    "installation_id": "x",
+                    "name": "NGO",
+                    "lifecycle_state": "virtual",
+                },
+            }
+        ).encode()
+        mock_resp = MagicMock()
+        mock_resp.read.return_value = response_body
+        mock_resp.__enter__.return_value = mock_resp
+        mock_resp.__exit__.return_value = False
+        with patch(
+            "services.nc_lifecycle_client.urllib.request.urlopen",
+            return_value=mock_resp,
+        ) as urlopen:
+            client = NcLifecycleClient(
+                base_url="http://nc/api/lifecycle/v1", token="tok"
+            )
+            result = client.update_profile("x", {"name": "NGO"}, actor="odoo-lead-1")
+            self.assertEqual(result["station"]["name"], "NGO")
+            req = urlopen.call_args[0][0]
+            self.assertEqual(req.get_method(), "POST")
+            self.assertTrue(req.full_url.endswith("/stations/x/profile"))
 
     def test_http_error_does_not_include_token_in_exception(self):
         import urllib.error

@@ -927,31 +927,38 @@ class FilantropiaSolarPublicController(http.Controller):
         ]
 
         price_kwh = self._as_float(step3_price_kwh, 0.0) if step3_price_kwh else 0.0
+        website = step2_website or False
+        if website and not str(website).lower().startswith(("http://", "https://")):
+            website = "https://" + str(website)
         lead_vals = {
             "name": f"Filantropia Solar Candidatura — {step2_org_name or 'ONG'}",
+            "type": "opportunity",
             "contact_name": step1_name or "Contacto desconhecido",
             "email_from": step1_email or False,
             "partner_name": step2_org_name or False,
+            "city": loc_label or False,
+            "website": website,
             "description": "\n".join(description_lines),
             "fs_is_donation_application": True,
             "fs_station_location_label": loc_label or False,
             "fs_station_latitude": self._as_float(location_lat, 0.0),
             "fs_station_longitude": self._as_float(location_lng, 0.0),
             "fs_station_capacity_kwp": kwp,
-            "fs_station_website": step2_website or False,
+            "fs_station_website": website,
             "fs_station_short_description": step2_description or False,
             "fs_nc_sync_state": "pending",
+            "fs_nc_sync_origin": "crm",
         }
         if price_kwh > 0:
             lead_vals["fs_station_grid_price_kwh"] = price_kwh
         lead = request.env["crm.lead"].sudo().create(lead_vals)
         self._attach_files(lead)
-        # Async Virtual station on NC (queue_job); idempotent by odoo_lead_id
-        try:
-            lead.fs_enqueue_create_virtual()
-        except Exception as exc:
-            _logger.warning("NC virtual enqueue after candidatura failed: %s", exc)
-        _logger.info("Donation application lead created: %s", lead.id)
+        # Deferred Virtual: New CRM stage has no NC station until Qualified
+        # (ADR 0006 mirror: New/none, Qualified/Virtual).
+        _logger.info(
+            "Donation application lead created (NC Virtual deferred until Qualified): %s",
+            lead.id,
+        )
 
         return self._render(
             "filantropia_solar_public.page_candidatura",

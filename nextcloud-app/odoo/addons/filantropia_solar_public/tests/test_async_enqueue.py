@@ -11,15 +11,20 @@ class FakeLead:
     def __init__(self, lead_id=1, donation=True):
         self.id = lead_id
         self.fs_is_donation_application = donation
+        self.fs_nc_installation_id = False
         self.writes = []
         self.created_sync = False
         self.promoted_sync = False
+        self.installed_sync = False
         self.delay_calls = []
         self._has_delay = True
 
     def write(self, vals):
         self.writes.append(vals)
         return True
+
+    def with_context(self, **_kwargs):
+        return self
 
     def with_delay(self, **kwargs):
         self.delay_calls.append(kwargs)
@@ -32,6 +37,9 @@ class FakeLead:
             def fs_promote_planned(self_inner):
                 parent.promoted_sync = "delayed"
 
+            def fs_mark_installed(self_inner):
+                parent.installed_sync = "delayed"
+
         return DelayProxy()
 
     def fs_create_virtual_station(self):
@@ -42,12 +50,21 @@ class FakeLead:
         self.promoted_sync = True
         return True
 
-    # Copy of production enqueue logic (kept in sync with crm_lead.py)
+    def fs_mark_installed(self):
+        self.installed_sync = True
+        return True
+
     def fs_enqueue_create_virtual(self):
         for lead in [self]:
-            if not lead.fs_is_donation_application:
+            if not lead.fs_is_donation_application and not lead.fs_nc_installation_id:
                 continue
-            lead.write({"fs_nc_sync_state": "pending", "fs_nc_sync_error": False})
+            lead.write(
+                {
+                    "fs_nc_sync_state": "pending",
+                    "fs_nc_sync_error": False,
+                    "fs_nc_sync_origin": "crm",
+                }
+            )
             if hasattr(lead, "with_delay") and lead._has_delay:
                 lead.with_delay(
                     priority=10,
@@ -61,8 +78,15 @@ class FakeLead:
 
     def fs_enqueue_promote_planned(self):
         for lead in [self]:
-            if not lead.fs_is_donation_application:
+            if not lead.fs_is_donation_application and not lead.fs_nc_installation_id:
                 continue
+            lead.write(
+                {
+                    "fs_nc_sync_state": "pending",
+                    "fs_nc_sync_error": False,
+                    "fs_nc_sync_origin": "crm",
+                }
+            )
             if hasattr(lead, "with_delay") and lead._has_delay:
                 lead.with_delay(
                     priority=10,
@@ -72,6 +96,28 @@ class FakeLead:
                 ).fs_promote_planned()
             else:
                 lead.fs_promote_planned()
+        return True
+
+    def fs_enqueue_mark_installed(self):
+        for lead in [self]:
+            if not lead.fs_is_donation_application and not lead.fs_nc_installation_id:
+                continue
+            lead.write(
+                {
+                    "fs_nc_sync_state": "pending",
+                    "fs_nc_sync_error": False,
+                    "fs_nc_sync_origin": "crm",
+                }
+            )
+            if hasattr(lead, "with_delay") and lead._has_delay:
+                lead.with_delay(
+                    priority=10,
+                    description=f"NC mark installed for lead {lead.id}",
+                    channel="root.filantropia",
+                    identity_key=f"fs-installed-{lead.id}",
+                ).fs_mark_installed()
+            else:
+                lead.fs_mark_installed()
         return True
 
 
@@ -89,6 +135,12 @@ class EnqueueTests(unittest.TestCase):
         lead.fs_enqueue_promote_planned()
         self.assertEqual(lead.promoted_sync, "delayed")
         self.assertEqual(lead.delay_calls[0]["identity_key"], "fs-promote-3")
+
+    def test_enqueue_mark_installed_uses_with_delay(self):
+        lead = FakeLead(9)
+        lead.fs_enqueue_mark_installed()
+        self.assertEqual(lead.installed_sync, "delayed")
+        self.assertEqual(lead.delay_calls[0]["identity_key"], "fs-installed-9")
 
     def test_enqueue_skips_non_donation(self):
         lead = FakeLead(1, donation=False)

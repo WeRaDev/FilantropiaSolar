@@ -1,14 +1,16 @@
 openapi: 3.0.3
 info:
   title: FilantropiaSolar NC Lifecycle API (Odoo CRM glue)
-  version: 0.1.0-mvp
+  version: 0.2.0
   description: |
     Idempotent lifecycle endpoints on Nextcloud for Odoo CRM automation (D1, D4, D7).
     Authenticated with the same bearer token pattern as `/api/public/v1/*`
     (`public_api_token`) or a dedicated `lifecycle_api_token` (preferred when implemented).
 
-    Base path suggestion (to implement): `/apps/filantropia_solar/api/lifecycle/v1`
+    Base path: `/apps/filantropia_solar/api/lifecycle/v1`
     Existing public read API remains under `/api/public/v1`.
+    Bidirectional CRM mirror: NC notifies Odoo webhook on lifecycle/profile changes;
+    Odoo pulls ops stations via GET /stations (dataset excluded by default).
 
 servers:
   - url: https://{host}/apps/filantropia_solar
@@ -87,7 +89,7 @@ paths:
     post:
       tags: [lifecycle]
       operationId: markInstalled
-      summary: Planned → Running (admin only; not CRM Won)
+      summary: Planned → Running (CRM Installed / ops mark-installed)
       security:
         - bearerAuth: []
       parameters:
@@ -154,6 +156,130 @@ paths:
                 $ref: '#/components/schemas/LifecycleStationResponse'
         '404':
           $ref: '#/components/responses/NotFound'
+
+
+  /api/lifecycle/v1/stations:
+    get:
+      tags: [lifecycle]
+      operationId: listLifecycleStations
+      summary: Ops station list for CRM mirror
+      description: |
+        Excludes source=dataset by default (Mendeley training corpus).
+        Query: include_soft_removed=0|1, include_dataset=0|1.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: include_soft_removed
+          in: query
+          schema: { type: boolean, default: false }
+        - name: include_dataset
+          in: query
+          schema: { type: boolean, default: false }
+      responses:
+        '200':
+          description: Station list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean }
+                  count: { type: integer }
+                  includes_dataset: { type: boolean }
+                  stations:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/LifecycleStation'
+
+  /api/lifecycle/v1/stations/{installationId}/set-lifecycle:
+    post:
+      tags: [lifecycle]
+      operationId: setLifecycle
+      summary: Set lifecycle explicitly (supports demotion)
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/installationId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [lifecycle_state]
+              properties:
+                lifecycle_state:
+                  type: string
+                  enum: [virtual, planned, running]
+                actor:
+                  type: string
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LifecycleStationResponse'
+        '409':
+          description: Soft-removed or dataset-excluded
+
+  /api/lifecycle/v1/stations/{installationId}/profile:
+    post:
+      tags: [lifecycle]
+      operationId: updateStationProfile
+      summary: Update public snapshot fields from CRM (no lifecycle change)
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/installationId'
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name: { type: string }
+                location_label: { type: string }
+                location: { type: string }
+                latitude: { type: number }
+                longitude: { type: number }
+                capacity_kwp: { type: number }
+                website: { type: string }
+                short_description: { type: string }
+                grid_price_kwh: { type: number }
+                actor: { type: string }
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LifecycleStationResponse'
+
+  /api/lifecycle/v1/stations/{installationId}/bind-lead:
+    post:
+      tags: [lifecycle]
+      operationId: bindOdooLead
+      summary: Attach odoo_lead_id to an ops station
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/installationId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [odoo_lead_id]
+              properties:
+                odoo_lead_id: { type: integer }
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LifecycleStationResponse'
+        '409':
+          description: Already bound / dataset excluded
 
   /api/public/v1/stations:
     get:
@@ -296,6 +422,10 @@ components:
           nullable: true
         capacity_kwp:
           type: number
+        grid_price_kwh:
+          type: number
+          nullable: true
+          description: EUR/kWh station tariff used for savings estimates
         latitude:
           type: number
         longitude:

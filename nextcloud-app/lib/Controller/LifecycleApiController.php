@@ -8,6 +8,7 @@ use DateTime;
 use OCA\FilantropiaSolar\AppInfo\Application;
 use OCA\FilantropiaSolar\Db\Installation;
 use OCA\FilantropiaSolar\Db\InstallationMapper;
+use OCA\FilantropiaSolar\Service\OdooLifecycleMirror;
 use OCA\FilantropiaSolar\Service\StationLifecycle;
 use OCP\AppFramework\ApiController;
 use OCP\AppFramework\Http;
@@ -30,6 +31,7 @@ class LifecycleApiController extends ApiController
 		private readonly InstallationMapper $mapper,
 		private readonly IConfig $config,
 		private readonly LoggerInterface $logger,
+		private readonly OdooLifecycleMirror $odooMirror,
 	) {
 		parent::__construct(Application::APP_ID, $request);
 	}
@@ -100,6 +102,8 @@ class LifecycleApiController extends ApiController
 				$existing->setUpdatedAt(new DateTime());
 				$existing = $this->mapper->update($existing);
 			}
+			// Keep CRM mirror in sync even on idempotent profile refresh.
+			$this->notifyOdooMirror($existing);
 
 			return new JSONResponse([
 				'success' => true,
@@ -147,6 +151,7 @@ class LifecycleApiController extends ApiController
 				'odoo_lead_id' => $odooLeadId,
 				'installation_id' => $created->getInstallationId(),
 			]);
+			$this->notifyOdooMirror($created);
 
 			return new JSONResponse([
 				'success' => true,
@@ -157,6 +162,7 @@ class LifecycleApiController extends ApiController
 			// Race: unique odoo_lead_id — return existing
 			$again = $this->mapper->findByOdooLeadId($odooLeadId);
 			if ($again !== null) {
+				$this->notifyOdooMirror($again);
 				return new JSONResponse([
 					'success' => true,
 					'station' => $this->toLifecycleArray($again),
@@ -202,6 +208,7 @@ class LifecycleApiController extends ApiController
 			]);
 		}
 
+		$this->notifyOdooMirror($station);
 		return new JSONResponse([
 			'success' => true,
 			'station' => $this->toLifecycleArray($station),
@@ -252,6 +259,7 @@ class LifecycleApiController extends ApiController
 			]);
 		}
 
+		$this->notifyOdooMirror($station);
 		return new JSONResponse([
 			'success' => true,
 			'station' => $this->toLifecycleArray($station),
@@ -283,9 +291,280 @@ class LifecycleApiController extends ApiController
 			]);
 		}
 
+		$this->notifyOdooMirror($station);
 		return new JSONResponse([
 			'success' => true,
 			'station' => $this->toLifecycleArray($station),
+		]);
+	}
+
+
+	/**
+	 * GET /api/lifecycle/v1/stations
+	 * Ops list for CRM mirror (includes Virtual; excludes soft-removed by default).
+	 *
+	 * Mendeley training corpus (source=dataset) is excluded by default so CRM
+	 * stays symmetrical with the NC ops dashboard. Pass include_dataset=1 only
+	 * for diagnostics.
+	 */
+	#[PublicPage]
+	#[NoCSRFRequired]
+	public function index(): JSONResponse
+	{
+		if (!$this->authorized()) {
+			return $this->error('unauthorized', Http::STATUS_UNAUTHORIZED, 'unauthorized');
+		}
+
+		$includeSoft = filter_var(
+			$this->request->getParam('include_soft_removed', '0'),
+			FILTER_VALIDATE_BOOLEAN,
+		);
+		$includeDataset = filter_var(
+			$this->request->getParam('include_dataset', '0'),
+			FILTER_VALIDATE_BOOLEAN,
+		);
+		$stations = $includeDataset
+			? $this->mapper->findAll()
+			: $this->mapper->findOpsStations();
+		$out = [];
+		foreach ($stations as $station) {
+			if (!$includeSoft && $station->getSoftRemoved()) {
+				continue;
+			}
+			// Defense in depth if include_dataset was true but a row is still dataset-only ops view.
+			if (!$includeDataset && ($station->getSource() ?: '') === 'dataset') {
+				continue;
+			}
+			$out[] = $this->toLifecycleArray($station);
+		}
+
+		return new JSONResponse([
+			'success' => true,
+			'count' => count($out),
+			'stations' => $out,
+			'includes_dataset' => $includeDataset,
+		]);
+	}
+
+	/**
+	 * POST /api/lifecycle/v1/stations/{installationId}/bind-lead
+	 *
+	 * Attach CRM lead id to an existing ops station (fleet/user/crm) so the
+	 * mirror is bidirectional by primary key as well as installation_id.
+	 */
+	#[PublicPage]
+	#[NoCSRFRequired]
+	public function bindLead(string $installationId): JSONResponse
+	{
+		if (!$this->authorized()) {
+			return $this->error('unauthorized', Http::STATUS_UNAUTHORIZED, 'unauthorized');
+		}
+
+		$payload = $this->jsonBody();
+		$odooLeadId = (int) ($payload['odoo_lead_id'] ?? $this->request->getParam('odoo_lead_id', 0));
+		if ($odooLeadId <= 0) {
+			return $this->error('odoo_lead_id is required and must be positive', Http::STATUS_BAD_REQUEST, 'validation_error');
+		}
+
+		$station = $this->mapper->findByInstallationKey($installationId);
+		if ($station === null) {
+			return $this->error('station not found', Http::STATUS_NOT_FOUND, 'not_found');
+		}
+		if (($station->getSource() ?: '') === 'dataset') {
+			return $this->error('dataset stations are not part of the CRM mirror', Http::STATUS_CONFLICT, 'dataset_excluded');
+		}
+
+		$current = $station->getOdooLeadId();
+		if ($current !== null && (int) $current === $odooLeadId) {
+			return new JSONResponse([
+				'success' => true,
+				'station' => $this->toLifecycleArray($station),
+				'idempotent' => true,
+			]);
+		}
+		if ($current !== null && (int) $current !== $odooLeadId) {
+			return $this->error(
+				'station already bound to a different odoo_lead_id',
+				Http::STATUS_CONFLICT,
+				'already_bound',
+			);
+		}
+
+		$existing = $this->mapper->findByOdooLeadId($odooLeadId);
+		if ($existing !== null && (int) $existing->getId() !== (int) $station->getId()) {
+			return $this->error(
+				'odoo_lead_id already linked to another station',
+				Http::STATUS_CONFLICT,
+				'lead_already_linked',
+			);
+		}
+
+		$station->setOdooLeadId($odooLeadId);
+		$station->setUpdatedAt(new DateTime());
+		$station = $this->mapper->update($station);
+		$this->logger->info('Lifecycle bind odoo_lead_id', [
+			'installation_id' => $station->getInstallationId(),
+			'odoo_lead_id' => $odooLeadId,
+		]);
+
+		return new JSONResponse([
+			'success' => true,
+			'station' => $this->toLifecycleArray($station),
+			'idempotent' => false,
+		]);
+	}
+
+
+	/**
+	 * POST /api/lifecycle/v1/stations/{installationId}/profile
+	 *
+	 * Update public station snapshot fields from CRM (name, location, coords,
+	 * capacity, website, short_description). Does not change lifecycle_state.
+	 */
+	#[PublicPage]
+	#[NoCSRFRequired]
+	public function updateProfile(string $installationId): JSONResponse
+	{
+		if (!$this->authorized()) {
+			return $this->error('unauthorized', Http::STATUS_UNAUTHORIZED, 'unauthorized');
+		}
+
+		$station = $this->mapper->findByInstallationKey($installationId);
+		if ($station === null) {
+			return $this->error('station not found', Http::STATUS_NOT_FOUND, 'not_found');
+		}
+		if (($station->getSource() ?: '') === 'dataset') {
+			return $this->error('dataset stations are not part of the CRM mirror', Http::STATUS_CONFLICT, 'dataset_excluded');
+		}
+
+		$payload = $this->jsonBody();
+		$dirty = false;
+
+		if (array_key_exists('name', $payload)) {
+			$name = trim((string) $payload['name']);
+			if ($name !== '') {
+				$station->setName($name);
+				$dirty = true;
+			}
+		}
+		if (array_key_exists('location_label', $payload) || array_key_exists('location', $payload)) {
+			$loc = trim((string) ($payload['location_label'] ?? $payload['location'] ?? ''));
+			if ($loc !== '') {
+				$station->setLocation($loc);
+				$dirty = true;
+			}
+		}
+		if (array_key_exists('latitude', $payload) || array_key_exists('longitude', $payload)) {
+			$lat = (float) ($payload['latitude'] ?? $station->getLatitude());
+			$lng = (float) ($payload['longitude'] ?? $station->getLongitude());
+			$station->setLatitude((string) $lat);
+			$station->setLongitude((string) $lng);
+			$dirty = true;
+		}
+		if (array_key_exists('capacity_kwp', $payload)) {
+			$cap = (float) $payload['capacity_kwp'];
+			if ($cap > 0) {
+				$station->setCapacityKwp((string) $cap);
+				$dirty = true;
+			}
+		}
+		if (array_key_exists('website', $payload)) {
+			$website = trim((string) $payload['website']);
+			$station->setWebsite($website !== '' ? $website : null);
+			$dirty = true;
+		}
+		if (array_key_exists('short_description', $payload) || array_key_exists('shortDescription', $payload)) {
+			$short = trim((string) ($payload['short_description'] ?? $payload['shortDescription'] ?? ''));
+			$station->setShortDescription($short !== '' ? $short : null);
+			$dirty = true;
+		}
+		if (array_key_exists('grid_price_kwh', $payload) && $payload['grid_price_kwh'] !== null && $payload['grid_price_kwh'] !== '') {
+			$station->setGridPriceKwh((string) $payload['grid_price_kwh']);
+			$dirty = true;
+		}
+
+		if ($dirty) {
+			$station->setUpdatedAt(new DateTime());
+			$station = $this->mapper->update($station);
+			$this->logger->info('Lifecycle profile updated', [
+				'installation_id' => $station->getInstallationId(),
+				'actor' => $payload['actor'] ?? null,
+			]);
+		}
+
+		$this->notifyOdooMirror($station);
+		return new JSONResponse([
+			'success' => true,
+			'station' => $this->toLifecycleArray($station),
+			'idempotent' => !$dirty,
+		]);
+	}
+
+	/**
+	 * POST /api/lifecycle/v1/stations/{installationId}/set-lifecycle
+	 *
+	 * Explicit lifecycle set for CRM mirror demotions and admin corrections
+	 * (virtual | planned | running). Promotion-only endpoints remain for
+	 * upward transitions; this allows Running → Planned/Virtual.
+	 */
+	#[PublicPage]
+	#[NoCSRFRequired]
+	public function setLifecycle(string $installationId): JSONResponse
+	{
+		if (!$this->authorized()) {
+			return $this->error('unauthorized', Http::STATUS_UNAUTHORIZED, 'unauthorized');
+		}
+
+		$station = $this->mapper->findByInstallationKey($installationId);
+		if ($station === null) {
+			return $this->error('station not found', Http::STATUS_NOT_FOUND, 'not_found');
+		}
+		if (($station->getSource() ?: '') === 'dataset') {
+			return $this->error('dataset stations are not part of the CRM mirror', Http::STATUS_CONFLICT, 'dataset_excluded');
+		}
+
+		$payload = $this->jsonBody();
+		$target = strtolower(trim((string) (
+			$payload['lifecycle_state']
+			?? $this->request->getParam('lifecycle_state', '')
+		)));
+		if (!StationLifecycle::isValidState($target)) {
+			return $this->error('Invalid lifecycle_state', Http::STATUS_BAD_REQUEST, 'validation_error');
+		}
+		if (!StationLifecycle::canSetLifecycleState($target, $station->getSoftRemoved())) {
+			return $this->error(
+				'Cannot change lifecycle while soft-removed',
+				Http::STATUS_CONFLICT,
+				'illegal_transition',
+			);
+		}
+
+		$prev = $this->stateOf($station);
+		if ($prev !== $target) {
+			$station->applyLifecycleState($target);
+			if ($target === StationLifecycle::RUNNING && $station->getInstalledAt() === null) {
+				$station->setInstalledAt(new DateTime());
+			}
+			// Demotion away from Running: clear installed_at so public "existing"
+			// semantics do not keep a stale install date after Virtual/Planned.
+			if ($target !== StationLifecycle::RUNNING) {
+				$station->setInstalledAt(null);
+			}
+			$station->setUpdatedAt(new DateTime());
+			$station = $this->mapper->update($station);
+			$this->logger->info('Lifecycle set via CRM API', [
+				'installation_id' => $station->getInstallationId(),
+				'from' => $prev,
+				'to' => $target,
+				'actor' => $payload['actor'] ?? null,
+			]);
+		}
+
+		$this->notifyOdooMirror($station);
+		return new JSONResponse([
+			'success' => true,
+			'station' => $this->toLifecycleArray($station),
+			'idempotent' => $prev === $target,
 		]);
 	}
 
@@ -329,6 +608,9 @@ class LifecycleApiController extends ApiController
 			'soft_removed' => $soft,
 			'odoo_lead_id' => $station->getOdooLeadId(),
 			'capacity_kwp' => (float) $station->getCapacityKwp(),
+			'grid_price_kwh' => $station->getGridPriceKwh() !== null && $station->getGridPriceKwh() !== ''
+				? (float) $station->getGridPriceKwh()
+				: null,
 			'latitude' => (float) $station->getLatitude(),
 			'longitude' => (float) $station->getLongitude(),
 			'name' => $station->getName(),
@@ -368,6 +650,15 @@ class LifecycleApiController extends ApiController
 		$data = json_decode($raw, true);
 
 		return is_array($data) ? $data : [];
+	}
+
+	
+	/**
+	 * Best-effort push to Odoo CRM mirror webhook.
+	 */
+	private function notifyOdooMirror(Installation $station): void
+	{
+		$this->odooMirror->notify($station);
 	}
 
 	private function authorized(): bool

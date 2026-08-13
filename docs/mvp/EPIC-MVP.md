@@ -1,13 +1,13 @@
 # Epic MVP — Admin/CRM integrity
 
-**Goal:** Ops manage lifecycle without dual systems fighting; CRM drives **only** Virtual→Planned; public site frozen and stable.
+**Goal:** Ops manage lifecycle without dual systems fighting; CRM and NC stay bidirectional (stages + station profile); public site frozen and stable.
 
 **Decisions:** D1–D4, D7, D9, D10  
 **Do not start feature coding until** `docs/architecture/TRS-ADDENDUM-D1-D10.md` is merged (this branch).
 
 ## Success (from plan)
 
-Ops run lifecycle on **Nextcloud admin**; CRM **Qualify → Planned** only; **Won ≠ installed**; public TRL5 stable; no second Odoo station admin.
+Ops run lifecycle on **Nextcloud admin**; CRM stages mirror NC (**Qualified→Virtual**, **Proposition→Planned**, **Installed→Running**); ADR 0006; public TRL5 stable; no second Odoo station admin.
 
 ## Stories
 
@@ -71,8 +71,9 @@ Ops run lifecycle on **Nextcloud admin**; CRM **Qualify → Planned** only; **Wo
 
 - Lead fields for NC ids/sync state.  
 - Service calling lifecycle API with token from config (no log of token).  
+- Extended by PR #29: demotions, profile sync, NC→CRM webhook, ops-only fleet import, public map list focus.  
 
-**AC:** Unit tests with http mock; token redaction in logs.
+**AC:** Unit tests with http mock; token redaction in logs; ADR 0006 stage matrix.
 
 ---
 
@@ -80,8 +81,10 @@ Ops run lifecycle on **Nextcloud admin**; CRM **Qualify → Planned** only; **Wo
 **Maps:** D7  
 
 - Package queue_job on Odoo 19 Community **or** ADR + cron interim.  
-- Jobs: create virtual on NGO lead create; promote on Qualified.  
-- Won → no install job.  
+- Jobs: ensure Virtual on Qualified; promote on Proposition; mark-installed on Installed;
+  set-lifecycle on demotion; profile push on station field edits.  
+- New has no NC station until Qualified (ADR 0006).  
+- Hourly `import_all_from_nc` reconcile + dashboard import button.  
 
 **AC:** CRM UI returns without waiting on NC; failed job visible; retry safe.
 
@@ -91,7 +94,7 @@ Ops run lifecycle on **Nextcloud admin**; CRM **Qualify → Planned** only; **Wo
 **Maps:** D10  
 
 - Tests: promote/remove; Won noop; public filter.  
-- Manual script: form → Virtual internal → Qualify → Planned on map → Won no Existing → admin install → Existing.  
+- Manual script: form → New (no NC) → Qualify → Virtual → Proposition → Planned on map → Installed → Running/Existing.  
 - Deploy note TRL5: NC + Odoo; no secret echo.  
 
 **AC:** CI green; manual checklist signed in PR.
