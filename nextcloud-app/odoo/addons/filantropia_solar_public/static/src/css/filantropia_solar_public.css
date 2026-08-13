@@ -231,3 +231,13 @@
 .fs-faq-item {
     padding: 1rem 1.15rem;
 }
+
+
+/* Station list → map focus */
+.fs-station-list-item {
+  cursor: pointer;
+}
+.fs-station-list-item.is-active {
+  outline: 2px solid #E8A020;
+  outline-offset: 2px;
+}

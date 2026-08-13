@@ -202,6 +202,7 @@ class LifecycleApiController extends ApiController
 			]);
 		}
 
+		$this->notifyOdooMirror($station);
 		return new JSONResponse([
 			'success' => true,
 			'station' => $this->toLifecycleArray($station),
@@ -252,6 +253,7 @@ class LifecycleApiController extends ApiController
 			]);
 		}
 
+		$this->notifyOdooMirror($station);
 		return new JSONResponse([
 			'success' => true,
 			'station' => $this->toLifecycleArray($station),
@@ -286,6 +288,39 @@ class LifecycleApiController extends ApiController
 		return new JSONResponse([
 			'success' => true,
 			'station' => $this->toLifecycleArray($station),
+		]);
+	}
+
+
+	/**
+	 * GET /api/lifecycle/v1/stations
+	 * Ops list for CRM mirror (includes Virtual; excludes soft-removed by default).
+	 */
+	#[PublicPage]
+	#[NoCSRFRequired]
+	public function index(): JSONResponse
+	{
+		if (!$this->authorized()) {
+			return $this->error('unauthorized', Http::STATUS_UNAUTHORIZED, 'unauthorized');
+		}
+
+		$includeSoft = filter_var(
+			$this->request->getParam('include_soft_removed', '0'),
+			FILTER_VALIDATE_BOOLEAN,
+		);
+		$stations = $this->mapper->findAll();
+		$out = [];
+		foreach ($stations as $station) {
+			if (!$includeSoft && $station->getSoftRemoved()) {
+				continue;
+			}
+			$out[] = $this->toLifecycleArray($station);
+		}
+
+		return new JSONResponse([
+			'success' => true,
+			'count' => count($out),
+			'stations' => $out,
 		]);
 	}
 
@@ -368,6 +403,47 @@ class LifecycleApiController extends ApiController
 		$data = json_decode($raw, true);
 
 		return is_array($data) ? $data : [];
+	}
+
+	
+	/**
+	 * Best-effort push to Odoo CRM mirror webhook.
+	 */
+	private function notifyOdooMirror(Installation $station): void
+	{
+		$url = (string) $this->config->getAppValue(Application::APP_ID, 'odoo_lifecycle_webhook_url', '');
+		if ($url === '') {
+			// Common local compose default
+			$url = 'http://filantropia-odoo:8069/filantropia/nc/lifecycle/http';
+		}
+		$token = (string) $this->config->getAppValue(Application::APP_ID, 'lifecycle_api_token', '');
+		if ($token === '') {
+			$token = (string) $this->config->getAppValue(Application::APP_ID, 'public_api_token', '');
+		}
+		if ($token === '') {
+			return;
+		}
+		$payload = json_encode([
+			'success' => true,
+			'station' => $this->toLifecycleArray($station),
+		]);
+		if ($payload === false) {
+			return;
+		}
+		try {
+			$ctx = stream_context_create([
+				'http' => [
+					'method' => 'POST',
+					'header' => "Content-Type: application/json\r\nAuthorization: Bearer {$token}\r\n",
+					'content' => $payload,
+					'timeout' => 5,
+					'ignore_errors' => true,
+				],
+			]);
+			@file_get_contents($url, false, $ctx);
+		} catch (\Throwable $e) {
+			$this->logger->warning('Odoo lifecycle webhook failed', ['exception' => $e]);
+		}
 	}
 
 	private function authorized(): bool

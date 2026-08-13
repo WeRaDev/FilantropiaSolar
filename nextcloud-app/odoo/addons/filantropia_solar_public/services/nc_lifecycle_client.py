@@ -145,3 +145,26 @@ class NcLifecycleClient:
     def get_station(self, installation_id: str) -> dict[str, Any]:
         enc = quote(str(installation_id), safe="")
         return self._request("GET", f"stations/{enc}")
+
+    def mark_installed(
+        self,
+        installation_id: str,
+        *,
+        installed_at: str | None = None,
+        actor: str | None = None,
+    ) -> dict[str, Any]:
+        enc = quote(str(installation_id), safe="")
+        body: dict[str, Any] = {}
+        if installed_at:
+            body["installed_at"] = installed_at
+        if actor:
+            body["actor"] = actor
+        return self._request("POST", f"stations/{enc}/mark-installed", body or {})
+
+    def list_stations(self, *, include_soft_removed: bool = False) -> dict[str, Any]:
+        q = (
+            "include_soft_removed=1"
+            if include_soft_removed
+            else "include_soft_removed=0"
+        )
+        return self._request("GET", f"stations?{q}")

@@ -70,7 +70,7 @@
                                 <div id="fs-stations-expand" class="fs-expand-body collapse" role="region" aria-labelledby="fs-stations-toggle">
                                     <ul class="list-unstyled fs-station-list mb-0">
                                         <t t-foreach="stations" t-as="station">
-                                            <li class="fs-station-item">
+                                            <li class="fs-station-list-item fs-station-item" t-att-data-station-id="station.get('id') or station.get('installation_id')" t-att-data-lat="station.get('latitude')" t-att-data-lng="station.get('longitude')" >
                                                 <strong t-esc="station.get('name')"/>
                                                 <div class="fs-station-meta text-muted small">
                                                     <span t-esc="station.get('location', 'Desconhecido')"/>
@@ -263,7 +263,7 @@
                             </thead>
                             <tbody>
                                 <t t-foreach="stations" t-as="station">
-                                    <tr>
+                                    <tr class="fs-station-list-item" t-att-data-station-id="station.get('id') or station.get('installation_id')" t-att-data-lat="station.get('latitude')" t-att-data-lng="station.get('longitude')">
                                         <td t-esc="station.get('name')"/>
                                         <td t-esc="station.get('location')"/>
                                         <td t-esc="station.get('capacity_kwp')"/>

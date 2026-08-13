@@ -946,12 +946,12 @@ class FilantropiaSolarPublicController(http.Controller):
             lead_vals["fs_station_grid_price_kwh"] = price_kwh
         lead = request.env["crm.lead"].sudo().create(lead_vals)
         self._attach_files(lead)
-        # Async Virtual station on NC (queue_job); idempotent by odoo_lead_id
-        try:
-            lead.fs_enqueue_create_virtual()
-        except Exception as exc:
-            _logger.warning("NC virtual enqueue after candidatura failed: %s", exc)
-        _logger.info("Donation application lead created: %s", lead.id)
+        # Deferred Virtual: New CRM stage has no NC station until Qualified
+        # (ADR 0006 mirror: New/none, Qualified/Virtual).
+        _logger.info(
+            "Donation application lead created (NC Virtual deferred until Qualified): %s",
+            lead.id,
+        )
 
         return self._render(
             "filantropia_solar_public.page_candidatura",

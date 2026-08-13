@@ -1,18 +1,18 @@
-"""CRM lead extensions: NC lifecycle sync fields + actions (MVP-5)."""
+"""CRM lead extensions: NC lifecycle sync fields + actions (mirror CRM <-> NC)."""
 
 from __future__ import annotations
 
 import contextlib
 import logging
 
-from odoo import fields, models
+from odoo import api, fields, models
 
 from ..services.nc_lifecycle_client import (
     NcLifecycleClient,
     NcLifecycleError,
     redact_secrets,
 )
-from ..services.stage_map import lifecycle_action_for_stage_change
+from ..services.stage_map import lifecycle_action_for_stage_change, nc_state_for_stage
 
 _logger = logging.getLogger(__name__)
 
@@ -53,6 +53,16 @@ class CrmLead(models.Model):
     )
     fs_nc_sync_error = fields.Text(string="NC sync error", copy=False)
     fs_nc_last_sync_at = fields.Datetime(string="NC last sync", copy=False)
+    fs_nc_sync_origin = fields.Selection(
+        selection=[
+            ("crm", "CRM"),
+            ("nc", "Nextcloud"),
+            ("sync", "Reconcile"),
+        ],
+        string="NC sync origin",
+        copy=False,
+        help="Last writer in the CRM/NC mirror; used to avoid echo loops.",
+    )
 
     # Snapshot used to create the Virtual station (set by candidatura controller)
     fs_station_location_label = fields.Char(string="Station location label", copy=False)
@@ -79,18 +89,19 @@ class CrmLead(models.Model):
         string="Filantropia donation application",
         default=False,
         copy=False,
-        help="True for NGO candidatura leads that should create a Virtual NC station.",
+        help="True for NGO candidatura leads that participate in NC lifecycle mirror.",
     )
 
     def _fs_client(self) -> NcLifecycleClient:
         return NcLifecycleClient()
 
-    def _fs_apply_station_payload(self, payload: dict) -> None:
+    def _fs_apply_station_payload(self, payload: dict, *, origin: str = "crm") -> None:
         station = (payload or {}).get("station") or {}
         vals = {
             "fs_nc_last_sync_at": fields.Datetime.now(),
             "fs_nc_sync_state": "ok",
             "fs_nc_sync_error": False,
+            "fs_nc_sync_origin": origin,
         }
         if station.get("installation_id"):
             vals["fs_nc_installation_id"] = station["installation_id"]
@@ -103,11 +114,12 @@ class CrmLead(models.Model):
             vals["fs_station_website"] = station["website"]
         if station.get("short_description") and not self.fs_station_short_description:
             vals["fs_station_short_description"] = station["short_description"]
-        self.write(vals)
+        # origin stamp must not re-trigger outbound stage jobs
+        self.with_context(fs_skip_nc_enqueue=True).write(vals)
 
     def _fs_mark_error(self, exc: Exception) -> None:
         msg = redact_secrets(str(exc))
-        self.write(
+        self.with_context(fs_skip_nc_enqueue=True).write(
             {
                 "fs_nc_sync_state": "error",
                 "fs_nc_sync_error": msg[:2000],
@@ -118,9 +130,24 @@ class CrmLead(models.Model):
     def fs_create_virtual_station(self) -> bool:
         """Create Virtual station on NC (idempotent via odoo_lead_id)."""
         self.ensure_one()
-        if not self.fs_is_donation_application:
-            self.write({"fs_nc_sync_state": "skipped", "fs_nc_sync_error": False})
+        if not self.fs_is_donation_application and not self.fs_nc_installation_id:
+            self.with_context(fs_skip_nc_enqueue=True).write(
+                {"fs_nc_sync_state": "skipped", "fs_nc_sync_error": False}
+            )
             return False
+
+        # Already virtual or beyond: refresh only
+        if (
+            self.fs_nc_lifecycle_state in ("virtual", "planned", "running")
+            and (self.fs_nc_installation_id or "").strip()
+        ):
+            if self.fs_nc_lifecycle_state == "virtual":
+                self.with_context(fs_skip_nc_enqueue=True).write(
+                    {"fs_nc_sync_state": "ok", "fs_nc_sync_error": False}
+                )
+                return True
+            # higher states already satisfy ensure_virtual
+            return True
 
         capacity = float(self.fs_station_capacity_kwp or 0.0)
         if capacity <= 0:
@@ -148,7 +175,7 @@ class CrmLead(models.Model):
 
         try:
             result = self._fs_client().create_virtual(payload)
-            self._fs_apply_station_payload(result)
+            self._fs_apply_station_payload(result, origin="crm")
             _logger.info(
                 "NC virtual station synced for lead %s -> %s",
                 self.id,
@@ -167,13 +194,15 @@ class CrmLead(models.Model):
     def fs_promote_planned(self) -> bool:
         """Promote linked NC station Virtual → Planned."""
         self.ensure_one()
+        if (
+            self.fs_nc_lifecycle_state in ("planned", "running")
+            and (self.fs_nc_installation_id or "").strip()
+        ):
+            return True
         installation_id = (self.fs_nc_installation_id or "").strip()
-        if not installation_id and self.fs_is_donation_application:
-            # Ensure Virtual exists first (covers failed/async create races)
+        if not installation_id:
             if not self.fs_create_virtual_station():
-                # fs_create_virtual_station already marked error state
                 return False
-            # refresh from DB after write inside create
             installation_id = (self.fs_nc_installation_id or "").strip()
         if not installation_id:
             self._fs_mark_error(
@@ -185,7 +214,7 @@ class CrmLead(models.Model):
             return False
         try:
             result = self._fs_client().promote_planned(installation_id)
-            self._fs_apply_station_payload(result)
+            self._fs_apply_station_payload(result, origin="crm")
             _logger.info(
                 "NC promote planned for lead %s -> %s",
                 self.id,
@@ -201,12 +230,56 @@ class CrmLead(models.Model):
             )
             return False
 
+    def fs_mark_installed(self) -> bool:
+        """Mark linked NC station Planned → Running (Installed CRM stage)."""
+        self.ensure_one()
+        if (
+            self.fs_nc_lifecycle_state == "running"
+            and (self.fs_nc_installation_id or "").strip()
+        ):
+            return True
+        # Ensure Planned first when only Virtual/missing
+        if self.fs_nc_lifecycle_state != "planned":
+            if not self.fs_promote_planned():
+                return False
+        installation_id = (self.fs_nc_installation_id or "").strip()
+        if not installation_id:
+            self._fs_mark_error(
+                NcLifecycleError("missing fs_nc_installation_id for mark-installed")
+            )
+            return False
+        try:
+            result = self._fs_client().mark_installed(
+                installation_id, actor=f"odoo-lead-{self.id}"
+            )
+            self._fs_apply_station_payload(result, origin="crm")
+            _logger.info(
+                "NC mark installed for lead %s -> %s",
+                self.id,
+                self.fs_nc_installation_id,
+            )
+            return True
+        except NcLifecycleError as exc:
+            self._fs_mark_error(exc)
+            _logger.warning(
+                "NC mark installed failed for lead %s: %s",
+                self.id,
+                redact_secrets(str(exc)),
+            )
+            return False
+
     def fs_enqueue_create_virtual(self):
-        """Enqueue Virtual create (non-blocking). Falls back to sync if queue_job unavailable."""
+        """Enqueue Virtual create (non-blocking)."""
         for lead in self:
-            if not lead.fs_is_donation_application:
+            if not lead.fs_is_donation_application and not lead.fs_nc_installation_id:
                 continue
-            lead.write({"fs_nc_sync_state": "pending", "fs_nc_sync_error": False})
+            lead.with_context(fs_skip_nc_enqueue=True).write(
+                {
+                    "fs_nc_sync_state": "pending",
+                    "fs_nc_sync_error": False,
+                    "fs_nc_sync_origin": "crm",
+                }
+            )
             if hasattr(lead, "with_delay"):
                 lead.with_delay(
                     priority=10,
@@ -219,10 +292,17 @@ class CrmLead(models.Model):
         return True
 
     def fs_enqueue_promote_planned(self):
-        """Enqueue promote Planned (non-blocking). Falls back to sync if queue_job unavailable."""
+        """Enqueue promote Planned (non-blocking)."""
         for lead in self:
-            if not lead.fs_is_donation_application:
+            if not lead.fs_is_donation_application and not lead.fs_nc_installation_id:
                 continue
+            lead.with_context(fs_skip_nc_enqueue=True).write(
+                {
+                    "fs_nc_sync_state": "pending",
+                    "fs_nc_sync_error": False,
+                    "fs_nc_sync_origin": "crm",
+                }
+            )
             if hasattr(lead, "with_delay"):
                 lead.with_delay(
                     priority=10,
@@ -234,10 +314,34 @@ class CrmLead(models.Model):
                 lead.fs_promote_planned()
         return True
 
+    def fs_enqueue_mark_installed(self):
+        """Enqueue mark-installed / Running (non-blocking)."""
+        for lead in self:
+            if not lead.fs_is_donation_application and not lead.fs_nc_installation_id:
+                continue
+            lead.with_context(fs_skip_nc_enqueue=True).write(
+                {
+                    "fs_nc_sync_state": "pending",
+                    "fs_nc_sync_error": False,
+                    "fs_nc_sync_origin": "crm",
+                }
+            )
+            if hasattr(lead, "with_delay"):
+                lead.with_delay(
+                    priority=10,
+                    description=f"NC mark installed for lead {lead.id}",
+                    channel="root.filantropia",
+                    identity_key=f"fs-installed-{lead.id}",
+                ).fs_mark_installed()
+            else:
+                lead.fs_mark_installed()
+        return True
+
     def write(self, vals):
+        skip = self.env.context.get("fs_skip_nc_enqueue")
         old_stages = {lead.id: lead.stage_id for lead in self}
         res = super().write(vals)
-        if "stage_id" not in vals:
+        if skip or "stage_id" not in vals:
             return res
         for lead in self:
             old_stage = old_stages.get(lead.id)
@@ -248,8 +352,22 @@ class CrmLead(models.Model):
                 old_is_won=bool(old_stage.is_won) if old_stage else False,
                 new_is_won=bool(new_stage.is_won) if new_stage else False,
             )
-            if action == "promote_planned" and lead.fs_is_donation_application:
-                # Async job; failures stay on lead.fs_nc_sync_* / queue.job
+            # Skip if NC already at target (inbound mirror or manual re-write)
+            target = nc_state_for_stage(
+                new_stage.name if new_stage else None,
+                is_won=bool(new_stage.is_won) if new_stage else False,
+            )
+            if target and lead.fs_nc_lifecycle_state == target:
+                continue
+            if action == "ensure_virtual":
+                lead.fs_enqueue_create_virtual()
+            elif action == "promote_planned":
                 lead.fs_enqueue_promote_planned()
-            # Won: intentionally no NC call (D4 Won ≠ installed)
+            elif action == "mark_installed":
+                lead.fs_enqueue_mark_installed()
         return res
+
+    @api.model
+    def cron_import_all_from_nc(self):
+        """Hourly reconcile: ensure every NC station has a CRM lead."""
+        return self.env["fs.station.sync"].import_all_from_nc()

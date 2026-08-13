@@ -7,7 +7,7 @@
 
 ## Success (from plan)
 
-Ops run lifecycle on **Nextcloud admin**; CRM **Qualify → Planned** only; **Won ≠ installed**; public TRL5 stable; no second Odoo station admin.
+Ops run lifecycle on **Nextcloud admin**; CRM stages mirror NC (**Qualified→Virtual**, **Proposition→Planned**, **Installed→Running**); ADR 0006; public TRL5 stable; no second Odoo station admin.
 
 ## Stories
 
@@ -81,7 +81,7 @@ Ops run lifecycle on **Nextcloud admin**; CRM **Qualify → Planned** only; **Wo
 
 - Package queue_job on Odoo 19 Community **or** ADR + cron interim.  
 - Jobs: create virtual on NGO lead create; promote on Qualified.  
-- Won → no install job.  
+- Installed → mark-installed (Running); New has no NC station until Qualified.  
 
 **AC:** CRM UI returns without waiting on NC; failed job visible; retry safe.
 
@@ -91,7 +91,7 @@ Ops run lifecycle on **Nextcloud admin**; CRM **Qualify → Planned** only; **Wo
 **Maps:** D10  
 
 - Tests: promote/remove; Won noop; public filter.  
-- Manual script: form → Virtual internal → Qualify → Planned on map → Won no Existing → admin install → Existing.  
+- Manual script: form → New (no NC) → Qualify → Virtual → Proposition → Planned on map → Installed → Running/Existing.  
 - Deploy note TRL5: NC + Odoo; no secret echo.  
 
 **AC:** CI green; manual checklist signed in PR.
