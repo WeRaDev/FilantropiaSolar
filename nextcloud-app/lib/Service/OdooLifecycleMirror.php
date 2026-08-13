@@ -64,6 +64,7 @@ class OdooLifecycleMirror
 				'grid_price_kwh' => $station->getGridPriceKwh() !== null && $station->getGridPriceKwh() !== ''
 					? (float) $station->getGridPriceKwh()
 					: null,
+				'grid_connection_type' => $station->getGridConnectionType() ?: 'on_grid',
 				'latitude' => (float) $station->getLatitude(),
 				'longitude' => (float) $station->getLongitude(),
 				'name' => $station->getName(),

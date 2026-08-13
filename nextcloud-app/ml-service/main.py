@@ -1630,6 +1630,100 @@ def predict_production_simple(
     return max(0, production)
 
 
+class HourlySimulateRequest(BaseModel):
+    """Fleet-by-meta hourly production simulation for NC series gap-fill."""
+
+    latitude: float
+    longitude: float
+    capacity_kwp: float
+    location: str | None = "Lisbon"
+    start: str  # ISO datetime UTC
+    end: str  # ISO datetime UTC
+
+
+@app.post("/simulate/hourly")
+async def simulate_hourly(request: HourlySimulateRequest):
+    """
+    Simulate hourly production for arbitrary lat/lon/capacity over [start, end].
+    Does not require a Mendeley training installation id. NC owns persistence.
+    """
+    try:
+        start = datetime.fromisoformat(request.start.replace("Z", "+00:00")).replace(
+            tzinfo=None
+        )
+        end = datetime.fromisoformat(request.end.replace("Z", "+00:00")).replace(
+            tzinfo=None
+        )
+        if end < start:
+            return {"success": False, "error": "end before start", "hours": []}
+
+        # Floor to hour
+        start = start.replace(minute=0, second=0, microsecond=0)
+        end = end.replace(minute=0, second=0, microsecond=0)
+        days = max(1, (end.date() - start.date()).days + 1)
+        location = request.location or "Lisbon"
+        capacity_kwp = float(request.capacity_kwp or 0.0)
+        if capacity_kwp <= 0:
+            return {
+                "success": False,
+                "error": "capacity_kwp must be positive",
+                "hours": [],
+            }
+
+        # Prefer nearest known location name for historical weather files when possible
+        weather_df = await generate_weather_for_period(location, start, days)
+        weather_source = getattr(weather_df, "attrs", {}).get(
+            "weather_source", "synthetic"
+        )
+
+        hours = []
+        for _, row in weather_df.iterrows():
+            ts = row["timestamp"]
+            if hasattr(ts, "to_pydatetime"):
+                ts_dt = ts.to_pydatetime().replace(tzinfo=None)
+            elif isinstance(ts, datetime):
+                ts_dt = ts.replace(tzinfo=None)
+            else:
+                ts_dt = datetime.fromisoformat(str(ts).replace("Z", ""))
+            ts_dt = ts_dt.replace(minute=0, second=0, microsecond=0)
+            if ts_dt < start or ts_dt > end:
+                continue
+            production = predict_production_simple(
+                capacity_kwp,
+                float(row.get("shortwave_radiation", 0) or 0),
+                float(row.get("cloud_cover", 0) or 0),
+                float(row.get("temperature_2m", 15) or 15),
+            )
+            hours.append(
+                {
+                    "timestamp": ts_dt.strftime("%Y-%m-%dT%H:00:00Z"),
+                    "production_kwh": float(production),
+                    "temperature_c": float(row.get("temperature_2m", 0) or 0),
+                    "cloud_cover_pct": int(float(row.get("cloud_cover", 0) or 0)),
+                    "solar_radiation_wm2": float(
+                        row.get("shortwave_radiation", 0) or 0
+                    ),
+                    "shortwave_radiation": float(
+                        row.get("shortwave_radiation", 0) or 0
+                    ),
+                }
+            )
+
+        return {
+            "success": True,
+            "hours": hours,
+            "count": len(hours),
+            "weather_source": weather_source,
+            "capacity_kwp": capacity_kwp,
+            "location": location,
+            "latitude": request.latitude,
+            "longitude": request.longitude,
+        }
+    except Exception as exc:
+        logger.exception("simulate/hourly failed")
+        return {"success": False, "error": str(exc), "hours": []}
+
+
 @app.post("/predict/period", response_model=PeriodPredictionResponse)
 async def predict_period(request: PeriodPredictionRequest):
     """

@@ -62,6 +62,8 @@ use OCP\AppFramework\Db\Entity;
  * @method void setWebsite(?string $website)
  * @method string|null getShortDescription()
  * @method void setShortDescription(?string $shortDescription)
+ * @method string getGridConnectionType()
+ * @method void setGridConnectionType(string $gridConnectionType)
  */
 class Installation extends Entity implements JsonSerializable
 {
@@ -89,6 +91,7 @@ class Installation extends Entity implements JsonSerializable
 	protected ?DateTime $installedAt = null;
 	protected ?string $website = null;
 	protected ?string $shortDescription = null;
+	protected string $gridConnectionType = 'on_grid';
 
 	/** @var bool|null Transient: measured readings present (not persisted). */
 	private ?bool $hasMeasuredData = null;
@@ -119,6 +122,7 @@ class Installation extends Entity implements JsonSerializable
 		$this->addType('installedAt', 'datetime');
 		$this->addType('website', 'string');
 		$this->addType('shortDescription', 'string');
+		$this->addType('gridConnectionType', 'string');
 	}
 
 	/**
@@ -140,6 +144,16 @@ class Installation extends Entity implements JsonSerializable
 	public function getGridPriceFloat(): float
 	{
 		return (float) ($this->gridPriceKwh ?? '0.15');
+	}
+
+	public const GRID_ON = 'on_grid';
+	public const GRID_OFF = 'off_grid';
+
+	/** Self-consumption factor for savings: off-grid 1.0, on-grid 0.4. */
+	public function getSelfConsumptionFactor(): float
+	{
+		$type = $this->gridConnectionType !== '' ? $this->gridConnectionType : self::GRID_ON;
+		return $type === self::GRID_OFF ? 1.0 : 0.4;
 	}
 
 	public function getInstallationId(): string
@@ -219,6 +233,8 @@ class Installation extends Entity implements JsonSerializable
 			'installed_at' => $this->installedAt?->format('c'),
 			'website' => $this->website,
 			'short_description' => $this->shortDescription,
+			'grid_connection_type' => $this->gridConnectionType !== '' ? $this->gridConnectionType : self::GRID_ON,
+			'self_consumption_factor' => $this->getSelfConsumptionFactor(),
 			'is_public' => StationLifecycle::isPublic($state, $this->softRemoved),
 			'public_category' => StationLifecycle::publicCategory($state, $this->softRemoved),
 			'running_mode' => StationLifecycle::runningMode(

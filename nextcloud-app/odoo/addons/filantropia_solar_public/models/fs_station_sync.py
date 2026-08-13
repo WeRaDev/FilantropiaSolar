@@ -108,6 +108,9 @@ class FsStationSync(models.AbstractModel):
                 vals["fs_station_grid_price_kwh"] = float(
                     station.get("grid_price_kwh") or 0.0
                 )
+        gct = (station.get("grid_connection_type") or "").strip().lower()
+        if gct in ("on_grid", "off_grid"):
+            vals["fs_station_grid_connection_type"] = gct
         if station.get("id") is not None:
             with contextlib.suppress(TypeError, ValueError):
                 vals["fs_nc_db_id"] = int(station["id"])

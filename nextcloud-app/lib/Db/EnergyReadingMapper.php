@@ -235,9 +235,9 @@ class EnergyReadingMapper extends QBMapper
                 'installation_id',
                 $qb->createNamedParameter($installationId, IQueryBuilder::PARAM_INT),
             ))
-            ->andWhere($qb->expr()->gt(
-                'production_kwh',
-                $qb->createNamedParameter(0, IQueryBuilder::PARAM_INT),
+            ->andWhere($qb->expr()->eq(
+                'provenance',
+                $qb->createNamedParameter(EnergyReading::PROVENANCE_MEASURED),
             ))
             ->setMaxResults(1);
 
@@ -246,5 +246,220 @@ class EnergyReadingMapper extends QBMapper
         $result->closeCursor();
 
         return $count > 0;
+    }
+
+    /**
+     * Production for the latest complete hour row (by timestamp DESC).
+     */
+    public function findLatestProduction(int $installationId): ?float
+    {
+        try {
+            $latest = $this->findLatest($installationId);
+        } catch (DoesNotExistException $e) {
+            return null;
+        }
+
+        return $latest->getProductionFloat();
+    }
+
+    /**
+     * @return list<string> timestamps formatted Y-m-d H:i:s
+     */
+    public function listTimestamps(int $installationId, DateTime $since, DateTime $until): array
+    {
+        $qb = $this->db->getQueryBuilder();
+        $qb->select('timestamp')
+            ->from($this->getTableName())
+            ->where($qb->expr()->eq('installation_id', $qb->createNamedParameter($installationId, IQueryBuilder::PARAM_INT)))
+            ->andWhere($qb->expr()->gte('timestamp', $qb->createNamedParameter($since->format('Y-m-d H:i:s'))))
+            ->andWhere($qb->expr()->lte('timestamp', $qb->createNamedParameter($until->format('Y-m-d H:i:s'))))
+            ->orderBy('timestamp', 'ASC');
+
+        $result = $qb->executeQuery();
+        $out = [];
+        while ($row = $result->fetch()) {
+            $ts = $row['timestamp'] ?? null;
+            if ($ts instanceof \DateTimeInterface) {
+                $out[] = $ts->format('Y-m-d H:i:s');
+            } elseif (is_string($ts) && $ts !== '') {
+                // Normalize to hour floor string
+                try {
+                    $dt = new DateTime($ts);
+                    $out[] = $dt->format('Y-m-d H:00:00');
+                } catch (\Throwable) {
+                    $out[] = substr($ts, 0, 13) . ':00:00';
+                }
+            }
+        }
+        $result->closeCursor();
+
+        return $out;
+    }
+
+    /**
+     * Counts by provenance for admin visibility.
+     *
+     * @return array{measured:int, simulated:int, total:int}
+     */
+    public function countByProvenance(int $installationId): array
+    {
+        $qb = $this->db->getQueryBuilder();
+        $qb->select('provenance')
+            ->selectAlias($qb->createFunction('COUNT(*)'), 'cnt')
+            ->from($this->getTableName())
+            ->where($qb->expr()->eq('installation_id', $qb->createNamedParameter($installationId, IQueryBuilder::PARAM_INT)))
+            ->groupBy('provenance');
+
+        $result = $qb->executeQuery();
+        $measured = 0;
+        $simulated = 0;
+        while ($row = $result->fetch()) {
+            $p = (string) ($row['provenance'] ?? EnergyReading::PROVENANCE_SIMULATED);
+            $c = (int) ($row['cnt'] ?? 0);
+            if ($p === EnergyReading::PROVENANCE_MEASURED) {
+                $measured += $c;
+            } else {
+                $simulated += $c;
+            }
+        }
+        $result->closeCursor();
+
+        return [
+            'measured' => $measured,
+            'simulated' => $simulated,
+            'total' => $measured + $simulated,
+        ];
+    }
+
+    /**
+     * Insert simulated reading only if hour is empty.
+     *
+     * @return 'inserted'|'exists'|'measured'
+     */
+    public function insertSimulatedIfEmpty(
+        int $installationId,
+        DateTime $timestamp,
+        float $productionKwh,
+        ?float $temperatureC = null,
+        ?int $cloudCoverPct = null,
+        ?float $solarRadiationWm2 = null,
+    ): string {
+        $existing = $this->findByInstallationAndTimestamp($installationId, $timestamp);
+        if ($existing !== null) {
+            $prov = $existing->getProvenance() ?: EnergyReading::PROVENANCE_SIMULATED;
+            return $prov === EnergyReading::PROVENANCE_MEASURED ? 'measured' : 'exists';
+        }
+
+        $reading = new EnergyReading();
+        $reading->setInstallationId($installationId);
+        $reading->setTimestamp($timestamp);
+        $reading->setProductionKwh((string) $productionKwh);
+        $reading->setProvenance(EnergyReading::PROVENANCE_SIMULATED);
+        if ($temperatureC !== null) {
+            $reading->setTemperatureC((string) $temperatureC);
+        }
+        if ($cloudCoverPct !== null) {
+            $reading->setCloudCoverPct($cloudCoverPct);
+        }
+        if ($solarRadiationWm2 !== null) {
+            $reading->setSolarRadiationWm2((string) $solarRadiationWm2);
+        }
+        try {
+            $this->insert($reading);
+            return 'inserted';
+        } catch (\Exception $e) {
+            // race / unique
+            $again = $this->findByInstallationAndTimestamp($installationId, $timestamp);
+            if ($again !== null && ($again->getProvenance() ?: '') === EnergyReading::PROVENANCE_MEASURED) {
+                return 'measured';
+            }
+            return 'exists';
+        }
+    }
+
+    /**
+     * Upsert measured reading. Overwrites simulated; never blocked.
+     *
+     * @return 'inserted'|'updated'|'failed'
+     */
+    public function upsertMeasured(
+        int $installationId,
+        DateTime $timestamp,
+        float $productionKwh,
+        ?float $consumptionKwh = null,
+        ?float $solarRadiationWm2 = null,
+        ?float $temperatureC = null,
+        ?int $cloudCoverPct = null,
+    ): string {
+        $existing = $this->findByInstallationAndTimestamp($installationId, $timestamp);
+        if ($existing === null) {
+            $reading = new EnergyReading();
+            $reading->setInstallationId($installationId);
+            $reading->setTimestamp($timestamp);
+            $reading->setProductionKwh((string) $productionKwh);
+            $reading->setProvenance(EnergyReading::PROVENANCE_MEASURED);
+            if ($consumptionKwh !== null) {
+                $reading->setConsumptionKwh((string) $consumptionKwh);
+            }
+            if ($solarRadiationWm2 !== null) {
+                $reading->setSolarRadiationWm2((string) $solarRadiationWm2);
+            }
+            if ($temperatureC !== null) {
+                $reading->setTemperatureC((string) $temperatureC);
+            }
+            if ($cloudCoverPct !== null) {
+                $reading->setCloudCoverPct($cloudCoverPct);
+            }
+            try {
+                $this->insert($reading);
+                return 'inserted';
+            } catch (\Exception $e) {
+                $existing = $this->findByInstallationAndTimestamp($installationId, $timestamp);
+                if ($existing === null) {
+                    return 'failed';
+                }
+            }
+        }
+
+        if ($existing === null) {
+            return 'failed';
+        }
+
+        $existing->setProductionKwh((string) $productionKwh);
+        $existing->setProvenance(EnergyReading::PROVENANCE_MEASURED);
+        if ($consumptionKwh !== null) {
+            $existing->setConsumptionKwh((string) $consumptionKwh);
+        }
+        if ($solarRadiationWm2 !== null) {
+            $existing->setSolarRadiationWm2((string) $solarRadiationWm2);
+        }
+        if ($temperatureC !== null) {
+            $existing->setTemperatureC((string) $temperatureC);
+        }
+        if ($cloudCoverPct !== null) {
+            $existing->setCloudCoverPct($cloudCoverPct);
+        }
+        $this->update($existing);
+
+        return 'updated';
+    }
+
+    public function findByInstallationAndTimestamp(int $installationId, DateTime $timestamp): ?EnergyReading
+    {
+        $qb = $this->db->getQueryBuilder();
+        $qb->select('*')
+            ->from($this->getTableName())
+            ->where($qb->expr()->eq('installation_id', $qb->createNamedParameter($installationId, IQueryBuilder::PARAM_INT)))
+            ->andWhere($qb->expr()->eq('timestamp', $qb->createNamedParameter($timestamp->format('Y-m-d H:i:s'))))
+            ->setMaxResults(1);
+
+        try {
+            return $this->findEntity($qb);
+        } catch (DoesNotExistException $e) {
+            return null;
+        } catch (MultipleObjectsReturnedException $e) {
+            $entities = $this->findEntities($qb);
+            return $entities[0] ?? null;
+        }
     }
 }

@@ -9,7 +9,9 @@ use OCA\FilantropiaSolar\AppInfo\Application;
 use OCA\FilantropiaSolar\Db\Installation;
 use OCA\FilantropiaSolar\Db\EnergyReadingMapper;
 use OCA\FilantropiaSolar\Db\InstallationMapper;
+use OCA\FilantropiaSolar\Service\FilantropiaAccess;
 use OCA\FilantropiaSolar\Service\OdooLifecycleMirror;
+use OCA\FilantropiaSolar\Service\SavingsService;
 use OCA\FilantropiaSolar\Service\StationLifecycle;
 use OCP\AppFramework\ApiController;
 use OCP\AppFramework\Db\DoesNotExistException;
@@ -42,6 +44,7 @@ class InstallationApiController extends ApiController
         private readonly IRootFolder $rootFolder,
         private readonly LoggerInterface $logger,
         private readonly OdooLifecycleMirror $odooMirror,
+        private readonly FilantropiaAccess $access,
     ) {
         parent::__construct(Application::APP_ID, $request);
     }
@@ -205,6 +208,9 @@ class InstallationApiController extends ApiController
         if (!$userId) {
             return $this->errorResponse('Unauthorized', Http::STATUS_UNAUTHORIZED);
         }
+        if (!$this->access->canEditMasterData()) {
+            return $this->errorResponse('FilantropiaSolarAdmin required', Http::STATUS_FORBIDDEN);
+        }
 
         $installation = $this->resolveStation($id);
         if ($installation === null) {
@@ -252,6 +258,12 @@ class InstallationApiController extends ApiController
                     $installation->setInstallationDate(new DateTime((string) $raw));
                 }
             }
+            if (array_key_exists('grid_connection_type', $payload) || array_key_exists('gridConnectionType', $payload)) {
+                $g = (string) ($payload['grid_connection_type'] ?? $payload['gridConnectionType'] ?? '');
+                if (in_array($g, [Installation::GRID_ON, Installation::GRID_OFF], true)) {
+                    $installation->setGridConnectionType($g);
+                }
+            }
 
             $installation->setUpdatedAt(new DateTime());
             $updated = $this->mapper->update($installation);
@@ -282,6 +294,9 @@ class InstallationApiController extends ApiController
         $userId = $this->getUserId();
         if (!$userId) {
             return $this->errorResponse('Unauthorized', Http::STATUS_UNAUTHORIZED);
+        }
+        if (!$this->access->canEditMasterData()) {
+            return $this->errorResponse('FilantropiaSolarAdmin required', Http::STATUS_FORBIDDEN);
         }
 
         try {
@@ -479,6 +494,9 @@ class InstallationApiController extends ApiController
     #[NoCSRFRequired]
     public function promotePlanned(string $id): JSONResponse
     {
+        if (($deny = $this->requireFilantropiaAdmin()) !== null) {
+            return $deny;
+        }
         $station = $this->resolveStation($id);
         if ($station === null) {
             return $this->errorResponse('Installation not found', Http::STATUS_NOT_FOUND);
@@ -515,6 +533,9 @@ class InstallationApiController extends ApiController
     #[NoCSRFRequired]
     public function markInstalled(string $id): JSONResponse
     {
+        if (($deny = $this->requireFilantropiaAdmin()) !== null) {
+            return $deny;
+        }
         $station = $this->resolveStation($id);
         if ($station === null) {
             return $this->errorResponse('Installation not found', Http::STATUS_NOT_FOUND);
@@ -559,6 +580,9 @@ class InstallationApiController extends ApiController
     #[NoCSRFRequired]
     public function softRemove(string $id): JSONResponse
     {
+        if (($deny = $this->requireFilantropiaAdmin()) !== null) {
+            return $deny;
+        }
         $station = $this->resolveStation($id);
         if ($station === null) {
             return $this->errorResponse('Installation not found', Http::STATUS_NOT_FOUND);
@@ -587,6 +611,9 @@ class InstallationApiController extends ApiController
     #[NoCSRFRequired]
     public function setLifecycle(string $id): JSONResponse
     {
+        if (($deny = $this->requireFilantropiaAdmin()) !== null) {
+            return $deny;
+        }
         $station = $this->resolveStation($id);
         if ($station === null) {
             return $this->errorResponse('Installation not found', Http::STATUS_NOT_FOUND);
@@ -738,6 +765,8 @@ class InstallationApiController extends ApiController
             'website' => $inst->getWebsite(),
             'short_description' => $inst->getShortDescription(),
             'grid_price_kwh' => $inst->getGridPriceKwh() !== null ? (float) $inst->getGridPriceKwh() : null,
+            'grid_connection_type' => $inst->getGridConnectionType() ?: Installation::GRID_ON,
+            'self_consumption_factor' => $inst->getSelfConsumptionFactor(),
         ];
     }
 
@@ -781,6 +810,8 @@ class InstallationApiController extends ApiController
             'website' => $inst->getWebsite(),
             'short_description' => $inst->getShortDescription(),
             'grid_price_kwh' => $inst->getGridPriceKwh() !== null ? (float) $inst->getGridPriceKwh() : null,
+            'grid_connection_type' => $inst->getGridConnectionType() ?: Installation::GRID_ON,
+            'self_consumption_factor' => $inst->getSelfConsumptionFactor(),
         ];
     }
 
@@ -815,17 +846,39 @@ class InstallationApiController extends ApiController
 
         $price = isset($payload['grid_price_kwh']) ? (float) $payload['grid_price_kwh'] : (float) Application::DEFAULT_GRID_PRICE;
         $capacity = (float) ($payload['capacity_kwp'] ?? 0);
-        // D8 capacity factor proxy when we have series: kWh / (kWp * hours) not available without window;
-        // expose simple kWh/kWp if capacity > 0 else 0.
-        $efficiency = ($capacity > 0 && $production > 0) ? min(1.0, $production / ($capacity * 1500.0)) : 0.0;
+        $factor = isset($payload['self_consumption_factor'])
+            ? (float) $payload['self_consumption_factor']
+            : SavingsService::factorForGridType($payload['grid_connection_type'] ?? null);
+
+        $lastHourKwh = null;
+        try {
+            $lastHourKwh = $this->readingMapper->findLatestProduction($dbId);
+        } catch (\Throwable $e) {
+            $lastHourKwh = null;
+        }
+        // List badge: last complete hour kWh / capacity kWp (null if no sample).
+        $efficiency = null;
+        if ($capacity > 0 && $lastHourKwh !== null) {
+            $efficiency = round($lastHourKwh / $capacity, 6);
+        }
+
+        $mix = ['measured' => 0, 'simulated' => 0, 'total' => $count];
+        try {
+            $mix = $this->readingMapper->countByProvenance($dbId);
+        } catch (\Throwable $e) {
+            // column may be missing pre-migration
+        }
 
         $payload['total_production_kwh'] = round($production, 4);
-        $payload['total_savings_eur'] = round($production * $price, 4);
+        $payload['total_savings_eur'] = round($production * $price * $factor, 4);
         $payload['readings_count'] = $count;
         $payload['has_series_data'] = $count > 0;
         $payload['has_measured_data'] = $hasMeasured;
         $payload['series_source'] = $count > 0 ? 'nc_readings' : 'none';
-        $payload['efficiency'] = round($efficiency, 4);
+        $payload['efficiency'] = $efficiency;
+        $payload['last_hour_production_kwh'] = $lastHourKwh !== null ? round($lastHourKwh, 4) : null;
+        $payload['self_consumption_factor'] = $factor;
+        $payload['series_mix'] = $mix;
         // Ops status: for running stations, active=measured, offline=no measured series
         $lc = (string) ($payload['lifecycle_state'] ?? 'running');
         if ($lc === StationLifecycle::RUNNING && empty($payload['soft_removed'])) {
@@ -865,6 +918,17 @@ class InstallationApiController extends ApiController
         }
 
         return 'offline';
+    }
+
+    private function requireFilantropiaAdmin(): ?JSONResponse
+    {
+        if (!$this->getUserId()) {
+            return $this->errorResponse('Unauthorized', Http::STATUS_UNAUTHORIZED);
+        }
+        if (!$this->access->canChangeLifecycle()) {
+            return $this->errorResponse('FilantropiaSolarAdmin required', Http::STATUS_FORBIDDEN);
+        }
+        return null;
     }
 
     /**
