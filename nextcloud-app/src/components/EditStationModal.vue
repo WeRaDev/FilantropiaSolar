@@ -88,6 +88,7 @@ import { computed, nextTick, onUnmounted, reactive, ref, watch } from 'vue'
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
 import { useAppStore } from '../store/app.js'
+import { createLocationPinIcon, fixLeafletDefaultIcons } from '../utils/leafletIcons.js'
 
 const LOCATIONS = [
 	{ name: 'Lisbon', lat: 38.7223, lng: -9.1393 },
@@ -160,11 +161,13 @@ export default {
 
 		const addMarker = (lat, lng) => {
 			if (!map) return
+			const icon = createLocationPinIcon()
 			if (marker) {
 				marker.setLatLng([lat, lng])
+				marker.setIcon(icon)
 				return
 			}
-			marker = L.marker([lat, lng], { draggable: true }).addTo(map)
+			marker = L.marker([lat, lng], { draggable: true, icon }).addTo(map)
 			marker.on('dragend', (e) => {
 				const pos = e.target.getLatLng()
 				form.latitude = parseFloat(pos.lat.toFixed(4))
@@ -174,6 +177,7 @@ export default {
 
 		const initMap = () => {
 			if (!mapContainer.value || map) return
+			fixLeafletDefaultIcons()
 			const defaultLat = form.latitude != null ? Number(form.latitude) : 39.5
 			const defaultLng = form.longitude != null ? Number(form.longitude) : -8.0
 			map = L.map(mapContainer.value, {
