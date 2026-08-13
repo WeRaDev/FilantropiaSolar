@@ -81,6 +81,15 @@ class CrmLead(models.Model):
         digits=(8, 4),
         copy=False,
     )
+    fs_station_grid_connection_type = fields.Selection(
+        selection=[
+            ("on_grid", "On-grid"),
+            ("off_grid", "Off-grid"),
+        ],
+        string="Grid connection",
+        default="on_grid",
+        copy=False,
+    )
     fs_station_website = fields.Char(string="Organisation website", copy=False)
     fs_station_short_description = fields.Text(
         string="Organisation short description",
@@ -146,6 +155,9 @@ class CrmLead(models.Model):
                 vals["fs_station_grid_price_kwh"] = float(
                     station.get("grid_price_kwh") or 0.0
                 )
+        gct = (station.get("grid_connection_type") or "").strip().lower()
+        if gct in ("on_grid", "off_grid"):
+            vals["fs_station_grid_connection_type"] = gct
         # origin stamp must not re-trigger outbound stage jobs
         self.with_context(fs_skip_nc_enqueue=True).write(vals)
 

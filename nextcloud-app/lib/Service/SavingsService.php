@@ -25,6 +25,12 @@ class SavingsService
      */
     private const DEFAULT_GRID_PRICE_EUR_KWH = 0.15;
 
+    /** On-grid self-consumption factor (share of production offsetting grid). */
+    public const FACTOR_ON_GRID = 0.4;
+
+    /** Off-grid self-consumption factor. */
+    public const FACTOR_OFF_GRID = 1.0;
+
     public function __construct(
         private readonly IDBConnection $db,
         private readonly InstallationMapper $installationMapper,
@@ -33,16 +39,41 @@ class SavingsService
     }
 
     /**
+     * Resolve self-consumption factor from grid connection type.
+     */
+    public static function factorForGridType(?string $gridConnectionType): float
+    {
+        $type = $gridConnectionType ?: Installation::GRID_ON;
+        return $type === Installation::GRID_OFF ? self::FACTOR_OFF_GRID : self::FACTOR_ON_GRID;
+    }
+
+    /**
      * Calculate savings for given energy production.
+     *
+     * savings = production_kwh × grid_price × self_consumption_factor
      *
      * @param float $productionKwh Energy produced in kWh
      * @param float|null $gridPricePerKwh Grid price in EUR/kWh (default: 0.15)
+     * @param float|null $selfConsumptionFactor 0.4 on-grid / 1.0 off-grid (default on-grid)
      * @return float Savings in EUR
      */
-    public function calculateSavings(float $productionKwh, ?float $gridPricePerKwh = null): float
-    {
+    public function calculateSavings(
+        float $productionKwh,
+        ?float $gridPricePerKwh = null,
+        ?float $selfConsumptionFactor = null,
+    ): float {
         $price = $gridPricePerKwh ?? self::DEFAULT_GRID_PRICE_EUR_KWH;
-        return $productionKwh * $price;
+        $factor = $selfConsumptionFactor ?? self::FACTOR_ON_GRID;
+        return $productionKwh * $price * $factor;
+    }
+
+    public function calculateSavingsForInstallation(float $productionKwh, Installation $installation): float
+    {
+        return $this->calculateSavings(
+            $productionKwh,
+            $installation->getGridPriceFloat(),
+            $installation->getSelfConsumptionFactor(),
+        );
     }
 
     /**
@@ -59,6 +90,7 @@ class SavingsService
             // Get installation for grid price
             $installation = $this->installationMapper->find($installationId);
             $gridPrice = $installation->getGridPriceFloat();
+            $factor = $installation->getSelfConsumptionFactor();
 
             // Sum production for period
             $totalProduction = $this->sumProductionForPeriod($installationId, $start, $end);
@@ -66,9 +98,10 @@ class SavingsService
 
             return [
                 'production_kwh' => $totalProduction,
-                'savings_eur' => $this->calculateSavings($totalProduction, $gridPrice),
+                'savings_eur' => $this->calculateSavings($totalProduction, $gridPrice, $factor),
                 'period_days' => $periodDays,
                 'avg_daily_kwh' => $totalProduction / $periodDays,
+                'self_consumption_factor' => $factor,
             ];
         } catch (\Exception $e) {
             $this->logger->error('Failed to calculate period savings', [
@@ -103,7 +136,7 @@ class SavingsService
                     $installation->getId(),
                     $since
                 );
-                $savings = $this->calculateSavings($production, $installation->getGridPriceFloat());
+                $savings = $this->calculateSavingsForInstallation($production, $installation);
 
                 $totalProduction += $production;
                 $totalSavings += $savings;
@@ -139,6 +172,7 @@ class SavingsService
         try {
             $installation = $this->installationMapper->find($installationId);
             $gridPrice = $installation->getGridPriceFloat();
+            $factor = $installation->getSelfConsumptionFactor();
 
             $qb = $this->db->getQueryBuilder();
             $qb->select(
@@ -161,7 +195,7 @@ class SavingsService
                 $monthly[] = [
                     'month' => (int) $row['month'],
                     'production_kwh' => $production,
-                    'savings_eur' => $this->calculateSavings($production, $gridPrice),
+                    'savings_eur' => $this->calculateSavings($production, $gridPrice, $factor),
                 ];
             }
 

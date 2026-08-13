@@ -40,7 +40,8 @@ class SavingsServiceTest extends TestCase
     public function testCalculateSavingsWithDefaultPrice(): void
     {
         $production = 100.0; // kWh
-        $expectedSavings = 100.0 * 0.15; // DEFAULT_GRID_PRICE = 0.15
+        // default factor on-grid 0.4
+        $expectedSavings = 100.0 * 0.15 * 0.4;
 
         $result = $this->service->calculateSavings($production);
 
@@ -54,7 +55,7 @@ class SavingsServiceTest extends TestCase
     {
         $production = 100.0; // kWh
         $customPrice = 0.20; // EUR/kWh
-        $expectedSavings = 100.0 * 0.20;
+        $expectedSavings = 100.0 * 0.20 * 0.4;
 
         $result = $this->service->calculateSavings($production, $customPrice);
 
@@ -77,7 +78,7 @@ class SavingsServiceTest extends TestCase
     public function testCalculateSavingsWithLargeProduction(): void
     {
         $production = 10000.0; // 10 MWh
-        $expectedSavings = 10000.0 * 0.15;
+        $expectedSavings = 10000.0 * 0.15 * 0.4;
 
         $result = $this->service->calculateSavings($production);
 
@@ -93,8 +94,8 @@ class SavingsServiceTest extends TestCase
         $production = 1.0;
         $result = $this->service->calculateSavings($production);
 
-        // If default price is 0.15, then 1 kWh = 0.15 EUR
-        $this->assertEquals(0.15, $result);
+        // default price 0.15 * on-grid factor 0.4
+        $this->assertEquals(0.06, $result);
     }
 
     /**
@@ -104,10 +105,23 @@ class SavingsServiceTest extends TestCase
     {
         $production = 123.456;
         $price = 0.123;
-        $expected = $production * $price;
+        $expected = $production * $price * 0.4;
 
         $result = $this->service->calculateSavings($production, $price);
 
         $this->assertEqualsWithDelta($expected, $result, 0.0001);
+    }
+
+    public function testOffGridFactorIsOne(): void
+    {
+        $result = $this->service->calculateSavings(100.0, 0.15, 1.0);
+        $this->assertEquals(15.0, $result);
+    }
+
+    public function testFactorForGridType(): void
+    {
+        $this->assertEquals(0.4, SavingsService::factorForGridType('on_grid'));
+        $this->assertEquals(1.0, SavingsService::factorForGridType('off_grid'));
+        $this->assertEquals(0.4, SavingsService::factorForGridType(null));
     }
 }

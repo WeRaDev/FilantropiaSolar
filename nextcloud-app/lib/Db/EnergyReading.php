@@ -27,9 +27,14 @@ use OCP\AppFramework\Db\Entity;
  * @method void setTemperatureC(?string $temperatureC)
  * @method int|null getCloudCoverPct()
  * @method void setCloudCoverPct(?int $cloudCoverPct)
+ * @method string getProvenance()
+ * @method void setProvenance(string $provenance)
  */
 class EnergyReading extends Entity implements JsonSerializable
 {
+    public const PROVENANCE_MEASURED = 'measured';
+    public const PROVENANCE_SIMULATED = 'simulated';
+
     protected int $installationId = 0;
     protected DateTime $timestamp;
     protected ?string $productionKwh = null;
@@ -37,6 +42,7 @@ class EnergyReading extends Entity implements JsonSerializable
     protected ?string $solarRadiationWm2 = null;
     protected ?string $temperatureC = null;
     protected ?int $cloudCoverPct = null;
+    protected string $provenance = self::PROVENANCE_SIMULATED;
 
     public function __construct()
     {
@@ -47,6 +53,7 @@ class EnergyReading extends Entity implements JsonSerializable
         $this->addType('solarRadiationWm2', 'string');
         $this->addType('temperatureC', 'string');
         $this->addType('cloudCoverPct', 'integer');
+        $this->addType('provenance', 'string');
     }
 
     /**
@@ -95,6 +102,7 @@ class EnergyReading extends Entity implements JsonSerializable
             'solar_radiation_wm2' => $this->solarRadiationWm2 !== null ? (float) $this->solarRadiationWm2 : null,
             'temperature_c' => $this->temperatureC !== null ? (float) $this->temperatureC : null,
             'cloud_cover_pct' => $this->cloudCoverPct,
+            'provenance' => $this->provenance !== '' ? $this->provenance : self::PROVENANCE_SIMULATED,
         ];
     }
 }

@@ -210,6 +210,8 @@ class PublicApiController extends ApiController
 			'has_series_data' => $stats['has_series_data'],
 			'savings_is_indicative' => $stats['savings_is_indicative'],
 			'grid_price_kwh' => $stats['grid_price_kwh'],
+			'grid_connection_type' => $stats['grid_connection_type'] ?? ($i->getGridConnectionType() ?: 'on_grid'),
+			'self_consumption_factor' => $stats['self_consumption_factor'] ?? $i->getSelfConsumptionFactor(),
 		];
 	}
 
@@ -244,8 +246,10 @@ class PublicApiController extends ApiController
 			}
 		}
 
+		$factor = $i->getSelfConsumptionFactor();
+
 		if ($count > 0) {
-			$seriesSavings = round($production * $price, 4);
+			$seriesSavings = round($production * $price * $factor, 4);
 
 			return [
 				'total_production_kwh' => round($production, 4),
@@ -254,11 +258,13 @@ class PublicApiController extends ApiController
 				'has_series_data' => true,
 				'savings_is_indicative' => false,
 				'grid_price_kwh' => $price,
+				'self_consumption_factor' => $factor,
+				'grid_connection_type' => $i->getGridConnectionType() ?: 'on_grid',
 			];
 		}
 
 		// Indicative annual savings (Portugal reference yield) until series exist
-		$indicative = round($capacity * 1400.0 * $price, 2);
+		$indicative = round($capacity * 1400.0 * $price * $factor, 2);
 
 		return [
 			'total_production_kwh' => 0.0,
@@ -267,6 +273,8 @@ class PublicApiController extends ApiController
 			'has_series_data' => false,
 			'savings_is_indicative' => true,
 			'grid_price_kwh' => $price,
+			'self_consumption_factor' => $factor,
+			'grid_connection_type' => $i->getGridConnectionType() ?: 'on_grid',
 		];
 	}
 

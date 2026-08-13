@@ -58,6 +58,12 @@
 				<label>Energy price (€/kWh)
 					<input v-model.number="form.grid_price_kwh" type="number" min="0" step="0.001">
 				</label>
+				<label>Grid connection
+					<select v-model="form.grid_connection_type">
+						<option value="on_grid">On-grid (factor 0.4)</option>
+						<option value="off_grid">Off-grid (factor 1.0)</option>
+					</select>
+				</label>
 				<label>Website
 					<input v-model="form.website" type="url" placeholder="https://...">
 				</label>
@@ -138,6 +144,7 @@ export default {
 			longitude: null,
 			capacity_kwp: 0,
 			grid_price_kwh: 0.15,
+			grid_connection_type: 'on_grid',
 			website: '',
 			short_description: '',
 			effective_date: new Date().toISOString().slice(0, 10),
@@ -215,6 +222,7 @@ export default {
 			form.latitude = lat != null ? Number(lat) : null
 			form.longitude = lng != null ? Number(lng) : null
 			form.capacity_kwp = Number(o.capacity_kwp || 0)
+			form.grid_connection_type = o.grid_connection_type || 'on_grid'
 			form.grid_price_kwh = Number(o.grid_price_kwh ?? o.customData?.gridPriceKwh ?? 0.15)
 			form.website = o.website || o.customData?.website || ''
 			form.short_description = o.short_description || o.customData?.shortDescription || ''
@@ -294,6 +302,7 @@ export default {
 					longitude: Number(form.longitude),
 					capacity_kwp: form.capacity_kwp,
 					grid_price_kwh: form.grid_price_kwh,
+					grid_connection_type: form.grid_connection_type,
 					website: form.website,
 					short_description: form.short_description,
 					effective_date: form.effective_date,

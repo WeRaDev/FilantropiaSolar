@@ -7,7 +7,9 @@ namespace OCA\FilantropiaSolar\Controller;
 use DateTime;
 use OCA\FilantropiaSolar\AppInfo\Application;
 use OCA\FilantropiaSolar\Db\InstallationMapper;
+use OCA\FilantropiaSolar\Service\FilantropiaAccess;
 use OCA\FilantropiaSolar\Service\SavingsService;
+use OCA\FilantropiaSolar\Service\SeriesSimulationService;
 use OCP\AppFramework\Http;
 use OCP\AppFramework\Http\Attribute\NoAdminRequired;
 use OCP\AppFramework\Http\Attribute\NoCSRFRequired;
@@ -36,6 +38,8 @@ class EnergyApiController extends OCSController
         private readonly IDBConnection $db,
         private readonly LoggerInterface $logger,
         private readonly ?string $userId,
+        private readonly SeriesSimulationService $seriesService,
+        private readonly FilantropiaAccess $access,
     ) {
         parent::__construct(Application::APP_ID, $request);
     }
@@ -113,63 +117,45 @@ class EnergyApiController extends OCSController
      * @param int $id Installation ID
      * @return JSONResponse
      */
+    #[NoAdminRequired]
     public function import(int $id): JSONResponse
     {
+        if (!$this->access->canUploadMeasured()) {
+            return new JSONResponse(
+                ['error' => 'Unauthorized'],
+                Http::STATUS_UNAUTHORIZED
+            );
+        }
+
         try {
-            // Verify ownership
-            $installation = $this->mapper->find($id);
-            if ($installation->getUserId() !== $this->userId) {
+            // Resolve by numeric id or installation key
+            try {
+                $installation = $this->mapper->find($id);
+            } catch (\OCP\AppFramework\Db\DoesNotExistException $e) {
                 return new JSONResponse(
-                    ['error' => 'Not found'],
+                    ['error' => 'Installation not found'],
                     Http::STATUS_NOT_FOUND
                 );
             }
 
-            // Get readings from request
             $data = $this->request->getParams();
             $readings = $data['readings'] ?? [];
-
-            if (empty($readings)) {
+            if (empty($readings) || !is_array($readings)) {
                 return new JSONResponse(
                     ['error' => 'No readings provided'],
                     Http::STATUS_BAD_REQUEST
                 );
             }
 
-            $imported = 0;
-            $skipped = 0;
-
-            foreach ($readings as $reading) {
-                try {
-                    $qb = $this->db->getQueryBuilder();
-                    $qb->insert('fs_readings')
-                        ->values([
-                            'installation_id' => $qb->createNamedParameter($id),
-                            'timestamp' => $qb->createNamedParameter($reading['timestamp']),
-                            'production_kwh' => $qb->createNamedParameter($reading['production_kwh'] ?? null),
-                            'consumption_kwh' => $qb->createNamedParameter($reading['consumption_kwh'] ?? null),
-                            'solar_radiation_wm2' => $qb->createNamedParameter($reading['solar_radiation_wm2'] ?? null),
-                            'temperature_c' => $qb->createNamedParameter($reading['temperature_c'] ?? null),
-                            'cloud_cover_pct' => $qb->createNamedParameter($reading['cloud_cover_pct'] ?? null),
-                        ]);
-                    $qb->executeStatement();
-                    $imported++;
-                } catch (\Exception $e) {
-                    // Likely duplicate timestamp
-                    $skipped++;
-                }
-            }
+            $result = $this->seriesService->importMeasured((int) $installation->getId(), $readings);
 
             return new JSONResponse([
-                'imported' => $imported,
-                'skipped' => $skipped,
+                'imported' => $result['imported'],
+                'skipped' => $result['skipped'],
+                'overwritten_simulated' => $result['overwritten_simulated'],
                 'total' => count($readings),
+                'provenance' => 'measured',
             ]);
-        } catch (\OCP\AppFramework\Db\DoesNotExistException $e) {
-            return new JSONResponse(
-                ['error' => 'Installation not found'],
-                Http::STATUS_NOT_FOUND
-            );
         } catch (\Exception $e) {
             $this->logger->error('Failed to import readings', ['exception' => $e]);
             return new JSONResponse(
