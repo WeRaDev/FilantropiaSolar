@@ -1,7 +1,7 @@
 /**
  * Filantropia public stations Leaflet map.
  * Expects window.FS_STATIONS (array) and #fs-stations-map.
- * Optional: .fs-station-list-item[data-station-id|data-lat|data-lng] for list→map focus.
+ * Optional: .fs-station-list-item[data-station-id|data-lat|data-lng] for list->map focus.
  */
 (function () {
     function esc(t) {
@@ -38,16 +38,114 @@
         );
     }
 
+    function statusInfo(s) {
+        var cat = String(
+            (s && (s.public_category || s.lifecycle_state)) || ""
+        ).toLowerCase();
+        if (cat === "planned") {
+            return { cat: "planned", label: "Planeada", color: "#E8A020" };
+        }
+        if (cat === "existing" || cat === "running") {
+            return {
+                cat: "running",
+                label: "Em opera\u00e7\u00e3o",
+                color: "#2E7D32",
+            };
+        }
+        if (cat) {
+            return { cat: "other", label: cat, color: "#757575" };
+        }
+        return { cat: "other", label: "", color: "#A89D3F" };
+    }
+
+    function statusMarkerIcon(L, color) {
+        var html =
+            '<span class="fs-map-pin" style="background:' +
+            color +
+            ";border-color:" +
+            color +
+            ';"></span>';
+        return L.divIcon({
+            className: "fs-map-marker",
+            html: html,
+            iconSize: [22, 22],
+            iconAnchor: [11, 22],
+            popupAnchor: [0, -18],
+        });
+    }
+
+    function normalizeCoord(v) {
+        if (v == null || v === "") {
+            return NaN;
+        }
+        return parseFloat(String(v).replace(",", "."));
+    }
+
+    function indexKeyLatLng(lat, lng) {
+        return Number(lat).toFixed(5) + "," + Number(lng).toFixed(5);
+    }
+
+    function cleanMapHost(mapEl) {
+        // Website builder COWs sometimes serialize a previously initialized
+        // Leaflet DOM tree into the map div; wipe it before L.map().
+        if (!mapEl) {
+            return null;
+        }
+        if (mapEl._leaflet_id) {
+            try {
+                mapEl._leaflet_id = null;
+            } catch (e) {
+                // ignore
+            }
+        }
+        mapEl.className = "fs-map";
+        mapEl.innerHTML = "";
+        mapEl.removeAttribute("tabindex");
+        mapEl.style.cssText = "";
+        return mapEl;
+    }
+
+    function bindListClicks(focusStation) {
+        document.querySelectorAll(".fs-station-list-item").forEach(function (el) {
+            if (el.getAttribute("data-fs-map-bound") === "1") {
+                return;
+            }
+            el.setAttribute("data-fs-map-bound", "1");
+            el.style.cursor = "pointer";
+            el.setAttribute("role", "button");
+            el.setAttribute("tabindex", "0");
+            el.addEventListener("click", function (ev) {
+                if (ev.target && ev.target.closest && ev.target.closest("a")) {
+                    return;
+                }
+                ev.preventDefault();
+                focusStation(el);
+            });
+            el.addEventListener("keydown", function (ev) {
+                if (ev.key === "Enter" || ev.key === " ") {
+                    ev.preventDefault();
+                    focusStation(el);
+                }
+            });
+        });
+    }
+
     function init() {
         if (typeof L === "undefined") {
-            return;
+            return false;
         }
         var mapEl = document.getElementById("fs-stations-map");
         if (!mapEl) {
-            return;
+            return false;
         }
+        if (window.FS_MAP && window.FS_MAP_READY) {
+            bindListClicks(window.FS_FOCUS_STATION);
+            return true;
+        }
+
+        mapEl = cleanMapHost(mapEl);
         var stations = window.FS_STATIONS || [];
-        var map = L.map("fs-stations-map");
+        var map = L.map(mapEl, { scrollWheelZoom: true });
         L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
             maxZoom: 18,
             attribution: "&copy; OpenStreetMap contributors",
@@ -55,13 +153,28 @@
 
         var markers = [];
         var byId = {};
+
+        function remember(key, entry) {
+            if (!key) {
+                return;
+            }
+            byId[String(key)] = entry;
+        }
+
         stations.forEach(function (s) {
-            var lat = parseFloat(s.latitude);
-            var lng = parseFloat(s.longitude);
+            var lat = normalizeCoord(s.latitude);
+            var lng = normalizeCoord(s.longitude);
             if (!isFinite(lat) || !isFinite(lng)) {
                 return;
             }
-            var m = L.marker([lat, lng]).addTo(map);
+            var st = statusInfo(s);
+            var m = L.marker([lat, lng], {
+                icon: statusMarkerIcon(L, st.color),
+                title:
+                    (s.name || "Station") +
+                    (st.label ? " (" + st.label + ")" : ""),
+            }).addTo(map);
+
             var saved =
                 s.money_saved_display != null && s.money_saved_display !== ""
                     ? s.money_saved_display
@@ -69,27 +182,13 @@
                       ? Math.round(Number(s.money_saved_eur))
                       : "\u2014";
             var info = s.info || s.description || s.short_description || "";
-            var cat = String(s.public_category || s.lifecycle_state || "").toLowerCase();
-            var statusLabel =
-                cat === "planned"
-                    ? "Planeada"
-                    : cat === "existing" || cat === "running"
-                      ? "Em opera\u00e7\u00e3o"
-                      : cat || "";
-            var html =
-                "<strong>" +
-                esc(s.name || "Station") +
-                "</strong>";
-            if (statusLabel) {
+            var html = "<strong>" + esc(s.name || "Station") + "</strong>";
+            if (st.label) {
                 html +=
-                    " <span class=\"fs-status-badge fs-status-" +
-                    (cat === "planned"
-                        ? "planned"
-                        : cat === "existing" || cat === "running"
-                          ? "running"
-                          : "other") +
-                    "\">" +
-                    esc(statusLabel) +
+                    ' <span class="fs-status-badge fs-status-' +
+                    st.cat +
+                    '">' +
+                    esc(st.label) +
                     "</span>";
             }
             html +=
@@ -105,7 +204,8 @@
                 html += " <em>(indicativa)</em>";
             }
             if (info) {
-                html += "<br/><strong>Descri\u00e7\u00e3o:</strong> " + esc(info);
+                html +=
+                    "<br/><strong>Descri\u00e7\u00e3o:</strong> " + esc(info);
             }
             var w = absUrl(s.website_href || s.website);
             if (w) {
@@ -116,75 +216,140 @@
             }
             m.bindPopup(html);
             markers.push(m);
-            var key = stationKey(s);
-            if (key) {
-                byId[key] = { marker: m, lat: lat, lng: lng };
-            }
-            // also index by lat,lng string
-            byId[String(lat) + "," + String(lng)] = { marker: m, lat: lat, lng: lng };
+
+            var entry = { marker: m, lat: lat, lng: lng, status: st };
+            remember(stationKey(s), entry);
+            remember(s.installation_id, entry);
+            remember(s.installationId, entry);
+            remember(indexKeyLatLng(lat, lng), entry);
+            remember(String(lat) + "," + String(lng), entry);
         });
+
         if (markers.length) {
             map.fitBounds(L.featureGroup(markers).getBounds().pad(0.15));
         } else {
             map.setView([38.7223, -9.1393], 5);
         }
 
+        setTimeout(function () {
+            try {
+                map.invalidateSize(false);
+            } catch (e) {
+                // ignore
+            }
+        }, 150);
+
         function focusStation(el) {
             if (!el) {
                 return;
             }
             var id = el.getAttribute("data-station-id") || "";
-            var lat = parseFloat(el.getAttribute("data-lat"));
-            var lng = parseFloat(el.getAttribute("data-lng"));
+            var lat = normalizeCoord(el.getAttribute("data-lat"));
+            var lng = normalizeCoord(el.getAttribute("data-lng"));
             var entry = null;
             if (id && byId[id]) {
                 entry = byId[id];
-            } else if (isFinite(lat) && isFinite(lng) && byId[String(lat) + "," + String(lng)]) {
-                entry = byId[String(lat) + "," + String(lng)];
             } else if (isFinite(lat) && isFinite(lng)) {
-                entry = { marker: null, lat: lat, lng: lng };
+                entry =
+                    byId[indexKeyLatLng(lat, lng)] ||
+                    byId[String(lat) + "," + String(lng)] || {
+                        marker: null,
+                        lat: lat,
+                        lng: lng,
+                    };
             }
-            if (!entry) {
+            if (!entry || !isFinite(entry.lat) || !isFinite(entry.lng)) {
                 return;
             }
-            map.setView([entry.lat, entry.lng], Math.max(map.getZoom(), 12), {
+            var body = document.getElementById("fs-stations-expand");
+            var btn = document.getElementById("fs-stations-toggle");
+            if (body && !body.classList.contains("show")) {
+                body.classList.add("show");
+                if (btn) {
+                    btn.setAttribute("aria-expanded", "true");
+                }
+            }
+            map.invalidateSize(false);
+            map.setView([entry.lat, entry.lng], Math.max(map.getZoom(), 13), {
                 animate: true,
             });
             if (entry.marker) {
                 entry.marker.openPopup();
             }
-            document.querySelectorAll(".fs-station-list-item.is-active").forEach(function (n) {
-                n.classList.remove("is-active");
-            });
+            document
+                .querySelectorAll(".fs-station-list-item.is-active")
+                .forEach(function (n) {
+                    n.classList.remove("is-active");
+                });
             el.classList.add("is-active");
+            try {
+                el.scrollIntoView({ block: "nearest", behavior: "smooth" });
+            } catch (e) {
+                // ignore
+            }
         }
 
-        document.querySelectorAll(".fs-station-list-item").forEach(function (el) {
-            el.style.cursor = "pointer";
-            el.setAttribute("role", "button");
-            el.setAttribute("tabindex", "0");
-            el.addEventListener("click", function (ev) {
-                // allow real links inside the row
-                if (ev.target && ev.target.closest && ev.target.closest("a")) {
-                    return;
-                }
-                focusStation(el);
+        bindListClicks(focusStation);
+
+        if (!window.FS_MAP_DELEGATE) {
+            window.FS_MAP_DELEGATE = true;
+            document.addEventListener(
+                "click",
+                function (ev) {
+                    var el =
+                        ev.target &&
+                        ev.target.closest &&
+                        ev.target.closest(".fs-station-list-item");
+                    if (!el) {
+                        return;
+                    }
+                    if (ev.target.closest && ev.target.closest("a")) {
+                        return;
+                    }
+                    if (typeof window.FS_FOCUS_STATION === "function") {
+                        window.FS_FOCUS_STATION(el);
+                    }
+                },
+                true
+            );
+        }
+
+        var toggle = document.getElementById("fs-stations-toggle");
+        if (toggle && !toggle.getAttribute("data-fs-map-resize")) {
+            toggle.setAttribute("data-fs-map-resize", "1");
+            toggle.addEventListener("click", function () {
+                setTimeout(function () {
+                    try {
+                        map.invalidateSize(false);
+                    } catch (e) {
+                        // ignore
+                    }
+                }, 200);
             });
-            el.addEventListener("keydown", function (ev) {
-                if (ev.key === "Enter" || ev.key === " ") {
-                    ev.preventDefault();
-                    focusStation(el);
-                }
-            });
-        });
+        }
 
         window.FS_MAP = map;
         window.FS_FOCUS_STATION = focusStation;
+        window.FS_MAP_READY = true;
+        return true;
+    }
+
+    function boot() {
+        if (init()) {
+            return;
+        }
+        var tries = 0;
+        var t = setInterval(function () {
+            tries += 1;
+            if (init() || tries > 40) {
+                clearInterval(t);
+            }
+        }, 100);
     }
 
     if (document.readyState === "loading") {
-        document.addEventListener("DOMContentLoaded", init);
+        document.addEventListener("DOMContentLoaded", boot);
     } else {
-        init();
+        boot();
     }
 })();

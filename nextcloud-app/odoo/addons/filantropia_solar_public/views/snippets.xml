@@ -81,10 +81,10 @@
     <!-- Leaflet map renderer (shared by all pages that show the stations map) -->
     <template id="snippet_leaflet_map" name="Snippet: Leaflet stations map">
         <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
-        <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"/>
+        <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
         <script type="text/javascript">
             window.FS_STATIONS = <t t-out="stations_json"/>;
         </script>
-        <script type="text/javascript" src="/filantropia_solar_public/static/src/js/stations_map.js"/>
+        <script type="text/javascript" src="/filantropia_solar_public/static/src/js/stations_map.js?v=2"></script>
     </template>
 </odoo>
