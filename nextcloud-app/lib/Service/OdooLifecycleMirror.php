@@ -61,6 +61,9 @@ class OdooLifecycleMirror
 				'soft_removed' => $soft,
 				'odoo_lead_id' => $station->getOdooLeadId(),
 				'capacity_kwp' => (float) $station->getCapacityKwp(),
+				'grid_price_kwh' => $station->getGridPriceKwh() !== null && $station->getGridPriceKwh() !== ''
+					? (float) $station->getGridPriceKwh()
+					: null,
 				'latitude' => (float) $station->getLatitude(),
 				'longitude' => (float) $station->getLongitude(),
 				'name' => $station->getName(),

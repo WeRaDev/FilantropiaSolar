@@ -100,6 +100,14 @@ class FsStationSync(models.AbstractModel):
             "city": station.get("location") or False,
             "website": station.get("website") or False,
         }
+        if (
+            station.get("grid_price_kwh") is not None
+            and station.get("grid_price_kwh") != ""
+        ):
+            with contextlib.suppress(TypeError, ValueError):
+                vals["fs_station_grid_price_kwh"] = float(
+                    station.get("grid_price_kwh") or 0.0
+                )
         if station.get("id") is not None:
             with contextlib.suppress(TypeError, ValueError):
                 vals["fs_nc_db_id"] = int(station["id"])

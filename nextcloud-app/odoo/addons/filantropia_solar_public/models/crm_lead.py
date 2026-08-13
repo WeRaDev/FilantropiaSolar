@@ -138,6 +138,14 @@ class CrmLead(models.Model):
             vals["fs_station_short_description"] = (
                 station.get("short_description") or False
             )
+        if (
+            station.get("grid_price_kwh") is not None
+            and station.get("grid_price_kwh") != ""
+        ):
+            with contextlib.suppress(TypeError, ValueError):
+                vals["fs_station_grid_price_kwh"] = float(
+                    station.get("grid_price_kwh") or 0.0
+                )
         # origin stamp must not re-trigger outbound stage jobs
         self.with_context(fs_skip_nc_enqueue=True).write(vals)
 
@@ -186,9 +194,12 @@ class CrmLead(models.Model):
             "location_label": self.fs_station_location_label or self.city or "Portugal",
             "organization_name": self.partner_name or "",
         }
-        if self.fs_station_grid_price_kwh:
-            payload["grid_price_kwh"] = float(self.fs_station_grid_price_kwh)
-        website = (self.fs_station_website or "").strip()
+        if (
+            self.fs_station_grid_price_kwh is not False
+            and self.fs_station_grid_price_kwh is not None
+        ):
+            payload["grid_price_kwh"] = float(self.fs_station_grid_price_kwh or 0.0)
+        website = (self.fs_station_website or self.website or "").strip()
         if website:
             if not website.lower().startswith(("http://", "https://")):
                 website = "https://" + website
@@ -315,8 +326,12 @@ class CrmLead(models.Model):
             "website": website,
             "short_description": (self.fs_station_short_description or "").strip(),
         }
-        if self.fs_station_grid_price_kwh:
-            payload["grid_price_kwh"] = float(self.fs_station_grid_price_kwh)
+        # Always include grid price when set on the lead (0.0 is valid).
+        if (
+            self.fs_station_grid_price_kwh is not False
+            and self.fs_station_grid_price_kwh is not None
+        ):
+            payload["grid_price_kwh"] = float(self.fs_station_grid_price_kwh or 0.0)
         try:
             result = self._fs_client().update_profile(
                 key, payload, actor=f"odoo-lead-{self.id}"

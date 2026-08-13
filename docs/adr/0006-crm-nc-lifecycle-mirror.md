@@ -28,7 +28,9 @@ admins can manage stations from either NC or CRM.
   - Installed → Proposition → Planned
 - Editing station snapshot fields on the lead pushes
   `POST .../stations/{id}/profile` (name, location, coords, capacity, website,
-  short_description, grid price).
+  short_description, **grid_price_kwh**).
+- NC→CRM payloads include the same snapshot set (including grid price) via webhook
+  and reconcile import.
 
 ### NC → CRM
 - NC admin/installation/lifecycle writes notify Odoo via

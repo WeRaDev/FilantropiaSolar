@@ -34,3 +34,24 @@
 | CRM stage not in NC | queue_job pending/failed; `fs_nc_sync_error` on lead |
 | Station profile edit in NC not in CRM | NC `PUT /api/v1/installations/{id}` must notify webhook (3.2.14+); check lead match via `odoo_lead_id` / `fs_nc_db_id` (location changes rewrite `installation_id`) |
 | Map list click / center broken | COW map host; `stations_map.js?v=`; hard refresh — see `ODOO-WEBSITE-COW-VIEWS.md` |
+
+
+## Station field matrix (canonical sync)
+
+| Field | CRM | NC | CRM→NC | NC→CRM |
+|-------|-----|----|--------|--------|
+| Name | `name`, `partner_name` | `name` | profile / virtual | webhook / import |
+| Location label | `fs_station_location_label`, `city` | `location` | profile / virtual | webhook / import |
+| Latitude / longitude | `fs_station_latitude/longitude` | `latitude` / `longitude` | profile / virtual | webhook / import |
+| Capacity kWp | `fs_station_capacity_kwp` | `capacity_kwp` | profile / virtual | webhook / import |
+| Grid price EUR/kWh | `fs_station_grid_price_kwh` | `grid_price_kwh` | profile / virtual | webhook / import (3.2.15+) |
+| Website | `fs_station_website`, `website` | `website` | profile / virtual | webhook / import |
+| Short description | `fs_station_short_description` | `short_description` | profile / virtual | webhook / import |
+| Lifecycle | `fs_nc_lifecycle_state`, `stage_id` | `lifecycle_state` | stage actions / set-lifecycle | webhook / import |
+| Link keys | `fs_nc_installation_id`, `fs_nc_db_id` | `installation_id`, `id` | bind-lead / virtual | webhook / import |
+| Soft-removed | (no CRM stage; archived if missing from ops list) | `soft_removed` | — | webhook / import (active=False if gone) |
+
+### Intentionally not mirrored
+- CRM contact-only: `email_from`, `phone`, `contact_name`, candidatura bill attachments / description dump
+- NC internal: `serial_number` (derived), measured series, ML cache, dataset training corpus
+- Public map computed metrics (savings totals) — read-only public API, not CRM fields

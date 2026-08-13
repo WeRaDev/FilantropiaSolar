@@ -422,6 +422,10 @@ components:
           nullable: true
         capacity_kwp:
           type: number
+        grid_price_kwh:
+          type: number
+          nullable: true
+          description: EUR/kWh station tariff used for savings estimates
         latitude:
           type: number
         longitude:
