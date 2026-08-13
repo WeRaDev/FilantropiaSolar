@@ -376,13 +376,20 @@ export const useAppStore = defineStore('app', {
             try {
                 const obj = this.objects.find(o => o.id === objectId)
                 
-                // Virtual installations must use 'custom' mode - they don't exist
-                // in the backend's dataset, so 'historical'/'simulated' would 404
-                const isVirtual = obj?.customData?.isVirtual || String(objectId).startsWith('virtual_')
-                const effectiveMode = isVirtual ? 'custom' : mode
-                
+                // Prefer NC db id for ops stations (including virtual_* list ids).
                 const installationKey = obj?.customData?.dbId
                     || (String(objectId).startsWith('virtual_') ? String(objectId).slice('virtual_'.length) : objectId)
+                const hasNcDb = !!obj?.customData?.dbId || /^\d+$/.test(String(installationKey))
+                // Historical with NC rows must use mode=historical (NC SoT).
+                // Only force ML 'custom' for predicted/sim when station is virtual AND has no db id.
+                const isVirtual = obj?.customData?.isVirtual || String(objectId).startsWith('virtual_')
+                let effectiveMode = mode
+                if (mode === 'historical' && hasNcDb) {
+                    effectiveMode = 'historical'
+                } else if (isVirtual && mode !== 'historical') {
+                    effectiveMode = 'custom'
+                }
+                
                 const response = await axios.post(
                     generateUrl('/apps/filantropia_solar/api/v1/predict/period'),
                     {
@@ -390,17 +397,34 @@ export const useAppStore = defineStore('app', {
                         installation_id: installationKey,
                         center_date: centerDate,
                         days: days,
-                        // Include location/capacity for custom/simulated mode
+                        // Include location/capacity/coords for ML custom/simulated path
                         location: obj?.location,
-                        capacity_kwp: obj?.capacity_kwp
+                        capacity_kwp: obj?.capacity_kwp,
+                        latitude: obj?.latitude ?? obj?.coordinates?.lat,
+                        longitude: obj?.longitude ?? obj?.coordinates?.lng,
                     }
                 )
 
                 if (response.data.success) {
-                    this.analysisData = {
-                        ...response.data,
-                        mode: mode
+                    const data = { ...response.data, mode: mode }
+                    // Normalize hour on every hourly point for chart labels (0:00 bug)
+                    if (Array.isArray(data.hourly_data)) {
+                        data.hourly_data = data.hourly_data.map((h) => {
+                            let hour = h.hour
+                            if (hour === undefined || hour === null || hour === '') {
+                                const ts = h.timestamp || ''
+                                const m = ts.match(/T(\d{1,2})/) || ts.match(/\s(\d{2}):/)
+                                hour = m ? parseInt(m[1], 10) : 0
+                            }
+                            return { ...h, hour: Number(hour) }
+                        })
                     }
+                    // Predicted badge always SIMULATED
+                    if (mode === 'simulated' || mode === 'custom' || mode === 'predicted') {
+                        data.series_label = data.series_label || 'SIMULATED'
+                        data.data_mode_label = data.data_mode_label || 'SIMULATED'
+                    }
+                    this.analysisData = data
                 }
                 return response.data
             } catch (error) {

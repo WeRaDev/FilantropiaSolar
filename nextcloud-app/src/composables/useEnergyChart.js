@@ -74,6 +74,21 @@ export function useEnergyChart({
 
     // ---- Hourly chart (single day) -----------------------------------------
 
+    /** Hour 0-23 from row.hour or timestamp. */
+    const rowHour = (d) => {
+        if (d == null) return 0
+        if (d.hour !== undefined && d.hour !== null && d.hour !== '') {
+            const n = Number(d.hour)
+            if (!Number.isNaN(n)) return n
+        }
+        const ts = d.timestamp || ''
+        // 2026-08-13T14:00:00Z or 2026-08-13 14:00:00
+        const m = ts.match(/T(\d{1,2})[:\s]/) || ts.match(/\s(\d{2}):/)
+        if (m) return parseInt(m[1], 10)
+        return 0
+    }
+
+
     const renderHourlyChart = (ctx) => {
         const dates = [...new Set(
             hourlyData.value.map(p => (p.timestamp || '').split('T')[0]),
@@ -85,18 +100,33 @@ export function useEnergyChart({
 
         if (dayData.length === 0) return
 
-        dayData.sort((a, b) => (a.hour || 0) - (b.hour || 0))
-        dayData = dayData.filter(
-            d => (d.production_kwh || 0) > 0 || (d.hour >= 6 && d.hour <= 20),
-        )
+        // Normalize hour from timestamp when API omits hour (NC historical SoT)
+        dayData = dayData.map(d => ({ ...d, hour: rowHour(d) }))
+        dayData.sort((a, b) => a.hour - b.hour)
 
-        const labels = dayData.map(d => `${d.hour || 0}:00`)
+        // Keep full daytime window; include zero/null production so labels stay 0-23
+        // (historical future hours are null; still show slot with 0 bar)
+        const byH = new Map(dayData.map(d => [d.hour, d]))
+        const fullDay = []
+        for (let h = 0; h < 24; h++) {
+            fullDay.push(byH.get(h) || {
+                hour: h,
+                production_kwh: null,
+                temperature: null,
+                cloud_cover: null,
+                humidity: null,
+                wind_speed: null,
+            })
+        }
+        dayData = fullDay
+
+        const labels = dayData.map(d => `${d.hour}:00`)
 
         const datasets = [
             {
                 label: 'Energy (kWh)',
                 type: 'bar',
-                data: dayData.map(d => d.production_kwh || 0),
+                data: dayData.map(d => (d.production_kwh == null ? 0 : d.production_kwh)),
                 backgroundColor: dayData.map(d => getRankingColor(d.production_kwh || 0, 1)),
                 borderWidth: 1,
                 yAxisID: 'y',

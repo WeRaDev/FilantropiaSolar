@@ -18,6 +18,16 @@ import { calculateNormalizedRank } from '../utils/ranking.js'
  * @param {import('vue').ComputedRef<number>} deps.timeframeDays - Days in the current timeframe.
  * @return {object} Computed refs used by the modal template.
  */
+const rowHour = (h) => {
+    if (h?.hour !== undefined && h?.hour !== null && h?.hour !== '') {
+        const n = Number(h.hour)
+        if (!Number.isNaN(n)) return n
+    }
+    const ts = h?.timestamp || ''
+    const m = ts.match(/T(\d{1,2})/) || ts.match(/\s(\d{2}):/)
+    return m ? parseInt(m[1], 10) : 0
+}
+
 export function useAnalyticsStats({
     analysisData,
     selectedObject,
@@ -66,7 +76,7 @@ export function useAnalyticsStats({
         const avgCloud = hourlyData.value.reduce((sum, h) => sum + (h.cloud_cover || 0), 0) / len
         const avgHumidity = hourlyData.value.reduce((sum, h) => sum + (h.humidity || 0), 0) / len
         const avgWind = hourlyData.value.reduce((sum, h) => sum + (h.wind_speed || 0), 0) / len
-        const avgRadiation = hourlyData.value.reduce((sum, h) => sum + (h.radiation || 0), 0) / len
+        const avgRadiation = hourlyData.value.reduce((sum, h) => sum + (h.radiation || h.shortwave_radiation || 0), 0) / len
         const peakHour = hourlyData.value.length
             ? Math.max(...hourlyData.value.map(h => h.production_kwh || 0))
             : 0
@@ -101,7 +111,7 @@ export function useAnalyticsStats({
             return dayData
                 .filter(h => (h.production_kwh || 0) > 0.01)
                 .map(h => ({
-                    date: `${h.hour || 0}:00`,
+                    date: `${rowHour(h)}:00`,
                     energy: h.production_kwh || 0,
                     specificEnergy: (h.production_kwh || 0) / capacity,
                     peak: h.production_kwh || 0,
@@ -109,7 +119,7 @@ export function useAnalyticsStats({
                     humidity: h.humidity || 0,
                     cloud: h.cloud_cover || 0,
                     wind: h.wind_speed || 0,
-                    radiation: h.radiation || 0,
+                    radiation: h.radiation || h.shortwave_radiation || 0,
                     rank: calculateNormalizedRank(h.production_kwh || 0, capacity, 1),
                 }))
         }

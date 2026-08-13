@@ -427,6 +427,7 @@ class PredictionApiController extends OCSController
 
             $hourly[] = [
                 'timestamp' => $cursor->format('Y-m-d\\TH:i:s\\Z'),
+                'hour' => (int) $cursor->format('G'),
                 'production_kwh' => $production,
                 'provenance' => $provenance,
                 'temperature' => isset($wx['temperature']) ? (float) $wx['temperature']
