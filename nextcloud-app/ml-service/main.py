@@ -1746,9 +1746,10 @@ async def predict_period(request: PeriodPredictionRequest):
         if mode_l in sim_modes:
             location = request.location or "Lisbon"
             # Prefer nearest known location name for weather files when coords given
-            if getattr(request, "latitude", None) is not None and getattr(
-                request, "longitude", None
-            ) is not None:
+            if (
+                getattr(request, "latitude", None) is not None
+                and getattr(request, "longitude", None) is not None
+            ):
                 try:
                     lat_f = float(request.latitude)
                     lon_f = float(request.longitude)
