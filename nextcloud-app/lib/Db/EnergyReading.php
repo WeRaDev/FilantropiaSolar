@@ -36,6 +36,7 @@ class EnergyReading extends Entity implements JsonSerializable
     public const PROVENANCE_SIMULATED = 'simulated';
 
     protected int $installationId = 0;
+    /** Initialized so Entity getters/setters never touch an uninitialized typed property. */
     protected DateTime $timestamp;
     protected ?string $productionKwh = null;
     protected ?string $consumptionKwh = null;
@@ -46,6 +47,8 @@ class EnergyReading extends Entity implements JsonSerializable
 
     public function __construct()
     {
+        // PHP 8.1+ typed properties throw if read before assignment (Entity::setter).
+        $this->timestamp = new DateTime('@0');
         $this->addType('installationId', 'integer');
         $this->addType('timestamp', 'datetime');
         $this->addType('productionKwh', 'string');
