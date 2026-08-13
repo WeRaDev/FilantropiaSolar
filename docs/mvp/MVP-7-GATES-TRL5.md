@@ -11,10 +11,12 @@
 | Revisor QA | Gitea Actions on PR #30 | PASS |
 | Desktop pytest | `cd desktop && pytest -q` | 42 passed, 1 skipped |
 | Ruff format/lint | `ruff format --check . && ruff check .` | PASS |
-| NC app version | `occ config:app:get filantropia_solar installed_version` | 3.2.16 |
+| NC app version | `occ` / `appinfo/info.xml` | **3.2.21** (PR #31 analytics + ML ops sim) |
 | Migration columns | MySQL `provenance`, `grid_connection_type` | present |
 | Off-grid seeds | Penedo off-grid, WeRa Global | `off_grid` |
 | ML `/simulate/hourly` | POST fleet-by-meta | success |
+| ML production accuracy | `python3 nextcloud-app/scripts/verify-ml-production.py` | **PASS** (2026-08-13; mean ML/PVGIS ~1.15, linearity 10.0) |
+| Predicted ops stations | `/predict/period` simulated + capacity (NC id not in Excel) | success (WeRa etc.) |
 | FilantropiaSolarAdmin ACL | viewer 403 on edit/lifecycle; measured upload 200 | PASS |
 | CRM field | `crm_lead.fs_station_grid_connection_type` | present (module 19.0.2.22.0) |
 | Series jobs registered | `occ background-job:list` | Backfill + RollForward IDs present |
@@ -123,27 +125,34 @@ docker compose --profile odoo up -d odoo
 |-------|--------|
 | `curl NC/status.php` | installed, needsDbUpgrade false |
 | `curl ML/health` | healthy |
+| `verify-ml-production.py` | exit 0 PASS |
 | Odoo `/web/login`, `/instalacoes` | 200; COW map intact |
 | Public API stations | Planned+Running only; grid fields present |
 | Ops list | efficiency/savings keys; off-grid factor 1.0 |
 | CRM NC Stations | import/reconcile symmetry |
+| Analytics Predicted (ops station) | chart + SIMULATED badge |
 
 **TRL5 sign-off:**
 
 | Item | Pass | Initials | Date |
 |------|------|----------|------|
 | Backup taken | | | |
-| NC 3.2.16 + upgrade | | | |
+| NC 3.2.21+ + upgrade | | | |
 | Odoo 19.0.2.22.0 | | | |
 | COW map OK | | | |
 | Webhook/token OK | | | |
 | ML hourly OK | | | |
+| ML production accuracy gate | | | |
 | Series job smoke (12h) | | | |
 | Public site smoke | | | |
+| Analytics Historical + Predicted smoke | | | |
 
 ## Related
 
 - `docs/ops/SERIES-SIM-GRID-ADMIN.md`  
 - `docs/ops/CRM-NC-LIFECYCLE-MIRROR.md`  
 - `docs/ops/ODOO-WEBSITE-COW-VIEWS.md`  
+- `docs/ops/ML-PRODUCTION-ACCURACY.md`  
+- `docs/ops/PR31-DEPLOY-SMOKE.md`  
+- `nextcloud-app/scripts/verify-ml-production.py`  
 - `nextcloud-app/scripts/setup-trl5.sh`  

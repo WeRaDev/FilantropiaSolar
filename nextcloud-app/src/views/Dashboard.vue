@@ -10,6 +10,7 @@
 		<AnalyticsModal />
 		<CreateVirtualModal />
 		<EditStationModal />
+		<UploadHistoricalModal />
 		<LifecycleModal />
 	</div>
 </template>
@@ -30,6 +31,9 @@ const CreateVirtualModal = defineAsyncComponent(() =>
 const EditStationModal = defineAsyncComponent(() =>
 	import('../components/EditStationModal.vue'),
 )
+const UploadHistoricalModal = defineAsyncComponent(() =>
+	import('../components/UploadHistoricalModal.vue'),
+)
 const LifecycleModal = defineAsyncComponent(() =>
 	import('../components/LifecycleModal.vue'),
 )
@@ -43,6 +47,7 @@ export default {
 		AnalyticsModal,
 		CreateVirtualModal,
 		EditStationModal,
+		UploadHistoricalModal,
 		LifecycleModal,
 	},
 	setup() {

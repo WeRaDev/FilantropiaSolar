@@ -47,19 +47,31 @@ export function useEnergyChart({
      * Render (or re-render) the chart appropriate for the current timeframe.
      */
     const renderChart = () => {
-        if (!canvasRef.value || !hourlyData.value.length) return
+        const canvas = canvasRef.value
+        if (!canvas || !hourlyData.value.length) return
+
+        // Hidden (v-show) or pre-layout canvas has 0 size — Chart.js draws blank
+        const parent = canvas.parentElement
+        const w = canvas.clientWidth || parent?.clientWidth || 0
+        const h = canvas.clientHeight || parent?.clientHeight || 0
+        if (w < 2 || h < 2) {
+            return false
+        }
 
         if (chartInstance) {
             chartInstance.destroy()
+            chartInstance = null
         }
 
-        const ctx = canvasRef.value.getContext('2d')
+        const ctx = canvas.getContext('2d')
+        if (!ctx) return false
 
         if (currentTimeframe.value === 'day') {
             renderHourlyChart(ctx)
         } else {
             renderDailyChart(ctx)
         }
+        return true
     }
 
     /**
@@ -74,30 +86,83 @@ export function useEnergyChart({
 
     // ---- Hourly chart (single day) -----------------------------------------
 
+    /** Hour 0-23 from row.hour or timestamp. */
+    const rowHour = (d) => {
+        if (d == null) return 0
+        if (d.hour !== undefined && d.hour !== null && d.hour !== '') {
+            const n = Number(d.hour)
+            if (!Number.isNaN(n)) return n
+        }
+        const ts = d.timestamp || ''
+        // 2026-08-13T14:00:00Z or 2026-08-13 14:00:00
+        const m = ts.match(/T(\d{1,2})[:\s]/) || ts.match(/\s(\d{2}):/)
+        if (m) return parseInt(m[1], 10)
+        return 0
+    }
+
+
     const renderHourlyChart = (ctx) => {
+        const dateKey = (ts) => {
+            const s = String(ts || '')
+            if (!s) return ''
+            // Handle ISO with/without Z and space-separated datetimes
+            if (s.includes('T')) return s.split('T')[0]
+            return s.slice(0, 10)
+        }
         const dates = [...new Set(
-            hourlyData.value.map(p => (p.timestamp || '').split('T')[0]),
-        )].sort()
-        const currentDate = dates[currentDayIndex.value]
+            hourlyData.value.map(p => dateKey(p.timestamp)),
+        )].filter(Boolean).sort()
+        if (!dates.length) return
+
+        // Clamp day index so predicted (often 1 day) never lands on undefined
+        const idx = Math.min(
+            Math.max(0, currentDayIndex.value || 0),
+            Math.max(0, dates.length - 1),
+        )
+        const currentDate = dates[idx]
         let dayData = hourlyData.value.filter(
-            p => (p.timestamp || '').split('T')[0] === currentDate,
+            p => dateKey(p.timestamp) === currentDate,
         )
 
         if (dayData.length === 0) return
 
-        dayData.sort((a, b) => (a.hour || 0) - (b.hour || 0))
-        dayData = dayData.filter(
-            d => (d.production_kwh || 0) > 0 || (d.hour >= 6 && d.hour <= 20),
-        )
+        // Normalize hour from timestamp when API omits hour (NC historical SoT)
+        dayData = dayData.map(d => ({
+            ...d,
+            hour: rowHour(d),
+            // ML predicted uses radiation; historical uses shortwave_radiation
+            radiation: d.radiation ?? d.shortwave_radiation ?? null,
+            temperature: d.temperature ?? d.temperature_2m ?? null,
+            cloud_cover: d.cloud_cover ?? null,
+            humidity: d.humidity ?? d.relative_humidity_2m ?? null,
+            wind_speed: d.wind_speed ?? d.wind_speed_10m ?? null,
+        }))
+        dayData.sort((a, b) => a.hour - b.hour)
 
-        const labels = dayData.map(d => `${d.hour || 0}:00`)
+        // Always render 0-23 slots so Day axis is stable (historical future = empty/0)
+        const byH = new Map(dayData.map(d => [d.hour, d]))
+        const fullDay = []
+        for (let h = 0; h < 24; h++) {
+            fullDay.push(byH.get(h) || {
+                hour: h,
+                production_kwh: null,
+                temperature: null,
+                cloud_cover: null,
+                humidity: null,
+                wind_speed: null,
+                radiation: null,
+            })
+        }
+        dayData = fullDay
+
+        const labels = dayData.map(d => `${String(d.hour).padStart(1, '0')}:00`)
 
         const datasets = [
             {
                 label: 'Energy (kWh)',
                 type: 'bar',
-                data: dayData.map(d => d.production_kwh || 0),
-                backgroundColor: dayData.map(d => getRankingColor(d.production_kwh || 0, 1)),
+                data: dayData.map(d => (d.production_kwh == null || d.production_kwh === '' ? 0 : Number(d.production_kwh))),
+                backgroundColor: dayData.map(d => getRankingColor(Number(d.production_kwh) || 0, 1)),
                 borderWidth: 1,
                 yAxisID: 'y',
                 order: 4,

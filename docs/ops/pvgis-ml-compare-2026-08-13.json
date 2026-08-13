@@ -1,0 +1,66 @@
+{
+  "generated_at": "2026-08-13T20:45:00.101324+00:00",
+  "notes": [
+    "ML POST /simulate/hourly (physics predict_production_simple, weather_source=api) for 2026-08-12.",
+    "PVGIS baseline: classic PVcalc v5_2 monthly E_m for August / 31 as mean daily kWh (tilt=35, aspect=0, loss=14%).",
+    "seriescalc hourly for 2018-2020-08-10 returned P=0 in this environment (API quirk / param set); not used for ratio.",
+    "Observed ML/PVGIS_mean_daily \u2248 1.10\u20131.11 (~10\u201311% high). Expected for a clear high-radiation day vs monthly average; peak radiation ~920 W/m2 is realistic.",
+    "No physics retune required for MVP; optional later: site-specific tilt/aspect, or clear-sky day match against seriescalc once P fields validate.",
+    "docs/ops/openapi.json is PVGIS Web API 6 (relative /api/v6); comparison used public JRC v5_2 endpoints."
+  ],
+  "results": [
+    {
+      "id": "1",
+      "name": "Lisbon PV Plant",
+      "kwp": 46.0,
+      "ml_day": "2026-08-12",
+      "ml_kwh": 278.9140106496,
+      "ml_kwh_kwp": 6.063348057600001,
+      "ml_predict_period_kwh": 278.916,
+      "pvgis_aug10_mean_kwh": 0.0,
+      "pvgis_aug10_kwh_kwp": null,
+      "pvgis_aug_mean_daily_kwh": 251.69548387096776,
+      "ratio_ml_over_pvgis_aug_mean_daily": 1.1081407038379198
+    },
+    {
+      "id": "2",
+      "name": "Lisbon PV Plant",
+      "kwp": 16.32,
+      "ml_day": "2026-08-12",
+      "ml_kwh": 98.953840300032,
+      "ml_kwh_kwp": 6.0633480576,
+      "ml_predict_period_kwh": 98.954,
+      "pvgis_aug10_mean_kwh": 0.0,
+      "pvgis_aug10_kwh_kwp": null,
+      "pvgis_aug_mean_daily_kwh": 89.6858064516129,
+      "ratio_ml_over_pvgis_aug_mean_daily": 1.103338914094722
+    },
+    {
+      "id": "3",
+      "name": "Setubal PV Plant",
+      "kwp": 23.52,
+      "ml_day": "2026-08-12",
+      "ml_kwh": 142.46297940504,
+      "ml_kwh_kwp": 6.057099464499999,
+      "ml_predict_period_kwh": 142.463,
+      "pvgis_aug10_mean_kwh": 0.0,
+      "pvgis_aug10_kwh_kwp": null,
+      "pvgis_aug_mean_daily_kwh": 128.02870967741936,
+      "ratio_ml_over_pvgis_aug_mean_daily": 1.1127424447531273
+    },
+    {
+      "id": "4",
+      "name": "Lisbon PV Plant",
+      "kwp": 30.0,
+      "ml_day": "2026-08-12",
+      "ml_kwh": 181.900441728,
+      "ml_kwh_kwp": 6.0633480576,
+      "ml_predict_period_kwh": 181.90200000000002,
+      "pvgis_aug10_mean_kwh": 0.0,
+      "pvgis_aug10_kwh_kwp": null,
+      "pvgis_aug_mean_daily_kwh": 164.1032258064516,
+      "ratio_ml_over_pvgis_aug_mean_daily": 1.1084513472181161
+    }
+  ],
+  "verdict": "production_reasonable_vs_pvgis_monthly"
+}

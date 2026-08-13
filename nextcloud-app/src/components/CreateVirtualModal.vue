@@ -171,6 +171,7 @@ import { useAppStore } from '../store/app.js'
 import { generateUrl } from '@nextcloud/router'
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
+import { fixLeafletDefaultIcons } from '../utils/leafletIcons.js'
 
 export default {
     name: 'CreateVirtualModal',
@@ -231,6 +232,7 @@ export default {
         // Initialize Leaflet map for location picking (v3.0.4)
         const initMap = () => {
             if (!mapContainer.value || map) return
+            fixLeafletDefaultIcons()
 
             // Default to Portugal center
             const defaultLat = form.value.latitude || 39.5

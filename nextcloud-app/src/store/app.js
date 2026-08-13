@@ -29,6 +29,7 @@ export const useAppStore = defineStore('app', {
         // Analytics data
         analysisData: null,
         analysisLoading: false,
+        analysisError: null,
 
         // Analytics Modal state
         analyticsModalOpen: false,
@@ -39,6 +40,9 @@ export const useAppStore = defineStore('app', {
 
         // Edit station modal
         editStationModalOpen: false,
+
+        // Upload measured historical readings
+        uploadHistoricalModalOpen: false,
 
         // Lifecycle chooser modal
         lifecycleModalOpen: false,
@@ -179,8 +183,12 @@ export const useAppStore = defineStore('app', {
                         },
                         customData: {
                             serialNumber: inst.serial_number,
-                            fromDate: inst.from_date,
-                            toDate: inst.to_date,
+                            fromDate: inst.from_date || inst.series_from_date || null,
+                            toDate: inst.to_date || inst.series_to_date || null,
+                            installedAt: inst.installed_at || null,
+                            installationDate: inst.installation_date || null,
+                            seriesFromDate: inst.series_from_date || null,
+                            seriesToDate: inst.series_to_date || null,
                             isVirtual: inst.is_virtual || lifecycle === 'virtual',
                             source: inst.source || 'user',
                             dbId: inst.db_id || null,
@@ -196,6 +204,9 @@ export const useAppStore = defineStore('app', {
                             website: inst.website || '',
                             shortDescription: inst.short_description || '',
                             gridPriceKwh: inst.grid_price_kwh != null ? Number(inst.grid_price_kwh) : 0.15,
+                            gridConnectionType: inst.grid_connection_type || 'on_grid',
+                            seriesFromDate: inst.series_from_date || null,
+                            seriesToDate: inst.series_to_date || null,
                         },
                         lifecycle_state: lifecycle,
                         soft_removed: softRemoved,
@@ -203,13 +214,22 @@ export const useAppStore = defineStore('app', {
                         website: inst.website || '',
                         short_description: inst.short_description || '',
                         grid_price_kwh: inst.grid_price_kwh != null ? Number(inst.grid_price_kwh) : 0.15,
+                        grid_connection_type: inst.grid_connection_type || 'on_grid',
                         total_production_kwh: Number(inst.total_production_kwh || 0),
                         total_savings_eur: Number(inst.total_savings_eur || 0),
                         readings_count: Number(inst.readings_count || 0),
                         has_series_data: Boolean(inst.has_series_data),
                         has_measured_data: Boolean(inst.has_measured_data),
                         series_source: inst.series_source || 'none',
-                        efficiency: Number(inst.efficiency != null ? inst.efficiency : 0),
+                        series_from_date: inst.series_from_date || null,
+                        series_to_date: inst.series_to_date || null,
+                        last_hour_production_kwh: inst.last_hour_production_kwh != null
+                            ? Number(inst.last_hour_production_kwh)
+                            : null,
+                        // 0 when missing/night — never default to 0.85
+                        efficiency: inst.efficiency != null && inst.efficiency !== ''
+                            ? Number(inst.efficiency)
+                            : 0,
                         // Use actual API coordinates if available, otherwise fallback to location lookup
                         coordinates: (inst.latitude && inst.longitude)
                             ? { lat: parseFloat(inst.latitude), lng: parseFloat(inst.longitude) }
@@ -370,36 +390,81 @@ export const useAppStore = defineStore('app', {
         // Generate analysis with specific center date and mode (for Historical/Predicted toggle)
         async generateAnalysisWithMode(objectId, centerDate, days = 21, mode = 'historical') {
             this.analysisLoading = true
-            
+            // Clear previous mode payload so UI never mixes Historical metrics into Predicted
+            this.analysisData = null
+            this.analysisError = null
+
             try {
                 const obj = this.objects.find(o => o.id === objectId)
-                
-                // Virtual installations must use 'custom' mode - they don't exist
-                // in the backend's dataset, so 'historical'/'simulated' would 404
+                    || this.objects.find(o => String(o.installation_id) === String(objectId))
+                    || this.objects.find(o => String(o.customData?.dbId) === String(objectId))
+
+                // Prefer NC db id for ops stations (including virtual_* list ids).
+                const installationKey = obj?.customData?.dbId
+                    || (String(objectId).startsWith('virtual_') ? String(objectId).slice('virtual_'.length) : objectId)
+                const hasNcDb = !!obj?.customData?.dbId || /^\d+$/.test(String(installationKey))
                 const isVirtual = obj?.customData?.isVirtual || String(objectId).startsWith('virtual_')
-                const effectiveMode = isVirtual ? 'custom' : mode
-                
+                const source = obj?.customData?.source || ''
+
+                // Historical with NC rows must use mode=historical (NC SoT).
+                // Predicted for ops/user stations: always 'simulated' with capacity/coords
+                // (ML corpus only has Mendeley dataset ids).
+                let effectiveMode = mode
+                if (mode === 'historical' && hasNcDb) {
+                    effectiveMode = 'historical'
+                } else if (mode !== 'historical') {
+                    effectiveMode = (isVirtual || source === 'user' || hasNcDb || source !== 'dataset')
+                        ? 'simulated'
+                        : 'simulated'
+                }
+
+                const capacity = Number(obj?.capacity_kwp ?? obj?.metrics?.powerOutput ?? 0) || null
+                const lat = obj?.latitude != null ? Number(obj.latitude) : (obj?.coordinates?.lat != null ? Number(obj.coordinates.lat) : null)
+                const lng = obj?.longitude != null ? Number(obj.longitude) : (obj?.coordinates?.lng != null ? Number(obj.coordinates.lng) : null)
+
                 const response = await axios.post(
                     generateUrl('/apps/filantropia_solar/api/v1/predict/period'),
                     {
                         mode: effectiveMode,
-                        installation_id: objectId,
+                        installation_id: String(installationKey),
                         center_date: centerDate,
                         days: days,
-                        // Include location/capacity for custom/simulated mode
-                        location: obj?.location,
-                        capacity_kwp: obj?.capacity_kwp
-                    }
+                        location: obj?.location || 'Lisbon',
+                        capacity_kwp: capacity,
+                        latitude: lat,
+                        longitude: lng,
+                    },
                 )
 
-                if (response.data.success) {
-                    this.analysisData = {
-                        ...response.data,
-                        mode: mode
+                if (response.data?.success) {
+                    const data = { ...response.data, mode }
+                    // Normalize hour on every hourly point for chart labels (0:00 bug)
+                    if (Array.isArray(data.hourly_data)) {
+                        data.hourly_data = data.hourly_data.map((h) => {
+                            let hour = h.hour
+                            if (hour === undefined || hour === null || hour === '') {
+                                const ts = h.timestamp || ''
+                                const m = ts.match(/T(\d{1,2})/) || ts.match(/\s(\d{2}):/)
+                                hour = m ? parseInt(m[1], 10) : 0
+                            }
+                            return { ...h, hour: Number(hour) }
+                        })
                     }
+                    // Predicted badge always SIMULATED
+                    if (mode === 'simulated' || mode === 'custom' || mode === 'predicted') {
+                        data.series_label = 'SIMULATED'
+                        data.data_mode_label = 'SIMULATED'
+                    }
+                    this.analysisData = data
+                    this.analysisError = null
+                } else {
+                    this.analysisData = null
+                    this.analysisError = response.data?.error || 'Analysis returned no data'
                 }
                 return response.data
             } catch (error) {
+                this.analysisData = null
+                this.analysisError = error.response?.data?.error || error.message || 'Analysis failed'
                 throw error
             } finally {
                 this.analysisLoading = false
@@ -442,6 +507,21 @@ export const useAppStore = defineStore('app', {
         },
         closeEditStationModal() {
             this.editStationModalOpen = false
+        },
+        openUploadHistoricalModal() {
+            this.uploadHistoricalModalOpen = true
+        },
+        closeUploadHistoricalModal() {
+            this.uploadHistoricalModalOpen = false
+        },
+        async uploadMeasuredReadings(objectId, readings) {
+            const key = this.stationApiKey(objectId)
+            const response = await axios.post(
+                generateUrl(`/apps/filantropia_solar/api/v1/installations/${encodeURIComponent(key)}/import`),
+                { readings },
+            )
+            await this.fetchObjects()
+            return response.data
         },
         openLifecycleModal() {
             this.lifecycleModalOpen = true
@@ -770,90 +850,111 @@ export const useAppStore = defineStore('app', {
             await this.fetchObjects()
         },
 
-        // Export analysis report as CSV for the selected timeframe
-        async exportAnalysisReport(installation, analysisData, centerDate, days) {
-            try {
-                // Build CSV content from analysis data
-                const hourlyData = analysisData.hourly_data || []
-                const dailyData = analysisData.daily_data || []
-                const stats = analysisData.period_statistics || {}
-                
-                // Header with metadata
-                let csv = `# FilantropiaSolar Analysis Report\n`
-                csv += `# Installation: ${installation.name}\n`
-                csv += `# Location: ${installation.location}\n`
-                csv += `# Capacity: ${installation.capacity_kwp} kWp\n`
-                csv += `# Center Date: ${centerDate}\n`
-                csv += `# Analysis Period: ${days} days\n`
-                csv += `# Generated: ${new Date().toISOString()}\n`
-                csv += `#\n`
-                csv += `# PERIOD STATISTICS\n`
-                csv += `# Total Energy: ${(stats.total_energy_kwh || 0).toFixed(2)} kWh\n`
-                csv += `# Avg Daily: ${(stats.avg_daily_kwh || 0).toFixed(2)} kWh/day\n`
-                csv += `#\n\n`
-                
-                // Daily summary section
-                csv += `DAILY SUMMARY\n`
-                csv += `Date,Energy_kWh,Peak_kWh,Avg_Temp_C,Avg_Cloud_Pct\n`
-                
-                if (dailyData.length > 0) {
-                    dailyData.forEach(d => {
-                        csv += `${d.date || ''},${(d.total_production_kwh || 0).toFixed(2)},`
-                        csv += `${(d.peak_production_kwh || 0).toFixed(2)},`
-                        csv += `${(d.avg_temperature || 0).toFixed(1)},`
-                        csv += `${(d.avg_cloud_cover || 0).toFixed(0)}\n`
-                    })
-                } else {
-                    // Calculate from hourly data
-                    const byDate = {}
-                    hourlyData.forEach(h => {
-                        const date = (h.timestamp || '').split('T')[0]
-                        if (!byDate[date]) {
-                            byDate[date] = { energy: 0, peak: 0, temps: [], clouds: [] }
-                        }
-                        byDate[date].energy += h.production_kwh || 0
-                        byDate[date].peak = Math.max(byDate[date].peak, h.production_kwh || 0)
-                        byDate[date].temps.push(h.temperature || 0)
-                        byDate[date].clouds.push(h.cloud_cover || 0)
-                    })
-                    
-                    Object.entries(byDate).sort().forEach(([date, data]) => {
-                        const avgTemp = data.temps.reduce((a, b) => a + b, 0) / data.temps.length
-                        const avgCloud = data.clouds.reduce((a, b) => a + b, 0) / data.clouds.length
-                        csv += `${date},${data.energy.toFixed(2)},${data.peak.toFixed(2)},`
-                        csv += `${avgTemp.toFixed(1)},${avgCloud.toFixed(0)}\n`
-                    })
-                }
-                
-                csv += `\nHOURLY DATA\n`
-                csv += `Timestamp,Hour,Energy_kWh,Temperature_C,Cloud_Cover_Pct,Humidity_Pct\n`
-                
-                hourlyData.forEach(h => {
-                    csv += `${h.timestamp || ''},${h.hour || ''},`
-                    csv += `${(h.production_kwh || 0).toFixed(3)},`
-                    csv += `${(h.temperature || 0).toFixed(1)},`
-                    csv += `${(h.cloud_cover || 0).toFixed(0)},`
-                    csv += `${(h.humidity || 0).toFixed(0)}\n`
+        buildAnalysisCsv(installation, analysisData, centerDate, days) {
+            const hourlyData = analysisData.hourly_data || []
+            const dailyData = analysisData.daily_data || []
+            const stats = analysisData.period_statistics || {}
+            let csv = `# FilantropiaSolar Analysis Report\n`
+            csv += `# Installation: ${installation.name}\n`
+            csv += `# Location: ${installation.location}\n`
+            csv += `# Capacity: ${installation.capacity_kwp} kWp\n`
+            csv += `# Center Date: ${centerDate}\n`
+            csv += `# Analysis Period: ${days} days\n`
+            csv += `# Timezone: Europe/Lisbon\n`
+            csv += `# Generated: ${new Date().toISOString()}\n`
+            csv += `#\n`
+            csv += `# PERIOD STATISTICS\n`
+            csv += `# Total Energy: ${(stats.total_energy_kwh || stats.total_production_kwh || 0).toFixed(2)} kWh\n`
+            csv += `# Avg Daily: ${(stats.avg_daily_kwh || 0).toFixed(2)} kWh/day\n`
+            csv += `#\n\n`
+            csv += `DAILY SUMMARY\n`
+            csv += `Date,Energy_kWh,Peak_kWh,Avg_Temp_C,Avg_Cloud_Pct\n`
+            if (dailyData.length > 0) {
+                dailyData.forEach(d => {
+                    csv += `${d.date || ''},${(d.total_production_kwh || 0).toFixed(2)},`
+                    csv += `${(d.peak_production_kwh || 0).toFixed(2)},`
+                    csv += `${(d.avg_temperature || 0).toFixed(1)},`
+                    csv += `${(d.avg_cloud_cover || 0).toFixed(0)}\n`
                 })
-                
-                // Create download
+            } else {
+                const byDate = {}
+                hourlyData.forEach(h => {
+                    const date = (h.timestamp || '').split('T')[0]
+                    if (!byDate[date]) {
+                        byDate[date] = { energy: 0, peak: 0, temps: [], clouds: [] }
+                    }
+                    byDate[date].energy += h.production_kwh || 0
+                    byDate[date].peak = Math.max(byDate[date].peak, h.production_kwh || 0)
+                    byDate[date].temps.push(h.temperature || 0)
+                    byDate[date].clouds.push(h.cloud_cover || 0)
+                })
+                Object.entries(byDate).sort().forEach(([date, data]) => {
+                    const avgTemp = data.temps.length ? data.temps.reduce((a, b) => a + b, 0) / data.temps.length : 0
+                    const avgCloud = data.clouds.length ? data.clouds.reduce((a, b) => a + b, 0) / data.clouds.length : 0
+                    csv += `${date},${data.energy.toFixed(2)},${data.peak.toFixed(2)},`
+                    csv += `${avgTemp.toFixed(1)},${avgCloud.toFixed(0)}\n`
+                })
+            }
+            csv += `\nHOURLY DATA\n`
+            csv += `Timestamp,Hour,Energy_kWh,Temperature_C,Cloud_Cover_Pct,Humidity_Pct,Provenance\n`
+            hourlyData.forEach(h => {
+                csv += `${h.timestamp || ''},${h.hour ?? ''},`
+                csv += `${(h.production_kwh || 0).toFixed(3)},`
+                csv += `${(h.temperature || 0).toFixed(1)},`
+                csv += `${(h.cloud_cover || 0).toFixed(0)},`
+                csv += `${(h.humidity || 0).toFixed(0)},`
+                csv += `${h.provenance || ''}\n`
+            })
+            const filename = `${String(installation.name || 'station').replace(/[^a-zA-Z0-9]/g, '_')}_${centerDate}_${days}day_report.csv`
+            return { csv, filename }
+        },
+
+        // destination: 'computer' | 'nextcloud'
+        async exportAnalysisReport(installation, analysisData, centerDate, days, destination = 'computer') {
+            try {
+                const { csv, filename } = this.buildAnalysisCsv(installation, analysisData, centerDate, days)
+                if (destination === 'nextcloud') {
+                    const key = this.stationApiKey(installation)
+                    const response = await axios.post(
+                        generateUrl(`/apps/filantropia_solar/api/v1/installations/${encodeURIComponent(key)}/export-analysis`),
+                        {
+                            content: csv,
+                            filename,
+                            folder: 'FilantropiaSolar Data/Exports',
+                        },
+                    )
+                    if (!response.data?.success) {
+                        throw new Error(response.data?.error || 'Export to Nextcloud Files failed')
+                    }
+                    const dir = response.data.path || 'FilantropiaSolar Data/Exports'
+                    const filesUrl = generateUrl('/apps/files/?dir=/' + encodeURIComponent(dir))
+                    window.open(filesUrl, '_blank')
+                    return { success: true, destination: 'nextcloud', ...response.data }
+                }
                 const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
                 const url = URL.createObjectURL(blob)
                 const link = document.createElement('a')
                 link.href = url
-                const filename = `${installation.name.replace(/[^a-zA-Z0-9]/g, '_')}_${centerDate}_${days}day_report.csv`
                 link.download = filename
                 document.body.appendChild(link)
                 link.click()
                 document.body.removeChild(link)
                 URL.revokeObjectURL(url)
-                
-                return { success: true, filename }
-                
+                return { success: true, destination: 'computer', filename }
             } catch (error) {
-                alert('Export failed: ' + error.message)
+                alert('Export failed: ' + (error.response?.data?.error || error.message))
                 throw error
             }
-        }
+        },
+
+        async importMeasuredFromFiles(objectId, filePath) {
+            const key = this.stationApiKey(objectId)
+            const response = await axios.post(
+                generateUrl(`/apps/filantropia_solar/api/v1/installations/${encodeURIComponent(key)}/import-from-files`),
+                { path: filePath },
+            )
+            await this.fetchObjects()
+            return response.data
+        },
     }
 })

@@ -16,7 +16,7 @@ use OCP\IConfig;
 use Psr\Log\LoggerInterface;
 
 /**
- * Gap-fill NC series from ML hourly simulation (UTC hour buckets).
+ * Gap-fill NC series from ML hourly simulation (Europe/Lisbon hour buckets).
  * Measured hours are immutable; simulated only fills empty hours.
  */
 class SeriesSimulationService
@@ -45,14 +45,18 @@ class SeriesSimulationService
 	}
 
 	/**
-	 * Last complete UTC hour start (e.g. 13:00 when now is 13:42).
+	 * Last complete Europe/Lisbon hour start (e.g. 13:00 when now is 13:42 Lisbon).
+	 * @deprecated name kept for callers; uses AppTimezone::lastCompleteHour()
 	 */
 	public function lastCompleteHourUtc(?DateTimeImmutable $now = null): DateTimeImmutable
 	{
-		$now = $now ?? new DateTimeImmutable('now', new DateTimeZone('UTC'));
-		$floored = $now->setTime((int) $now->format('H'), 0, 0);
+		return AppTimezone::lastCompleteHour($now);
+	}
 
-		return $floored->sub(new DateInterval('PT1H'));
+	/** Alias preferred name. */
+	public function lastCompleteHour(?DateTimeImmutable $now = null): DateTimeImmutable
+	{
+		return AppTimezone::lastCompleteHour($now);
 	}
 
 	/**
@@ -68,11 +72,11 @@ class SeriesSimulationService
 		];
 		foreach ($candidates as $dt) {
 			if ($dt instanceof DateTime) {
-				return DateTimeImmutable::createFromMutable($dt)->setTimezone(new DateTimeZone('UTC'));
+				return DateTimeImmutable::createFromMutable($dt)->setTimezone(AppTimezone::zone());
 			}
 		}
 
-		return new DateTimeImmutable('now', new DateTimeZone('UTC'));
+		return AppTimezone::now();
 	}
 
 	/**
@@ -93,6 +97,12 @@ class SeriesSimulationService
 
 	/** Max days per backfill chunk (keeps ML + NC within job timeout). */
 	public const BACKFILL_CHUNK_DAYS = 7;
+
+	/** First Europe/Lisbon hour inclusive for automatic series fill (05:00). */
+	public const PRODUCTION_HOUR_START = 5;
+
+	/** Last Europe/Lisbon hour inclusive for automatic series fill (22:00). */
+	public const PRODUCTION_HOUR_END = 22;
 
 	/**
 	 * Historical gap-fill for one Running station (chunked).
@@ -219,7 +229,7 @@ class SeriesSimulationService
 			$production = (float) ($row['production_kwh'] ?? 0);
 			$result = $this->readingMapper->insertSimulatedIfEmpty(
 				$dbId,
-				DateTime::createFromFormat('Y-m-d H:i:s', $hourKey, new DateTimeZone('UTC')) ?: new DateTime($hourKey, new DateTimeZone('UTC')),
+				DateTime::createFromFormat('Y-m-d H:i:s', $hourKey, AppTimezone::zone()) ?: new DateTime($hourKey, AppTimezone::zone()),
 				$production,
 				isset($row['temperature_c']) ? (float) $row['temperature_c'] : (isset($row['temperature']) ? (float) $row['temperature'] : null),
 				isset($row['cloud_cover_pct']) ? (int) $row['cloud_cover_pct'] : (isset($row['cloud_cover']) ? (int) $row['cloud_cover'] : null),
@@ -260,7 +270,7 @@ class SeriesSimulationService
 				$skipped++;
 				continue;
 			}
-			$dt = DateTime::createFromFormat('Y-m-d H:i:s', $ts, new DateTimeZone('UTC'));
+			$dt = DateTime::createFromFormat('Y-m-d H:i:s', $ts, AppTimezone::zone());
 			if ($dt === false) {
 				$skipped++;
 				continue;
@@ -292,26 +302,32 @@ class SeriesSimulationService
 	}
 
 	/**
-	 * @return list<string> hour keys Y-m-d H:i:s UTC missing from series
+	 * @return list<string> hour keys Y-m-d H:i:s Europe/Lisbon missing from series
 	 */
 	private function missingHours(
 		int $installationDbId,
-		DateTimeImmutable $startUtc,
-		DateTimeImmutable $endUtc,
+		DateTimeImmutable $startLocal,
+		DateTimeImmutable $endLocal,
 	): array {
+		$startLocal = $startLocal->setTimezone(AppTimezone::zone());
+		$endLocal = $endLocal->setTimezone(AppTimezone::zone());
 		$existing = $this->readingMapper->listTimestamps(
 			$installationDbId,
-			DateTime::createFromImmutable($startUtc),
-			DateTime::createFromImmutable($endUtc),
+			DateTime::createFromImmutable($startLocal),
+			DateTime::createFromImmutable($endLocal),
 		);
 		$existingSet = array_fill_keys($existing, true);
 		$missing = [];
-		$cursor = $startUtc->setTime((int) $startUtc->format('H'), 0, 0);
-		$end = $endUtc->setTime((int) $endUtc->format('H'), 0, 0);
+		$cursor = $startLocal->setTime((int) $startLocal->format('H'), 0, 0);
+		$end = $endLocal->setTime((int) $endLocal->format('H'), 0, 0);
 		while ($cursor <= $end) {
-			$key = $cursor->format('Y-m-d H:i:s');
-			if (!isset($existingSet[$key])) {
-				$missing[] = $key;
+			$hour = (int) $cursor->format('G');
+			// Automatic population only during production window 05:00–22:00 Europe/Lisbon
+			if ($hour >= self::PRODUCTION_HOUR_START && $hour <= self::PRODUCTION_HOUR_END) {
+				$key = $cursor->format('Y-m-d H:i:s');
+				if (!isset($existingSet[$key])) {
+					$missing[] = $key;
+				}
 			}
 			$cursor = $cursor->add(new DateInterval('PT1H'));
 		}
@@ -338,8 +354,9 @@ class SeriesSimulationService
 						'longitude' => (float) $station->getLongitude(),
 						'capacity_kwp' => (float) $station->getCapacityKwp(),
 						'location' => $station->getLocation() ?: 'Lisbon',
-						'start' => $startUtc->format('Y-m-d\TH:i:s\Z'),
-						'end' => $endUtc->format('Y-m-d\TH:i:s\Z'),
+						// ML expects absolute instants; convert Lisbon wall-clock range to UTC
+						'start' => $startUtc->setTimezone(new DateTimeZone('UTC'))->format('Y-m-d\TH:i:s\Z'),
+						'end' => $endUtc->setTimezone(new DateTimeZone('UTC'))->format('Y-m-d\TH:i:s\Z'),
 					],
 				],
 			);
@@ -367,8 +384,13 @@ class SeriesSimulationService
 			return null;
 		}
 		try {
-			$dt = new DateTimeImmutable($raw);
-			$dt = $dt->setTimezone(new DateTimeZone('UTC'))->setTime((int) $dt->format('H'), 0, 0);
+			// Naive timestamps are treated as Europe/Lisbon wall-clock; Z/offset converted to Lisbon.
+			if (preg_match('/[zZ]|[+-]\d{2}:?\d{2}$/', $raw)) {
+				$dt = new DateTimeImmutable($raw);
+			} else {
+				$dt = new DateTimeImmutable($raw, AppTimezone::zone());
+			}
+			$dt = $dt->setTimezone(AppTimezone::zone())->setTime((int) $dt->format('H'), 0, 0);
 
 			return $dt->format('Y-m-d H:i:s');
 		} catch (\Throwable) {

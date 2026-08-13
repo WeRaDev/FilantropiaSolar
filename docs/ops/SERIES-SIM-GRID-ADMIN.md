@@ -1,6 +1,6 @@
 # Series simulation, savings factor, FilantropiaSolarAdmin
 
-NC app **3.2.16** · Odoo addon **19.0.2.22.0**
+NC app **3.2.18** · Odoo addon **19.0.2.22.0**
 
 ## What shipped
 
@@ -13,7 +13,7 @@ NC app **3.2.16** · Odoo addon **19.0.2.22.0**
 3. **List efficiency badge**: last series hour `production_kwh / capacity_kwp` (not the old ×1500 proxy).
 4. **Jobs** (registered in `info.xml`):
    - `SeriesBackfillJob` — daily catch-up for **Running** ops stations; **7-day chunks** per station per run (`SeriesSimulationService::BACKFILL_CHUNK_DAYS`) so multi-year fleets do not timeout.
-   - `SeriesRollForwardJob` — every **12h**, previous 12 complete hours.
+   - `SeriesRollForwardJob` — every **1h**, previous **2** complete hours (catch-up window).
 5. **ML** `POST /simulate/hourly` — fleet-by-meta (lat/lon/capacity + range); NC persists.
 6. **Auth group** `FilantropiaSolarAdmin` (or NC admin):
    - Required for lifecycle + master-data edit/delete.
@@ -40,6 +40,8 @@ docker exec -u 33 filantropia-nextcloud php occ background-job:execute <backfill
 ## Notes
 
 - Do not enable trust of empty series: empty → 0 / no series data.
-- TRL5: run roll-forward first after ML health; repeat backfill daily until `complete` (see job logs). Full history is multi-run by design.
+- TRL5: run hourly roll-forward after ML health; repeat backfill daily until `complete` (see job logs). Full history is multi-run by design.
+- List **Active** status = last complete UTC hour is **measured** (not merely any measured row in history).
+- Analytics Historical mode reads **NC fs_readings** only for ops stations; badge HISTORICAL / SIMULATED / MIXED (n/m); Predicted mode badge always SIMULATED.
 - CRM mirror carries `grid_connection_type` via lifecycle webhook / import.
 - MVP-7 / TRL5 cutover checklist: `docs/mvp/MVP-7-GATES-TRL5.md`.

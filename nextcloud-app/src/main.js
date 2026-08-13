@@ -14,9 +14,13 @@ import { getRequestToken } from '@nextcloud/auth'
 
 import App from './App.vue'
 import Dashboard from './views/Dashboard.vue'
+import { fixLeafletDefaultIcons } from './utils/leafletIcons.js'
 
 // CSRF token setup for Nextcloud
 __webpack_nonce__ = btoa(getRequestToken())
+
+// Leaflet marker images break under webpack without this
+fixLeafletDefaultIcons()
 
 // Vue Router configuration - Single dashboard following layout.specs.md
 const routes = [

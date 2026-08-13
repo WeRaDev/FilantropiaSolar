@@ -22,6 +22,8 @@ return [
         ['name' => 'installation_api#update', 'url' => '/api/v1/installations/{id}', 'verb' => 'PUT'],
         ['name' => 'installation_api#destroy', 'url' => '/api/v1/installations/{id}', 'verb' => 'DELETE'],
         ['name' => 'installation_api#export', 'url' => '/api/v1/installations/{id}/export', 'verb' => 'POST'],
+        ['name' => 'installation_api#exportAnalysis', 'url' => '/api/v1/installations/{id}/export-analysis', 'verb' => 'POST'],
+        ['name' => 'installation_api#importFromFiles', 'url' => '/api/v1/installations/{id}/import-from-files', 'verb' => 'POST'],
         ['name' => 'installation_api#restoreDashboard', 'url' => '/api/v1/installations/restore-dashboard', 'verb' => 'POST'],
         ['name' => 'installation_api#stats', 'url' => '/api/v1/installations/{id}/stats', 'verb' => 'GET'],
         ['name' => 'installation_api#promotePlanned', 'url' => '/api/v1/installations/{id}/promote-planned', 'verb' => 'POST'],

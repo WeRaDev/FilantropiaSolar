@@ -5,16 +5,17 @@
         <p>{{ loadingMessage }}</p>
     </div>
 
-    <!-- No data state -->
+    <!-- No data / error state -->
     <div v-else class="no-data-state">
         <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
             <path d="M3 3v18h18"/>
             <path d="m19 9-5 5-4-4-3 3"/>
         </svg>
-        <h3>No Analysis Data</h3>
-        <p>Click below to generate analysis for this installation.</p>
-        <button class="btn-primary" @click="$emit('generate')">
-            Generate {{ timeframeDays }}-Day Analysis
+        <h3>{{ errorMessage ? 'Analysis failed' : 'No Analysis Data' }}</h3>
+        <p v-if="errorMessage" class="error-text">{{ errorMessage }}</p>
+        <p v-else>Click below to generate analysis for this installation.</p>
+        <button class="btn-primary" type="button" @click="$emit('generate')">
+            Generate analysis
         </button>
     </div>
 </template>
@@ -30,6 +31,7 @@ export default {
         },
         loadingMessage: { type: String, default: 'Generating analysis...' },
         timeframeDays: { type: Number, required: true },
+        errorMessage: { type: String, default: '' },
     },
     emits: ['generate'],
 }
@@ -79,6 +81,14 @@ export default {
     margin: 0;
     font-size: 20px;
     color: var(--color-main-text, #333);
+}
+
+.error-text {
+    max-width: 420px;
+    text-align: center;
+    color: #c62828;
+    margin: 0;
+    padding: 0 16px;
 }
 
 .btn-primary {
