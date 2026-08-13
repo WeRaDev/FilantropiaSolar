@@ -161,10 +161,26 @@ class NcLifecycleClient:
             body["actor"] = actor
         return self._request("POST", f"stations/{enc}/mark-installed", body or {})
 
-    def list_stations(self, *, include_soft_removed: bool = False) -> dict[str, Any]:
-        q = (
+    def list_stations(
+        self,
+        *,
+        include_soft_removed: bool = False,
+        include_dataset: bool = False,
+    ) -> dict[str, Any]:
+        """List stations for CRM mirror (ops only unless include_dataset)."""
+        parts = [
             "include_soft_removed=1"
             if include_soft_removed
-            else "include_soft_removed=0"
+            else "include_soft_removed=0",
+            "include_dataset=1" if include_dataset else "include_dataset=0",
+        ]
+        return self._request("GET", f"stations?{'&'.join(parts)}")
+
+    def bind_lead(self, installation_id: str, odoo_lead_id: int) -> dict[str, Any]:
+        """Attach CRM lead id on NC station (idempotent)."""
+        enc = quote(str(installation_id), safe="")
+        return self._request(
+            "POST",
+            f"stations/{enc}/bind-lead",
+            {"odoo_lead_id": int(odoo_lead_id)},
         )
-        return self._request("GET", f"stations?{q}")

@@ -33,6 +33,10 @@ class FsStationSync(models.AbstractModel):
         """Create/update crm.lead from NC lifecycle station payload."""
         Lead = self.env["crm.lead"].sudo()
         installation_id = (station.get("installation_id") or "").strip()
+        source = (station.get("source") or "").strip().lower()
+        if source == "dataset":
+            # Training corpus is not part of the CRM mirror.
+            return Lead.browse()
         odoo_lead_id = station.get("odoo_lead_id")
         lead = Lead.browse()
         if odoo_lead_id:
@@ -46,7 +50,9 @@ class FsStationSync(models.AbstractModel):
             )
 
         stage = self._stage_for_nc_state(station.get("lifecycle_state"))
+        name = station.get("name") or installation_id or "NC station"
         vals = {
+            "type": "opportunity",
             "fs_is_donation_application": True,
             "fs_nc_installation_id": installation_id or False,
             "fs_nc_lifecycle_state": station.get("lifecycle_state") or False,
@@ -60,13 +66,14 @@ class FsStationSync(models.AbstractModel):
             "fs_station_capacity_kwp": float(station.get("capacity_kwp") or 0.0),
             "fs_station_website": station.get("website") or False,
             "fs_station_short_description": station.get("short_description") or False,
-            "partner_name": station.get("name") or False,
-            "name": station.get("name") or installation_id or "NC station",
+            "partner_name": name,
+            "name": name,
         }
         if station.get("id") is not None:
             with contextlib.suppress(TypeError, ValueError):
                 vals["fs_nc_db_id"] = int(station["id"])
-        if stage and (not lead or lead.stage_id != stage):
+        # Always force stage from NC lifecycle so reconcile heals drift.
+        if stage:
             vals["stage_id"] = stage.id
 
         if lead:
@@ -75,42 +82,139 @@ class FsStationSync(models.AbstractModel):
         return Lead.with_context(fs_skip_nc_enqueue=True).create(vals)
 
     @api.model
+    def _bind_nc_lead_if_needed(
+        self, lead, station: dict, client: NcLifecycleClient
+    ) -> bool:
+        """Write odoo_lead_id back to NC when missing (true bidirectional link)."""
+        if not lead or not lead.exists():
+            return False
+        installation_id = (
+            station.get("installation_id") or lead.fs_nc_installation_id or ""
+        ).strip()
+        if not installation_id:
+            return False
+        existing = station.get("odoo_lead_id")
+        if existing is not None:
+            with contextlib.suppress(TypeError, ValueError):
+                if int(existing) == int(lead.id):
+                    return False
+                if int(existing) != int(lead.id):
+                    _logger.warning(
+                        "NC station %s already bound to lead %s (crm %s); skip bind",
+                        installation_id,
+                        existing,
+                        lead.id,
+                    )
+                    return False
+        # Prefer numeric NC PK when present — installation_id may be location_{id}
+        # when serial_number is null and older resolvers miss it.
+        bind_keys: list[str] = []
+        nc_db_id = (
+            station.get("id") if station.get("id") is not None else lead.fs_nc_db_id
+        )
+        if nc_db_id is not None:
+            with contextlib.suppress(TypeError, ValueError):
+                bind_keys.append(str(int(nc_db_id)))
+        bind_keys.append(installation_id)
+        last_err: Exception | None = None
+        for key in bind_keys:
+            try:
+                client.bind_lead(key, int(lead.id))
+                return True
+            except NcLifecycleError as exc:
+                last_err = exc
+                continue
+        _logger.warning(
+            "NC bind-lead failed for %s lead %s: %s",
+            installation_id,
+            lead.id,
+            redact_secrets(str(last_err) if last_err else "unknown"),
+        )
+        return False
+
+    @api.model
     def import_all_from_nc(self) -> dict:
-        """Pull all NC stations into CRM leads (reconciliation)."""
+        """Pull NC ops stations into CRM leads and bind reverse links."""
         client = NcLifecycleClient()
         try:
-            payload = client.list_stations(include_soft_removed=False)
+            payload = client.list_stations(
+                include_soft_removed=False, include_dataset=False
+            )
         except NcLifecycleError as exc:
             _logger.warning("NC list stations failed: %s", redact_secrets(str(exc)))
             return {"ok": False, "error": redact_secrets(str(exc))}
         stations = []
         if isinstance(payload, dict):
             stations = payload.get("stations") or []
-        created = updated = 0
+        created = updated = bound = skipped = 0
         Lead = self.env["crm.lead"].sudo()
+        seen_iids: set[str] = set()
         for st in stations:
             if not isinstance(st, dict):
+                skipped += 1
+                continue
+            if (st.get("source") or "").strip().lower() == "dataset":
+                skipped += 1
                 continue
             installation_id = (st.get("installation_id") or "").strip()
+            if not installation_id:
+                skipped += 1
+                continue
+            seen_iids.add(installation_id)
             existed = bool(
-                installation_id
-                and Lead.search_count([("fs_nc_installation_id", "=", installation_id)])
+                Lead.search_count([("fs_nc_installation_id", "=", installation_id)])
             )
-            self.upsert_from_nc_station(st, origin="sync")
+            lead = self.upsert_from_nc_station(st, origin="sync")
+            if not lead:
+                skipped += 1
+                continue
             if existed:
                 updated += 1
             else:
                 created += 1
+            if self._bind_nc_lead_if_needed(lead, st, client):
+                bound += 1
+
+        # Archive CRM mirror leads that no longer exist on NC ops list
+        # (e.g. prior dataset imports). Keep candidatura New leads without iid.
+        archived = 0
+        orphans = Lead.search(
+            [
+                ("fs_nc_installation_id", "!=", False),
+                ("fs_is_donation_application", "=", True),
+            ]
+        )
+        for lead in orphans:
+            iid = (lead.fs_nc_installation_id or "").strip()
+            if iid and iid not in seen_iids and lead.active:
+                lead.with_context(fs_skip_nc_enqueue=True).write(
+                    {
+                        "active": False,
+                        "fs_nc_sync_state": "skipped",
+                        "fs_nc_sync_error": "Not on NC ops station list (archived by reconcile)",
+                        "fs_nc_sync_origin": "sync",
+                        "fs_nc_last_sync_at": fields.Datetime.now(),
+                    }
+                )
+                archived += 1
+
         _logger.info(
-            "NC fleet import done created=%s updated=%s total=%s",
+            "NC fleet import done created=%s updated=%s bound=%s archived=%s "
+            "skipped=%s total=%s",
             created,
             updated,
+            bound,
+            archived,
+            skipped,
             len(stations),
         )
         return {
             "ok": True,
             "created": created,
             "updated": updated,
+            "bound": bound,
+            "archived": archived,
+            "skipped": skipped,
             "total": len(stations),
         }
 

@@ -176,6 +176,53 @@ class ClientHttpTests(unittest.TestCase):
             self.assertEqual(req.get_method(), "POST")
             self.assertTrue(req.full_url.endswith("/stations/abc/mark-installed"))
 
+    def test_list_stations_excludes_dataset_by_default(self):
+        response_body = json.dumps(
+            {"success": True, "stations": [], "count": 0}
+        ).encode()
+        mock_resp = MagicMock()
+        mock_resp.read.return_value = response_body
+        mock_resp.__enter__.return_value = mock_resp
+        mock_resp.__exit__.return_value = False
+        with patch(
+            "services.nc_lifecycle_client.urllib.request.urlopen",
+            return_value=mock_resp,
+        ) as urlopen:
+            client = NcLifecycleClient(
+                base_url="http://nc/api/lifecycle/v1", token="tok"
+            )
+            client.list_stations()
+            req = urlopen.call_args[0][0]
+            self.assertIn("include_dataset=0", req.full_url)
+            self.assertIn("include_soft_removed=0", req.full_url)
+
+    def test_bind_lead_posts(self):
+        response_body = json.dumps(
+            {
+                "success": True,
+                "station": {
+                    "installation_id": "fleet_x",
+                    "odoo_lead_id": 54,
+                },
+            }
+        ).encode()
+        mock_resp = MagicMock()
+        mock_resp.read.return_value = response_body
+        mock_resp.__enter__.return_value = mock_resp
+        mock_resp.__exit__.return_value = False
+        with patch(
+            "services.nc_lifecycle_client.urllib.request.urlopen",
+            return_value=mock_resp,
+        ) as urlopen:
+            client = NcLifecycleClient(
+                base_url="http://nc/api/lifecycle/v1", token="tok"
+            )
+            result = client.bind_lead("fleet_x", 54)
+            self.assertEqual(result["station"]["odoo_lead_id"], 54)
+            req = urlopen.call_args[0][0]
+            self.assertEqual(req.get_method(), "POST")
+            self.assertTrue(req.full_url.endswith("/stations/fleet_x/bind-lead"))
+
     def test_http_error_does_not_include_token_in_exception(self):
         import urllib.error
 

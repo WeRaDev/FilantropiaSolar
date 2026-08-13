@@ -295,6 +295,10 @@ class LifecycleApiController extends ApiController
 	/**
 	 * GET /api/lifecycle/v1/stations
 	 * Ops list for CRM mirror (includes Virtual; excludes soft-removed by default).
+	 *
+	 * Mendeley training corpus (source=dataset) is excluded by default so CRM
+	 * stays symmetrical with the NC ops dashboard. Pass include_dataset=1 only
+	 * for diagnostics.
 	 */
 	#[PublicPage]
 	#[NoCSRFRequired]
@@ -308,10 +312,20 @@ class LifecycleApiController extends ApiController
 			$this->request->getParam('include_soft_removed', '0'),
 			FILTER_VALIDATE_BOOLEAN,
 		);
-		$stations = $this->mapper->findAll();
+		$includeDataset = filter_var(
+			$this->request->getParam('include_dataset', '0'),
+			FILTER_VALIDATE_BOOLEAN,
+		);
+		$stations = $includeDataset
+			? $this->mapper->findAll()
+			: $this->mapper->findOpsStations();
 		$out = [];
 		foreach ($stations as $station) {
 			if (!$includeSoft && $station->getSoftRemoved()) {
+				continue;
+			}
+			// Defense in depth if include_dataset was true but a row is still dataset-only ops view.
+			if (!$includeDataset && ($station->getSource() ?: '') === 'dataset') {
 				continue;
 			}
 			$out[] = $this->toLifecycleArray($station);
@@ -321,6 +335,75 @@ class LifecycleApiController extends ApiController
 			'success' => true,
 			'count' => count($out),
 			'stations' => $out,
+			'includes_dataset' => $includeDataset,
+		]);
+	}
+
+	/**
+	 * POST /api/lifecycle/v1/stations/{installationId}/bind-lead
+	 *
+	 * Attach CRM lead id to an existing ops station (fleet/user/crm) so the
+	 * mirror is bidirectional by primary key as well as installation_id.
+	 */
+	#[PublicPage]
+	#[NoCSRFRequired]
+	public function bindLead(string $installationId): JSONResponse
+	{
+		if (!$this->authorized()) {
+			return $this->error('unauthorized', Http::STATUS_UNAUTHORIZED, 'unauthorized');
+		}
+
+		$payload = $this->jsonBody();
+		$odooLeadId = (int) ($payload['odoo_lead_id'] ?? $this->request->getParam('odoo_lead_id', 0));
+		if ($odooLeadId <= 0) {
+			return $this->error('odoo_lead_id is required and must be positive', Http::STATUS_BAD_REQUEST, 'validation_error');
+		}
+
+		$station = $this->mapper->findByInstallationKey($installationId);
+		if ($station === null) {
+			return $this->error('station not found', Http::STATUS_NOT_FOUND, 'not_found');
+		}
+		if (($station->getSource() ?: '') === 'dataset') {
+			return $this->error('dataset stations are not part of the CRM mirror', Http::STATUS_CONFLICT, 'dataset_excluded');
+		}
+
+		$current = $station->getOdooLeadId();
+		if ($current !== null && (int) $current === $odooLeadId) {
+			return new JSONResponse([
+				'success' => true,
+				'station' => $this->toLifecycleArray($station),
+				'idempotent' => true,
+			]);
+		}
+		if ($current !== null && (int) $current !== $odooLeadId) {
+			return $this->error(
+				'station already bound to a different odoo_lead_id',
+				Http::STATUS_CONFLICT,
+				'already_bound',
+			);
+		}
+
+		$existing = $this->mapper->findByOdooLeadId($odooLeadId);
+		if ($existing !== null && (int) $existing->getId() !== (int) $station->getId()) {
+			return $this->error(
+				'odoo_lead_id already linked to another station',
+				Http::STATUS_CONFLICT,
+				'lead_already_linked',
+			);
+		}
+
+		$station->setOdooLeadId($odooLeadId);
+		$station->setUpdatedAt(new DateTime());
+		$station = $this->mapper->update($station);
+		$this->logger->info('Lifecycle bind odoo_lead_id', [
+			'installation_id' => $station->getInstallationId(),
+			'odoo_lead_id' => $odooLeadId,
+		]);
+
+		return new JSONResponse([
+			'success' => true,
+			'station' => $this->toLifecycleArray($station),
+			'idempotent' => false,
 		]);
 	}
 

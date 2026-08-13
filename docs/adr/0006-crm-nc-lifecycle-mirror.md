@@ -22,6 +22,10 @@ field installation. Ops now want a full bidirectional mirror and an explicit
 - Entering **Installed** calls mark-installed (Running).
 - NC lifecycle changes and fleet import update CRM stages the other way.
 - Loop prevention: skip enqueue when NC state already matches; stamp `fs_nc_sync_origin`.
+- Mirror scope is **ops stations only** (fleet/user/crm). Mendeley `source=dataset`
+  training corpus is excluded from lifecycle list/import so NC admin and CRM stay
+  one-to-one. Reconcile binds `odoo_lead_id` back onto NC and archives CRM leads
+  whose installation is no longer on the ops list.
 
 ## Consequences
 - ADR 0004 Won-noop is **superseded** for this product path.
