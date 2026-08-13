@@ -267,6 +267,79 @@ class CrmLead(models.Model):
             )
             return False
 
+    def _fs_installation_key(self) -> str:
+        """Prefer NC PK for writes when serial-less installation_id is fragile."""
+        if self.fs_nc_db_id:
+            return str(int(self.fs_nc_db_id))
+        return (self.fs_nc_installation_id or "").strip()
+
+    def fs_set_lifecycle(self, lifecycle_state: str) -> bool:
+        """Set NC lifecycle explicitly (demotion / correction)."""
+        self.ensure_one()
+        target = (lifecycle_state or "").strip().lower()
+        if target not in ("virtual", "planned", "running"):
+            self._fs_mark_error(NcLifecycleError(f"invalid lifecycle_state {target!r}"))
+            return False
+        key = self._fs_installation_key()
+        if not key:
+            # No station yet: only Virtual can be created; Planned/Running need promote path.
+            if target == "virtual":
+                return self.fs_create_virtual_station()
+            self._fs_mark_error(
+                NcLifecycleError("missing NC station link for set-lifecycle")
+            )
+            return False
+        if self.fs_nc_lifecycle_state == target:
+            self.with_context(fs_skip_nc_enqueue=True).write(
+                {"fs_nc_sync_state": "ok", "fs_nc_sync_error": False}
+            )
+            return True
+        try:
+            result = self._fs_client().set_lifecycle(
+                key, target, actor=f"odoo-lead-{self.id}"
+            )
+            self._fs_apply_station_payload(result, origin="crm")
+            _logger.info(
+                "NC set-lifecycle %s for lead %s -> %s",
+                target,
+                self.id,
+                self.fs_nc_installation_id,
+            )
+            return True
+        except NcLifecycleError as exc:
+            self._fs_mark_error(exc)
+            _logger.warning(
+                "NC set-lifecycle %s failed for lead %s: %s",
+                target,
+                self.id,
+                redact_secrets(str(exc)),
+            )
+            return False
+
+    def fs_enqueue_set_lifecycle(self, lifecycle_state: str):
+        """Enqueue explicit lifecycle set (demotion)."""
+        target = (lifecycle_state or "").strip().lower()
+        for lead in self:
+            if not lead.fs_is_donation_application and not lead.fs_nc_installation_id:
+                continue
+            lead.with_context(fs_skip_nc_enqueue=True).write(
+                {
+                    "fs_nc_sync_state": "pending",
+                    "fs_nc_sync_error": False,
+                    "fs_nc_sync_origin": "crm",
+                }
+            )
+            if hasattr(lead, "with_delay"):
+                lead.with_delay(
+                    priority=10,
+                    description=f"NC set-lifecycle {target} for lead {lead.id}",
+                    channel="root.filantropia",
+                    identity_key=f"fs-set-lc-{target}-{lead.id}",
+                ).fs_set_lifecycle(target)
+            else:
+                lead.fs_set_lifecycle(target)
+        return True
+
     def fs_enqueue_create_virtual(self):
         """Enqueue Virtual create (non-blocking)."""
         for lead in self:
@@ -364,6 +437,10 @@ class CrmLead(models.Model):
                 lead.fs_enqueue_promote_planned()
             elif action == "mark_installed":
                 lead.fs_enqueue_mark_installed()
+            elif action == "set_lifecycle_virtual":
+                lead.fs_enqueue_set_lifecycle("virtual")
+            elif action == "set_lifecycle_planned":
+                lead.fs_enqueue_set_lifecycle("planned")
         return res
 
     @api.model

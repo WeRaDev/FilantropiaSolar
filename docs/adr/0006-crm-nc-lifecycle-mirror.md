@@ -20,6 +20,8 @@ field installation. Ops now want a full bidirectional mirror and an explicit
 - Entering **Qualified** creates/ensures Virtual.
 - Entering **Proposition** promotes Planned.
 - Entering **Installed** calls mark-installed (Running).
+- Demotions also mirror: Installed/Proposition → Qualified sets NC Virtual;
+  Installed → Proposition sets NC Planned (`POST .../set-lifecycle`).
 - NC lifecycle changes and fleet import update CRM stages the other way.
 - Loop prevention: skip enqueue when NC state already matches; stamp `fs_nc_sync_origin`.
 - Mirror scope is **ops stations only** (fleet/user/crm). Mendeley `source=dataset`

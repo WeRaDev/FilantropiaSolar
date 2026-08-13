@@ -408,6 +408,74 @@ class LifecycleApiController extends ApiController
 	}
 
 	/**
+	 * POST /api/lifecycle/v1/stations/{installationId}/set-lifecycle
+	 *
+	 * Explicit lifecycle set for CRM mirror demotions and admin corrections
+	 * (virtual | planned | running). Promotion-only endpoints remain for
+	 * upward transitions; this allows Running → Planned/Virtual.
+	 */
+	#[PublicPage]
+	#[NoCSRFRequired]
+	public function setLifecycle(string $installationId): JSONResponse
+	{
+		if (!$this->authorized()) {
+			return $this->error('unauthorized', Http::STATUS_UNAUTHORIZED, 'unauthorized');
+		}
+
+		$station = $this->mapper->findByInstallationKey($installationId);
+		if ($station === null) {
+			return $this->error('station not found', Http::STATUS_NOT_FOUND, 'not_found');
+		}
+		if (($station->getSource() ?: '') === 'dataset') {
+			return $this->error('dataset stations are not part of the CRM mirror', Http::STATUS_CONFLICT, 'dataset_excluded');
+		}
+
+		$payload = $this->jsonBody();
+		$target = strtolower(trim((string) (
+			$payload['lifecycle_state']
+			?? $this->request->getParam('lifecycle_state', '')
+		)));
+		if (!StationLifecycle::isValidState($target)) {
+			return $this->error('Invalid lifecycle_state', Http::STATUS_BAD_REQUEST, 'validation_error');
+		}
+		if (!StationLifecycle::canSetLifecycleState($target, $station->getSoftRemoved())) {
+			return $this->error(
+				'Cannot change lifecycle while soft-removed',
+				Http::STATUS_CONFLICT,
+				'illegal_transition',
+			);
+		}
+
+		$prev = $this->stateOf($station);
+		if ($prev !== $target) {
+			$station->applyLifecycleState($target);
+			if ($target === StationLifecycle::RUNNING && $station->getInstalledAt() === null) {
+				$station->setInstalledAt(new DateTime());
+			}
+			// Demotion away from Running: clear installed_at so public "existing"
+			// semantics do not keep a stale install date after Virtual/Planned.
+			if ($target !== StationLifecycle::RUNNING) {
+				$station->setInstalledAt(null);
+			}
+			$station->setUpdatedAt(new DateTime());
+			$station = $this->mapper->update($station);
+			$this->logger->info('Lifecycle set via CRM API', [
+				'installation_id' => $station->getInstallationId(),
+				'from' => $prev,
+				'to' => $target,
+				'actor' => $payload['actor'] ?? null,
+			]);
+		}
+
+		$this->notifyOdooMirror($station);
+		return new JSONResponse([
+			'success' => true,
+			'station' => $this->toLifecycleArray($station),
+			'idempotent' => $prev === $target,
+		]);
+	}
+
+	/**
 	 * GET /api/lifecycle/v1/stations/{installationId}
 	 */
 	#[PublicPage]

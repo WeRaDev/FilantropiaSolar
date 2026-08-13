@@ -86,6 +86,11 @@ def stage_xmlid_for_nc_state(lifecycle_state: str | None) -> str | None:
     }.get(state)
 
 
+def _state_rank(state: str | None) -> int:
+    """Order virtual < planned < running for promote vs demote."""
+    return {"virtual": 1, "planned": 2, "running": 3}.get((state or "").casefold(), 0)
+
+
 def lifecycle_action_for_stage_change(
     old_name: str | None,
     new_name: str | None,
@@ -96,13 +101,25 @@ def lifecycle_action_for_stage_change(
     """
     Return NC action for a stage transition, or None.
 
-    - ensure_virtual: entering Qualified
-    - promote_planned: entering Proposition
+    Promotions:
+    - ensure_virtual: entering Qualified (create if missing)
+    - promote_planned: entering Proposition from below
     - mark_installed: entering Installed (ex-Won)
+
+    Demotions (rank decreases) use set-lifecycle:
+    - set_lifecycle_virtual: Installed/Proposition → Qualified
+    - set_lifecycle_planned: Installed → Proposition
     """
     old_target = nc_state_for_stage(old_name, is_won=old_is_won)
     new_target = nc_state_for_stage(new_name, is_won=new_is_won)
     if new_target is None or new_target == old_target:
+        return None
+    # Explicit demotion when moving down the lifecycle ladder.
+    if old_target and _state_rank(new_target) < _state_rank(old_target):
+        if new_target == "virtual":
+            return "set_lifecycle_virtual"
+        if new_target == "planned":
+            return "set_lifecycle_planned"
         return None
     if new_target == "virtual":
         return "ensure_virtual"

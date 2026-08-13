@@ -184,3 +184,17 @@ class NcLifecycleClient:
             f"stations/{enc}/bind-lead",
             {"odoo_lead_id": int(odoo_lead_id)},
         )
+
+    def set_lifecycle(
+        self,
+        installation_id: str,
+        lifecycle_state: str,
+        *,
+        actor: str | None = None,
+    ) -> dict[str, Any]:
+        """Set NC lifecycle explicitly (supports demotion)."""
+        enc = quote(str(installation_id), safe="")
+        body: dict[str, Any] = {"lifecycle_state": str(lifecycle_state)}
+        if actor:
+            body["actor"] = actor
+        return self._request("POST", f"stations/{enc}/set-lifecycle", body)
