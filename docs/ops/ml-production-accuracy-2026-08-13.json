@@ -1,0 +1,281 @@
+{
+  "generated_at": "2026-08-13T22:10:11.319057+00:00",
+  "ml_base": "http://127.0.0.1:8501",
+  "day": "2026-08-12",
+  "ml_health": {
+    "status": "healthy",
+    "models_loaded": 9,
+    "locations_available": [
+      "Lisbon",
+      "Setubal",
+      "Faro",
+      "Braga",
+      "Tavira",
+      "Loule"
+    ]
+  },
+  "method": {
+    "ml_endpoints": [
+      "POST /simulate/hourly",
+      "POST /predict/period mode=simulated"
+    ],
+    "pvgis": "JRC PVcalc v5_2 monthly August E_m/31, tilt=35 aspect=0 loss=14%",
+    "physics_checks": [
+      "peak_hour <= ~1.05*capacity",
+      "kWh/kWp band",
+      "night zeros",
+      "capacity linearity",
+      "predict_period vs simulate_hourly"
+    ]
+  },
+  "results": [
+    {
+      "station": "Lisbon 46kWp",
+      "id": "1",
+      "kwp": 46.0,
+      "day": "2026-08-12",
+      "pvgis_aug_mean_daily_kwh": 251.695,
+      "pvgis_aug_kwh_kwp": 5.472,
+      "simulate_success": true,
+      "simulate_weather_source": "api",
+      "simulate_hourly": {
+        "n": 24,
+        "sum_kwh": 278.914,
+        "kwh_kwp": 6.063,
+        "peak_kwh": 34.958,
+        "peak_over_kwp": 0.76,
+        "max_rad": 924.0,
+        "night_nonzero_hours": 0
+      },
+      "predict_success": true,
+      "predict_error": null,
+      "predict_period": {
+        "n": 13,
+        "sum_kwh": 278.916,
+        "kwh_kwp": 6.063,
+        "peak_kwh": 34.958,
+        "peak_over_kwp": 0.76,
+        "max_rad": 924.0,
+        "night_nonzero_hours": 0
+      },
+      "period_vs_sim_ratio": 1.0,
+      "ml_vs_pvgis_aug_mean": 1.108,
+      "flags": []
+    },
+    {
+      "station": "Setubal 23.5kWp",
+      "id": "3",
+      "kwp": 23.52,
+      "day": "2026-08-12",
+      "pvgis_aug_mean_daily_kwh": 128.029,
+      "pvgis_aug_kwh_kwp": 5.443,
+      "simulate_success": true,
+      "simulate_weather_source": "api",
+      "simulate_hourly": {
+        "n": 24,
+        "sum_kwh": 142.463,
+        "kwh_kwp": 6.057,
+        "peak_kwh": 18.023,
+        "peak_over_kwp": 0.766,
+        "max_rad": 929.0,
+        "night_nonzero_hours": 0
+      },
+      "predict_success": true,
+      "predict_error": null,
+      "predict_period": {
+        "n": 13,
+        "sum_kwh": 142.463,
+        "kwh_kwp": 6.057,
+        "peak_kwh": 18.023,
+        "peak_over_kwp": 0.766,
+        "max_rad": 929.0,
+        "night_nonzero_hours": 0
+      },
+      "period_vs_sim_ratio": 1.0,
+      "ml_vs_pvgis_aug_mean": 1.113,
+      "flags": []
+    },
+    {
+      "station": "Faro 7kWp",
+      "id": "5",
+      "kwp": 7.0,
+      "day": "2026-08-12",
+      "pvgis_aug_mean_daily_kwh": 38.183,
+      "pvgis_aug_kwh_kwp": 5.455,
+      "simulate_success": true,
+      "simulate_weather_source": "api",
+      "simulate_hourly": {
+        "n": 24,
+        "sum_kwh": 44.186,
+        "kwh_kwp": 6.312,
+        "peak_kwh": 5.536,
+        "peak_over_kwp": 0.791,
+        "max_rad": 946.0,
+        "night_nonzero_hours": 0
+      },
+      "predict_success": true,
+      "predict_error": null,
+      "predict_period": {
+        "n": 13,
+        "sum_kwh": 44.185,
+        "kwh_kwp": 6.312,
+        "peak_kwh": 5.536,
+        "peak_over_kwp": 0.791,
+        "max_rad": 946.0,
+        "night_nonzero_hours": 0
+      },
+      "period_vs_sim_ratio": 1.0,
+      "ml_vs_pvgis_aug_mean": 1.157,
+      "flags": []
+    },
+    {
+      "station": "Braga 65kWp",
+      "id": "6",
+      "kwp": 64.93,
+      "day": "2026-08-12",
+      "pvgis_aug_mean_daily_kwh": 324.06,
+      "pvgis_aug_kwh_kwp": 4.991,
+      "simulate_success": true,
+      "simulate_weather_source": "api",
+      "simulate_hourly": {
+        "n": 24,
+        "sum_kwh": 389.088,
+        "kwh_kwp": 5.992,
+        "peak_kwh": 48.481,
+        "peak_over_kwp": 0.747,
+        "max_rad": 896.0,
+        "night_nonzero_hours": 0
+      },
+      "predict_success": true,
+      "predict_error": null,
+      "predict_period": {
+        "n": 13,
+        "sum_kwh": 388.479,
+        "kwh_kwp": 5.983,
+        "peak_kwh": 48.481,
+        "peak_over_kwp": 0.747,
+        "max_rad": 896.0,
+        "night_nonzero_hours": 0
+      },
+      "period_vs_sim_ratio": 0.998,
+      "ml_vs_pvgis_aug_mean": 1.201,
+      "flags": []
+    },
+    {
+      "station": "WeRa Global 1.2kWp",
+      "id": "14",
+      "kwp": 1.2,
+      "day": "2026-08-12",
+      "pvgis_aug_mean_daily_kwh": 6.355,
+      "pvgis_aug_kwh_kwp": 5.296,
+      "simulate_success": true,
+      "simulate_weather_source": "api",
+      "simulate_hourly": {
+        "n": 24,
+        "sum_kwh": 7.276,
+        "kwh_kwp": 6.063,
+        "peak_kwh": 0.912,
+        "peak_over_kwp": 0.76,
+        "max_rad": 924.0,
+        "night_nonzero_hours": 0
+      },
+      "predict_success": true,
+      "predict_error": null,
+      "predict_period": {
+        "n": 13,
+        "sum_kwh": 7.276,
+        "kwh_kwp": 6.063,
+        "peak_kwh": 0.912,
+        "peak_over_kwp": 0.76,
+        "max_rad": 924.0,
+        "night_nonzero_hours": 0
+      },
+      "period_vs_sim_ratio": 1.0,
+      "ml_vs_pvgis_aug_mean": 1.145,
+      "flags": []
+    },
+    {
+      "station": "Vazinha 0.54kWp",
+      "id": "15",
+      "kwp": 0.54,
+      "day": "2026-08-12",
+      "pvgis_aug_mean_daily_kwh": 2.896,
+      "pvgis_aug_kwh_kwp": 5.363,
+      "simulate_success": true,
+      "simulate_weather_source": "api",
+      "simulate_hourly": {
+        "n": 24,
+        "sum_kwh": 3.274,
+        "kwh_kwp": 6.063,
+        "peak_kwh": 0.41,
+        "peak_over_kwp": 0.76,
+        "max_rad": 924.0,
+        "night_nonzero_hours": 0
+      },
+      "predict_success": true,
+      "predict_error": null,
+      "predict_period": {
+        "n": 13,
+        "sum_kwh": 3.274,
+        "kwh_kwp": 6.063,
+        "peak_kwh": 0.41,
+        "peak_over_kwp": 0.759,
+        "max_rad": 924.0,
+        "night_nonzero_hours": 0
+      },
+      "period_vs_sim_ratio": 1.0,
+      "ml_vs_pvgis_aug_mean": 1.13,
+      "flags": []
+    },
+    {
+      "station": "ARIA 4.5kWp",
+      "id": "16",
+      "kwp": 4.5,
+      "day": "2026-08-12",
+      "pvgis_aug_mean_daily_kwh": 24.74,
+      "pvgis_aug_kwh_kwp": 5.498,
+      "simulate_success": true,
+      "simulate_weather_source": "api",
+      "simulate_hourly": {
+        "n": 24,
+        "sum_kwh": 27.285,
+        "kwh_kwp": 6.063,
+        "peak_kwh": 3.42,
+        "peak_over_kwp": 0.76,
+        "max_rad": 924.0,
+        "night_nonzero_hours": 0
+      },
+      "predict_success": true,
+      "predict_error": null,
+      "predict_period": {
+        "n": 13,
+        "sum_kwh": 27.286,
+        "kwh_kwp": 6.064,
+        "peak_kwh": 3.42,
+        "peak_over_kwp": 0.76,
+        "max_rad": 924.0,
+        "night_nonzero_hours": 0
+      },
+      "period_vs_sim_ratio": 1.0,
+      "ml_vs_pvgis_aug_mean": 1.103,
+      "flags": []
+    }
+  ],
+  "summary": {
+    "stations": 7,
+    "flag_count": 0,
+    "ml_vs_pvgis_ratios": [
+      1.108,
+      1.113,
+      1.157,
+      1.201,
+      1.145,
+      1.13,
+      1.103
+    ],
+    "mean_ml_vs_pvgis": 1.137,
+    "capacity_linearity_ok": true,
+    "linearity_ratio_12_over_1_2": 10.0
+  },
+  "verdict": "PASS \u2014 production scale consistent with PVGIS August means and physics bounds"
+}

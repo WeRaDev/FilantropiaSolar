@@ -20,6 +20,10 @@ Raw JSON: `docs/ops/pvgis-ml-compare-2026-08-13.json`
 ## Verdict
 Production scale is **reasonable**. ML sits ~10–11% above PVGIS long-term August daily mean on a high-radiation API weather day (max GHI ~920 W/m²). That bias is expected versus a monthly average; no immediate retune of `system_efficiency` (0.85) for MVP.
 
+## Superseded by full gate
+Canonical report + pass criteria: **`docs/ops/ML-PRODUCTION-ACCURACY.md`**.  
+Re-run: `python3 nextcloud-app/scripts/verify-ml-production.py`.
+
 ## Follow-ups (optional)
 1. Validate `seriescalc` hourly `P` with explicit `raddatabase` once non-zero responses are confirmed.
 2. Per-station tilt/azimuth from metadata instead of 35°/0°.
