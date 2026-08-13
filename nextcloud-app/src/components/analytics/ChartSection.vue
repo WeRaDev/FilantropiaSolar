@@ -45,7 +45,7 @@
 </template>
 
 <script>
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, onUpdated, watch } from 'vue'
 
 export default {
     name: 'ChartSection',
@@ -63,10 +63,20 @@ export default {
     setup(props, { emit }) {
         const canvasEl = ref(null)
 
+        const emitCanvas = () => {
+            if (canvasEl.value) {
+                emit('canvas-el', canvasEl.value)
+            }
+        }
+
         // Hand the canvas element to the parent so the chart composable can render into it
-        onMounted(() => {
-            emit('canvas-el', canvasEl.value)
-        })
+        onMounted(emitCanvas)
+        onUpdated(emitCanvas)
+        // Mode/data changes can leave canvas at 0x0 until layout; re-emit for parent re-render
+        watch(
+            () => [props.dataMode, props.currentDayLabel, props.currentTimeframe],
+            () => emitCanvas(),
+        )
 
         return { canvasEl }
     },

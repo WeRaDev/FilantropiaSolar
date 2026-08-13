@@ -47,19 +47,31 @@ export function useEnergyChart({
      * Render (or re-render) the chart appropriate for the current timeframe.
      */
     const renderChart = () => {
-        if (!canvasRef.value || !hourlyData.value.length) return
+        const canvas = canvasRef.value
+        if (!canvas || !hourlyData.value.length) return
+
+        // Hidden (v-show) or pre-layout canvas has 0 size — Chart.js draws blank
+        const parent = canvas.parentElement
+        const w = canvas.clientWidth || parent?.clientWidth || 0
+        const h = canvas.clientHeight || parent?.clientHeight || 0
+        if (w < 2 || h < 2) {
+            return false
+        }
 
         if (chartInstance) {
             chartInstance.destroy()
+            chartInstance = null
         }
 
-        const ctx = canvasRef.value.getContext('2d')
+        const ctx = canvas.getContext('2d')
+        if (!ctx) return false
 
         if (currentTimeframe.value === 'day') {
             renderHourlyChart(ctx)
         } else {
             renderDailyChart(ctx)
         }
+        return true
     }
 
     /**

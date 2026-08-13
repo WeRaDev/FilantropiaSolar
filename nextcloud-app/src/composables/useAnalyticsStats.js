@@ -69,7 +69,8 @@ export function useAnalyticsStats({
         const apiStats = analysisData.value?.period_statistics || {}
 
         const total = apiStats.total_energy_kwh
-            || hourlyData.value.reduce((sum, h) => sum + (h.production_kwh || 0), 0)
+            || apiStats.total_production_kwh
+            || hourlyData.value.reduce((sum, h) => sum + (Number(h.production_kwh) || 0), 0)
 
         const len = hourlyData.value.length || 1
         const avgTemp = hourlyData.value.reduce((sum, h) => sum + (h.temperature || 0), 0) / len

@@ -20,15 +20,14 @@
                         @toggle-analysis-mode="toggleAnalysisMode"
                         @date-change="onDateChange"
                         @set-timeframe="setTimeframe"
-                        @weather-change="renderCombinedChart"
+                        @weather-change="scheduleChartRender"
                         @add-historical="onAddHistorical"
                         @export="exportData"
                         @close="closeModal"
                     />
 
-                    <!-- Modal Body -->
+                    <!-- Modal Body: keep chart mounted so canvas survives mode switches -->
                     <div class="modal-body">
-                        <!-- Loading / no-data states -->
                         <ModalStatePanel
                             v-if="isLoading || !analysisData"
                             :state="isLoading ? 'loading' : 'no-data'"
@@ -37,8 +36,10 @@
                             @generate="generateAnalysis"
                         />
 
-                        <!-- Main content: Chart + Overview -->
-                        <div v-else class="analysis-content">
+                        <div
+                            v-show="analysisData && !isLoading"
+                            class="analysis-content"
+                        >
                             <ChartSection
                                 :chart-title="chartTitle"
                                 :current-timeframe="currentTimeframe"
@@ -51,10 +52,9 @@
                                 @prev-day="prevDay"
                                 @next-day="nextDay"
                                 @canvas-el="onCanvasEl"
-                                @view-data="viewDataOpen = true"
+                                @view-data="openViewData"
                             />
 
-                            <!-- Right: Overview Metrics -->
                             <div class="overview-section">
                                 <KeyMetricsPanel :period-stats="periodStats" :total-days="totalDays" />
                                 <DailySummaryPanel
@@ -67,16 +67,18 @@
                     </div>
                 </div>
             </div>
-            <ViewDataTable
-                :open="viewDataOpen"
-                :hourly-data="hourlyData"
-                :station-name="selectedObject?.name || ''"
-                :range-label="dateRangeLabel || currentDayLabel"
-                :mode-label="dataModeLabel"
-                :analysis-mode="analysisMode"
-                @close="viewDataOpen = false"
-            />
         </transition>
+
+        <!-- Outside transition: single-root fade + always available overlay -->
+        <ViewDataTable
+            :open="viewDataOpen"
+            :hourly-data="hourlyData"
+            :station-name="selectedObject?.name || ''"
+            :range-label="dateRangeLabel || currentDayLabel"
+            :mode-label="dataModeLabel"
+            :analysis-mode="analysisMode"
+            @close="viewDataOpen = false"
+        />
     </teleport>
 </template>
 
@@ -127,26 +129,38 @@ export default {
         const loadingMessage = computed(() => isSimulating.value ? 'Running simulation...' : 'Generating analysis...')
 
         // Analysis generation (hoisted so the date-range composable can receive it)
+        const scheduleChartRender = (delay = 0) => {
+            setTimeout(async () => {
+                await nextTick()
+                const ok = renderCombinedChart()
+                // Second pass after flex layout assigns canvas size
+                requestAnimationFrame(() => renderCombinedChart())
+                // If canvas was still 0x0, try again shortly
+                if (ok === false) {
+                    setTimeout(() => renderCombinedChart(), 120)
+                }
+            }, delay)
+        }
+
         async function generateAnalysis() {
             if (!selectedObject.value) return
-            isSimulating.value = analysisMode.value === 'predicted'
+            const mode = analysisMode.value === 'predicted' ? 'simulated' : 'historical'
+            isSimulating.value = mode !== 'historical'
+            // Drop stale series immediately so Predicted never shows Historical totals
+            store.analysisData = null
             try {
-                const mode = analysisMode.value === 'predicted' ? 'simulated' : 'historical'
                 await store.generateAnalysisWithMode(
                     selectedObject.value.id,
                     centerDate.value,
                     timeframeDays.value,
                     mode,
                 )
-                // Day charts: always first/only day. Multi-day: center of window.
                 currentDayIndex.value = currentTimeframe.value === 'day'
                     ? 0
                     : Math.max(0, Math.floor((totalDays.value || 1) / 2))
-                await nextTick()
-                // Retry render after layout (predicted canvas sometimes 0-size on first paint)
-                renderCombinedChart()
-                setTimeout(() => renderCombinedChart(), 50)
-                setTimeout(() => renderCombinedChart(), 200)
+                scheduleChartRender(0)
+                scheduleChartRender(80)
+                scheduleChartRender(250)
             } catch (e) {
                 console.error('generateAnalysis failed', e)
             } finally {
@@ -226,6 +240,10 @@ export default {
             store.closeAnalyticsModal()
         }
 
+        const openViewData = () => {
+            viewDataOpen.value = true
+        }
+
         // Header "Add historical data" — best-effort open of station edit/upload flows
         const onAddHistorical = () => {
             try {
@@ -246,19 +264,23 @@ export default {
 
         const onCanvasEl = (el) => {
             combinedChartRef.value = el
+            if (el && analysisData.value) {
+                scheduleChartRender(0)
+                scheduleChartRender(100)
+            }
         }
 
         const prevDay = () => {
             if (currentDayIndex.value > 0) {
                 currentDayIndex.value--
-                renderCombinedChart()
+                scheduleChartRender(0)
             }
         }
 
         const nextDay = () => {
             if (currentDayIndex.value < totalDays.value - 1) {
                 currentDayIndex.value++
-                renderCombinedChart()
+                scheduleChartRender(0)
             }
         }
 
@@ -269,7 +291,7 @@ export default {
             }
             currentDayIndex.value = idx
             currentTimeframe.value = 'day'
-            renderCombinedChart()
+            scheduleChartRender(0)
         }
 
         // Keyboard handler for Escape
@@ -283,6 +305,8 @@ export default {
         watch(isOpen, async (open) => {
             if (!open) {
                 viewDataOpen.value = false
+                destroyChart()
+                combinedChartRef.value = null
                 return
             }
             try {
@@ -291,21 +315,28 @@ export default {
                 currentDayIndex.value = 0
                 await generateAnalysis()
                 currentDayIndex.value = 0
-                await nextTick()
-                setTimeout(() => renderCombinedChart(), 100)
+                scheduleChartRender(50)
             } catch (e) {
                 console.error('Analytics open/generate failed', e)
             }
         })
 
         // Re-render chart when analysis data changes
-        watch(analysisData, async (data) => {
+        watch(analysisData, (data) => {
             if (data && isOpen.value) {
                 currentDayIndex.value = currentTimeframe.value === 'day'
                     ? 0
                     : Math.max(0, Math.floor((totalDays.value || 1) / 2))
-                await nextTick()
-                setTimeout(() => renderCombinedChart(), 100)
+                scheduleChartRender(0)
+                scheduleChartRender(120)
+            }
+        })
+
+        // Loading overlay hides content via v-show — reflow canvas when it clears
+        watch(isLoading, (loading) => {
+            if (!loading && analysisData.value && isOpen.value) {
+                scheduleChartRender(0)
+                scheduleChartRender(100)
             }
         })
 
@@ -345,6 +376,7 @@ export default {
             analysisMode,
             weatherLayers,
             closeModal,
+            openViewData,
             onAddHistorical,
             setTimeframe,
             onDateChange,
@@ -356,6 +388,7 @@ export default {
             nextDay,
             goToDay,
             onCanvasEl,
+            scheduleChartRender,
             renderCombinedChart,
         }
     },

@@ -374,7 +374,9 @@ export const useAppStore = defineStore('app', {
         // Generate analysis with specific center date and mode (for Historical/Predicted toggle)
         async generateAnalysisWithMode(objectId, centerDate, days = 21, mode = 'historical') {
             this.analysisLoading = true
-            
+            // Clear previous mode payload so UI never mixes Historical metrics into Predicted
+            this.analysisData = null
+
             try {
                 const obj = this.objects.find(o => o.id === objectId)
                 
