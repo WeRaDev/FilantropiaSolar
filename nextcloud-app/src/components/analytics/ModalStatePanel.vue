@@ -14,7 +14,7 @@
         <h3>No Analysis Data</h3>
         <p>Click below to generate analysis for this installation.</p>
         <button class="btn-primary" @click="$emit('generate')">
-            Generate {{ timeframeDays }}-Day Analysis
+            Generate analysis
         </button>
     </div>
 </template>

@@ -111,6 +111,7 @@ export default {
         const combinedChartRef = ref(null)
         const currentDayIndex = ref(0)
         const isSimulating = ref(false)
+        const viewDataOpen = ref(false)
         const weatherLayers = ref({
             temperature: true,
             cloudCover: true,
@@ -128,19 +129,29 @@ export default {
         // Analysis generation (hoisted so the date-range composable can receive it)
         async function generateAnalysis() {
             if (!selectedObject.value) return
-            const mode = analysisMode.value === 'predicted' ? 'simulated' : 'historical'
-            await store.generateAnalysisWithMode(
-                selectedObject.value.id,
-                centerDate.value,
-                timeframeDays.value,
-                mode,
-            )
-            // Day charts: always first/only day. Multi-day: center of window.
-            currentDayIndex.value = currentTimeframe.value === 'day'
-                ? 0
-                : Math.max(0, Math.floor((totalDays.value || 1) / 2))
-            await nextTick()
-            renderCombinedChart()
+            isSimulating.value = analysisMode.value === 'predicted'
+            try {
+                const mode = analysisMode.value === 'predicted' ? 'simulated' : 'historical'
+                await store.generateAnalysisWithMode(
+                    selectedObject.value.id,
+                    centerDate.value,
+                    timeframeDays.value,
+                    mode,
+                )
+                // Day charts: always first/only day. Multi-day: center of window.
+                currentDayIndex.value = currentTimeframe.value === 'day'
+                    ? 0
+                    : Math.max(0, Math.floor((totalDays.value || 1) / 2))
+                await nextTick()
+                // Retry render after layout (predicted canvas sometimes 0-size on first paint)
+                renderCombinedChart()
+                setTimeout(() => renderCombinedChart(), 50)
+                setTimeout(() => renderCombinedChart(), 200)
+            } catch (e) {
+                console.error('generateAnalysis failed', e)
+            } finally {
+                isSimulating.value = false
+            }
         }
 
         // Date/timeframe/mode orchestration
@@ -211,7 +222,26 @@ export default {
 
         // Methods
         const closeModal = () => {
+            viewDataOpen.value = false
             store.closeAnalyticsModal()
+        }
+
+        // Header "Add historical data" — best-effort open of station edit/upload flows
+        const onAddHistorical = () => {
+            try {
+                if (
+                    typeof store.openCreateVirtualModal === 'function'
+                    && selectedObject.value?.customData?.isVirtual
+                ) {
+                    store.openCreateVirtualModal()
+                    return
+                }
+                if (typeof store.openEditStationModal === 'function') {
+                    store.openEditStationModal()
+                }
+            } catch (e) {
+                // no-op: optional store hooks
+            }
         }
 
         const onCanvasEl = (el) => {
@@ -251,20 +281,29 @@ export default {
 
         // Open: default Historical + Day, NC calendar bounds, load series
         watch(isOpen, async (open) => {
-            if (open) {
+            if (!open) {
+                viewDataOpen.value = false
+                return
+            }
+            try {
                 initForOpen()
                 store.setAnalyticsTimeframe('day')
+                currentDayIndex.value = 0
                 await generateAnalysis()
                 currentDayIndex.value = 0
                 await nextTick()
                 setTimeout(() => renderCombinedChart(), 100)
+            } catch (e) {
+                console.error('Analytics open/generate failed', e)
             }
         })
 
         // Re-render chart when analysis data changes
         watch(analysisData, async (data) => {
             if (data && isOpen.value) {
-                currentDayIndex.value = Math.floor(totalDays.value / 2)
+                currentDayIndex.value = currentTimeframe.value === 'day'
+                    ? 0
+                    : Math.max(0, Math.floor((totalDays.value || 1) / 2))
                 await nextTick()
                 setTimeout(() => renderCombinedChart(), 100)
             }
@@ -287,6 +326,7 @@ export default {
             loadingMessage,
             isExporting,
             viewDataOpen,
+            hourlyData,
             dataMode,
             dataModeLabel,
             timeframes,
@@ -305,6 +345,7 @@ export default {
             analysisMode,
             weatherLayers,
             closeModal,
+            onAddHistorical,
             setTimeframe,
             onDateChange,
             setAnalysisMode,
