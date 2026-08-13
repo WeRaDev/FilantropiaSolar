@@ -272,9 +272,13 @@ export default {
         }
 
         const shiftYmd = (ymd, deltaDays) => {
-            const d = new Date(`${ymd}T12:00:00Z`)
-            d.setUTCDate(d.getUTCDate() + deltaDays)
-            return d.toISOString().slice(0, 10)
+            const [y, m, day] = ymd.split('-').map(Number)
+            const d = new Date(y, m - 1, day)
+            d.setDate(d.getDate() + deltaDays)
+            const yy = d.getFullYear()
+            const mm = String(d.getMonth() + 1).padStart(2, '0')
+            const dd = String(d.getDate()).padStart(2, '0')
+            return `${yy}-${mm}-${dd}`
         }
 
         const canPrevDay = computed(() => {

@@ -13,8 +13,15 @@ import { ref, computed } from 'vue'
  * @param {import('vue').ComputedRef<object|null>} deps.analysisData
  * @param {Function} deps.generateAnalysis
  */
+function localYmd(d = new Date()) {
+    const y = d.getFullYear()
+    const m = String(d.getMonth() + 1).padStart(2, '0')
+    const day = String(d.getDate()).padStart(2, '0')
+    return `${y}-${m}-${day}`
+}
+
 export function useAnalyticsDateRange({ selectedObject, analysisData, generateAnalysis }) {
-    const centerDate = ref(new Date().toISOString().split('T')[0])
+    const centerDate = ref(localYmd())
     const currentTimeframe = ref('day')
     const analysisMode = ref('historical') // default Historical
 
@@ -60,16 +67,15 @@ export function useAnalyticsDateRange({ selectedObject, analysisData, generateAn
     })
 
     const maxDate = computed(() => {
-        const today = new Date().toISOString().split('T')[0]
-        // Historical: never beyond today (dataset/sim only covers past+current)
-        return today
+        // Historical: never beyond today in local (Europe/Lisbon) calendar
+        return localYmd()
     })
 
     const effectiveMaxDate = computed(() => {
         if (analysisMode.value === 'predicted') {
             const futureDate = new Date()
             futureDate.setFullYear(futureDate.getFullYear() + 1)
-            return futureDate.toISOString().split('T')[0]
+            return localYmd(futureDate)
         }
         return maxDate.value
     })
@@ -120,7 +126,7 @@ export function useAnalyticsDateRange({ selectedObject, analysisData, generateAn
 
         if (to) {
             const toMs = new Date(to).getTime()
-            const maxCenter = new Date(toMs - halfDays * 86400000).toISOString().split('T')[0]
+            const maxCenter = localYmd(new Date(toMs - halfDays * 86400000))
             if (centerDate.value > maxCenter) {
                 centerDate.value = maxCenter
             }
@@ -130,7 +136,7 @@ export function useAnalyticsDateRange({ selectedObject, analysisData, generateAn
         }
         if (from) {
             const fromMs = new Date(from).getTime()
-            const minCenter = new Date(fromMs + halfDays * 86400000).toISOString().split('T')[0]
+            const minCenter = localYmd(new Date(fromMs + halfDays * 86400000))
             if (centerDate.value < minCenter) {
                 centerDate.value = minCenter
             }
@@ -143,7 +149,7 @@ export function useAnalyticsDateRange({ selectedObject, analysisData, generateAn
     const initForOpen = () => {
         analysisMode.value = 'historical'
         currentTimeframe.value = 'day'
-        const to = maxDate.value || new Date().toISOString().split('T')[0]
+        const to = maxDate.value || localYmd()
         centerDate.value = to
         clampCenterDate()
     }

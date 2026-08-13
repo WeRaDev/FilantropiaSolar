@@ -13,6 +13,7 @@ use OCA\FilantropiaSolar\Db\EnergyReading;
 use OCA\FilantropiaSolar\Db\EnergyReadingMapper;
 use OCA\FilantropiaSolar\Db\InstallationMapper;
 use OCA\FilantropiaSolar\Service\PredictionService;
+use OCA\FilantropiaSolar\Service\AppTimezone;
 use OCA\FilantropiaSolar\Service\WeatherService;
 use OCP\AppFramework\Http;
 use OCP\AppFramework\Http\Attribute\NoAdminRequired;
@@ -336,7 +337,7 @@ class PredictionApiController extends OCSController
         }
 
         try {
-            $center = new DateTimeImmutable($centerDate, new DateTimeZone('UTC'));
+            $center = new DateTimeImmutable($centerDate, AppTimezone::zone());
         } catch (\Throwable) {
             return [
                 'success' => false,
@@ -353,8 +354,7 @@ class PredictionApiController extends OCSController
             $endDay = $center->add(new DateInterval('P' . $half . 'D'))->setTime(23, 0, 0);
         }
 
-        $now = new DateTimeImmutable('now', new DateTimeZone('UTC'));
-        $lastComplete = $now->setTime((int) $now->format('H'), 0, 0)->sub(new DateInterval('PT1H'));
+        $lastComplete = AppTimezone::lastCompleteHour();
 
         $startDt = DateTime::createFromImmutable($startDay);
         $endDt = DateTime::createFromImmutable($endDay);
@@ -365,7 +365,8 @@ class PredictionApiController extends OCSController
             if (!$ts instanceof DateTime) {
                 continue;
             }
-            $key = $ts->setTimezone(new DateTimeZone('UTC'))->format('Y-m-d H:00:00');
+            // Readings are stored as Europe/Lisbon wall-clock hour keys
+            $key = AppTimezone::formatHourKey($ts);
             $byHour[$key] = $r;
         }
 
@@ -396,7 +397,7 @@ class PredictionApiController extends OCSController
                         }
                         try {
                             $dt = new DateTimeImmutable($t);
-                            $k = $dt->setTimezone(new DateTimeZone('UTC'))->format('Y-m-d H:00:00');
+                            $k = AppTimezone::formatHourKey($dt);
                             $weatherByHour[$k] = $row;
                         } catch (\Throwable) {
                             continue;
@@ -408,7 +409,7 @@ class PredictionApiController extends OCSController
                     for ($i = 0; $i < $n; $i++) {
                         try {
                             $dt = new DateTimeImmutable((string) $hourly['time'][$i]);
-                            $k = $dt->setTimezone(new DateTimeZone('UTC'))->format('Y-m-d H:00:00');
+                            $k = AppTimezone::formatHourKey($dt);
                             $weatherByHour[$k] = [
                                 'temperature' => $hourly['temperature_2m'][$i] ?? null,
                                 'temperature_2m' => $hourly['temperature_2m'][$i] ?? null,
@@ -462,7 +463,7 @@ class PredictionApiController extends OCSController
             }
 
             $hourly[] = [
-                'timestamp' => $cursor->format('Y-m-d\\TH:i:s\\Z'),
+                'timestamp' => $cursor->format('Y-m-d\\TH:i:s'),
                 'hour' => (int) $cursor->format('G'),
                 'production_kwh' => $production,
                 'provenance' => $provenance,

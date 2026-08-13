@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace OCA\FilantropiaSolar\Db;
 
+use OCA\FilantropiaSolar\Service\AppTimezone;
+
 use DateTime;
 use OCP\AppFramework\Db\DoesNotExistException;
 use OCP\AppFramework\Db\MultipleObjectsReturnedException;
@@ -263,16 +265,12 @@ class EnergyReadingMapper extends QBMapper
     }
 
     /**
-     * Production for the last complete UTC hour bucket only.
+     * Production for the last complete Europe/Lisbon hour bucket only.
      * Returns 0.0 when the hour exists with zero production; null when missing.
      */
     public function findLastCompleteHourProduction(int $installationId, ?\DateTimeInterface $now = null): ?float
     {
-        $nowUtc = $now
-            ? \DateTimeImmutable::createFromInterface($now)->setTimezone(new \DateTimeZone('UTC'))
-            : new \DateTimeImmutable('now', new \DateTimeZone('UTC'));
-        $lastComplete = $nowUtc->setTime((int) $nowUtc->format('H'), 0, 0)
-            ->sub(new \DateInterval('PT1H'));
+        $lastComplete = AppTimezone::lastCompleteHour($now);
         $ts = DateTime::createFromImmutable($lastComplete);
         $row = $this->findByInstallationAndTimestamp($installationId, $ts);
         if ($row === null) {
@@ -484,16 +482,11 @@ class EnergyReadingMapper extends QBMapper
     }
 
     /**
-     * True if the last complete UTC hour bucket has provenance=measured.
+     * True if the last complete Europe/Lisbon hour bucket has provenance=measured.
      */
     public function hasMeasuredLastCompleteHour(int $installationId, ?\DateTimeInterface $now = null): bool
     {
-        $nowUtc = $now
-            ? \DateTimeImmutable::createFromInterface($now)->setTimezone(new \DateTimeZone('UTC'))
-            : new \DateTimeImmutable('now', new \DateTimeZone('UTC'));
-        $lastComplete = $nowUtc->setTime((int) $nowUtc->format('H'), 0, 0)
-            ->sub(new \DateInterval('PT1H'));
-        $ts = $lastComplete->format('Y-m-d H:i:s');
+        $ts = AppTimezone::lastCompleteHour($now)->format('Y-m-d H:i:s');
 
         $qb = $this->db->getQueryBuilder();
         $qb->select($qb->createFunction('COUNT(*)'))

@@ -27,7 +27,7 @@
 				<table v-else class="data-table">
 					<thead>
 						<tr>
-							<th>Timestamp (UTC)</th>
+							<th>Timestamp (Lisbon)</th>
 							<th>Hour</th>
 							<th>Production (kWh)</th>
 							<th>Source</th>
@@ -127,7 +127,7 @@ export default {
 
 		const copyCsv = async () => {
 			const header = [
-				'timestamp_utc',
+				'timestamp_lisbon',
 				'hour',
 				'production_kwh',
 				'source',

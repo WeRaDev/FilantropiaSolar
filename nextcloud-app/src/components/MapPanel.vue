@@ -369,7 +369,7 @@ export default {
             return (Number(num) * 100).toFixed(1) + '%'
         }
 
-        // Last complete UTC hour kWh/kWp (0 when night / missing hour — never fake 85%)
+        // Last complete Europe/Lisbon hour kWh/kWp (0 when night / missing hour — never fake 85%)
         const currentEfficiency = (obj) => {
             if (!obj) return 0
             if (obj.efficiency === null || obj.efficiency === undefined || obj.efficiency === '') {

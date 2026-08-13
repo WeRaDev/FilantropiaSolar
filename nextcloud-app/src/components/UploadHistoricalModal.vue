@@ -16,7 +16,7 @@
 					Upload CSV/Excel with columns
 					<code>timestamp</code> (or Date) and
 					<code>production_kwh</code> (or Produced Energy).
-					Hours are stored as UTC measured provenance.
+					Hours are stored as Europe/Lisbon measured provenance.
 				</p>
 				<div
 					class="file-upload-area"

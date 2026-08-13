@@ -838,7 +838,7 @@ class InstallationApiController extends ApiController
         try {
             $production = $this->readingMapper->sumProductionAll($dbId);
             $count = $this->readingMapper->countByInstallation($dbId);
-            // Active badge: last complete UTC hour must be measured (not merely any historical measured row).
+            // Active badge: last complete Europe/Lisbon hour must be measured (not merely any historical measured row).
             $hasMeasured = $this->readingMapper->hasMeasuredLastCompleteHour($dbId);
             $hasAnyMeasured = $this->readingMapper->hasMeasuredData($dbId);
         } catch (\Throwable $e) {
@@ -855,7 +855,7 @@ class InstallationApiController extends ApiController
             ? (float) $payload['self_consumption_factor']
             : SavingsService::factorForGridType($payload['grid_connection_type'] ?? null);
 
-        // Current efficiency = last COMPLETE UTC hour only (night/missing => 0, not stale peak).
+        // Current efficiency = last COMPLETE Europe/Lisbon hour only (night/missing => 0, not stale peak).
         $lastHourKwh = null;
         try {
             $lastHourKwh = $this->readingMapper->findLastCompleteHourProduction($dbId);
