@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import contextlib
 import logging
+from typing import ClassVar
 
 from odoo import api, fields, models
 
@@ -110,10 +111,33 @@ class CrmLead(models.Model):
                 vals["fs_nc_db_id"] = int(station["id"])
         if station.get("lifecycle_state"):
             vals["fs_nc_lifecycle_state"] = station["lifecycle_state"]
-        if station.get("website") and not self.fs_station_website:
-            vals["fs_station_website"] = station["website"]
-        if station.get("short_description") and not self.fs_station_short_description:
-            vals["fs_station_short_description"] = station["short_description"]
+        # Prefer NC snapshot when present so CRM stays symmetrical with NC.
+        if station.get("name"):
+            vals["partner_name"] = station["name"]
+            # Keep opportunity title aligned for mirrored stations.
+            if self.fs_nc_installation_id or station.get("installation_id"):
+                vals["name"] = station["name"]
+        if station.get("location") is not None:
+            vals["fs_station_location_label"] = station.get("location") or False
+            vals["city"] = station.get("location") or False
+        if station.get("latitude") is not None:
+            with contextlib.suppress(TypeError, ValueError):
+                vals["fs_station_latitude"] = float(station.get("latitude") or 0.0)
+        if station.get("longitude") is not None:
+            with contextlib.suppress(TypeError, ValueError):
+                vals["fs_station_longitude"] = float(station.get("longitude") or 0.0)
+        if station.get("capacity_kwp") is not None:
+            with contextlib.suppress(TypeError, ValueError):
+                vals["fs_station_capacity_kwp"] = float(
+                    station.get("capacity_kwp") or 0.0
+                )
+        if "website" in station:
+            vals["fs_station_website"] = station.get("website") or False
+            vals["website"] = station.get("website") or False
+        if "short_description" in station:
+            vals["fs_station_short_description"] = (
+                station.get("short_description") or False
+            )
         # origin stamp must not re-trigger outbound stage jobs
         self.with_context(fs_skip_nc_enqueue=True).write(vals)
 
@@ -273,6 +297,69 @@ class CrmLead(models.Model):
             return str(int(self.fs_nc_db_id))
         return (self.fs_nc_installation_id or "").strip()
 
+    def fs_push_station_profile(self) -> bool:
+        """Push CRM station snapshot fields to linked NC station."""
+        self.ensure_one()
+        key = self._fs_installation_key()
+        if not key:
+            return False
+        website = (self.fs_station_website or self.website or "").strip()
+        if website and not website.lower().startswith(("http://", "https://")):
+            website = "https://" + website
+        payload = {
+            "name": self.partner_name or self.name or f"Lead {self.id}",
+            "location_label": self.fs_station_location_label or self.city or "",
+            "latitude": float(self.fs_station_latitude or 0.0),
+            "longitude": float(self.fs_station_longitude or 0.0),
+            "capacity_kwp": float(self.fs_station_capacity_kwp or 0.0),
+            "website": website,
+            "short_description": (self.fs_station_short_description or "").strip(),
+        }
+        if self.fs_station_grid_price_kwh:
+            payload["grid_price_kwh"] = float(self.fs_station_grid_price_kwh)
+        try:
+            result = self._fs_client().update_profile(
+                key, payload, actor=f"odoo-lead-{self.id}"
+            )
+            self._fs_apply_station_payload(result, origin="crm")
+            _logger.info(
+                "NC profile synced for lead %s -> %s",
+                self.id,
+                self.fs_nc_installation_id,
+            )
+            return True
+        except NcLifecycleError as exc:
+            self._fs_mark_error(exc)
+            _logger.warning(
+                "NC profile sync failed for lead %s: %s",
+                self.id,
+                redact_secrets(str(exc)),
+            )
+            return False
+
+    def fs_enqueue_push_station_profile(self):
+        """Enqueue CRM->NC station profile sync."""
+        for lead in self:
+            if not lead._fs_installation_key():
+                continue
+            lead.with_context(fs_skip_nc_enqueue=True).write(
+                {
+                    "fs_nc_sync_state": "pending",
+                    "fs_nc_sync_error": False,
+                    "fs_nc_sync_origin": "crm",
+                }
+            )
+            if hasattr(lead, "with_delay"):
+                lead.with_delay(
+                    priority=12,
+                    description=f"NC profile sync for lead {lead.id}",
+                    channel="root.filantropia",
+                    identity_key=f"fs-profile-{lead.id}",
+                ).fs_push_station_profile()
+            else:
+                lead.fs_push_station_profile()
+        return True
+
     def fs_set_lifecycle(self, lifecycle_state: str) -> bool:
         """Set NC lifecycle explicitly (demotion / correction)."""
         self.ensure_one()
@@ -409,11 +496,30 @@ class CrmLead(models.Model):
                 lead.fs_mark_installed()
         return True
 
+    _FS_PROFILE_FIELDS: ClassVar[set[str]] = {
+        "name",
+        "partner_name",
+        "city",
+        "website",
+        "fs_station_location_label",
+        "fs_station_latitude",
+        "fs_station_longitude",
+        "fs_station_capacity_kwp",
+        "fs_station_website",
+        "fs_station_short_description",
+        "fs_station_grid_price_kwh",
+    }
+
     def write(self, vals):
         skip = self.env.context.get("fs_skip_nc_enqueue")
         old_stages = {lead.id: lead.stage_id for lead in self}
         res = super().write(vals)
-        if skip or "stage_id" not in vals:
+        if skip:
+            return res
+        # CRM station snapshot edits -> NC profile
+        if self._FS_PROFILE_FIELDS.intersection(vals):
+            self.fs_enqueue_push_station_profile()
+        if "stage_id" not in vals:
             return res
         for lead in self:
             old_stage = old_stages.get(lead.id)

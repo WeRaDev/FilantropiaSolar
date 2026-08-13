@@ -268,6 +268,34 @@ class ClientHttpTests(unittest.TestCase):
             self.assertEqual(req.get_method(), "POST")
             self.assertTrue(req.full_url.endswith("/stations/x/set-lifecycle"))
 
+    def test_update_profile_posts(self):
+        response_body = json.dumps(
+            {
+                "success": True,
+                "station": {
+                    "installation_id": "x",
+                    "name": "NGO",
+                    "lifecycle_state": "virtual",
+                },
+            }
+        ).encode()
+        mock_resp = MagicMock()
+        mock_resp.read.return_value = response_body
+        mock_resp.__enter__.return_value = mock_resp
+        mock_resp.__exit__.return_value = False
+        with patch(
+            "services.nc_lifecycle_client.urllib.request.urlopen",
+            return_value=mock_resp,
+        ) as urlopen:
+            client = NcLifecycleClient(
+                base_url="http://nc/api/lifecycle/v1", token="tok"
+            )
+            result = client.update_profile("x", {"name": "NGO"}, actor="odoo-lead-1")
+            self.assertEqual(result["station"]["name"], "NGO")
+            req = urlopen.call_args[0][0]
+            self.assertEqual(req.get_method(), "POST")
+            self.assertTrue(req.full_url.endswith("/stations/x/profile"))
+
     def test_http_error_does_not_include_token_in_exception(self):
         import urllib.error
 

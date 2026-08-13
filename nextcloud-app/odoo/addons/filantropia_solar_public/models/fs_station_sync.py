@@ -90,6 +90,8 @@ class FsStationSync(models.AbstractModel):
             "fs_station_short_description": station.get("short_description") or False,
             "partner_name": name,
             "name": name,
+            "city": station.get("location") or False,
+            "website": station.get("website") or False,
         }
         if station.get("id") is not None:
             with contextlib.suppress(TypeError, ValueError):

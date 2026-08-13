@@ -214,7 +214,15 @@
                     esc(w) +
                     '" target="_blank" rel="noopener">Website</a>';
             }
-            m.bindPopup(html);
+            m.bindPopup(html, { autoPan: false, maxWidth: 280 });
+            m.on("click", function () {
+                map.invalidateSize(false);
+                map.setView([lat, lng], Math.max(map.getZoom() || 0, 13), {
+                    animate: false,
+                });
+                m.openPopup();
+                map.panTo([lat, lng], { animate: true });
+            });
             markers.push(m);
 
             var entry = { marker: m, lat: lat, lng: lng, status: st };
@@ -270,12 +278,23 @@
                 }
             }
             map.invalidateSize(false);
-            map.setView([entry.lat, entry.lng], Math.max(map.getZoom(), 13), {
-                animate: true,
-            });
+            // Center the station in the map box. Disable popup autoPan so the
+            // marker stays geometrically centered after openPopup().
+            var targetZoom = Math.max(map.getZoom() || 0, 13);
+            map.setView([entry.lat, entry.lng], targetZoom, { animate: false });
             if (entry.marker) {
                 entry.marker.openPopup();
             }
+            // Second pan after layout/popup to keep the pin in the visual center.
+            map.panTo([entry.lat, entry.lng], { animate: true });
+            setTimeout(function () {
+                try {
+                    map.invalidateSize(false);
+                    map.panTo([entry.lat, entry.lng], { animate: false });
+                } catch (e) {
+                    // ignore
+                }
+            }, 120);
             document
                 .querySelectorAll(".fs-station-list-item.is-active")
                 .forEach(function (n) {

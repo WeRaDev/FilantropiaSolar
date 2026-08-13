@@ -102,6 +102,8 @@ class LifecycleApiController extends ApiController
 				$existing->setUpdatedAt(new DateTime());
 				$existing = $this->mapper->update($existing);
 			}
+			// Keep CRM mirror in sync even on idempotent profile refresh.
+			$this->notifyOdooMirror($existing);
 
 			return new JSONResponse([
 				'success' => true,
@@ -149,6 +151,7 @@ class LifecycleApiController extends ApiController
 				'odoo_lead_id' => $odooLeadId,
 				'installation_id' => $created->getInstallationId(),
 			]);
+			$this->notifyOdooMirror($created);
 
 			return new JSONResponse([
 				'success' => true,
@@ -159,6 +162,7 @@ class LifecycleApiController extends ApiController
 			// Race: unique odoo_lead_id — return existing
 			$again = $this->mapper->findByOdooLeadId($odooLeadId);
 			if ($again !== null) {
+				$this->notifyOdooMirror($again);
 				return new JSONResponse([
 					'success' => true,
 					'station' => $this->toLifecycleArray($again),
@@ -407,6 +411,92 @@ class LifecycleApiController extends ApiController
 			'success' => true,
 			'station' => $this->toLifecycleArray($station),
 			'idempotent' => false,
+		]);
+	}
+
+
+	/**
+	 * POST /api/lifecycle/v1/stations/{installationId}/profile
+	 *
+	 * Update public station snapshot fields from CRM (name, location, coords,
+	 * capacity, website, short_description). Does not change lifecycle_state.
+	 */
+	#[PublicPage]
+	#[NoCSRFRequired]
+	public function updateProfile(string $installationId): JSONResponse
+	{
+		if (!$this->authorized()) {
+			return $this->error('unauthorized', Http::STATUS_UNAUTHORIZED, 'unauthorized');
+		}
+
+		$station = $this->mapper->findByInstallationKey($installationId);
+		if ($station === null) {
+			return $this->error('station not found', Http::STATUS_NOT_FOUND, 'not_found');
+		}
+		if (($station->getSource() ?: '') === 'dataset') {
+			return $this->error('dataset stations are not part of the CRM mirror', Http::STATUS_CONFLICT, 'dataset_excluded');
+		}
+
+		$payload = $this->jsonBody();
+		$dirty = false;
+
+		if (array_key_exists('name', $payload)) {
+			$name = trim((string) $payload['name']);
+			if ($name !== '') {
+				$station->setName($name);
+				$dirty = true;
+			}
+		}
+		if (array_key_exists('location_label', $payload) || array_key_exists('location', $payload)) {
+			$loc = trim((string) ($payload['location_label'] ?? $payload['location'] ?? ''));
+			if ($loc !== '') {
+				$station->setLocation($loc);
+				$dirty = true;
+			}
+		}
+		if (array_key_exists('latitude', $payload) || array_key_exists('longitude', $payload)) {
+			$lat = (float) ($payload['latitude'] ?? $station->getLatitude());
+			$lng = (float) ($payload['longitude'] ?? $station->getLongitude());
+			$station->setLatitude((string) $lat);
+			$station->setLongitude((string) $lng);
+			$dirty = true;
+		}
+		if (array_key_exists('capacity_kwp', $payload)) {
+			$cap = (float) $payload['capacity_kwp'];
+			if ($cap > 0) {
+				$station->setCapacityKwp((string) $cap);
+				$dirty = true;
+			}
+		}
+		if (array_key_exists('website', $payload)) {
+			$website = trim((string) $payload['website']);
+			$station->setWebsite($website !== '' ? $website : null);
+			$dirty = true;
+		}
+		if (array_key_exists('short_description', $payload) || array_key_exists('shortDescription', $payload)) {
+			$short = trim((string) ($payload['short_description'] ?? $payload['shortDescription'] ?? ''));
+			$station->setShortDescription($short !== '' ? $short : null);
+			$dirty = true;
+		}
+		if (array_key_exists('grid_price_kwh', $payload) && $payload['grid_price_kwh'] !== null && $payload['grid_price_kwh'] !== '') {
+			$station->setGridPriceKwh((string) $payload['grid_price_kwh']);
+			$dirty = true;
+		}
+
+		if ($dirty) {
+			$station->setUpdatedAt(new DateTime());
+			$station = $this->mapper->update($station);
+			$this->logger->info('Lifecycle profile updated', [
+				'installation_id' => $station->getInstallationId(),
+				'actor' => $payload['actor'] ?? null,
+			]);
+		}
+
+		$this->notifyOdooMirror($station);
+		return new JSONResponse([
+			'success' => true,
+			'station' => $this->toLifecycleArray($station),
+			'idempotent' => !$dirty,
 		]);
 	}
 

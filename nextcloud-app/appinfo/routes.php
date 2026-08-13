@@ -55,6 +55,7 @@ return [
         ['name' => 'lifecycle_api#softRemove', 'url' => '/api/lifecycle/v1/stations/{installationId}/soft-remove', 'verb' => 'POST'],
         ['name' => 'lifecycle_api#bindLead', 'url' => '/api/lifecycle/v1/stations/{installationId}/bind-lead', 'verb' => 'POST'],
         ['name' => 'lifecycle_api#setLifecycle', 'url' => '/api/lifecycle/v1/stations/{installationId}/set-lifecycle', 'verb' => 'POST'],
+        ['name' => 'lifecycle_api#updateProfile', 'url' => '/api/lifecycle/v1/stations/{installationId}/profile', 'verb' => 'POST'],
         ['name' => 'lifecycle_api#index', 'url' => '/api/lifecycle/v1/stations', 'verb' => 'GET'],
         ['name' => 'lifecycle_api#show', 'url' => '/api/lifecycle/v1/stations/{installationId}', 'verb' => 'GET'],
 

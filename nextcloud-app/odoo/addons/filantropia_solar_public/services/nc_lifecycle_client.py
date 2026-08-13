@@ -198,3 +198,17 @@ class NcLifecycleClient:
         if actor:
             body["actor"] = actor
         return self._request("POST", f"stations/{enc}/set-lifecycle", body)
+
+    def update_profile(
+        self,
+        installation_id: str,
+        payload: dict[str, Any],
+        *,
+        actor: str | None = None,
+    ) -> dict[str, Any]:
+        """Update NC station public snapshot fields from CRM."""
+        enc = quote(str(installation_id), safe="")
+        body = dict(payload or {})
+        if actor:
+            body["actor"] = actor
+        return self._request("POST", f"stations/{enc}/profile", body)
