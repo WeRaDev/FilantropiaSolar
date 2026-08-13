@@ -65,6 +65,13 @@ class FsStationSync(models.AbstractModel):
                 cand = Lead.browse(int(odoo_lead_id))
                 if cand.exists():
                     lead = cand
+        # Match by NC primary key before installation_id: changing location
+        # rewrites location_serial installation_id while DB id stays stable.
+        if not lead and station.get("id") is not None:
+            with contextlib.suppress(TypeError, ValueError):
+                nc_db_id = int(station["id"])
+                if nc_db_id:
+                    lead = Lead.search([("fs_nc_db_id", "=", nc_db_id)], limit=1)
         if not lead and installation_id:
             lead = Lead.search(
                 [("fs_nc_installation_id", "=", installation_id)], limit=1

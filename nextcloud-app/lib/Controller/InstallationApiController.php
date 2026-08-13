@@ -255,6 +255,8 @@ class InstallationApiController extends ApiController
 
             $installation->setUpdatedAt(new DateTime());
             $updated = $this->mapper->update($installation);
+            // Profile edits (location/name/coords/etc.) must mirror to CRM.
+            $this->odooMirror->notify($updated);
 
             return new JSONResponse([
                 'success' => true,

@@ -32,4 +32,5 @@
 | CRM missing stations | Import button; lead `user_id` not OdooBot; open **NC Stations** not only My Pipeline |
 | NC change not in CRM | Webhook URL + token; Odoo logs; lead `fs_nc_sync_*` fields |
 | CRM stage not in NC | queue_job pending/failed; `fs_nc_sync_error` on lead |
+| Station profile edit in NC not in CRM | NC `PUT /api/v1/installations/{id}` must notify webhook (3.2.14+); check lead match via `odoo_lead_id` / `fs_nc_db_id` (location changes rewrite `installation_id`) |
 | Map list click / center broken | COW map host; `stations_map.js?v=`; hard refresh — see `ODOO-WEBSITE-COW-VIEWS.md` |
