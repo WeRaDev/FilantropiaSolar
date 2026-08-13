@@ -1630,7 +1630,6 @@ def predict_production_simple(
     return max(0, production)
 
 
-
 class HourlySimulateRequest(BaseModel):
     """Fleet-by-meta hourly production simulation for NC series gap-fill."""
 
@@ -1665,7 +1664,11 @@ async def simulate_hourly(request: HourlySimulateRequest):
         location = request.location or "Lisbon"
         capacity_kwp = float(request.capacity_kwp or 0.0)
         if capacity_kwp <= 0:
-            return {"success": False, "error": "capacity_kwp must be positive", "hours": []}
+            return {
+                "success": False,
+                "error": "capacity_kwp must be positive",
+                "hours": [],
+            }
 
         # Prefer nearest known location name for historical weather files when possible
         weather_df = await generate_weather_for_period(location, start, days)
