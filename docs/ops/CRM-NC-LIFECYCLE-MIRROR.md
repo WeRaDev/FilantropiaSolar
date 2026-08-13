@@ -55,3 +55,15 @@
 - CRM contact-only: `email_from`, `phone`, `contact_name`, candidatura bill attachments / description dump
 - NC internal: `serial_number` (derived), measured series, ML cache, dataset training corpus
 - Public map computed metrics (savings totals) — read-only public API, not CRM fields
+
+## Integration tests (local stack)
+
+```bash
+cd nextcloud-app/odoo/addons/filantropia_solar_public
+python3 -m unittest tests.test_nc_lifecycle_client tests.test_async_enqueue -v
+python3 -m unittest tests.test_crm_nc_field_sync_integration -v
+```
+
+`test_crm_nc_field_sync_integration` exercises the full snapshot matrix against
+Docker NC+Odoo (profile, CRM push, lifecycle, installation_id rewrite, import).
+
