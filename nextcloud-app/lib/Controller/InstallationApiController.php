@@ -855,16 +855,16 @@ class InstallationApiController extends ApiController
             ? (float) $payload['self_consumption_factor']
             : SavingsService::factorForGridType($payload['grid_connection_type'] ?? null);
 
+        // Current efficiency = last COMPLETE UTC hour only (night/missing => 0, not stale peak).
         $lastHourKwh = null;
         try {
-            $lastHourKwh = $this->readingMapper->findLatestProduction($dbId);
+            $lastHourKwh = $this->readingMapper->findLastCompleteHourProduction($dbId);
         } catch (\Throwable $e) {
             $lastHourKwh = null;
         }
-        // List badge: last complete hour kWh / capacity kWp (null if no sample).
-        $efficiency = null;
+        $efficiency = 0.0;
         if ($capacity > 0 && $lastHourKwh !== null) {
-            $efficiency = round($lastHourKwh / $capacity, 6);
+            $efficiency = round(max(0.0, $lastHourKwh) / $capacity, 6);
         }
 
         $mix = ['measured' => 0, 'simulated' => 0, 'total' => $count];

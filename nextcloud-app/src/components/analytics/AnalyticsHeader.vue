@@ -167,6 +167,10 @@ export default {
             type: String,
             default: '',
         },
+        effectiveMinDate: {
+            type: String,
+            default: '',
+        },
         effectiveMaxDate: {
             type: String,
             default: '',
@@ -229,10 +233,24 @@ export default {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 16px 24px;
+    flex-wrap: wrap;
+    padding: 12px 16px;
     background: var(--color-background-dark, #f5f5f5);
     border-bottom: 1px solid var(--color-border, #e0e0e0);
-    gap: 16px;
+    gap: 12px;
+    flex: 0 0 auto;
+    min-width: 0;
+}
+
+.header-center {
+    flex: 1 1 auto;
+    min-width: 0;
+    flex-wrap: wrap;
+}
+
+.header-right {
+    flex-wrap: wrap;
+    gap: 8px;
 }
 
 .header-left {

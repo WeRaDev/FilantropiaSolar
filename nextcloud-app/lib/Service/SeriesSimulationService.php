@@ -94,6 +94,12 @@ class SeriesSimulationService
 	/** Max days per backfill chunk (keeps ML + NC within job timeout). */
 	public const BACKFILL_CHUNK_DAYS = 7;
 
+	/** First UTC hour inclusive for automatic series fill (05:00). */
+	public const PRODUCTION_HOUR_START = 5;
+
+	/** Last UTC hour inclusive for automatic series fill (22:00). */
+	public const PRODUCTION_HOUR_END = 22;
+
 	/**
 	 * Historical gap-fill for one Running station (chunked).
 	 *
@@ -309,9 +315,13 @@ class SeriesSimulationService
 		$cursor = $startUtc->setTime((int) $startUtc->format('H'), 0, 0);
 		$end = $endUtc->setTime((int) $endUtc->format('H'), 0, 0);
 		while ($cursor <= $end) {
-			$key = $cursor->format('Y-m-d H:i:s');
-			if (!isset($existingSet[$key])) {
-				$missing[] = $key;
+			$hour = (int) $cursor->format('G');
+			// Automatic population only during production window 05:00–22:00 UTC
+			if ($hour >= self::PRODUCTION_HOUR_START && $hour <= self::PRODUCTION_HOUR_END) {
+				$key = $cursor->format('Y-m-d H:i:s');
+				if (!isset($existingSet[$key])) {
+					$missing[] = $key;
+				}
 			}
 			$cursor = $cursor->add(new DateInterval('PT1H'));
 		}

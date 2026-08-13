@@ -41,6 +41,9 @@ export const useAppStore = defineStore('app', {
         // Edit station modal
         editStationModalOpen: false,
 
+        // Upload measured historical readings
+        uploadHistoricalModalOpen: false,
+
         // Lifecycle chooser modal
         lifecycleModalOpen: false,
 
@@ -201,6 +204,9 @@ export const useAppStore = defineStore('app', {
                             website: inst.website || '',
                             shortDescription: inst.short_description || '',
                             gridPriceKwh: inst.grid_price_kwh != null ? Number(inst.grid_price_kwh) : 0.15,
+                            gridConnectionType: inst.grid_connection_type || 'on_grid',
+                            seriesFromDate: inst.series_from_date || null,
+                            seriesToDate: inst.series_to_date || null,
                         },
                         lifecycle_state: lifecycle,
                         soft_removed: softRemoved,
@@ -208,13 +214,22 @@ export const useAppStore = defineStore('app', {
                         website: inst.website || '',
                         short_description: inst.short_description || '',
                         grid_price_kwh: inst.grid_price_kwh != null ? Number(inst.grid_price_kwh) : 0.15,
+                        grid_connection_type: inst.grid_connection_type || 'on_grid',
                         total_production_kwh: Number(inst.total_production_kwh || 0),
                         total_savings_eur: Number(inst.total_savings_eur || 0),
                         readings_count: Number(inst.readings_count || 0),
                         has_series_data: Boolean(inst.has_series_data),
                         has_measured_data: Boolean(inst.has_measured_data),
                         series_source: inst.series_source || 'none',
-                        efficiency: Number(inst.efficiency != null ? inst.efficiency : 0),
+                        series_from_date: inst.series_from_date || null,
+                        series_to_date: inst.series_to_date || null,
+                        last_hour_production_kwh: inst.last_hour_production_kwh != null
+                            ? Number(inst.last_hour_production_kwh)
+                            : null,
+                        // 0 when missing/night — never default to 0.85
+                        efficiency: inst.efficiency != null && inst.efficiency !== ''
+                            ? Number(inst.efficiency)
+                            : 0,
                         // Use actual API coordinates if available, otherwise fallback to location lookup
                         coordinates: (inst.latitude && inst.longitude)
                             ? { lat: parseFloat(inst.latitude), lng: parseFloat(inst.longitude) }
@@ -492,6 +507,21 @@ export const useAppStore = defineStore('app', {
         },
         closeEditStationModal() {
             this.editStationModalOpen = false
+        },
+        openUploadHistoricalModal() {
+            this.uploadHistoricalModalOpen = true
+        },
+        closeUploadHistoricalModal() {
+            this.uploadHistoricalModalOpen = false
+        },
+        async uploadMeasuredReadings(objectId, readings) {
+            const key = this.stationApiKey(objectId)
+            const response = await axios.post(
+                generateUrl(`/apps/filantropia_solar/api/v1/installations/${encodeURIComponent(key)}/import`),
+                { readings },
+            )
+            await this.fetchObjects()
+            return response.data
         },
         openLifecycleModal() {
             this.lifecycleModalOpen = true

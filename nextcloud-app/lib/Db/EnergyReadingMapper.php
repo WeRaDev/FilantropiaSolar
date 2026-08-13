@@ -249,7 +249,7 @@ class EnergyReadingMapper extends QBMapper
     }
 
     /**
-     * Production for the latest complete hour row (by timestamp DESC).
+     * Production for the latest row by timestamp (may be older than last complete hour).
      */
     public function findLatestProduction(int $installationId): ?float
     {
@@ -260,6 +260,26 @@ class EnergyReadingMapper extends QBMapper
         }
 
         return $latest->getProductionFloat();
+    }
+
+    /**
+     * Production for the last complete UTC hour bucket only.
+     * Returns 0.0 when the hour exists with zero production; null when missing.
+     */
+    public function findLastCompleteHourProduction(int $installationId, ?\DateTimeInterface $now = null): ?float
+    {
+        $nowUtc = $now
+            ? \DateTimeImmutable::createFromInterface($now)->setTimezone(new \DateTimeZone('UTC'))
+            : new \DateTimeImmutable('now', new \DateTimeZone('UTC'));
+        $lastComplete = $nowUtc->setTime((int) $nowUtc->format('H'), 0, 0)
+            ->sub(new \DateInterval('PT1H'));
+        $ts = DateTime::createFromImmutable($lastComplete);
+        $row = $this->findByInstallationAndTimestamp($installationId, $ts);
+        if ($row === null) {
+            return null;
+        }
+
+        return $row->getProductionFloat();
     }
 
     /**

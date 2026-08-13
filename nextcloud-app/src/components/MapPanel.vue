@@ -69,9 +69,17 @@
                 </div>
                 <div class="info-row">
                     <span class="info-label">Current efficiency</span>
-                    <span class="info-value" :class="getEfficiencyClass(selectedObject.efficiency || 0.85)">
-                        {{ formatPercent(selectedObject.efficiency || 0.85) }}
+                    <span class="info-value" :class="getEfficiencyClass(currentEfficiency(selectedObject))">
+                        {{ formatPercent(currentEfficiency(selectedObject)) }}
                     </span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">Grid connection</span>
+                    <span class="info-value">{{ gridConnectionLabel(selectedObject) }}</span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">Dataset range</span>
+                    <span class="info-value">{{ datasetRangeLabel(selectedObject) }}</span>
                 </div>
                 <div class="info-row">
                     <span class="info-label">Lifecycle</span>
@@ -357,14 +365,43 @@ export default {
         }
         
         const formatPercent = (num) => {
-            if (num === null || num === undefined) return '0%'
-            return (num * 100).toFixed(1) + '%'
+            if (num === null || num === undefined || Number.isNaN(Number(num))) return '0%'
+            return (Number(num) * 100).toFixed(1) + '%'
         }
-        
+
+        // Last complete UTC hour kWh/kWp (0 when night / missing hour — never fake 85%)
+        const currentEfficiency = (obj) => {
+            if (!obj) return 0
+            if (obj.efficiency === null || obj.efficiency === undefined || obj.efficiency === '') {
+                return 0
+            }
+            const n = Number(obj.efficiency)
+            return Number.isFinite(n) ? Math.max(0, n) : 0
+        }
+
         const getEfficiencyClass = (efficiency) => {
-            if (efficiency >= 0.9) return 'efficiency-high'
-            if (efficiency >= 0.7) return 'efficiency-medium'
+            const e = Number(efficiency) || 0
+            if (e <= 0) return 'efficiency-low'
+            if (e >= 0.9) return 'efficiency-high'
+            if (e >= 0.7) return 'efficiency-medium'
             return 'efficiency-low'
+        }
+
+        const gridConnectionLabel = (obj) => {
+            const t = (obj?.grid_connection_type || obj?.customData?.gridConnectionType || 'on_grid').toLowerCase()
+            if (t === 'off_grid' || t === 'off-grid') return 'Off-grid'
+            return 'On-grid'
+        }
+
+        const datasetRangeLabel = (obj) => {
+            const from = obj?.series_from_date || obj?.customData?.seriesFromDate || obj?.customData?.fromDate || obj?.from_date
+            const to = obj?.series_to_date || obj?.customData?.seriesToDate || obj?.customData?.toDate || obj?.to_date
+            const f = from ? String(from).slice(0, 10) : null
+            const t = to ? String(to).slice(0, 10) : null
+            if (f && t) return `${f} → ${t}`
+            if (f) return `from ${f}`
+            if (t) return `to ${t}`
+            return obj?.has_series_data ? 'Series present' : 'No series yet'
         }
 
         // Watch for filtered object changes (list chips / search)
@@ -433,7 +470,10 @@ export default {
             openEdit,
             formatNumber,
             formatPercent,
-            getEfficiencyClass
+            currentEfficiency,
+            getEfficiencyClass,
+            gridConnectionLabel,
+            datasetRangeLabel,
         }
     }
 }

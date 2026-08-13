@@ -15,15 +15,27 @@
                     </svg>
                     View data
                 </button>
-            <!-- Day navigation only for 'day' timeframe -->
+            <!-- Day navigation: shifts calendar day (or multi-day index) -->
             <div v-if="currentTimeframe === 'day'" class="day-nav">
-                <button class="nav-btn" :disabled="currentDayIndex <= 0" @click="$emit('prev-day')">
+                <button
+                    type="button"
+                    class="nav-btn"
+                    :disabled="!canPrevDay"
+                    title="Previous day"
+                    @click="$emit('prev-day')"
+                >
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                         <path d="m15 18-6-6 6-6"/>
                     </svg>
                 </button>
                 <span class="day-label">{{ currentDayLabel }}</span>
-                <button class="nav-btn" :disabled="currentDayIndex >= totalDays - 1" @click="$emit('next-day')">
+                <button
+                    type="button"
+                    class="nav-btn"
+                    :disabled="!canNextDay"
+                    title="Next day"
+                    @click="$emit('next-day')"
+                >
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                         <path d="m9 18 6-6-6-6"/>
                     </svg>
@@ -58,6 +70,8 @@ export default {
         dateRangeLabel: { type: String, default: '' },
         dataMode: { type: String, required: true },
         dataModeLabel: { type: String, required: true },
+        canPrevDay: { type: Boolean, default: true },
+        canNextDay: { type: Boolean, default: true },
     },
     emits: ['prev-day', 'next-day', 'canvas-el', 'view-data'],
     setup(props, { emit }) {

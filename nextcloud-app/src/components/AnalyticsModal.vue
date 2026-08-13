@@ -50,6 +50,8 @@
                                 :date-range-label="dateRangeLabel"
                                 :data-mode="dataMode"
                                 :data-mode-label="dataModeLabel"
+                                :can-prev-day="canPrevDay"
+                                :can-next-day="canNextDay"
                                 @prev-day="prevDay"
                                 @next-day="nextDay"
                                 @canvas-el="onCanvasEl"
@@ -246,21 +248,18 @@ export default {
             viewDataOpen.value = true
         }
 
-        // Header "Add historical data" — best-effort open of station edit/upload flows
+        // Header "Add historical data" — open measured upload for the selected station
         const onAddHistorical = () => {
             try {
-                if (
-                    typeof store.openCreateVirtualModal === 'function'
-                    && selectedObject.value?.customData?.isVirtual
-                ) {
-                    store.openCreateVirtualModal()
+                if (typeof store.openUploadHistoricalModal === 'function') {
+                    store.openUploadHistoricalModal()
                     return
                 }
                 if (typeof store.openEditStationModal === 'function') {
                     store.openEditStationModal()
                 }
             } catch (e) {
-                // no-op: optional store hooks
+                console.error('onAddHistorical failed', e)
             }
         }
 
@@ -272,14 +271,51 @@ export default {
             }
         }
 
-        const prevDay = () => {
+        const shiftYmd = (ymd, deltaDays) => {
+            const d = new Date(`${ymd}T12:00:00Z`)
+            d.setUTCDate(d.getUTCDate() + deltaDays)
+            return d.toISOString().slice(0, 10)
+        }
+
+        const canPrevDay = computed(() => {
+            if (currentTimeframe.value !== 'day') {
+                return currentDayIndex.value > 0
+            }
+            const min = effectiveMinDate.value
+            if (!min) return true
+            return centerDate.value > min
+        })
+
+        const canNextDay = computed(() => {
+            if (currentTimeframe.value !== 'day') {
+                return currentDayIndex.value < totalDays.value - 1
+            }
+            const max = effectiveMaxDate.value
+            if (!max) return true
+            return centerDate.value < max
+        })
+
+        // Day timeframe: arrows change centerDate (calendar). Multi-day: index within window.
+        const prevDay = async () => {
+            if (currentTimeframe.value === 'day') {
+                if (!canPrevDay.value) return
+                centerDate.value = shiftYmd(centerDate.value, -1)
+                await onDateChange()
+                return
+            }
             if (currentDayIndex.value > 0) {
                 currentDayIndex.value--
                 scheduleChartRender(0)
             }
         }
 
-        const nextDay = () => {
+        const nextDay = async () => {
+            if (currentTimeframe.value === 'day') {
+                if (!canNextDay.value) return
+                centerDate.value = shiftYmd(centerDate.value, 1)
+                await onDateChange()
+                return
+            }
             if (currentDayIndex.value < totalDays.value - 1) {
                 currentDayIndex.value++
                 scheduleChartRender(0)
@@ -390,6 +426,8 @@ export default {
             prevDay,
             nextDay,
             goToDay,
+            canPrevDay,
+            canNextDay,
             onCanvasEl,
             scheduleChartRender,
             renderCombinedChart,
@@ -402,26 +440,24 @@ export default {
 /* Modal Overlay */
 .analytics-modal-overlay {
     position: fixed;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
+    inset: 0;
     background: rgba(0, 0, 0, 0.6);
     display: flex;
-    align-items: center;
+    align-items: stretch;
     justify-content: center;
     z-index: 10000;
-    padding: 24px;
+    padding: max(8px, min(24px, 2vh)) max(8px, min(24px, 2vw));
+    box-sizing: border-box;
 }
 
-/* Modal Container */
+/* Modal Container — fills viewport; no fixed max-height that clips UI */
 .analytics-modal {
     background: var(--color-main-background, #fff);
     border-radius: 12px;
-    width: 100%;
-    max-width: 1400px;
-    height: 90vh;
-    max-height: 900px;
+    width: min(1400px, 100%);
+    height: 100%;
+    max-height: 100%;
+    min-height: 0;
     display: flex;
     flex-direction: column;
     overflow: hidden;
@@ -430,7 +466,8 @@ export default {
 
 /* Modal Body */
 .modal-body {
-    flex: 1;
+    flex: 1 1 auto;
+    min-height: 0;
     overflow: hidden;
     position: relative;
 }
@@ -439,18 +476,21 @@ export default {
 .analysis-content {
     display: flex;
     height: 100%;
+    min-height: 0;
     overflow: hidden;
 }
 
 /* Overview Section - Right */
 .overview-section {
-    width: 380px;
-    flex-shrink: 0;
+    width: min(380px, 36vw);
+    flex: 0 0 auto;
+    min-width: 260px;
+    min-height: 0;
     display: flex;
     flex-direction: column;
     overflow-y: auto;
-    padding: 20px;
-    gap: 20px;
+    padding: 16px;
+    gap: 16px;
 }
 
 /* Modal Transitions */
@@ -475,14 +515,22 @@ export default {
 }
 
 /* Responsive */
-@media (max-width: 1000px) {
+@media (max-width: 1100px) {
     .analysis-content {
         flex-direction: column;
     }
 
     .overview-section {
         width: 100%;
-        height: 50%;
+        min-width: 0;
+        max-height: 42%;
+        border-top: 1px solid var(--color-border, #e0e0e0);
+    }
+}
+
+@media (max-height: 700px) {
+    .analytics-modal-overlay {
+        padding: 4px;
     }
 }
 </style>

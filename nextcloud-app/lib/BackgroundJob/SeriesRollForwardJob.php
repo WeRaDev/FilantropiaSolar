@@ -12,6 +12,7 @@ use Psr\Log\LoggerInterface;
 /**
  * Every hour, simulate the previous 2 complete UTC hours for Running ops stations.
  * Only empty hours receive simulated rows; measured is immutable.
+ * Automatic fill is limited to production hours 05:00–22:00 UTC (see SeriesSimulationService).
  */
 class SeriesRollForwardJob extends TimedJob
 {
