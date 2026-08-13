@@ -239,9 +239,8 @@ class CrmLead(models.Model):
         ):
             return True
         # Ensure Planned first when only Virtual/missing
-        if self.fs_nc_lifecycle_state != "planned":
-            if not self.fs_promote_planned():
-                return False
+        if self.fs_nc_lifecycle_state != "planned" and not self.fs_promote_planned():
+            return False
         installation_id = (self.fs_nc_installation_id or "").strip()
         if not installation_id:
             self._fs_mark_error(

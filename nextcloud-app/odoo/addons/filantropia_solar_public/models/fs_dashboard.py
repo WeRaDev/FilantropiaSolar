@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import contextlib
 import logging
 
 from odoo import api, fields, models
@@ -48,21 +49,17 @@ class FsDashboard(models.TransientModel):
                 planned += 1
             elif cat in ("existing", "running"):
                 existing += 1
-            try:
+            with contextlib.suppress(TypeError, ValueError):
                 cap += float(s.get("capacity_kwp") or 0)
-            except (TypeError, ValueError):
-                pass
             for k in (
                 "money_saved_eur",
                 "total_savings_eur",
                 "indicative_savings_eur",
             ):
                 if s.get(k) is not None:
-                    try:
+                    with contextlib.suppress(TypeError, ValueError):
                         savings += float(s.get(k) or 0)
                         break
-                    except (TypeError, ValueError):
-                        pass
         # prefer dashboard totals when present
         if isinstance(dash, dict):
             for k, dest in (
@@ -72,18 +69,14 @@ class FsDashboard(models.TransientModel):
                 ("money_saved_eur", "savings"),
             ):
                 if dash.get(k) is not None:
-                    try:
+                    with contextlib.suppress(TypeError, ValueError):
                         if dest == "cap":
                             cap = float(dash[k])
                         else:
                             savings = float(dash[k])
-                    except (TypeError, ValueError):
-                        pass
             if dash.get("station_count") is not None:
-                try:
+                with contextlib.suppress(TypeError, ValueError):
                     res["station_count"] = int(dash["station_count"])
-                except (TypeError, ValueError):
-                    pass
         res.update(
             {
                 "station_count": res.get("station_count", len(stations)),
