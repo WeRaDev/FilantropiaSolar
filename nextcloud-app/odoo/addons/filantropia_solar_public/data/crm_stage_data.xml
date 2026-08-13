@@ -1,23 +1,19 @@
 <?xml version="1.0" encoding="utf-8"?>
 <odoo>
-  <!-- Pipeline stages for Filantropia donation CRM mirror (ADR 0006).
-       noupdate=0 so names/sequences stay aligned on -u. -->
-  <record id="stage_new" model="crm.stage">
+  <!-- Align core CRM pipeline with ADR 0006 names (no extra stage rows). -->
+  <record id="crm.stage_lead1" model="crm.stage">
     <field name="name">New</field>
     <field name="sequence">1</field>
-    <field name="is_won" eval="False"/>
   </record>
-  <record id="stage_qualified" model="crm.stage">
+  <record id="crm.stage_lead2" model="crm.stage">
     <field name="name">Qualified</field>
     <field name="sequence">10</field>
-    <field name="is_won" eval="False"/>
   </record>
-  <record id="stage_proposition" model="crm.stage">
+  <record id="crm.stage_lead3" model="crm.stage">
     <field name="name">Proposition</field>
     <field name="sequence">20</field>
-    <field name="is_won" eval="False"/>
   </record>
-  <record id="stage_installed" model="crm.stage">
+  <record id="crm.stage_lead4" model="crm.stage">
     <field name="name">Installed</field>
     <field name="sequence">70</field>
     <field name="is_won" eval="True"/>

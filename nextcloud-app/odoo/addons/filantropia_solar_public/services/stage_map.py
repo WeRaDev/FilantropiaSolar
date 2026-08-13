@@ -77,12 +77,12 @@ def nc_state_for_stage(stage_name: str | None, *, is_won: bool = False) -> str |
 
 
 def stage_xmlid_for_nc_state(lifecycle_state: str | None) -> str | None:
-    """Odoo stage xml id fragment for inbound NC->CRM mapping."""
+    """Full xmlid (module.xmlid) for inbound NC->CRM mapping onto core CRM stages."""
     state = (lifecycle_state or "").casefold().strip()
     return {
-        "virtual": "stage_qualified",
-        "planned": "stage_proposition",
-        "running": "stage_installed",
+        "virtual": "crm.stage_lead2",  # Qualified
+        "planned": "crm.stage_lead3",  # Proposition
+        "running": "crm.stage_lead4",  # Installed (ex-Won)
     }.get(state)
 
 

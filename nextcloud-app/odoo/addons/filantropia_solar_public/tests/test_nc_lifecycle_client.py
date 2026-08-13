@@ -75,9 +75,9 @@ class StageMapTests(unittest.TestCase):
         self.assertIsNone(lifecycle_action_for_stage_change("New", "New"))
 
     def test_inbound_stage_xmlids(self):
-        self.assertEqual(stage_xmlid_for_nc_state("virtual"), "stage_qualified")
-        self.assertEqual(stage_xmlid_for_nc_state("planned"), "stage_proposition")
-        self.assertEqual(stage_xmlid_for_nc_state("running"), "stage_installed")
+        self.assertEqual(stage_xmlid_for_nc_state("virtual"), "crm.stage_lead2")
+        self.assertEqual(stage_xmlid_for_nc_state("planned"), "crm.stage_lead3")
+        self.assertEqual(stage_xmlid_for_nc_state("running"), "crm.stage_lead4")
         self.assertIsNone(stage_xmlid_for_nc_state(None))
 
 

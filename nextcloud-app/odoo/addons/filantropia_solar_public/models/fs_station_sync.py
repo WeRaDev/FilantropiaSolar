@@ -16,8 +16,6 @@ from ..services.stage_map import stage_xmlid_for_nc_state
 
 _logger = logging.getLogger(__name__)
 
-_MODULE = "filantropia_solar_public"
-
 
 class FsStationSync(models.AbstractModel):
     _name = "fs.station.sync"
@@ -25,10 +23,10 @@ class FsStationSync(models.AbstractModel):
 
     @api.model
     def _stage_for_nc_state(self, lifecycle_state: str | None):
-        xml_frag = stage_xmlid_for_nc_state(lifecycle_state)
-        if not xml_frag:
-            return self.env.ref(f"{_MODULE}.stage_new", raise_if_not_found=False)
-        return self.env.ref(f"{_MODULE}.{xml_frag}", raise_if_not_found=False)
+        xmlid = stage_xmlid_for_nc_state(lifecycle_state)
+        if not xmlid:
+            return self.env.ref("crm.stage_lead1", raise_if_not_found=False)
+        return self.env.ref(xmlid, raise_if_not_found=False)
 
     @api.model
     def upsert_from_nc_station(self, station: dict, *, origin: str = "nc"):
