@@ -91,20 +91,67 @@ class SeriesSimulationService
 		));
 	}
 
+	/** Max days per backfill chunk (keeps ML + NC within job timeout). */
+	public const BACKFILL_CHUNK_DAYS = 7;
+
 	/**
-	 * Full historical gap-fill for one Running station: install → last complete hour.
+	 * Historical gap-fill for one Running station (chunked).
 	 *
-	 * @return array{requested:int, inserted:int, skipped_existing:int, skipped_measured:int}
+	 * Walks install→now in {@see BACKFILL_CHUNK_DAYS}-day windows and fills the
+	 * first window that still has missing hours. Repeated job runs eventually
+	 * cover the full history without a multi-year single ML request.
+	 *
+	 * @return array{requested:int, inserted:int, skipped_existing:int, skipped_measured:int, chunk_start:?string, chunk_end:?string, complete:bool}
 	 */
-	public function backfillStation(Installation $station): array
+	public function backfillStation(Installation $station, int $chunkDays = self::BACKFILL_CHUNK_DAYS): array
 	{
+		$empty = [
+			'requested' => 0,
+			'inserted' => 0,
+			'skipped_existing' => 0,
+			'skipped_measured' => 0,
+			'chunk_start' => null,
+			'chunk_end' => null,
+			'complete' => true,
+		];
+
 		$start = $this->operationStart($station)->setTime(0, 0, 0);
 		$end = $this->lastCompleteHourUtc();
 		if ($start > $end) {
-			return ['requested' => 0, 'inserted' => 0, 'skipped_existing' => 0, 'skipped_measured' => 0];
+			return $empty;
 		}
 
-		return $this->fillRange($station, $start, $end);
+		$chunkDays = max(1, $chunkDays);
+		$cursor = $start;
+		while ($cursor <= $end) {
+			$windowEnd = $cursor
+				->add(new DateInterval('P' . $chunkDays . 'D'))
+				->sub(new DateInterval('PT1H'));
+			if ($windowEnd > $end) {
+				$windowEnd = $end;
+			}
+
+			$missing = $this->missingHours((int) $station->getId(), $cursor, $windowEnd);
+			if ($missing !== []) {
+				$result = $this->fillRange($station, $cursor, $windowEnd);
+				$nextStart = $windowEnd->add(new DateInterval('PT1H'));
+
+				return [
+					'requested' => $result['requested'],
+					'inserted' => $result['inserted'],
+					'skipped_existing' => $result['skipped_existing'],
+					'skipped_measured' => $result['skipped_measured'],
+					'chunk_start' => $cursor->format('c'),
+					'chunk_end' => $windowEnd->format('c'),
+					// More history may remain after this chunk.
+					'complete' => $nextStart > $end,
+				];
+			}
+
+			$cursor = $cursor->add(new DateInterval('P' . $chunkDays . 'D'));
+		}
+
+		return $empty;
 	}
 
 	/**

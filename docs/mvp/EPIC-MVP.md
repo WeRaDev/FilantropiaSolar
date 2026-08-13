@@ -97,7 +97,9 @@ Ops run lifecycle on **Nextcloud admin**; CRM stages mirror NC (**Qualified→Vi
 - Manual script: form → New (no NC) → Qualify → Virtual → Proposition → Planned on map → Installed → Running/Existing.  
 - Deploy note TRL5: NC + Odoo; no secret echo.  
 
-**AC:** CI green; manual checklist signed in PR.
+**AC:** CI green; manual checklist signed in PR.  
+**Checklist:** `docs/mvp/MVP-7-GATES-TRL5.md` (automated gates exercised post PR #30; operator sign-off tables for CRM script + TRL5 cutover).  
+**Also:** series epic on `main` (NC 3.2.16+) — provenance, grid_connection_type, FilantropiaSolarAdmin, chunked SeriesBackfillJob + 12h SeriesRollForwardJob.
 
 ---
 

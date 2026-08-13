@@ -32,11 +32,16 @@ class SeriesBackfillJob extends TimedJob
 		$this->logger->info('SeriesBackfillJob: starting');
 		$stations = $this->seriesService->findRunningOpsStations();
 		$totalInserted = 0;
+		$incomplete = 0;
 		foreach ($stations as $station) {
 			try {
+				// One chunk per station per run (see SeriesSimulationService::BACKFILL_CHUNK_DAYS).
 				$result = $this->seriesService->backfillStation($station);
 				$totalInserted += $result['inserted'];
-				$this->logger->info('SeriesBackfillJob: station done', [
+				if (empty($result['complete'])) {
+					$incomplete++;
+				}
+				$this->logger->info('SeriesBackfillJob: station chunk done', [
 					'id' => $station->getId(),
 					'name' => $station->getName(),
 					'result' => $result,
@@ -51,6 +56,7 @@ class SeriesBackfillJob extends TimedJob
 		$this->logger->info('SeriesBackfillJob: completed', [
 			'stations' => count($stations),
 			'inserted' => $totalInserted,
+			'incomplete_stations' => $incomplete,
 		]);
 	}
 }

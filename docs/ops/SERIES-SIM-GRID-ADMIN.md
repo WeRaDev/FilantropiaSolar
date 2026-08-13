@@ -12,7 +12,7 @@ NC app **3.2.16** · Odoo addon **19.0.2.22.0**
    - Savings: `kWh × grid_price_kwh × factor` with factor **0.4** (on-grid) / **1.0** (off-grid).
 3. **List efficiency badge**: last series hour `production_kwh / capacity_kwp` (not the old ×1500 proxy).
 4. **Jobs** (registered in `info.xml`):
-   - `SeriesBackfillJob` — daily catch-up install→now for **Running** ops stations.
+   - `SeriesBackfillJob` — daily catch-up for **Running** ops stations; **7-day chunks** per station per run (`SeriesSimulationService::BACKFILL_CHUNK_DAYS`) so multi-year fleets do not timeout.
    - `SeriesRollForwardJob` — every **12h**, previous 12 complete hours.
 5. **ML** `POST /simulate/hourly` — fleet-by-meta (lat/lon/capacity + range); NC persists.
 6. **Auth group** `FilantropiaSolarAdmin` (or NC admin):
@@ -27,6 +27,11 @@ NC app **3.2.16** · Odoo addon **19.0.2.22.0**
 docker exec -u 33 filantropia-nextcloud php occ upgrade
 docker exec -u 33 filantropia-nextcloud php occ group:add FilantropiaSolarAdmin || true
 docker exec -u 33 filantropia-nextcloud php occ group:adduser FilantropiaSolarAdmin <uid>
+docker exec -u 33 filantropia-nextcloud php occ background:cron
+
+# Optional manual job smoke (IDs from: occ background-job:list | grep Series)
+docker exec -u 33 filantropia-nextcloud php occ background-job:execute <rollforward-id> --force-execute
+docker exec -u 33 filantropia-nextcloud php occ background-job:execute <backfill-id> --force-execute
 
 # Odoo module update (grid_connection_type field)
 # update filantropia_solar_public to 19.0.2.22.0
@@ -35,5 +40,6 @@ docker exec -u 33 filantropia-nextcloud php occ group:adduser FilantropiaSolarAd
 ## Notes
 
 - Do not enable trust of empty series: empty → 0 / no series data.
-- TRL5: run backfill only after local validation; 12h job is safe once ML `/simulate/hourly` responds on the station network.
+- TRL5: run roll-forward first after ML health; repeat backfill daily until `complete` (see job logs). Full history is multi-run by design.
 - CRM mirror carries `grid_connection_type` via lifecycle webhook / import.
+- MVP-7 / TRL5 cutover checklist: `docs/mvp/MVP-7-GATES-TRL5.md`.
