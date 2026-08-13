@@ -128,20 +128,31 @@
                 </svg>
                 <span>Add historical data</span>
             </button>
-            <!-- Export Data button -->
-            <button
-                class="btn-export"
-                :disabled="isExporting || !analysisData"
-                title="Export to Files"
-                @click="$emit('export')">
-                <span v-if="isExporting" class="spinner-sm"></span>
-                <svg v-else width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
-                    <polyline points="7 10 12 15 17 10"/>
-                    <line x1="12" y1="15" x2="12" y2="3"/>
-                </svg>
-                <span>Export</span>
-            </button>
+            <!-- Export menu: computer download or Nextcloud Files -->
+            <div class="export-menu-wrap">
+                <button
+                    class="btn-export"
+                    type="button"
+                    :disabled="isExporting || !analysisData"
+                    title="Export analysis CSV"
+                    @click="showExportMenu = !showExportMenu">
+                    <span v-if="isExporting" class="spinner-sm"></span>
+                    <svg v-else width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                        <polyline points="7 10 12 15 17 10"/>
+                        <line x1="12" y1="15" x2="12" y2="3"/>
+                    </svg>
+                    <span>Export</span>
+                </button>
+                <div v-if="showExportMenu && analysisData" class="export-menu">
+                    <button type="button" class="export-menu-item" @click="doExport('computer')">
+                        Download to computer
+                    </button>
+                    <button type="button" class="export-menu-item" @click="doExport('nextcloud')">
+                        Save to Nextcloud Files
+                    </button>
+                </div>
+            </div>
             <button class="btn-close" title="Close (Esc)" @click="$emit('close')">
                 <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                     <path d="M18 6 6 18M6 6l12 12"/>
@@ -212,6 +223,7 @@ export default {
         return {
             showMlInfo: false,
             showWeatherDropdown: false,
+            showExportMenu: false,
         }
     },
     methods: {
@@ -223,6 +235,10 @@ export default {
             const next = { ...this.weatherLayers, [layer]: !this.weatherLayers[layer] }
             this.$emit('update:weatherLayers', next)
             this.$emit('weather-change')
+        },
+        doExport(destination) {
+            this.showExportMenu = false
+            this.$emit('export', destination)
         },
     },
 }
@@ -600,5 +616,35 @@ input:checked + .toggle-slider:before {
 
 @keyframes spin {
     to { transform: rotate(360deg); }
+}
+
+.export-menu-wrap {
+    position: relative;
+}
+.export-menu {
+    position: absolute;
+    right: 0;
+    top: calc(100% + 4px);
+    min-width: 200px;
+    background: var(--color-main-background, #fff);
+    border: 1px solid var(--color-border, #ddd);
+    border-radius: 8px;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.15);
+    z-index: 20;
+    overflow: hidden;
+}
+.export-menu-item {
+    display: block;
+    width: 100%;
+    text-align: left;
+    border: none;
+    background: transparent;
+    padding: 10px 12px;
+    font-size: 13px;
+    cursor: pointer;
+    color: inherit;
+}
+.export-menu-item:hover {
+    background: var(--color-background-hover, #f0f0f0);
 }
 </style>

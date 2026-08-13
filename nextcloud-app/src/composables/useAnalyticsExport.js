@@ -1,6 +1,6 @@
 /**
  * Composable handling CSV export of the current analysis.
- * Extracted from AnalyticsModal.vue.
+ * Supports destination: 'computer' | 'nextcloud'.
  */
 
 import { ref } from 'vue'
@@ -15,30 +15,34 @@ import { ref } from 'vue'
  * @return {{ isExporting: import('vue').Ref<boolean>, exportData: Function }} Export state and action.
  */
 export function useAnalyticsExport({
-    store,
-    selectedObject,
-    analysisData,
-    centerDate,
-    timeframeDays,
+	store,
+	selectedObject,
+	analysisData,
+	centerDate,
+	timeframeDays,
 }) {
-    const isExporting = ref(false)
+	const isExporting = ref(false)
 
-    const exportData = async () => {
-        if (!selectedObject.value || !analysisData.value) return
-        isExporting.value = true
-        try {
-            await store.exportAnalysisReport(
-                selectedObject.value,
-                analysisData.value,
-                centerDate.value,
-                timeframeDays.value,
-            )
-        } catch (e) {
-            console.error('Export failed:', e)
-        } finally {
-            isExporting.value = false
-        }
-    }
+	/**
+	 * @param {'computer'|'nextcloud'} [destination='computer']
+	 */
+	const exportData = async (destination = 'computer') => {
+		if (!selectedObject.value || !analysisData.value) return
+		isExporting.value = true
+		try {
+			await store.exportAnalysisReport(
+				selectedObject.value,
+				analysisData.value,
+				centerDate.value,
+				timeframeDays.value,
+				destination,
+			)
+		} catch (e) {
+			console.error('Export failed:', e)
+		} finally {
+			isExporting.value = false
+		}
+	}
 
-    return { isExporting, exportData }
+	return { isExporting, exportData }
 }

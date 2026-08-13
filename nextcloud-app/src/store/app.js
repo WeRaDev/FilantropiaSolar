@@ -850,90 +850,111 @@ export const useAppStore = defineStore('app', {
             await this.fetchObjects()
         },
 
-        // Export analysis report as CSV for the selected timeframe
-        async exportAnalysisReport(installation, analysisData, centerDate, days) {
-            try {
-                // Build CSV content from analysis data
-                const hourlyData = analysisData.hourly_data || []
-                const dailyData = analysisData.daily_data || []
-                const stats = analysisData.period_statistics || {}
-                
-                // Header with metadata
-                let csv = `# FilantropiaSolar Analysis Report\n`
-                csv += `# Installation: ${installation.name}\n`
-                csv += `# Location: ${installation.location}\n`
-                csv += `# Capacity: ${installation.capacity_kwp} kWp\n`
-                csv += `# Center Date: ${centerDate}\n`
-                csv += `# Analysis Period: ${days} days\n`
-                csv += `# Generated: ${new Date().toISOString()}\n`
-                csv += `#\n`
-                csv += `# PERIOD STATISTICS\n`
-                csv += `# Total Energy: ${(stats.total_energy_kwh || 0).toFixed(2)} kWh\n`
-                csv += `# Avg Daily: ${(stats.avg_daily_kwh || 0).toFixed(2)} kWh/day\n`
-                csv += `#\n\n`
-                
-                // Daily summary section
-                csv += `DAILY SUMMARY\n`
-                csv += `Date,Energy_kWh,Peak_kWh,Avg_Temp_C,Avg_Cloud_Pct\n`
-                
-                if (dailyData.length > 0) {
-                    dailyData.forEach(d => {
-                        csv += `${d.date || ''},${(d.total_production_kwh || 0).toFixed(2)},`
-                        csv += `${(d.peak_production_kwh || 0).toFixed(2)},`
-                        csv += `${(d.avg_temperature || 0).toFixed(1)},`
-                        csv += `${(d.avg_cloud_cover || 0).toFixed(0)}\n`
-                    })
-                } else {
-                    // Calculate from hourly data
-                    const byDate = {}
-                    hourlyData.forEach(h => {
-                        const date = (h.timestamp || '').split('T')[0]
-                        if (!byDate[date]) {
-                            byDate[date] = { energy: 0, peak: 0, temps: [], clouds: [] }
-                        }
-                        byDate[date].energy += h.production_kwh || 0
-                        byDate[date].peak = Math.max(byDate[date].peak, h.production_kwh || 0)
-                        byDate[date].temps.push(h.temperature || 0)
-                        byDate[date].clouds.push(h.cloud_cover || 0)
-                    })
-                    
-                    Object.entries(byDate).sort().forEach(([date, data]) => {
-                        const avgTemp = data.temps.reduce((a, b) => a + b, 0) / data.temps.length
-                        const avgCloud = data.clouds.reduce((a, b) => a + b, 0) / data.clouds.length
-                        csv += `${date},${data.energy.toFixed(2)},${data.peak.toFixed(2)},`
-                        csv += `${avgTemp.toFixed(1)},${avgCloud.toFixed(0)}\n`
-                    })
-                }
-                
-                csv += `\nHOURLY DATA\n`
-                csv += `Timestamp,Hour,Energy_kWh,Temperature_C,Cloud_Cover_Pct,Humidity_Pct\n`
-                
-                hourlyData.forEach(h => {
-                    csv += `${h.timestamp || ''},${h.hour || ''},`
-                    csv += `${(h.production_kwh || 0).toFixed(3)},`
-                    csv += `${(h.temperature || 0).toFixed(1)},`
-                    csv += `${(h.cloud_cover || 0).toFixed(0)},`
-                    csv += `${(h.humidity || 0).toFixed(0)}\n`
+        buildAnalysisCsv(installation, analysisData, centerDate, days) {
+            const hourlyData = analysisData.hourly_data || []
+            const dailyData = analysisData.daily_data || []
+            const stats = analysisData.period_statistics || {}
+            let csv = `# FilantropiaSolar Analysis Report\n`
+            csv += `# Installation: ${installation.name}\n`
+            csv += `# Location: ${installation.location}\n`
+            csv += `# Capacity: ${installation.capacity_kwp} kWp\n`
+            csv += `# Center Date: ${centerDate}\n`
+            csv += `# Analysis Period: ${days} days\n`
+            csv += `# Timezone: Europe/Lisbon\n`
+            csv += `# Generated: ${new Date().toISOString()}\n`
+            csv += `#\n`
+            csv += `# PERIOD STATISTICS\n`
+            csv += `# Total Energy: ${(stats.total_energy_kwh || stats.total_production_kwh || 0).toFixed(2)} kWh\n`
+            csv += `# Avg Daily: ${(stats.avg_daily_kwh || 0).toFixed(2)} kWh/day\n`
+            csv += `#\n\n`
+            csv += `DAILY SUMMARY\n`
+            csv += `Date,Energy_kWh,Peak_kWh,Avg_Temp_C,Avg_Cloud_Pct\n`
+            if (dailyData.length > 0) {
+                dailyData.forEach(d => {
+                    csv += `${d.date || ''},${(d.total_production_kwh || 0).toFixed(2)},`
+                    csv += `${(d.peak_production_kwh || 0).toFixed(2)},`
+                    csv += `${(d.avg_temperature || 0).toFixed(1)},`
+                    csv += `${(d.avg_cloud_cover || 0).toFixed(0)}\n`
                 })
-                
-                // Create download
+            } else {
+                const byDate = {}
+                hourlyData.forEach(h => {
+                    const date = (h.timestamp || '').split('T')[0]
+                    if (!byDate[date]) {
+                        byDate[date] = { energy: 0, peak: 0, temps: [], clouds: [] }
+                    }
+                    byDate[date].energy += h.production_kwh || 0
+                    byDate[date].peak = Math.max(byDate[date].peak, h.production_kwh || 0)
+                    byDate[date].temps.push(h.temperature || 0)
+                    byDate[date].clouds.push(h.cloud_cover || 0)
+                })
+                Object.entries(byDate).sort().forEach(([date, data]) => {
+                    const avgTemp = data.temps.length ? data.temps.reduce((a, b) => a + b, 0) / data.temps.length : 0
+                    const avgCloud = data.clouds.length ? data.clouds.reduce((a, b) => a + b, 0) / data.clouds.length : 0
+                    csv += `${date},${data.energy.toFixed(2)},${data.peak.toFixed(2)},`
+                    csv += `${avgTemp.toFixed(1)},${avgCloud.toFixed(0)}\n`
+                })
+            }
+            csv += `\nHOURLY DATA\n`
+            csv += `Timestamp,Hour,Energy_kWh,Temperature_C,Cloud_Cover_Pct,Humidity_Pct,Provenance\n`
+            hourlyData.forEach(h => {
+                csv += `${h.timestamp || ''},${h.hour ?? ''},`
+                csv += `${(h.production_kwh || 0).toFixed(3)},`
+                csv += `${(h.temperature || 0).toFixed(1)},`
+                csv += `${(h.cloud_cover || 0).toFixed(0)},`
+                csv += `${(h.humidity || 0).toFixed(0)},`
+                csv += `${h.provenance || ''}\n`
+            })
+            const filename = `${String(installation.name || 'station').replace(/[^a-zA-Z0-9]/g, '_')}_${centerDate}_${days}day_report.csv`
+            return { csv, filename }
+        },
+
+        // destination: 'computer' | 'nextcloud'
+        async exportAnalysisReport(installation, analysisData, centerDate, days, destination = 'computer') {
+            try {
+                const { csv, filename } = this.buildAnalysisCsv(installation, analysisData, centerDate, days)
+                if (destination === 'nextcloud') {
+                    const key = this.stationApiKey(installation)
+                    const response = await axios.post(
+                        generateUrl(`/apps/filantropia_solar/api/v1/installations/${encodeURIComponent(key)}/export-analysis`),
+                        {
+                            content: csv,
+                            filename,
+                            folder: 'FilantropiaSolar Data/Exports',
+                        },
+                    )
+                    if (!response.data?.success) {
+                        throw new Error(response.data?.error || 'Export to Nextcloud Files failed')
+                    }
+                    const dir = response.data.path || 'FilantropiaSolar Data/Exports'
+                    const filesUrl = generateUrl('/apps/files/?dir=/' + encodeURIComponent(dir))
+                    window.open(filesUrl, '_blank')
+                    return { success: true, destination: 'nextcloud', ...response.data }
+                }
                 const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
                 const url = URL.createObjectURL(blob)
                 const link = document.createElement('a')
                 link.href = url
-                const filename = `${installation.name.replace(/[^a-zA-Z0-9]/g, '_')}_${centerDate}_${days}day_report.csv`
                 link.download = filename
                 document.body.appendChild(link)
                 link.click()
                 document.body.removeChild(link)
                 URL.revokeObjectURL(url)
-                
-                return { success: true, filename }
-                
+                return { success: true, destination: 'computer', filename }
             } catch (error) {
-                alert('Export failed: ' + error.message)
+                alert('Export failed: ' + (error.response?.data?.error || error.message))
                 throw error
             }
-        }
+        },
+
+        async importMeasuredFromFiles(objectId, filePath) {
+            const key = this.stationApiKey(objectId)
+            const response = await axios.post(
+                generateUrl(`/apps/filantropia_solar/api/v1/installations/${encodeURIComponent(key)}/import-from-files`),
+                { path: filePath },
+            )
+            await this.fetchObjects()
+            return response.data
+        },
     }
 })

@@ -13,27 +13,61 @@
 			</header>
 			<div class="modal-body">
 				<p class="hint">
-					Upload CSV/Excel with columns
+					CSV columns:
 					<code>timestamp</code> (or Date) and
 					<code>production_kwh</code> (or Produced Energy).
-					Hours are stored as Europe/Lisbon measured provenance.
+					Hours use Europe/Lisbon measured provenance.
 				</p>
-				<div
-					class="file-upload-area"
-					@click="triggerFile"
-					@dragover.prevent
-					@drop.prevent="onDrop"
-				>
-					<input
-						ref="fileInput"
-						type="file"
-						accept=".csv,.xlsx,.xls,text/csv"
-						hidden
-						@change="onFile"
+
+				<div class="source-tabs">
+					<button
+						type="button"
+						class="tab"
+						:class="{ active: source === 'computer' }"
+						@click="source = 'computer'"
 					>
-					<span v-if="!fileName">Drop file or click to browse</span>
-					<span v-else>{{ fileName }} ({{ readings.length }} rows parsed)</span>
+						From computer
+					</button>
+					<button
+						type="button"
+						class="tab"
+						:class="{ active: source === 'nextcloud' }"
+						@click="source = 'nextcloud'"
+					>
+						From Nextcloud Files
+					</button>
 				</div>
+
+				<div v-if="source === 'computer'">
+					<div
+						class="file-upload-area"
+						@click="triggerFile"
+						@dragover.prevent
+						@drop.prevent="onDrop"
+					>
+						<input
+							ref="fileInput"
+							type="file"
+							accept=".csv,.xlsx,.xls,text/csv"
+							hidden
+							@change="onFile"
+						>
+						<span v-if="!fileName">Drop CSV or click to browse your computer</span>
+						<span v-else>{{ fileName }} ({{ readings.length }} rows parsed)</span>
+					</div>
+				</div>
+
+				<div v-else class="nc-files-block">
+					<button type="button" class="btn" :disabled="busy" @click="pickFromNextcloud">
+						Choose file in Nextcloud…
+					</button>
+					<p v-if="ncPath" class="path-line">Selected: <code>{{ ncPath }}</code></p>
+					<p class="hint-sm">
+						Or paste a path under your Files home (e.g. <code>Reports/station.csv</code>):
+					</p>
+					<input v-model="ncPathManual" type="text" class="path-input" placeholder="path/to/file.csv">
+				</div>
+
 				<p v-if="error" class="err">{{ error }}</p>
 				<p v-if="result" class="ok">
 					Imported {{ result.imported }} measured
@@ -48,10 +82,10 @@
 				<button
 					type="button"
 					class="btn primary"
-					:disabled="busy || !readings.length"
+					:disabled="busy || !canSubmit"
 					@click="submit"
 				>
-					{{ busy ? 'Uploading…' : 'Upload measured' }}
+					{{ busy ? 'Uploading…' : 'Import measured' }}
 				</button>
 			</footer>
 		</div>
@@ -114,6 +148,14 @@ export default {
 		const error = ref('')
 		const result = ref(null)
 		const busy = ref(false)
+		const source = ref('computer')
+		const ncPath = ref('')
+		const ncPathManual = ref('')
+
+		const canSubmit = computed(() => {
+			if (source.value === 'computer') return readings.value.length > 0
+			return Boolean((ncPath.value || ncPathManual.value || '').trim())
+		})
 
 		watch(isOpen, (open) => {
 			if (open) {
@@ -121,6 +163,9 @@ export default {
 				readings.value = []
 				error.value = ''
 				result.value = null
+				source.value = 'computer'
+				ncPath.value = ''
+				ncPathManual.value = ''
 			}
 		})
 
@@ -160,17 +205,55 @@ export default {
 			if (f) handleFile(f)
 		}
 
+		const pickFromNextcloud = async () => {
+			error.value = ''
+			try {
+				const mod = await import('@nextcloud/dialogs')
+				const builder = mod.getFilePickerBuilder
+					? mod.getFilePickerBuilder('Select measured CSV')
+					: null
+				if (!builder) {
+					error.value = 'Nextcloud file picker unavailable; paste a Files path below.'
+					return
+				}
+				const picker = builder
+					.setMultiSelect(false)
+					.addMimeTypeFilter('text/csv')
+					.addMimeTypeFilter('text/plain')
+					.allowDirectories(false)
+					.build()
+				const picked = await picker.pick()
+				const path = Array.isArray(picked) ? picked[0] : picked
+				if (path) {
+					ncPath.value = String(path).replace(/^\/+/, '')
+					ncPathManual.value = ncPath.value
+				}
+			} catch (e) {
+				// User cancel or picker missing
+				if (e && String(e).toLowerCase().includes('cancel')) return
+				error.value = e?.message || 'Could not open Nextcloud file picker. Paste a path instead.'
+			}
+		}
+
 		const submit = async () => {
-			if (!selectedObject.value || !readings.value.length) return
+			if (!selectedObject.value) return
 			busy.value = true
 			error.value = ''
 			result.value = null
 			try {
-				const data = await store.uploadMeasuredReadings(
-					selectedObject.value.id,
-					readings.value,
-				)
-				result.value = data
+				if (source.value === 'nextcloud') {
+					const path = (ncPathManual.value || ncPath.value || '').trim()
+					if (!path) throw new Error('Choose or enter a Nextcloud Files path')
+					const data = await store.importMeasuredFromFiles(selectedObject.value.id, path)
+					result.value = data
+				} else {
+					if (!readings.value.length) throw new Error('No rows to import')
+					const data = await store.uploadMeasuredReadings(
+						selectedObject.value.id,
+						readings.value,
+					)
+					result.value = data
+				}
 			} catch (e) {
 				error.value = e.response?.data?.error || e.message || 'Upload failed'
 			} finally {
@@ -187,10 +270,15 @@ export default {
 			error,
 			result,
 			busy,
+			source,
+			ncPath,
+			ncPathManual,
+			canSubmit,
 			close,
 			triggerFile,
 			onFile,
 			onDrop,
+			pickFromNextcloud,
 			submit,
 		}
 	},
@@ -209,7 +297,7 @@ export default {
 	padding: 16px;
 }
 .modal-card {
-	width: min(520px, 96vw);
+	width: min(560px, 96vw);
 	background: #fff;
 	border-radius: 12px;
 	box-shadow: 0 16px 48px rgba(0, 0, 0, 0.28);
@@ -236,6 +324,25 @@ export default {
 }
 .modal-body { padding: 16px; display: flex; flex-direction: column; gap: 12px; }
 .hint { margin: 0; font-size: 13px; color: #444; line-height: 1.4; }
+.hint-sm { margin: 8px 0 0; font-size: 12px; color: #666; }
+.source-tabs {
+	display: flex;
+	gap: 8px;
+}
+.tab {
+	flex: 1;
+	border: 1px solid #ccc;
+	background: #f7f7f7;
+	border-radius: 6px;
+	padding: 8px 10px;
+	cursor: pointer;
+	font-size: 13px;
+}
+.tab.active {
+	background: #0082c9;
+	border-color: #0082c9;
+	color: #fff;
+}
 .file-upload-area {
 	border: 1px dashed #bbb;
 	border-radius: 8px;
@@ -246,6 +353,16 @@ export default {
 	font-size: 13px;
 }
 .file-upload-area:hover { border-color: #888; }
+.nc-files-block { display: flex; flex-direction: column; gap: 8px; }
+.path-line { margin: 0; font-size: 12px; word-break: break-all; }
+.path-input {
+	width: 100%;
+	box-sizing: border-box;
+	padding: 8px 10px;
+	border: 1px solid #ccc;
+	border-radius: 6px;
+	font-size: 13px;
+}
 .err { color: #c62828; margin: 0; font-size: 13px; }
 .ok { color: #2e7d32; margin: 0; font-size: 13px; }
 .modal-foot {

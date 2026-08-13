@@ -934,7 +934,190 @@ class InstallationApiController extends ApiController
         return 'offline';
     }
 
-    private function requireFilantropiaAdmin(): ?JSONResponse
+
+    /**
+     * Save analysis CSV content into the user's Nextcloud Files.
+     *
+     * POST /api/v1/installations/{id}/export-analysis
+     * body: { content: string, filename?: string, folder?: string }
+     */
+    #[NoAdminRequired]
+    public function exportAnalysis(string $id): JSONResponse
+    {
+        $userId = $this->getUserId();
+        if (!$userId) {
+            return $this->errorResponse('Unauthorized', Http::STATUS_UNAUTHORIZED);
+        }
+
+        $params = $this->request->getParams();
+        $content = (string) ($params['content'] ?? '');
+        if ($content === '') {
+            return $this->errorResponse('CSV content is required', Http::STATUS_BAD_REQUEST);
+        }
+
+        $filename = (string) ($params['filename'] ?? ('analysis_' . date('Ymd_His') . '.csv'));
+        $filename = basename(preg_replace('/[^a-zA-Z0-9._-]+/', '_', $filename) ?: 'analysis.csv');
+        if (!str_ends_with(strtolower($filename), '.csv')) {
+            $filename .= '.csv';
+        }
+
+        $folderRel = (string) ($params['folder'] ?? 'FilantropiaSolar Data/Exports');
+        $folderRel = trim(str_replace(['..', '\\'], ['', '/'], $folderRel), '/');
+        if ($folderRel === '') {
+            $folderRel = 'FilantropiaSolar Data/Exports';
+        }
+
+        try {
+            $userFolder = $this->rootFolder->getUserFolder($userId);
+            $parts = explode('/', $folderRel);
+            $cursor = $userFolder;
+            $built = '';
+            foreach ($parts as $part) {
+                if ($part === '') {
+                    continue;
+                }
+                $built = $built === '' ? $part : ($built . '/' . $part);
+                if (!$userFolder->nodeExists($built)) {
+                    $cursor = $cursor->newFolder($part);
+                } else {
+                    $node = $userFolder->get($built);
+                    if (!$node instanceof \OCP\Files\Folder) {
+                        return $this->errorResponse('Export path is not a folder', Http::STATUS_BAD_REQUEST);
+                    }
+                    $cursor = $node;
+                }
+            }
+
+            $target = $folderRel . '/' . $filename;
+            if ($userFolder->nodeExists($target)) {
+                $userFolder->get($target)->putContent($content);
+            } else {
+                $cursor->newFile($filename, $content);
+            }
+
+            return new JSONResponse([
+                'success' => true,
+                'message' => 'Analysis exported to Nextcloud Files',
+                'path' => $folderRel,
+                'filename' => $filename,
+                'full_path' => $target,
+            ]);
+        } catch (\Throwable $e) {
+            $this->logger->error('exportAnalysis failed', ['id' => $id, 'exception' => $e]);
+            return $this->errorResponse('Export to Files failed: ' . $e->getMessage());
+        }
+    }
+
+    /**
+     * Import measured readings from a CSV already in the user's Nextcloud Files.
+     *
+     * POST /api/v1/installations/{id}/import-from-files
+     * body: { path: string }  absolute user-relative path e.g. /Reports/data.csv
+     */
+    #[NoAdminRequired]
+    public function importFromFiles(string $id): JSONResponse
+    {
+        $userId = $this->getUserId();
+        if (!$userId) {
+            return $this->errorResponse('Unauthorized', Http::STATUS_UNAUTHORIZED);
+        }
+        if (!$this->access->canUploadMeasured()) {
+            return $this->errorResponse('Unauthorized', Http::STATUS_UNAUTHORIZED);
+        }
+
+        $path = (string) ($this->request->getParam('path') ?? '');
+        $path = trim(str_replace('\\', '/', $path));
+        $path = ltrim($path, '/');
+        if ($path === '' || str_contains($path, '..')) {
+            return $this->errorResponse('Valid Files path is required', Http::STATUS_BAD_REQUEST);
+        }
+
+        $station = $this->resolveStation($id);
+        if ($station === null) {
+            return $this->errorResponse('Installation not found', Http::STATUS_NOT_FOUND);
+        }
+
+        try {
+            $userFolder = $this->rootFolder->getUserFolder($userId);
+            if (!$userFolder->nodeExists($path)) {
+                return $this->errorResponse('File not found in Nextcloud Files', Http::STATUS_NOT_FOUND);
+            }
+            $node = $userFolder->get($path);
+            if ($node instanceof \OCP\Files\Folder) {
+                return $this->errorResponse('Path is a folder; pick a CSV file', Http::STATUS_BAD_REQUEST);
+            }
+            $content = $node->getContent();
+            $readings = $this->parseMeasuredCsv((string) $content);
+            if ($readings === []) {
+                return $this->errorResponse('No valid rows in CSV', Http::STATUS_BAD_REQUEST);
+            }
+
+            $series = \OC::$server->get(\OCA\FilantropiaSolar\Service\SeriesSimulationService::class);
+            $result = $series->importMeasured((int) $station->getId(), $readings);
+
+            return new JSONResponse([
+                'success' => true,
+                'imported' => $result['imported'],
+                'skipped' => $result['skipped'],
+                'overwritten_simulated' => $result['overwritten_simulated'],
+                'total' => count($readings),
+                'path' => $path,
+                'provenance' => 'measured',
+            ]);
+        } catch (\Throwable $e) {
+            $this->logger->error('importFromFiles failed', ['id' => $id, 'exception' => $e]);
+            return $this->errorResponse('Import from Files failed: ' . $e->getMessage());
+        }
+    }
+
+    /**
+     * @return list<array{timestamp:string, production_kwh:float}>
+     */
+    private function parseMeasuredCsv(string $content): array
+    {
+        $lines = preg_split('/\r\n|\r|\n/', $content) ?: [];
+        $lines = array_values(array_filter(array_map('trim', $lines), static fn ($l) => $l !== '' && !str_starts_with($l, '#')));
+        if (count($lines) < 2) {
+            return [];
+        }
+        $split = static function (string $line): array {
+            return str_getcsv($line);
+        };
+        $header = array_map(
+            static fn ($h) => strtolower((string) preg_replace('/[^a-zA-Z0-9]+/', '_', (string) $h)),
+            $split($lines[0]),
+        );
+        $tsIdx = null;
+        $pIdx = null;
+        foreach ($header as $i => $h) {
+            if ($tsIdx === null && (str_contains($h, 'timestamp') || $h === 'date' || str_contains($h, 'time'))) {
+                $tsIdx = $i;
+            }
+            if ($pIdx === null && (str_contains($h, 'production') || str_contains($h, 'produced') || str_contains($h, 'energy') || str_contains($h, 'kwh'))) {
+                $pIdx = $i;
+            }
+        }
+        if ($tsIdx === null || $pIdx === null) {
+            return [];
+        }
+        $out = [];
+        for ($i = 1; $i < count($lines); $i++) {
+            $cols = $split($lines[$i]);
+            $ts = trim((string) ($cols[$tsIdx] ?? ''));
+            $prodRaw = str_replace(',', '.', (string) ($cols[$pIdx] ?? ''));
+            if ($ts === '' || !is_numeric($prodRaw)) {
+                continue;
+            }
+            $out[] = [
+                'timestamp' => $ts,
+                'production_kwh' => (float) $prodRaw,
+            ];
+        }
+
+        return $out;
+    }
+
+        private function requireFilantropiaAdmin(): ?JSONResponse
     {
         if (!$this->getUserId()) {
             return $this->errorResponse('Unauthorized', Http::STATUS_UNAUTHORIZED);
