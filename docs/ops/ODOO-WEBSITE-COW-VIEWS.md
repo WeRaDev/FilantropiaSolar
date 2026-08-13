@@ -81,3 +81,25 @@ baseline (~15-20KB). TRL5 published home has historically been ~200KB+.
 - **19.0.2.11.0**: introduced automatic COW delete on upgrade (to fix broken map links).
   Unsafe for TRL5 published site.
 - **19.0.2.12.0**: delete removed; preserve-by-default + opt-in flag.
+
+## Map / station list fixes (PR #29)
+
+Published COWs may:
+
+1. Drop `fs-station-list-item` / `data-station-id|lat|lng` (list not clickable).
+2. Embed a **serialized Leaflet DOM** inside `#fs-stations-map` (map init fails or
+   focus/center broken).
+
+Module baseline (`page_inicio` without `website_id`) and `stations_map.js?v=*` hold
+the correct markup/logic. After deploy:
+
+1. Confirm `/inicio` HTML contains `fs-station-list-item`, `stations_map.js?v=`, and
+   an **empty** `#fs-stations-map` host (no `leaflet-container` in arch).
+2. If COW is stale, either surgically replace the station list + map host from the
+   module baseline, or opt-in `reset_website_cows` after backup.
+3. Clear `web.assets_frontend` attachments if CSS badges/pins look missing.
+4. Hard-refresh the browser (script is cache-busted via `?v=` query).
+
+Expected UX: list click or marker click **centers** the station in the map box,
+opens popup with Planeada/Em operação badge, markers are lifecycle-colored.
+
