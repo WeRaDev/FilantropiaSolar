@@ -12,12 +12,12 @@ from __future__ import annotations
 
 import json
 import os
+from pathlib import Path
 import subprocess
 import time
 import unittest
 import urllib.error
 import urllib.request
-from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[5]
 TOKEN_FILE = (
