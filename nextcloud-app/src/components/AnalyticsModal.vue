@@ -7,6 +7,7 @@
                         :selected-object="selectedObject"
                         :analysis-mode="analysisMode"
                         :center-date="centerDate"
+                        :effective-min-date="effectiveMinDate"
                         :effective-max-date="effectiveMaxDate"
                         :timeframes="timeframes"
                         :current-timeframe="currentTimeframe"
@@ -135,12 +136,14 @@ export default {
             timeframes,
             timeframeDays,
             effectiveMaxDate,
+            effectiveMinDate,
             dataMode,
             dataModeLabel,
             setTimeframe: setDateRangeTimeframe,
             onDateChange,
             setAnalysisMode,
             toggleAnalysisMode,
+            initForOpen,
         } = useAnalyticsDateRange({
             selectedObject,
             analysisData,
@@ -231,10 +234,13 @@ export default {
             }
         }
 
-        // Re-render chart when the modal opens with existing data
+        // Open: default Historical + Day, NC calendar bounds, load series
         watch(isOpen, async (open) => {
-            if (open && analysisData.value) {
-                currentDayIndex.value = Math.floor(totalDays.value / 2)
+            if (open) {
+                initForOpen()
+                store.setAnalyticsTimeframe('day')
+                await generateAnalysis()
+                currentDayIndex.value = Math.max(0, Math.floor(totalDays.value / 2))
                 await nextTick()
                 setTimeout(() => renderCombinedChart(), 100)
             }
@@ -279,6 +285,7 @@ export default {
             dateRangeLabel,
             centerDate,
             effectiveMaxDate,
+            effectiveMinDate,
             analysisMode,
             weatherLayers,
             closeModal,

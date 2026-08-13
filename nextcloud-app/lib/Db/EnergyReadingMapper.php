@@ -462,4 +462,100 @@ class EnergyReadingMapper extends QBMapper
             return $entities[0] ?? null;
         }
     }
+
+    /**
+     * True if the last complete UTC hour bucket has provenance=measured.
+     */
+    public function hasMeasuredLastCompleteHour(int $installationId, ?\DateTimeInterface $now = null): bool
+    {
+        $nowUtc = $now
+            ? \DateTimeImmutable::createFromInterface($now)->setTimezone(new \DateTimeZone('UTC'))
+            : new \DateTimeImmutable('now', new \DateTimeZone('UTC'));
+        $lastComplete = $nowUtc->setTime((int) $nowUtc->format('H'), 0, 0)
+            ->sub(new \DateInterval('PT1H'));
+        $ts = $lastComplete->format('Y-m-d H:i:s');
+
+        $qb = $this->db->getQueryBuilder();
+        $qb->select($qb->createFunction('COUNT(*)'))
+            ->from($this->getTableName())
+            ->where($qb->expr()->eq('installation_id', $qb->createNamedParameter($installationId, IQueryBuilder::PARAM_INT)))
+            ->andWhere($qb->expr()->eq('timestamp', $qb->createNamedParameter($ts)))
+            ->andWhere($qb->expr()->eq(
+                'provenance',
+                $qb->createNamedParameter(EnergyReading::PROVENANCE_MEASURED),
+            ))
+            ->setMaxResults(1);
+
+        $result = $qb->executeQuery();
+        $count = (int) $result->fetchOne();
+        $result->closeCursor();
+
+        return $count > 0;
+    }
+
+    /**
+     * Min/max reading timestamps for calendar bounds (Y-m-d).
+     *
+     * @return array{from: ?string, to: ?string}
+     */
+    public function dateBounds(int $installationId): array
+    {
+        $qb = $this->db->getQueryBuilder();
+        $qb->selectAlias($qb->createFunction('MIN(timestamp)'), 'min_ts')
+            ->selectAlias($qb->createFunction('MAX(timestamp)'), 'max_ts')
+            ->from($this->getTableName())
+            ->where($qb->expr()->eq('installation_id', $qb->createNamedParameter($installationId, IQueryBuilder::PARAM_INT)));
+
+        $result = $qb->executeQuery();
+        $row = $result->fetch();
+        $result->closeCursor();
+        if (!$row || empty($row['min_ts'])) {
+            return ['from' => null, 'to' => null];
+        }
+        $min = (string) $row['min_ts'];
+        $max = (string) $row['max_ts'];
+
+        return [
+            'from' => substr($min, 0, 10),
+            'to' => substr($max, 0, 10),
+        ];
+    }
+
+    /**
+     * Provenance mix for a time window.
+     *
+     * @return array{measured:int, simulated:int, total:int}
+     */
+    public function countByProvenanceInRange(int $installationId, DateTime $since, DateTime $until): array
+    {
+        $qb = $this->db->getQueryBuilder();
+        $qb->select('provenance')
+            ->selectAlias($qb->createFunction('COUNT(*)'), 'cnt')
+            ->from($this->getTableName())
+            ->where($qb->expr()->eq('installation_id', $qb->createNamedParameter($installationId, IQueryBuilder::PARAM_INT)))
+            ->andWhere($qb->expr()->gte('timestamp', $qb->createNamedParameter($since->format('Y-m-d H:i:s'))))
+            ->andWhere($qb->expr()->lte('timestamp', $qb->createNamedParameter($until->format('Y-m-d H:i:s'))))
+            ->groupBy('provenance');
+
+        $result = $qb->executeQuery();
+        $measured = 0;
+        $simulated = 0;
+        while ($row = $result->fetch()) {
+            $p = (string) ($row['provenance'] ?? EnergyReading::PROVENANCE_SIMULATED);
+            $c = (int) ($row['cnt'] ?? 0);
+            if ($p === EnergyReading::PROVENANCE_MEASURED) {
+                $measured += $c;
+            } else {
+                $simulated += $c;
+            }
+        }
+        $result->closeCursor();
+
+        return [
+            'measured' => $measured,
+            'simulated' => $simulated,
+            'total' => $measured + $simulated,
+        ];
+    }
+
 }

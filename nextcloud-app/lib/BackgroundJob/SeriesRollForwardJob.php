@@ -10,13 +10,14 @@ use OCP\BackgroundJob\TimedJob;
 use Psr\Log\LoggerInterface;
 
 /**
- * Every 12 hours, simulate the previous 12 complete UTC hours for Running ops stations.
+ * Every hour, simulate the previous 2 complete UTC hours for Running ops stations.
  * Only empty hours receive simulated rows; measured is immutable.
  */
 class SeriesRollForwardJob extends TimedJob
 {
-	private const INTERVAL_SECONDS = 12 * 60 * 60;
-	private const WINDOW_HOURS = 12;
+	private const INTERVAL_SECONDS = 60 * 60;
+	/** Cover last complete hour plus one prior hour for late weather/API catch-up. */
+	private const WINDOW_HOURS = 2;
 
 	public function __construct(
 		ITimeFactory $time,

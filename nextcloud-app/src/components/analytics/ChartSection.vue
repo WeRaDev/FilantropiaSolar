@@ -146,6 +146,16 @@ export default {
     color: #ef6c00;
 }
 
+.data-mode-badge.mixed {
+    background: #e3f2fd;
+    color: #1565c0;
+}
+
+.data-mode-badge.none {
+    background: #f5f5f5;
+    color: #616161;
+}
+
 /* Responsive */
 @media (max-width: 1000px) {
     .chart-section {

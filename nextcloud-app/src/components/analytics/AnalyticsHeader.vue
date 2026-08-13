@@ -38,6 +38,7 @@
                     ref="dateInput"
                     type="date"
                     :value="centerDate"
+                    :min="effectiveMinDate || undefined"
                     :max="effectiveMaxDate"
                     class="date-input"
                     @input="$emit('update:centerDate', $event.target.value)"

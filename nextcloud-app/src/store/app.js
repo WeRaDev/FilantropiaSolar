@@ -179,8 +179,10 @@ export const useAppStore = defineStore('app', {
                         },
                         customData: {
                             serialNumber: inst.serial_number,
-                            fromDate: inst.from_date,
-                            toDate: inst.to_date,
+                            fromDate: inst.from_date || inst.series_from_date || null,
+                            toDate: inst.to_date || inst.series_to_date || null,
+                            seriesFromDate: inst.series_from_date || null,
+                            seriesToDate: inst.series_to_date || null,
                             isVirtual: inst.is_virtual || lifecycle === 'virtual',
                             source: inst.source || 'user',
                             dbId: inst.db_id || null,
@@ -379,11 +381,13 @@ export const useAppStore = defineStore('app', {
                 const isVirtual = obj?.customData?.isVirtual || String(objectId).startsWith('virtual_')
                 const effectiveMode = isVirtual ? 'custom' : mode
                 
+                const installationKey = obj?.customData?.dbId
+                    || (String(objectId).startsWith('virtual_') ? String(objectId).slice('virtual_'.length) : objectId)
                 const response = await axios.post(
                     generateUrl('/apps/filantropia_solar/api/v1/predict/period'),
                     {
                         mode: effectiveMode,
-                        installation_id: objectId,
+                        installation_id: installationKey,
                         center_date: centerDate,
                         days: days,
                         // Include location/capacity for custom/simulated mode

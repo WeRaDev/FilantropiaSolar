@@ -836,12 +836,15 @@ class InstallationApiController extends ApiController
         try {
             $production = $this->readingMapper->sumProductionAll($dbId);
             $count = $this->readingMapper->countByInstallation($dbId);
-            $hasMeasured = $this->readingMapper->hasMeasuredData($dbId);
+            // Active badge: last complete UTC hour must be measured (not merely any historical measured row).
+            $hasMeasured = $this->readingMapper->hasMeasuredLastCompleteHour($dbId);
+            $hasAnyMeasured = $this->readingMapper->hasMeasuredData($dbId);
         } catch (\Throwable $e) {
             $this->logger->warning('Series stats failed', ['id' => $dbId, 'exception' => $e]);
             $production = 0.0;
             $count = 0;
             $hasMeasured = false;
+            $hasAnyMeasured = false;
         }
 
         $price = isset($payload['grid_price_kwh']) ? (float) $payload['grid_price_kwh'] : (float) Application::DEFAULT_GRID_PRICE;
@@ -873,13 +876,22 @@ class InstallationApiController extends ApiController
         $payload['total_savings_eur'] = round($production * $price * $factor, 4);
         $payload['readings_count'] = $count;
         $payload['has_series_data'] = $count > 0;
-        $payload['has_measured_data'] = $hasMeasured;
+        $payload['has_measured_data'] = $hasAnyMeasured;
+        $payload['has_measured_last_hour'] = $hasMeasured;
         $payload['series_source'] = $count > 0 ? 'nc_readings' : 'none';
         $payload['efficiency'] = $efficiency;
         $payload['last_hour_production_kwh'] = $lastHourKwh !== null ? round($lastHourKwh, 4) : null;
         $payload['self_consumption_factor'] = $factor;
         $payload['series_mix'] = $mix;
-        // Ops status: for running stations, active=measured, offline=no measured series
+        try {
+            $bounds = $this->readingMapper->dateBounds($dbId);
+            $payload['series_from_date'] = $bounds['from'];
+            $payload['series_to_date'] = $bounds['to'];
+        } catch (\Throwable $e) {
+            $payload['series_from_date'] = null;
+            $payload['series_to_date'] = null;
+        }
+        // Ops status: Running + last complete hour measured => active; else offline
         $lc = (string) ($payload['lifecycle_state'] ?? 'running');
         if ($lc === StationLifecycle::RUNNING && empty($payload['soft_removed'])) {
             $payload['status'] = $hasMeasured ? 'active' : 'offline';

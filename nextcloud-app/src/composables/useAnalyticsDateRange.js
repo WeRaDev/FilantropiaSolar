@@ -1,25 +1,23 @@
 /**
  * Composable owning date/timeframe/analysis-mode orchestration for AnalyticsModal.
  *
- * Extracted from AnalyticsModal.vue to keep the modal a thin orchestrator.
- * Analysis generation itself stays in the modal and is injected as a callback.
+ * Historical (default): Day timeframe, NC series calendar bounds, provenance badge.
+ * Predicted: keep existing ML path; badge always SIMULATED.
  */
 
 import { ref, computed } from 'vue'
 
 /**
- * @param {object} deps - Reactive dependencies.
- * @param {import('vue').ComputedRef<object|null>} deps.selectedObject - Selected installation.
- * @param {import('vue').ComputedRef<object|null>} deps.analysisData - Analysis payload from the store.
- * @param {Function} deps.generateAnalysis - Async callback that (re)generates analysis with current settings.
- * @return {object} Refs, computed refs, and handlers for date/mode orchestration.
+ * @param {object} deps
+ * @param {import('vue').ComputedRef<object|null>} deps.selectedObject
+ * @param {import('vue').ComputedRef<object|null>} deps.analysisData
+ * @param {Function} deps.generateAnalysis
  */
 export function useAnalyticsDateRange({ selectedObject, analysisData, generateAnalysis }) {
     const centerDate = ref(new Date().toISOString().split('T')[0])
-    const currentTimeframe = ref('week')
-    const analysisMode = ref('predicted') // 'historical' or 'predicted'
+    const currentTimeframe = ref('day')
+    const analysisMode = ref('historical') // default Historical
 
-    // Timeframe options
     const timeframes = [
         { label: 'Day', value: 'day', days: 1 },
         { label: 'Week', value: 'week', days: 7 },
@@ -29,20 +27,37 @@ export function useAnalyticsDateRange({ selectedObject, analysisData, generateAn
 
     const timeframeDays = computed(() => {
         const tf = timeframes.find(t => t.value === currentTimeframe.value)
-        return tf?.days || 21
+        return tf?.days || 1
     })
 
-    const maxDate = computed(() => {
-        const toDate = selectedObject.value?.customData?.toDate?.split('T')[0]
-        return toDate || new Date().toISOString().split('T')[0]
+    /** NC series bounds preferred; fall back to installation from/to dates. */
+    const seriesMinDate = computed(() => {
+        const o = selectedObject.value
+        return (
+            o?.customData?.seriesFromDate
+            || o?.customData?.fromDate?.split?.('T')?.[0]
+            || o?.from_date
+            || null
+        )
     })
 
-    const minDate = computed(() => {
-        const fromDate = selectedObject.value?.customData?.fromDate?.split('T')[0]
-        return fromDate || null
+    const seriesMaxDate = computed(() => {
+        const o = selectedObject.value
+        const today = new Date().toISOString().split('T')[0]
+        const seriesTo = o?.customData?.seriesToDate || null
+        const toDate = o?.customData?.toDate?.split?.('T')?.[0] || o?.to_date || null
+        // Historical calendar cannot go past today or last NC sample
+        const candidates = [today]
+        if (seriesTo) candidates.push(seriesTo)
+        if (toDate) candidates.push(toDate)
+        return candidates.sort()[0] // earliest upper bound among today/series
+            ? candidates.reduce((a, b) => (a < b ? a : b))
+            : today
     })
 
-    // Effective max date based on analysis mode
+    const maxDate = computed(() => seriesMaxDate.value)
+    const minDate = computed(() => seriesMinDate.value)
+
     const effectiveMaxDate = computed(() => {
         if (analysisMode.value === 'predicted') {
             const futureDate = new Date()
@@ -52,24 +67,43 @@ export function useAnalyticsDateRange({ selectedObject, analysisData, generateAn
         return maxDate.value
     })
 
-    const dataMode = computed(() => analysisData.value?.mode || 'historical')
-
-    // Dynamic data mode label reflecting weather source
-    const dataModeLabel = computed(() => {
-        const mode = dataMode.value
-        const weatherSource = analysisData.value?.weather_source || ''
-        if (mode === 'historical' || analysisMode.value === 'historical') {
-            if (weatherSource === 'measured') return 'Historical Data (Measured)'
-            if (weatherSource === 'api') return 'Historical Data (API Weather)'
-            return 'Historical Data'
+    const effectiveMinDate = computed(() => {
+        if (analysisMode.value === 'predicted') {
+            return null
         }
-        if (weatherSource === 'api') return 'Predicted (API Weather)'
-        if (weatherSource === 'synthetic') return 'Predicted (Simulated Weather)'
-        if (weatherSource === 'historical_file') return 'Predicted (Historical Weather)'
-        return 'Predicted Data'
+        return minDate.value
     })
 
-    // Clamp center date within historical data range, accounting for half-window
+    const dataMode = computed(() => {
+        if (analysisMode.value === 'predicted') {
+            return 'simulated'
+        }
+        const label = analysisData.value?.series_label || analysisData.value?.mode || 'historical'
+        if (label === 'mixed') return 'mixed'
+        if (label === 'simulated') return 'simulated'
+        if (label === 'none') return 'none'
+        return 'historical'
+    })
+
+    const dataModeLabel = computed(() => {
+        if (analysisMode.value === 'predicted') {
+            return 'SIMULATED'
+        }
+        // Prefer server-composed label (MIXED (n/m), HISTORICAL, SIMULATED)
+        if (analysisData.value?.data_mode_label) {
+            return String(analysisData.value.data_mode_label).toUpperCase()
+        }
+        const mix = analysisData.value?.provenance_mix
+        if (mix && (mix.measured || mix.simulated)) {
+            const m = Number(mix.measured || 0)
+            const s = Number(mix.simulated || 0)
+            if (m > 0 && s > 0) return `MIXED (${m} measured / ${s} simulated)`
+            if (m > 0) return 'HISTORICAL'
+            if (s > 0) return 'SIMULATED'
+        }
+        return 'HISTORICAL'
+    })
+
     const clampCenterDate = () => {
         if (analysisMode.value !== 'historical') return
 
@@ -83,6 +117,9 @@ export function useAnalyticsDateRange({ selectedObject, analysisData, generateAn
             if (centerDate.value > maxCenter) {
                 centerDate.value = maxCenter
             }
+            if (centerDate.value > to) {
+                centerDate.value = to
+            }
         }
         if (from) {
             const fromMs = new Date(from).getTime()
@@ -90,7 +127,18 @@ export function useAnalyticsDateRange({ selectedObject, analysisData, generateAn
             if (centerDate.value < minCenter) {
                 centerDate.value = minCenter
             }
+            if (centerDate.value < from) {
+                centerDate.value = from
+            }
         }
+    }
+
+    const initForOpen = () => {
+        analysisMode.value = 'historical'
+        currentTimeframe.value = 'day'
+        const to = maxDate.value || new Date().toISOString().split('T')[0]
+        centerDate.value = to
+        clampCenterDate()
     }
 
     const setTimeframe = async (tf) => {
@@ -108,6 +156,7 @@ export function useAnalyticsDateRange({ selectedObject, analysisData, generateAn
         if (analysisMode.value !== mode) {
             analysisMode.value = mode
             if (mode === 'historical') {
+                currentTimeframe.value = currentTimeframe.value || 'day'
                 const to = maxDate.value
                 if (to) {
                     centerDate.value = to
@@ -130,12 +179,16 @@ export function useAnalyticsDateRange({ selectedObject, analysisData, generateAn
         timeframes,
         timeframeDays,
         maxDate,
+        minDate,
         effectiveMaxDate,
+        effectiveMinDate,
         dataMode,
         dataModeLabel,
         setTimeframe,
         onDateChange,
         setAnalysisMode,
         toggleAnalysisMode,
+        initForOpen,
+        clampCenterDate,
     }
 }
