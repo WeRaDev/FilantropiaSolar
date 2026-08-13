@@ -124,17 +124,55 @@ def _ensure_legacy_redirect(env):
         )
 
 
+def _active_lang(env, code: str):
+    """Return active res.lang for code, installing from lang pack when needed."""
+    Lang = env["res.lang"].sudo()
+    lang = Lang.search([("code", "=", code)], limit=1)
+    if lang and lang.active:
+        return lang
+    # Cold install: language row may be inactive or missing until installed
+    try:
+        if hasattr(Lang, "_activate_lang"):
+            Lang._activate_lang(code)
+        elif hasattr(Lang, "install_lang"):
+            Lang.install_lang(code)
+        # Fallback: toggle active if row exists
+        elif lang and not lang.active:
+            lang.active = True
+    except Exception:
+        _logger.exception(
+            "filantropia_solar_public: failed to activate language %s", code
+        )
+        return Lang.browse()
+    lang = Lang.search([("code", "=", code), ("active", "=", True)], limit=1)
+    if lang:
+        _logger.info(
+            "filantropia_solar_public: language %s active id=%s", code, lang.id
+        )
+    return lang
+
+
+def _write_lang(records, code: str, vals: dict) -> None:
+    """Write vals in language code only when that language is active."""
+    if not records or not vals:
+        return
+    lang = (
+        records.env["res.lang"]
+        .sudo()
+        .search([("code", "=", code), ("active", "=", True)], limit=1)
+    )
+    if not lang:
+        _logger.warning(
+            "filantropia_solar_public: skip write lang=%s (not active)", code
+        )
+        return
+    records.with_context(lang=code).write(vals)
+
+
 def _ensure_site_identity(env):
     """Brand all websites + company as Filantropia Solar; PT default; /inicio home."""
-    Lang = env["res.lang"]
-    for code in ("pt_PT", "en_US"):
-        lang = Lang.search([("code", "=", code)], limit=1)
-        if lang and not lang.active:
-            lang.active = True
-            _logger.info("filantropia_solar_public: activated language %s", code)
-
-    pt = Lang.search([("code", "=", "pt_PT"), ("active", "=", True)], limit=1)
-    en = Lang.search([("code", "=", "en_US"), ("active", "=", True)], limit=1)
+    pt = _active_lang(env, "pt_PT")
+    en = _active_lang(env, "en_US")
     if not pt:
         _logger.warning("filantropia_solar_public: pt_PT not available")
         return
@@ -237,6 +275,9 @@ def _editorial_teasers():
 
 
 def _ensure_blog_posts(env):
+    # Ensure translated writes won't raise Invalid language code on cold install
+    _active_lang(env, "pt_PT")
+    _active_lang(env, "en_US")
     Blog = env["blog.blog"].sudo()
     Post = env["blog.post"].sudo()
 
@@ -253,19 +294,23 @@ def _ensure_blog_posts(env):
             "filantropia_solar_public: created blog Casos de Sucesso id=%s", blog.id
         )
     else:
-        # Keep PT as source values
-        blog.with_context(lang="pt_PT").write(
+        # Keep PT as source values when pt_PT is active
+        _write_lang(
+            blog,
+            "pt_PT",
             {
                 "name": "Casos de Sucesso",
                 "subtitle": "Histórias reais da rede Filantropia Solar",
-            }
+            },
         )
 
-    blog.with_context(lang="en_US").write(
+    _write_lang(
+        blog,
+        "en_US",
         {
             "name": "Success Stories",
             "subtitle": "Real stories from the Filantropia Solar network",
-        }
+        },
     )
 
     for spec in _POSTS_PT:
@@ -283,8 +328,8 @@ def _ensure_blog_posts(env):
             _external_id(env, "filantropia_solar_public", xml_name, post)
             _logger.info("filantropia_solar_public: created post %s", spec["name"])
         else:
-            post.with_context(lang="pt_PT").write(vals_pt)
-        post.with_context(lang="en_US").write(spec["en"])
+            _write_lang(post, "pt_PT", vals_pt)
+        _write_lang(post, "en_US", spec["en"])
 
         # Editorial teaser + SEO (animal-shelter-first order via creation order)
         tip = _editorial_teasers().get(xml_name, {})
@@ -300,10 +345,13 @@ def _ensure_blog_posts(env):
             if "teaser_manual" in post._fields:
                 pt_vals["teaser_manual"] = tip["teaser_pt"]
                 en_vals["teaser_manual"] = tip["teaser_en"]
-            post.with_context(lang="pt_PT").write(pt_vals)
-            post.with_context(lang="en_US").write(en_vals)
+            _write_lang(post, "pt_PT", pt_vals)
+            _write_lang(post, "en_US", en_vals)
 
 
+# Keys that Website Builder may COW. Published COWs (TRL5/prod) must survive
+# module upgrade — never unlink them from post_init. Optional forced reset is
+# opt-in only via ir.config_parameter (see _maybe_reset_website_cows).
 _FS_VIEW_KEYS = (
     "filantropia_solar_public.page_inicio",
     "filantropia_solar_public.page_instalacoes",
@@ -313,9 +361,47 @@ _FS_VIEW_KEYS = (
     "filantropia_solar_public.snippet_steps",
 )
 
+_RESET_COWS_PARAM = "filantropia_solar_public.reset_website_cows"
 
-def _reset_website_cows(env):
-    """Drop website-editor COW copies so module XML remains source of truth."""
+
+def _log_website_cows(env):
+    """Inventory website COWs for Filantropia keys (no delete)."""
+    View = env["ir.ui.view"].sudo()
+    cows = View.search(
+        [
+            ("website_id", "!=", False),
+            ("key", "in", list(_FS_VIEW_KEYS)),
+        ]
+    )
+    if not cows:
+        _logger.info("filantropia_solar_public: no website COW views for FS keys")
+        return
+    detail = ", ".join(
+        sorted(
+            {f"{c.key}(ws={c.website_id.id},len={len(c.arch_db or '')})" for c in cows}
+        )
+    )
+    _logger.info(
+        "filantropia_solar_public: preserving %s website COW view(s): %s",
+        len(cows),
+        detail,
+    )
+
+
+def _maybe_reset_website_cows(env):
+    """Opt-in only: delete FS website COWs when config param is truthy.
+
+    Default is preserve. Destructive reset was used once to unstick broken
+    Website Builder overrides of station map/list markup; running it on TRL5
+    would wipe the published home page. Set ir.config_parameter
+    filantropia_solar_public.reset_website_cows=1 for one upgrade only, then
+    clear the param.
+    """
+    ICP = env["ir.config_parameter"].sudo()
+    raw = (ICP.get_param(_RESET_COWS_PARAM) or "").strip().lower()
+    if raw not in ("1", "true", "yes", "on"):
+        _log_website_cows(env)
+        return
     View = env["ir.ui.view"].sudo()
     cows = View.search(
         [
@@ -327,11 +413,14 @@ def _reset_website_cows(env):
         keys = sorted({c.key for c in cows})
         n = len(cows)
         cows.unlink()
-        _logger.info(
-            "filantropia_solar_public: removed %s website COW view(s): %s",
+        _logger.warning(
+            "filantropia_solar_public: FORCE-removed %s website COW view(s) (%s=1): %s",
             n,
+            _RESET_COWS_PARAM,
             ", ".join(keys),
         )
+    # One-shot: clear flag so the next -u does not delete again
+    ICP.set_param(_RESET_COWS_PARAM, "0")
 
 
 def post_init_hook(env):
@@ -339,4 +428,5 @@ def post_init_hook(env):
     _ensure_legacy_redirect(env)
     _ensure_site_identity(env)
     _ensure_blog_posts(env)
-    _reset_website_cows(env)
+    # Do NOT delete published Website Builder COWs on upgrade (TRL5/prod).
+    _maybe_reset_website_cows(env)
