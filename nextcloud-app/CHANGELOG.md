@@ -7,6 +7,7 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 ## [3.2.30] - 2026-08-14
 
 ### Fixed
+- EnergyApiController parse error: missing `$` on `$out` (Internal Server Error)
 - Restore original `app.png` asset (no generated icon)
 - Series/dataset range labels use only `series_from_date`/`series_to_date` (not install date)
 - View dataset opens full NC series table for validation (not Analysis)

@@ -87,7 +87,7 @@ class EnergyApiController extends OCSController
 				? (float) $station->getGridPriceKwh()
 				: (float) Application::DEFAULT_GRID_PRICE;
 			$factor = $station->getSelfConsumptionFactor();
-			out = [];
+			$out = [];
 			foreach ($rows as $r) {
                                 $ts = $r->getTimestamp();
                                 $prod = $r->getProductionFloat();
