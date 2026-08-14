@@ -253,6 +253,7 @@ class PredictionService
                 $prediction->setPredictedKwh((string) ($raw['predicted_kwh'] ?? 0));
                 $prediction->setConfidence((string) ($raw['confidence'] ?? 0.8));
                 $prediction->setModelVersion($modelVersion);
+                $prediction->setCreatedAt(new DateTime('now'));
 
                 $stored = $this->predictionMapper->upsert($prediction);
                 $predictions[] = $stored;

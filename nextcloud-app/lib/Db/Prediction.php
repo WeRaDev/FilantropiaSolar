@@ -40,6 +40,9 @@ class Prediction extends Entity implements JsonSerializable
 
     public function __construct()
     {
+        // PHP 8.1+ typed properties throw if Entity getters/setters read before assignment.
+        $this->predictionDate = new DateTime('@0');
+        $this->createdAt = new DateTime('now');
         $this->addType('installationId', 'integer');
         $this->addType('predictionDate', 'datetime');
         $this->addType('hour', 'integer');
