@@ -13,12 +13,14 @@ Util::addScript('filantropia_solar', 'filantropia_solar-main');
 Util::addStyle('filantropia_solar', 'filantropia_solar-main');
 ?>
 <?php
-// App favicon (overrides browser tab icon while in FilantropiaSolar)
+// App favicon (SVG preferred; JS in main.js also re-applies after shell load)
 try {
     $fg = \OC::$server->get(\OCP\IURLGenerator::class);
-    $icon = $fg->imagePath('filantropia_solar', 'app.png');
-    echo '<link rel="icon" type="image/png" href="' . \OCP\Util::sanitizeHTML($icon) . '">';
-    echo '<link rel="apple-touch-icon" href="' . \OCP\Util::sanitizeHTML($icon) . '">';
+    $iconSvg = $fg->imagePath('filantropia_solar', 'app.svg');
+    $iconPng = $fg->imagePath('filantropia_solar', 'app.png');
+    echo '<link rel="icon" type="image/svg+xml" href="' . \OCP\Util::sanitizeHTML($iconSvg) . '">';
+    echo '<link rel="alternate icon" type="image/png" href="' . \OCP\Util::sanitizeHTML($iconPng) . '">';
+    echo '<link rel="apple-touch-icon" href="' . \OCP\Util::sanitizeHTML($iconPng) . '">';
 } catch (\Throwable $e) {
     // ignore
 }

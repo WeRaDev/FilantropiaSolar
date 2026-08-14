@@ -62,6 +62,13 @@ class LifecycleApiController extends ApiController
 			?? $this->request->getParam('short_description', '')
 		));
 		$gridPrice = $payload['grid_price_kwh'] ?? $this->request->getParam('grid_price_kwh', null);
+		$gridConnection = strtolower(trim((string) (
+			$payload['grid_connection_type']
+			?? $this->request->getParam('grid_connection_type', '')
+		)));
+		if (!in_array($gridConnection, ['on_grid', 'off_grid'], true)) {
+			$gridConnection = '';
+		}
 
 		if ($odooLeadId <= 0) {
 			return $this->error('odoo_lead_id is required and must be positive', Http::STATUS_BAD_REQUEST, 'validation_error');
@@ -98,6 +105,18 @@ class LifecycleApiController extends ApiController
 				$existing->setLongitude((string) $longitude);
 				$dirty = true;
 			}
+			if ($gridConnection !== '') {
+				$existing->setGridConnectionType($gridConnection);
+				$dirty = true;
+			}
+			if ($gridPrice !== null && $gridPrice !== '') {
+				$existing->setGridPriceKwh((string) $gridPrice);
+				$dirty = true;
+			}
+			if ($name !== '' && $existing->getName() !== $name) {
+				$existing->setName($name);
+				$dirty = true;
+			}
 			if ($dirty) {
 				$existing->setUpdatedAt(new DateTime());
 				$existing = $this->mapper->update($existing);
@@ -129,6 +148,11 @@ class LifecycleApiController extends ApiController
 				$station->setGridPriceKwh((string) $gridPrice);
 			} else {
 				$station->setGridPriceKwh((string) Application::DEFAULT_GRID_PRICE);
+			}
+			if ($gridConnection !== '') {
+				$station->setGridConnectionType($gridConnection);
+			} else {
+				$station->setGridConnectionType(Installation::GRID_ON);
 			}
 			if ($orgName !== '') {
 				$station->setNearestLocation($orgName);

@@ -95,11 +95,20 @@ class FsStationSync(models.AbstractModel):
             "fs_station_capacity_kwp": float(station.get("capacity_kwp") or 0.0),
             "fs_station_website": station.get("website") or False,
             "fs_station_short_description": station.get("short_description") or False,
-            "partner_name": name,
+            # Station title only — do not clobber organisation (partner_name)
+            # when CRM already has a distinct org label.
             "name": name,
             "city": station.get("location") or False,
             "website": station.get("website") or False,
         }
+        # Seed partner_name only on create, when empty, or when it still equals
+        # the old station title (user never set a distinct organisation).
+        if (
+            not lead
+            or not (lead.partner_name or "").strip()
+            or (lead.partner_name or "").strip() == (lead.name or "").strip()
+        ):
+            vals["partner_name"] = name
         if (
             station.get("grid_price_kwh") is not None
             and station.get("grid_price_kwh") != ""

@@ -1,17 +1,116 @@
 {
   "capacity_unit": "W",
-  "capacity_note": "Raw inventory values treated as watts peak; NC stores kWp = raw/1000.",
+  "capacity_note": "Raw inventory values treated as watts peak; NC stores kWp = raw/1000. install_date is ISO YYYY-MM-DD (ops truth DD/MM/YYYY).",
   "stations": [
-    {"year": 2023, "name": "Vazinha", "capacity_raw": 540, "org": "", "notes": "", "latitude": 39.2369, "longitude": -8.6850, "location": "Vazinha"},
-    {"year": 2024, "name": "ARIA Alcabadeche", "capacity_raw": 4500, "org": "NGO", "notes": "", "latitude": 38.7336, "longitude": -9.3014, "location": "Alcabadeche"},
-    {"year": 2024, "name": "Gatos do Jardim", "capacity_raw": 3680, "org": "NGO", "notes": "", "latitude": 38.7223, "longitude": -9.1393, "location": "Lisbon"},
-    {"year": 2024, "name": "Almocagem Farm", "capacity_raw": 800, "org": "", "notes": "", "latitude": 39.0911, "longitude": -8.9611, "location": "Almocagem"},
-    {"year": 2024, "name": "Penedo off-grid", "capacity_raw": 960, "org": "", "notes": "off-grid", "latitude": 39.4500, "longitude": -8.9800, "location": "Penedo"},
-    {"year": 2024, "name": "Diago farm", "capacity_raw": 900, "org": "", "notes": "", "latitude": 39.2300, "longitude": -8.7000, "location": "Diago"},
-    {"year": 2025, "name": "Gaela", "capacity_raw": 2190, "org": "", "notes": "", "latitude": 39.3500, "longitude": -8.9500, "location": "Gaela"},
-    {"year": 2025, "name": "Catarina", "capacity_raw": 2200, "org": "", "notes": "", "latitude": 38.9000, "longitude": -9.0500, "location": "Catarina"},
-    {"year": 2025, "name": "Rita", "capacity_raw": 1380, "org": "", "notes": "", "latitude": 38.8500, "longitude": -9.2000, "location": "Rita"},
-    {"year": 2025, "name": "Zoófila", "capacity_raw": 18000, "org": "NGO", "notes": "", "latitude": 38.7600, "longitude": -9.1600, "location": "Lisbon"},
-    {"year": 2026, "name": "PurposeFlow", "capacity_raw": 4600, "org": "", "notes": "planned until install confirmed", "latitude": 38.7369, "longitude": -9.1427, "location": "Lisbon"}
+    {
+      "install_date": "2023-03-15",
+      "name": "Vazinha",
+      "capacity_raw": 540,
+      "org": "",
+      "notes": "",
+      "latitude": 39.2369,
+      "longitude": -8.685,
+      "location": "Vazinha"
+    },
+    {
+      "install_date": "2023-04-15",
+      "name": "ARIA Alcabadeche",
+      "capacity_raw": 4500,
+      "org": "NGO",
+      "notes": "",
+      "latitude": 38.7336,
+      "longitude": -9.3014,
+      "location": "Alcabadeche"
+    },
+    {
+      "install_date": "2024-05-15",
+      "name": "Gatos do Jardim",
+      "capacity_raw": 3680,
+      "org": "NGO",
+      "notes": "",
+      "latitude": 38.7223,
+      "longitude": -9.1393,
+      "location": "Lisbon"
+    },
+    {
+      "install_date": "2024-06-15",
+      "name": "Almocagem Farm",
+      "capacity_raw": 800,
+      "org": "",
+      "notes": "",
+      "latitude": 39.0911,
+      "longitude": -8.9611,
+      "location": "Almocagem"
+    },
+    {
+      "install_date": "2024-07-15",
+      "name": "Penedo off-grid",
+      "capacity_raw": 960,
+      "org": "",
+      "notes": "off-grid",
+      "latitude": 39.45,
+      "longitude": -8.98,
+      "location": "Penedo"
+    },
+    {
+      "install_date": "2025-08-23",
+      "name": "WeRa Global",
+      "capacity_raw": 1200,
+      "org": "WeRa Global",
+      "notes": "off-grid",
+      "latitude": 38.7223,
+      "longitude": -9.1393,
+      "location": "Torres Vedras"
+    },
+    {
+      "install_date": "2025-05-15",
+      "name": "Gaela",
+      "capacity_raw": 2190,
+      "org": "",
+      "notes": "",
+      "latitude": 39.35,
+      "longitude": -8.95,
+      "location": "Gaela"
+    },
+    {
+      "install_date": "2025-06-15",
+      "name": "Catarina",
+      "capacity_raw": 2200,
+      "org": "",
+      "notes": "",
+      "latitude": 38.9,
+      "longitude": -9.05,
+      "location": "Catarina"
+    },
+    {
+      "install_date": "2025-06-23",
+      "name": "Rita",
+      "capacity_raw": 1380,
+      "org": "",
+      "notes": "",
+      "latitude": 38.85,
+      "longitude": -9.2,
+      "location": "Rita"
+    },
+    {
+      "install_date": "2025-09-11",
+      "name": "Zoófila",
+      "capacity_raw": 18000,
+      "org": "NGO",
+      "notes": "",
+      "latitude": 38.76,
+      "longitude": -9.16,
+      "location": "Lisbon"
+    },
+    {
+      "install_date": "2026-05-15",
+      "name": "PurposeFlow",
+      "capacity_raw": 4600,
+      "org": "",
+      "notes": "planned until install confirmed",
+      "latitude": 38.7369,
+      "longitude": -9.1427,
+      "location": "Lisbon"
+    }
   ]
 }

@@ -199,9 +199,15 @@ class CrmLead(models.Model):
         if capacity <= 0:
             capacity = 1.0  # NC requires positive capacity; ops can edit later
 
+        # Station title: opportunity name; org stays in partner_name / organization_name.
+        station_name = (
+            (self.name or "").strip()
+            or (self.partner_name or "").strip()
+            or f"Lead {self.id}"
+        )
         payload = {
             "odoo_lead_id": int(self.id),
-            "name": self.partner_name or self.name or f"Lead {self.id}",
+            "name": station_name,
             "latitude": float(self.fs_station_latitude or 0.0),
             "longitude": float(self.fs_station_longitude or 0.0),
             "capacity_kwp": capacity,
@@ -213,6 +219,9 @@ class CrmLead(models.Model):
             and self.fs_station_grid_price_kwh is not None
         ):
             payload["grid_price_kwh"] = float(self.fs_station_grid_price_kwh or 0.0)
+        gct = (self.fs_station_grid_connection_type or "").strip().lower()
+        if gct in ("on_grid", "off_grid"):
+            payload["grid_connection_type"] = gct
         website = (self.fs_station_website or self.website or "").strip()
         if website:
             if not website.lower().startswith(("http://", "https://")):
@@ -333,7 +342,11 @@ class CrmLead(models.Model):
             website = "https://" + website
         # Station display name: opportunity name is the editable station title.
         # partner_name stays the organisation; do not overwrite a custom station name.
-        station_name = (self.name or "").strip() or (self.partner_name or "").strip() or f"Lead {self.id}"
+        station_name = (
+            (self.name or "").strip()
+            or (self.partner_name or "").strip()
+            or f"Lead {self.id}"
+        )
         payload = {
             "name": station_name,
             "location_label": self.fs_station_location_label or self.city or "",

@@ -4,6 +4,20 @@ All notable changes to the Nextcloud app component. The desktop application
 has its own changelog at the repository root (`CHANGELOG.md`).
 This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.2.28] - 2026-08-14
+
+### Fixed
+- Fleet seed uses real `install_date` (not year-01-01); Postgres AIO seed support via `FS_DB_ENGINE`
+- CRM→NC: station title uses opportunity name; organisation (`partner_name`) not overwritten on reconcile
+- CRM→NC: `grid_connection_type` sent on virtual create and profile push; NC createVirtual accepts it
+- Odoo NC Dashboard link: strip API paths; prefer Tailscale origin; honor `FS_NC_ADMIN_URL`
+- Favicon: SVG + JS re-apply after Nextcloud shell load
+- Historical analytics: on-demand series fill for Running ops stations when `oc_fs_readings` empty
+
+### Changed
+- Odoo public module **19.0.2.24.0**
+- App version **3.2.28**
+
 ## [3.2.27] - 2026-08-14
 
 ### Fixed

@@ -14,6 +14,8 @@ use OCA\FilantropiaSolar\Db\EnergyReadingMapper;
 use OCA\FilantropiaSolar\Db\InstallationMapper;
 use OCA\FilantropiaSolar\Service\PredictionService;
 use OCA\FilantropiaSolar\Service\AppTimezone;
+use OCA\FilantropiaSolar\Service\SeriesSimulationService;
+use OCA\FilantropiaSolar\Service\StationLifecycle;
 use OCA\FilantropiaSolar\Service\WeatherService;
 use OCP\AppFramework\Http;
 use OCP\AppFramework\Http\Attribute\NoAdminRequired;
@@ -40,6 +42,7 @@ class PredictionApiController extends OCSController
         private readonly InstallationMapper $installationMapper,
         private readonly EnergyReadingMapper $readingMapper,
         private readonly WeatherService $weatherService,
+        private readonly SeriesSimulationService $seriesSimulationService,
         private readonly IClientService $clientService,
         private readonly LoggerInterface $logger,
         private readonly ?string $userId,
@@ -328,12 +331,13 @@ class PredictionApiController extends OCSController
             return null;
         }
         $dbId = (int) $station->getId();
-        if ($dbId <= 0 || $this->readingMapper->countByInstallation($dbId) === 0) {
-            // No NC series — leave ML fallback only for dataset corpus if desired.
-            // Ops with empty series: return honest empty NC payload.
-            if (($station->getSource() ?: '') === 'dataset') {
-                return null;
-            }
+        if ($dbId <= 0) {
+            return null;
+        }
+        // Dataset without any NC rows: fall through to ML Excel path.
+        if (($station->getSource() ?: '') === 'dataset'
+            && $this->readingMapper->countByInstallation($dbId) === 0) {
+            return null;
         }
 
         try {
@@ -355,6 +359,28 @@ class PredictionApiController extends OCSController
         }
 
         $lastComplete = AppTimezone::lastCompleteHour();
+        // Cap end at last complete hour for fill + read of past series
+        $fillEnd = $endDay > $lastComplete ? $lastComplete : $endDay;
+        $fillStart = $startDay;
+        if ($fillStart > $fillEnd) {
+            $fillStart = $fillEnd->setTime(0, 0, 0);
+        }
+
+        // On-demand gap-fill for Running ops stations so Historical is not empty
+        // before SeriesBackfillJob / SeriesRollForwardJob catch up.
+        $state = $station->getLifecycleState() ?: '';
+        $source = $station->getSource() ?: '';
+        if ($state === StationLifecycle::RUNNING && $source !== 'dataset' && !$station->getSoftRemoved()) {
+            try {
+                // Prefer a short window around the chart first (faster UX).
+                $this->seriesSimulationService->fillRange($station, $fillStart, $fillEnd);
+            } catch (\Throwable $e) {
+                $this->logger->warning('On-demand series fill failed', [
+                    'installation_id' => $dbId,
+                    'exception' => $e,
+                ]);
+            }
+        }
 
         $startDt = DateTime::createFromImmutable($startDay);
         $endDt = DateTime::createFromImmutable($endDay);

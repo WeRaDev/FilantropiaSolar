@@ -3,15 +3,22 @@
 
 Idempotent on serial_number = fleet-<slug>.
 Capacity: inventory raw W / 1000 -> kWp (see data/real_fleet.json).
+install_date: ISO YYYY-MM-DD in real_fleet.json (ops truth DD/MM/YYYY).
 
 Usage (from host with docker):
+  # MariaDB compose (filantropia-db):
   python3 nextcloud-app/scripts/seed_real_fleet.py
+  # Nextcloud AIO Postgres:
+  FS_DB_ENGINE=postgres FS_DB_CONTAINER=nextcloud-aio-database \
+    FS_DB_USER=nextcloud FS_DB_NAME=nextcloud_database \
+    FS_DB_PASS=... python3 nextcloud-app/scripts/seed_real_fleet.py
 """
 
 from __future__ import annotations
 
 from datetime import UTC, datetime
 import json
+import os
 from pathlib import Path
 import re
 import subprocess
@@ -39,14 +46,66 @@ def slugify(name: str) -> str:
     return s.strip("-")[:48]
 
 
+def parse_install_date(st: dict) -> tuple[str, int]:
+    """Return (YYYY-MM-DD, year) from install_date or legacy year field."""
+    raw = (st.get("install_date") or st.get("installation_date") or "").strip()
+    if raw:
+        # Accept YYYY-MM-DD or DD/MM/YYYY
+        if re.match(r"^\d{4}-\d{2}-\d{2}$", raw):
+            year = int(raw[:4])
+            return raw, year
+        m = re.match(r"^(\d{1,2})/(\d{1,2})/(\d{4})$", raw)
+        if m:
+            d, mo, y = int(m.group(1)), int(m.group(2)), int(m.group(3))
+            return f"{y:04d}-{mo:02d}-{d:02d}", y
+        # ISO datetime prefix
+        if re.match(r"^\d{4}-\d{2}-\d{2}", raw):
+            return raw[:10], int(raw[:4])
+    if "year" in st and st["year"] is not None:
+        year = int(st["year"])
+        return f"{year:04d}-01-01", year
+    raise ValueError(f"station {st.get('name')!r} missing install_date/year")
+
+
 def run_sql(sql: str) -> str:
     # Prefer env override for TRL5 / non-dev passwords (never log the value).
     db_pass = (
-        __import__("os").environ.get("FS_DB_PASS")
-        or __import__("os").environ.get("MYSQL_PASSWORD")
+        os.environ.get("FS_DB_PASS")
+        or os.environ.get("MYSQL_PASSWORD")
+        or os.environ.get("POSTGRES_PASSWORD")
         or DB_PASS
     )
-    db_container = __import__("os").environ.get("FS_DB_CONTAINER", DB_CONTAINER)
+    db_container = os.environ.get("FS_DB_CONTAINER", DB_CONTAINER)
+    db_user = os.environ.get("FS_DB_USER", DB_USER)
+    db_name = os.environ.get("FS_DB_NAME", DB_NAME)
+    engine = (os.environ.get("FS_DB_ENGINE") or "mysql").strip().lower()
+
+    if engine in {"postgres", "postgresql", "pg"}:
+        cmd = [
+            "docker",
+            "exec",
+            "-i",
+            db_container,
+            "psql",
+            "-U",
+            db_user,
+            "-d",
+            db_name,
+            "-v",
+            "ON_ERROR_STOP=1",
+            "-t",
+            "-A",
+            "-c",
+            sql,
+        ]
+        env = os.environ.copy()
+        if db_pass:
+            env["PGPASSWORD"] = db_pass
+        proc = subprocess.run(cmd, capture_output=True, text=True, check=False, env=env)
+        if proc.returncode != 0:
+            raise RuntimeError(proc.stderr or proc.stdout or "psql failed")
+        return proc.stdout
+
     last_err = ""
     for client in ("mariadb", "mysql"):
         cmd = [
@@ -55,9 +114,9 @@ def run_sql(sql: str) -> str:
             "-i",
             db_container,
             client,
-            f"-u{DB_USER}",
+            f"-u{db_user}",
             f"-p{db_pass}",
-            DB_NAME,
+            db_name,
             "-N",
             "-e",
             sql,
@@ -66,7 +125,10 @@ def run_sql(sql: str) -> str:
         if proc.returncode == 0:
             return proc.stdout
         last_err = proc.stderr or proc.stdout or f"{client} failed"
-        if "not found" not in last_err.lower() and "executable file not found" not in last_err.lower():
+        if (
+            "not found" not in last_err.lower()
+            and "executable file not found" not in last_err.lower()
+        ):
             break
     raise RuntimeError(last_err or "sql client failed")
 
@@ -84,7 +146,7 @@ def main() -> int:
         serial = f"fleet-{slugify(name)}"
         raw = float(st["capacity_raw"])
         kwp = raw / 1000.0 if unit.upper() in {"W", "WP", "W_P"} else raw
-        year = int(st["year"])
+        install_date, year = parse_install_date(st)
         notes_l = (st.get("notes") or "").lower()
         # Future-year or explicitly planned inventory stays planned until ops marks installed
         if year >= PLANNED_FROM_YEAR or "planned" in notes_l:
@@ -92,13 +154,10 @@ def main() -> int:
         else:
             lifecycle = "running"
         grid_connection = (
-            "off_grid"
-            if "off-grid" in notes_l or "off_grid" in notes_l
-            else "on_grid"
+            "off_grid" if "off-grid" in notes_l or "off_grid" in notes_l else "on_grid"
         )
         is_virtual = 1 if lifecycle == "virtual" else 0
-        install_date = f"{year}-01-01"
-        installed_at = f"{year}-01-01 00:00:00" if lifecycle == "running" else "NULL"
+        installed_at = f"{install_date} 00:00:00" if lifecycle == "running" else "NULL"
         org = (st.get("org") or "").strip()
         notes = (st.get("notes") or "").strip()
         desc_parts = []
@@ -106,7 +165,7 @@ def main() -> int:
             desc_parts.append(org)
         if notes:
             desc_parts.append(notes)
-        desc_parts.append(f"Fleet inventory year {year}.")
+        desc_parts.append(f"Fleet install_date {install_date}.")
         short_description = " · ".join(desc_parts)
         lat = float(st["latitude"])
         lon = float(st["longitude"])
@@ -117,6 +176,8 @@ def main() -> int:
         ).strip()
 
         if existing:
+            # existing may be "12" or "12\n"; take first token
+            existing_id = int(str(existing).split()[0])
             sql = f"""
 UPDATE oc_fs_installations SET
   name={sql_escape(name)},
@@ -135,11 +196,13 @@ UPDATE oc_fs_installations SET
   grid_price_kwh=0.1500,
   grid_connection_type={sql_escape(grid_connection)},
   updated_at={sql_escape(now)}
-WHERE id={int(existing)};
+WHERE id={existing_id};
 """
             run_sql(sql)
             updated += 1
-            print(f"updated id={existing} {name} {kwp} kWp {lifecycle}")
+            print(
+                f"updated id={existing_id} {name} {kwp} kWp {lifecycle} install={install_date} grid={grid_connection}"
+            )
         else:
             sql = f"""
 INSERT INTO oc_fs_installations (
@@ -171,11 +234,14 @@ INSERT INTO oc_fs_installations (
 """
             run_sql(sql)
             created += 1
-            print(f"created {name} {kwp} kWp {lifecycle}")
+            print(
+                f"created {name} {kwp} kWp {lifecycle} install={install_date} grid={grid_connection}"
+            )
 
     print(f"done created={created} updated={updated} total={len(stations)}")
     out = run_sql(
-        "SELECT id,name,source,lifecycle_state,capacity_kwp FROM oc_fs_installations WHERE source='fleet' ORDER BY id;"
+        "SELECT id, name, source, lifecycle_state, capacity_kwp, installation_date, grid_connection_type "
+        "FROM oc_fs_installations WHERE source='fleet' ORDER BY id;"
     )
     print(out)
     return 0

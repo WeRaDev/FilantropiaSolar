@@ -22,6 +22,29 @@ __webpack_nonce__ = btoa(getRequestToken())
 // Leaflet marker images break under webpack without this
 fixLeafletDefaultIcons()
 
+// Override Nextcloud shell favicon while FilantropiaSolar is open
+// (template <link> alone is often replaced by the theming/core head).
+;(() => {
+    try {
+        const href = generateUrl('/apps/filantropia_solar/img/app.svg')
+        const ensure = (rel) => {
+            let el = document.querySelector(`link[rel="${rel}"]`)
+            if (!el) {
+                el = document.createElement('link')
+                el.setAttribute('rel', rel)
+                document.head.appendChild(el)
+            }
+            el.setAttribute('type', 'image/svg+xml')
+            el.setAttribute('href', href)
+        }
+        ensure('icon')
+        ensure('shortcut icon')
+        ensure('apple-touch-icon')
+    } catch (e) {
+        // ignore
+    }
+})()
+
 // Vue Router configuration - Single dashboard following layout.specs.md
 const routes = [
     {

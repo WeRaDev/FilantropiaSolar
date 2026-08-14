@@ -33,26 +33,63 @@ def public_token() -> str:
     ).strip()
 
 
+def _with_app_path(origin: str) -> str:
+    """Ensure browser URL ends at /apps/filantropia_solar/ (not internal API path)."""
+    origin = (origin or "").strip().rstrip("/")
+    if not origin:
+        return ""
+    # Strip accidental public/lifecycle API suffixes
+    for marker in (
+        "/index.php/apps/filantropia_solar",
+        "/apps/filantropia_solar/api/",
+        "/apps/filantropia_solar",
+    ):
+        if marker in origin:
+            origin = origin.split(marker)[0].rstrip("/")
+            break
+    # Drop trailing /index.php
+    if origin.endswith("/index.php"):
+        origin = origin[: -len("/index.php")]
+    return origin.rstrip("/") + "/apps/filantropia_solar/"
+
+
 def nc_admin_url() -> str:
     """Operator UI for FilantropiaSolar app (AIO on TRL5 after cutover)."""
     explicit = (os.environ.get("FS_NC_ADMIN_URL") or "").strip()
     if explicit:
-        return explicit.rstrip("/") + (
-            "" if explicit.rstrip("/").endswith("filantropia_solar") else "/apps/filantropia_solar/"
-        )
+        return _with_app_path(explicit)
     # Prefer public browser origin when API base is an internal Docker hostname
     for key in ("FS_NC_PUBLIC_ORIGIN", "WEBSITE_NC_URL"):
         origin = (os.environ.get(key) or "").strip().rstrip("/")
         if origin:
-            return origin + "/apps/filantropia_solar/"
+            return _with_app_path(origin)
     base = public_base_url()
-    # Internal docker hosts are not clickable from the operator browser
-    if any(h in base for h in ("filantropia-nextcloud", "nextcloud-aio-", "localhost", "127.0.0.1")):
-        # TRL5 AIO is the single NC instance — use public HTTPS host when known
+    # Internal docker hosts / AIO apache ports are not clickable from operator browser
+    if any(
+        h in base
+        for h in (
+            "filantropia-nextcloud",
+            "nextcloud-aio-",
+            "localhost",
+            "127.0.0.1",
+            ":11000",
+            ":18080",
+        )
+    ):
+        # TRL5 AIO is the single NC instance — Tailscale HTTPS host
         return "https://wera-ss-pt-tv-1.tailfb390c.ts.net/apps/filantropia_solar/"
     if "/apps/filantropia_solar" in base:
-        return base.split("/apps/filantropia_solar")[0] + "/apps/filantropia_solar/"
-    return base.rstrip("/") + "/apps/filantropia_solar/"
+        return _with_app_path(base.split("/apps/filantropia_solar")[0])
+    # http(s)://host:port/... → host origin + app path
+    try:
+        from urllib.parse import urlparse
+
+        parsed = urlparse(base)
+        if parsed.scheme and parsed.netloc:
+            return f"{parsed.scheme}://{parsed.netloc}/apps/filantropia_solar/"
+    except Exception:
+        pass
+    return _with_app_path(base)
 
 
 class NcPublicClient:
