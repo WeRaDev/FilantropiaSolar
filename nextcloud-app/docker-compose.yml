@@ -129,10 +129,13 @@ services:
       - HOST=odoo-db
       - USER=odoo
       - PASSWORD=odoo_dev_password
-      - FS_API_BASE_URL=http://filantropia-nextcloud/apps/filantropia_solar/api/public/v1
+      # Override on TRL5 AIO via .env.trl5 / compose.trl5 (nextcloud-aio-apache:11000).
+      - FS_API_BASE_URL=${FS_API_BASE_URL:-http://filantropia-nextcloud/apps/filantropia_solar/api/public/v1}
       - FS_PUBLIC_API_TOKEN=${FS_PUBLIC_API_TOKEN:-REPLACE_ME}
-      - FS_LIFECYCLE_API_BASE_URL=http://filantropia-nextcloud/apps/filantropia_solar/api/lifecycle/v1
+      - FS_LIFECYCLE_API_BASE_URL=${FS_LIFECYCLE_API_BASE_URL:-http://filantropia-nextcloud/apps/filantropia_solar/api/lifecycle/v1}
       - FS_LIFECYCLE_API_TOKEN=${FS_LIFECYCLE_API_TOKEN:-${FS_PUBLIC_API_TOKEN:-REPLACE_ME}}
+      - FS_NC_ADMIN_URL=${FS_NC_ADMIN_URL:-}
+      - FS_NC_PUBLIC_ORIGIN=${FS_NC_PUBLIC_ORIGIN:-}
       - ODOO_QUEUE_JOB_CHANNELS=root:2
       - ODOO_QUEUE_JOB_PORT=8069
       - ODOO_QUEUE_JOB_HOST=localhost

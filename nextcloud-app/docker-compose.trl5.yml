@@ -1,7 +1,7 @@
-# TRL5 (wera-ss-pt-tv-1) overrides — avoid Nextcloud AIO on :80/:8080
-# FilantropiaSolar Nextcloud is a SEPARATE instance from Nextcloud AIO.
-# - AIO (general files): host :80 / :8080 — does NOT include filantropia_solar
-# - Filantropia NC: 127.0.0.1:18080 + Tailscale :18080 — has FilantropiaSolar app
+# TRL5 (wera-ss-pt-tv-1) overrides
+# As of 2026-08-14 FilantropiaSolar app SoT is Nextcloud AIO (not filantropia-nextcloud).
+# Keep legacy NC compose service optional for rollback; Odoo/ML talk to AIO apache:11000.
+# Browser NC admin: https://wera-ss-pt-tv-1.tailfb390c.ts.net/apps/filantropia_solar/
 services:
   nextcloud:
     ports: !override
@@ -13,6 +13,11 @@ services:
     ports: !override
       - "127.0.0.1:8069:8069"
       - "100.82.252.18:8069:8069"
+    environment:
+      - FS_API_BASE_URL=${FS_API_BASE_URL:-http://nextcloud-aio-apache:11000/index.php/apps/filantropia_solar/api/public/v1}
+      - FS_LIFECYCLE_API_BASE_URL=${FS_LIFECYCLE_API_BASE_URL:-http://nextcloud-aio-apache:11000/index.php/apps/filantropia_solar/api/lifecycle/v1}
+      - FS_NC_ADMIN_URL=${FS_NC_ADMIN_URL:-https://wera-ss-pt-tv-1.tailfb390c.ts.net}
+      - FS_NC_PUBLIC_ORIGIN=${FS_NC_PUBLIC_ORIGIN:-https://wera-ss-pt-tv-1.tailfb390c.ts.net}
   ml-service:
     ports: !override
       - "127.0.0.1:8501:8501"
