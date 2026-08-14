@@ -1,5 +1,7 @@
 # MVP-7 — Automated + manual gates + TRL5 deploy
 
+**Status (TRL5 NC):** single instance = **Nextcloud AIO** with filantropia_solar 3.2.26; `filantropia-nextcloud` stopped. See `docs/ops/TRL5-NC-ACCESS.md`.
+
 **Status:** Automated gates green; local CRM script signed; **TRL5 deployed** NC **3.2.26** + Odoo **19.0.2.22.0** (2026-08-14); **real fleet seeded** (11 stations, public API + CRM import). Remaining: optional browser analytics Historical/Predicted smoke on TRL5 NC UI.  
 **Depends on:** MVP-1…6, series epic (NC 3.2.16+ / Odoo 19.0.2.22.0), analytics PR #31.
 

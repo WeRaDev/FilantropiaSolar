@@ -43,7 +43,8 @@ Golden olive color palette (#A89D3F, #C4B552, #D4C563) with warm cream backgroun
 
     <dependencies>
         <php min-version="8.1" max-version="8.4"/>
-        <nextcloud min-version="28" max-version="31"/>
+        <!-- TRL5 AIO runs NC 33; keep min 28 for filantropia-nextcloud compose -->
+        <nextcloud min-version="28" max-version="33"/>
     </dependencies>
 
     <background-jobs>

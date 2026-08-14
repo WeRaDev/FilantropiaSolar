@@ -1,32 +1,66 @@
-# TRL5 Nextcloud access (FilantropiaSolar app)
+# TRL5 Nextcloud — single instance (AIO)
 
-## Two Nextcloud instances on the host
+**As of 2026-08-14:** FilantropiaSolar runs on **Nextcloud AIO only**.  
+The separate `filantropia-nextcloud` container is **stopped** (`restart=no`).
 
-| Instance | Ports | FilantropiaSolar app? |
-|----------|-------|------------------------|
-| **Nextcloud AIO** (general files) | host `:80`, `:8080`, `:8443` | **No** |
-| **Filantropia NC** (`filantropia-nextcloud`) | `127.0.0.1:18080` and Tailscale `100.82.252.18:18080` | **Yes** (v3.2.26) |
+## Where to open the app
 
-If you open the usual AIO URL, the FilantropiaSolar app will not appear. That is expected.
+| Surface | URL |
+|---------|-----|
+| AIO (users / primary) | Host **:80** / **:8080** / **:8443** (your existing AIO entry) |
+| App path | **Apps → FilantropiaSolar** or `/apps/filantropia_solar/` |
+| Public website (Odoo) | https://filantropiasolar.wera.global |
+| Public/lifecycle API (internal) | `http://nextcloud-aio-apache:11000/index.php/apps/filantropia_solar/api/...` |
 
-## Open FilantropiaSolar
-
-1. On Tailscale: **http://100.82.252.18:18080/**  
-   or **http://wera-ss-pt-tv-1.tailfb390c.ts.net:18080/**
-2. Log in (default stack user is often `admin` — use the password set for this instance).
-3. Top app menu / navigation should list **FilantropiaSolar** (order 10), or open:  
-   `http://100.82.252.18:18080/apps/filantropia_solar/`
-
-## Verify on server
+Verify:
 
 ```bash
 ssh root@100.82.252.18
-docker exec -u 33 filantropia-nextcloud php occ app:list | grep filantropia
-# expect: filantropia_solar: 3.2.26 (enabled)
+docker exec -u 33 nextcloud-aio-nextcloud php occ app:list | grep filantropia
+# filantropia_solar: 3.2.26
+docker exec nextcloud-aio-database psql -U nextcloud -d nextcloud_database -tAc \
+  "SELECT count(*) FROM oc_fs_installations WHERE source='fleet';"
+# 11
 ```
 
-Public website (Odoo map) remains **https://filantropiasolar.wera.global** (cloudflared → Odoo `:8069`), not Nextcloud.
+## Architecture after cutover
 
-## Compose
+| Component | Status |
+|-----------|--------|
+| nextcloud-aio-nextcloud | **SoT** for FilantropiaSolar app + `oc_fs_*` |
+| nextcloud-aio-apache | Front door (port 11000 internal, host 80/8080/8443 via master) |
+| filantropia-ml | Running; AIO joined `nextcloud-app_filantropia-net`; `ml_service_url=http://filantropia-ml:8501` |
+| filantropia-odoo | Running; `FS_*` → AIO apache:11000; CRM import OK |
+| filantropia-nextcloud | **Stopped** (rollback: start container + point Odoo back) |
+| filantropia-db | Kept for rollback (MariaDB old instance) |
 
-Ports and trusted domains: `nextcloud-app/docker-compose.trl5.yml`.
+## Install notes (already done)
+
+1. App `max-version` raised to **33** for AIO NC 33.0.7.  
+2. Clean app tree copied into AIO `custom_apps/filantropia_solar` (**no** macOS `._*` files — those break route loading).  
+3. `occ app:enable filantropia_solar` + migrations → `oc_fs_*` tables.  
+4. Fleet seed (11 stations) into AIO Postgres.  
+5. Odoo env: token + API base URLs on `nextcloud-aio-apache:11000`.  
+6. Dual-job risk removed by stopping Filantropia NC.
+
+## Rollback
+
+```bash
+# Start old NC again
+docker update --restart=unless-stopped filantropia-nextcloud
+docker start filantropia-nextcloud
+# Point Odoo FS_API_BASE_URL back to http://filantropia-nextcloud/...
+# Optionally occ app:disable filantropia_solar on AIO
+```
+
+## AIO upgrades
+
+After AIO updates Nextcloud container, re-check:
+
+```bash
+docker exec nextcloud-aio-nextcloud ls /var/www/html/custom_apps/filantropia_solar/appinfo/info.xml
+docker exec -u 33 nextcloud-aio-nextcloud php occ app:list | grep filantropia
+docker network connect nextcloud-app_filantropia-net nextcloud-aio-nextcloud || true
+```
+
+Re-copy app from `/opt/FilantropiaSolar/nextcloud-app` if `custom_apps` was wiped.
