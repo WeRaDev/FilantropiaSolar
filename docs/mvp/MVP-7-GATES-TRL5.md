@@ -1,6 +1,6 @@
 # MVP-7 — Automated + manual gates + TRL5 deploy
 
-**Status:** Automated local + CI gates re-exercised on `main` after PR #31 merge (`ad444b7`, NC **3.2.26**). Operator CRM lifecycle script and TRL5 production cutover remain open (sign-off tables below).  
+**Status:** Automated gates green on `main` (PR #31 / NC **3.2.26**). **Local CRM lifecycle script signed eng 2026-08-14** (lead 56 → NC 38). **TRL5 backup taken** (`20260814-000958`, see `docs/ops/TRL5-BACKUP.md`). TRL5 code cutover (3.2.26 deploy) and remaining TRL5 smoke sign-off still open.  
 **Depends on:** MVP-1…6, series epic (NC 3.2.16+ / Odoo 19.0.2.22.0), analytics PR #31.
 
 ## Automated gates
@@ -72,13 +72,32 @@ Run on a non-production CRM lead (or TRL5 after backup). Do **not** log tokens.
 
 | Step | Pass | Initials | Date |
 |------|------|----------|------|
-| 1 New → no NC | | | |
-| 2 Qualify → Virtual | | | |
-| 3 Proposition → Planned on map | | | |
-| 4 Installed → Running | | | |
-| 5 Demotion | | | |
-| 6 Profile mirror | | | |
-| 7 Series + measured upload | | | |
+| 1 New → no NC | **Y** (local) | eng | 2026-08-14 |
+| 2 Qualify → Virtual | **Y** (local) | eng | 2026-08-14 |
+| 3 Proposition → Planned on map | **Y** (local; public API after Running) | eng | 2026-08-14 |
+| 4 Installed → Running | **Y** (local) | eng | 2026-08-14 |
+| 5 Demotion | **Y** (local → planned) | eng | 2026-08-14 |
+| 6 Profile mirror | **Y** (local; capacity 3.1 / location updated on NC) | eng | 2026-08-14 |
+| 7 Series + measured upload | **Y** partial (local) | eng | 2026-08-14 |
+
+**Local CRM script evidence (2026-08-14, non-prod stack):**
+
+| Check | Result |
+|-------|--------|
+| Test lead | CRM `crm_lead` **id 56** `MVP7-SIGNOFF-*`, `fs_is_donation_application=true` |
+| Step 1 New | No `fs_nc_installation_id` / no lifecycle until Qualify |
+| Step 2 Qualified | NC **virtual** via queue_job; install id `Lisbon MVP7_lead56` |
+| Step 3 Proposition | NC **planned** |
+| Step 4 Installed | NC **running**, `fs_nc_db_id=38`, source `crm` |
+| Step 5 Demotion → Proposition | NC **planned** via set-lifecycle |
+| Step 5b re-Installed | NC **running** again |
+| Step 6 Profile | NC `capacity_kwp=3.10`, `location=Lisbon MVP7 Updated`, `grid_price_kwh=0.18`; public API lists station (`public_category=existing`) |
+| Step 7 Series job | `SeriesRollForwardJob` id 69 force-execute **timed**, next = last+1h |
+| Step 7 Night window | 00:18 UTC force-run inserted **0** sim hours (outside Europe/Lisbon 05:00–22:00) — expected |
+| Step 7 Measured | Row `oc_fs_readings` installation 38 @ 2026-08-13 12:00, `production_kwh=0.42`, `provenance=measured` |
+| Modules | Odoo `filantropia_solar_public` **19.0.2.22.0**, `queue_job` installed; NC webhook URL set; NC app **3.2.26** |
+| UI measured upload | Not re-clicked in browser this run (API is session-auth); stacking/font shipped 3.2.26 — operator may spot-check UI |
+
 
 ## TRL5 deploy note (wera-ss-pt-tv-1)
 
@@ -88,12 +107,15 @@ Run on a non-production CRM lead (or TRL5 after backup). Do **not** log tokens.
 
 ### Before touch
 
-1. **Backup first (mandatory)**  
-   - Odoo DB dump + website COW export (`docs/ops/ODOO-WEBSITE-COW-VIEWS.md`).  
-   - NC DB dump.  
+1. **Backup first (mandatory)** — **DONE 2026-08-14**  
+   - Runbook + checksums: [`docs/ops/TRL5-BACKUP.md`](../ops/TRL5-BACKUP.md) stamp **`20260814-000958`**.  
+   - Remote: `/opt/FilantropiaSolar/backups/trl5-20260814-000958/` (+ bundle `.tgz`).  
+   - Local (gitignored): `nextcloud-app/.local-backups/trl5-20260814-000958/`.  
+   - Odoo full `pg_dump -Fc` 4.5M; NC `mysqldump` gz; COW `page_inicio` arch_len **235554**.  
+   - TRL5 NC app **at backup time:** 3.1.1 (cutover still needed for 3.2.26).  
    - **Never** `reset_website_cows=1` without a restore path.
 
-2. Confirm automated table above is green on the `main` SHA you deploy (currently `ad444b7`+).
+2. Confirm automated table above is green on the `main` SHA you deploy (currently `59d3bb5`+ / PR #31 merge `ad444b7`+).
 
 ### Deploy sequence
 
@@ -154,10 +176,10 @@ docker compose --profile odoo up -d odoo
 
 | Item | Pass | Initials | Date |
 |------|------|----------|------|
-| Backup taken | | | |
+| Backup taken | **Y** (`20260814-000958`) | eng | 2026-08-14 |
 | NC 3.2.26+ + upgrade | | | |
 | Odoo 19.0.2.22.0 | | | |
-| COW map OK | | | |
+| COW map OK | pre-check **Y** (arch_len 235554 at backup) | eng | 2026-08-14 |
 | Webhook/token OK | | | |
 | ML hourly OK | | | |
 | ML production accuracy gate | | | |
@@ -167,6 +189,7 @@ docker compose --profile odoo up -d odoo
 
 ## Related
 
+- `docs/ops/TRL5-BACKUP.md`  
 - `docs/ops/SERIES-SIM-GRID-ADMIN.md`  
 - `docs/ops/CRM-NC-LIFECYCLE-MIRROR.md`  
 - `docs/ops/ODOO-WEBSITE-COW-VIEWS.md`  

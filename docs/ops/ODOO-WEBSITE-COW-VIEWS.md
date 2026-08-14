@@ -43,6 +43,13 @@ Header/footer theme templates (`website.template_header_*`,
 `website.footer_*`) are separate; enable via `theme.utils.enable_view`,
 do not mass-delete.
 
+## Full stack backup (Odoo + NC)
+
+For mandatory pre-cutover backups (Odoo DB **and** Nextcloud MySQL), use:
+
+- Runbook: [`TRL5-BACKUP.md`](./TRL5-BACKUP.md)
+- Latest documented run: **20260814-000958** on `wera-ss-pt-tv-1` (COW `page_inicio` arch_len **235554**; NC app was **3.1.1** at snapshot)
+
 ## Before shipping to TRL5
 
 1. **Backup** published website (or full DB):
