@@ -4,6 +4,20 @@ All notable changes to the Nextcloud app component. The desktop application
 has its own changelog at the repository root (`CHANGELOG.md`).
 This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.2.27] - 2026-08-14
+
+### Fixed
+- Public map station list rebuilds from `FS_STATIONS` when Website COW lacks clickable items
+- CRM station name no longer forced back to organisation; grid_connection_type CRM→NC profile sync
+- Candidatura step 3: on-grid/off-grid; hide bill/price fields for off-grid
+- NC admin URL for Odoo dashboard points at AIO/Tailscale app path
+- Header version badge; favicon from `img/app.png`
+- KPI totals exclude virtual stations
+- Upload historical: computer file input overlay; NC filepicker z-index above analytics
+
+### Changed
+- Odoo public module **19.0.2.23.0**
+
 ## [3.2.26] - 2026-08-14
 
 ### Added

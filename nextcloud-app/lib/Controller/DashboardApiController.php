@@ -65,10 +65,21 @@ class DashboardApiController extends OCSController
             // Fallback to database
             try {
                 $installations = $this->mapper->findAllByUser($this->userId);
-                $totalCount = count($installations);
+                $totalCount = 0;
                 $totalCapacity = 0.0;
 
                 foreach ($installations as $installation) {
+                    // Headline KPIs exclude virtual stations
+                    if (method_exists($installation, 'getIsVirtual') && $installation->getIsVirtual()) {
+                        continue;
+                    }
+                    $lc = method_exists($installation, 'getLifecycleState')
+                        ? (string) ($installation->getLifecycleState() ?? '')
+                        : '';
+                    if ($lc === 'virtual') {
+                        continue;
+                    }
+                    $totalCount++;
                     $totalCapacity += (float) $installation->getCapacityKwp();
                 }
 

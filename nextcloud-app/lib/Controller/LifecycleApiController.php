@@ -482,6 +482,13 @@ class LifecycleApiController extends ApiController
 			$station->setGridPriceKwh((string) $payload['grid_price_kwh']);
 			$dirty = true;
 		}
+		if (array_key_exists('grid_connection_type', $payload)) {
+			$gct = strtolower(trim((string) $payload['grid_connection_type']));
+			if (in_array($gct, ['on_grid', 'off_grid'], true)) {
+				$station->setGridConnectionType($gct);
+				$dirty = true;
+			}
+		}
 
 		if ($dirty) {
 			$station->setUpdatedAt(new DateTime());

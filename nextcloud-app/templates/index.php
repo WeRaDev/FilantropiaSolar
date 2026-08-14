@@ -12,6 +12,17 @@ Util::addScript('filantropia_solar', 'vendor');
 Util::addScript('filantropia_solar', 'filantropia_solar-main');
 Util::addStyle('filantropia_solar', 'filantropia_solar-main');
 ?>
+<?php
+// App favicon (overrides browser tab icon while in FilantropiaSolar)
+try {
+    $fg = \OC::$server->get(\OCP\IURLGenerator::class);
+    $icon = $fg->imagePath('filantropia_solar', 'app.png');
+    echo '<link rel="icon" type="image/png" href="' . \OCP\Util::sanitizeHTML($icon) . '">';
+    echo '<link rel="apple-touch-icon" href="' . \OCP\Util::sanitizeHTML($icon) . '">';
+} catch (\Throwable $e) {
+    // ignore
+}
+?>
 
 <div id="app-content">
     <!-- Vue.js Application Mount Point -->

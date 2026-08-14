@@ -104,8 +104,18 @@ export const useAppStore = defineStore('app', {
             return result
         },
 
-        // KPI calculations
-        totalObjects: (state) => state.objects.length,
+        // KPI calculations — exclude virtual (and soft-removed) from headline stats
+        _opsObjects: (state) => state.objects.filter((o) => {
+            const lc = o.lifecycle_state || o.customData?.lifecycleState || 'running'
+            return !o.soft_removed && lc !== 'virtual'
+        }),
+
+        totalObjects: (state) => {
+            return state.objects.filter((o) => {
+                const lc = o.lifecycle_state || o.customData?.lifecycleState || 'running'
+                return !o.soft_removed && lc !== 'virtual'
+            }).length
+        },
         
         activeObjectsCount: (state) => 
             state.objects.filter(o => (o.status || 'active') === 'active').length,
@@ -117,7 +127,12 @@ export const useAppStore = defineStore('app', {
             state.objects.filter(o => o.status === 'offline').length,
 
         totalCapacity: (state) => 
-            state.objects.reduce((sum, o) => sum + parseFloat(o.capacity_kwp || 0), 0),
+            state.objects
+                .filter((o) => {
+                    const lc = o.lifecycle_state || o.customData?.lifecycleState || 'running'
+                    return !o.soft_removed && lc !== 'virtual'
+                })
+                .reduce((sum, o) => sum + parseFloat(o.capacity_kwp || 0), 0),
 
         virtualCount: (state) =>
             state.objects.filter(o => (o.lifecycle_state || o.customData?.lifecycleState) === 'virtual' && !o.soft_removed).length,
@@ -137,9 +152,19 @@ export const useAppStore = defineStore('app', {
                 return !o.soft_removed && lc === 'running' && !(o.has_measured_data || o.status === 'active')
             }).length,
         totalEnergyKwh: (state) =>
-            state.objects.reduce((sum, o) => sum + Number(o.total_production_kwh || 0), 0),
+            state.objects
+                .filter((o) => {
+                    const lc = o.lifecycle_state || o.customData?.lifecycleState || 'running'
+                    return !o.soft_removed && lc !== 'virtual'
+                })
+                .reduce((sum, o) => sum + Number(o.total_production_kwh || 0), 0),
         totalSavingsEur: (state) =>
-            state.objects.reduce((sum, o) => sum + Number(o.total_savings_eur || 0), 0),
+            state.objects
+                .filter((o) => {
+                    const lc = o.lifecycle_state || o.customData?.lifecycleState || 'running'
+                    return !o.soft_removed && lc !== 'virtual'
+                })
+                .reduce((sum, o) => sum + Number(o.total_savings_eur || 0), 0),
 
         // Group objects by location for map clustering
         objectsByLocation: (state) => {

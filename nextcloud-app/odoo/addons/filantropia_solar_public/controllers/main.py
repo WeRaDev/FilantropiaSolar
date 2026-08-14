@@ -880,6 +880,13 @@ class FilantropiaSolarPublicController(http.Controller):
         step3_price_kwh = (post.get("step3_price_kwh") or "").strip()
         step3_usage_pattern = (post.get("step3_usage_pattern") or "").strip()
         step3_description = (post.get("step3_description") or "").strip()
+        step3_grid_connection = (post.get("step3_grid_connection") or "on_grid").strip().lower()
+        if step3_grid_connection not in ("on_grid", "off_grid"):
+            step3_grid_connection = "on_grid"
+        if step3_grid_connection == "off_grid":
+            # Off-grid: no grid bill / kWh price questions
+            step3_monthly_spend = ""
+            step3_price_kwh = ""
         # Recompute estimate from ML when possible; fall back to posted payload
         loc_label = self._location_label(location, location_custom)
         estimate = {}
@@ -920,6 +927,7 @@ class FilantropiaSolarPublicController(http.Controller):
             f"- Descrição: {step2_description}",
             "",
             "Padrão de consumo:",
+            f"- Ligação à rede: {step3_grid_connection}",
             f"- Gasto mensal: {step3_monthly_spend} EUR",
             f"- Preço/kWh: {step3_price_kwh}",
             f"- Padrão: {step3_usage_pattern}",
@@ -943,7 +951,8 @@ class FilantropiaSolarPublicController(http.Controller):
             "fs_station_location_label": loc_label or False,
             "fs_station_latitude": self._as_float(location_lat, 0.0),
             "fs_station_longitude": self._as_float(location_lng, 0.0),
-            "fs_station_capacity_kwp": kwp,
+            "fs_station_grid_connection_type": step3_grid_connection,
+                    "fs_station_capacity_kwp": kwp,
             "fs_station_website": website,
             "fs_station_short_description": step2_description or False,
             "fs_nc_sync_state": "pending",

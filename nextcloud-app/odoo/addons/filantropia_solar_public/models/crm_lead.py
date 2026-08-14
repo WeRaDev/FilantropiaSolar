@@ -122,10 +122,12 @@ class CrmLead(models.Model):
             vals["fs_nc_lifecycle_state"] = station["lifecycle_state"]
         # Prefer NC snapshot when present so CRM stays symmetrical with NC.
         if station.get("name"):
-            vals["partner_name"] = station["name"]
-            # Keep opportunity title aligned for mirrored stations.
+            # Keep station title (name) in sync; only seed partner_name when empty
+            # so org rename is not forced back onto a custom station name.
             if self.fs_nc_installation_id or station.get("installation_id"):
                 vals["name"] = station["name"]
+            if not (self.partner_name or "").strip():
+                vals["partner_name"] = station["name"]
         if station.get("location") is not None:
             vals["fs_station_location_label"] = station.get("location") or False
             vals["city"] = station.get("location") or False
@@ -329,8 +331,11 @@ class CrmLead(models.Model):
         website = (self.fs_station_website or self.website or "").strip()
         if website and not website.lower().startswith(("http://", "https://")):
             website = "https://" + website
+        # Station display name: opportunity name is the editable station title.
+        # partner_name stays the organisation; do not overwrite a custom station name.
+        station_name = (self.name or "").strip() or (self.partner_name or "").strip() or f"Lead {self.id}"
         payload = {
-            "name": self.partner_name or self.name or f"Lead {self.id}",
+            "name": station_name,
             "location_label": self.fs_station_location_label or self.city or "",
             "latitude": float(self.fs_station_latitude or 0.0),
             "longitude": float(self.fs_station_longitude or 0.0),
@@ -344,6 +349,9 @@ class CrmLead(models.Model):
             and self.fs_station_grid_price_kwh is not None
         ):
             payload["grid_price_kwh"] = float(self.fs_station_grid_price_kwh or 0.0)
+        gct = (self.fs_station_grid_connection_type or "").strip().lower()
+        if gct in ("on_grid", "off_grid"):
+            payload["grid_connection_type"] = gct
         try:
             result = self._fs_client().update_profile(
                 key, payload, actor=f"odoo-lead-{self.id}"
@@ -535,6 +543,7 @@ class CrmLead(models.Model):
         "fs_station_website",
         "fs_station_short_description",
         "fs_station_grid_price_kwh",
+        "fs_station_grid_connection_type",
     }
 
     def write(self, vals):

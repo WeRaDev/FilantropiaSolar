@@ -105,6 +105,58 @@
         return mapEl;
     }
 
+
+    function ensureStationList(stations) {
+        var ul = document.querySelector("#fs-stations-expand .fs-station-list, ul.fs-station-list");
+        if (!ul) {
+            var expand = document.getElementById("fs-stations-expand");
+            if (!expand) {
+                return;
+            }
+            ul = document.createElement("ul");
+            ul.className = "list-unstyled fs-station-list mb-0";
+            expand.appendChild(ul);
+        }
+        // Rebuild list from live FS_STATIONS so COW pages without list markup still work
+        if (!stations || !stations.length) {
+            return;
+        }
+        ul.innerHTML = "";
+        stations.forEach(function (s) {
+            var st = statusInfo(s);
+            var li = document.createElement("li");
+            li.className = "fs-station-list-item fs-station-item";
+            var sid = stationKey(s);
+            if (sid) li.setAttribute("data-station-id", sid);
+            var lat = normalizeCoord(s.latitude);
+            var lng = normalizeCoord(s.longitude);
+            if (isFinite(lat)) li.setAttribute("data-lat", String(lat));
+            if (isFinite(lng)) li.setAttribute("data-lng", String(lng));
+            if (st.cat) li.setAttribute("data-status", st.cat);
+            var title = document.createElement("div");
+            title.className = "fs-station-title-row";
+            var strong = document.createElement("strong");
+            strong.textContent = s.name || "Station";
+            title.appendChild(strong);
+            if (st.label) {
+                var badge = document.createElement("span");
+                badge.className = "fs-status-badge fs-status-" + st.cat;
+                badge.textContent = st.label;
+                title.appendChild(badge);
+            }
+            li.appendChild(title);
+            var meta = document.createElement("div");
+            meta.className = "fs-station-meta text-muted small";
+            meta.textContent =
+                (s.location || "") +
+                " | " +
+                (s.capacity_kwp != null ? s.capacity_kwp : 0) +
+                " kWp";
+            li.appendChild(meta);
+            ul.appendChild(li);
+        });
+    }
+
     function bindListClicks(focusStation) {
         document.querySelectorAll(".fs-station-list-item").forEach(function (el) {
             if (el.getAttribute("data-fs-map-bound") === "1") {
@@ -139,12 +191,14 @@
             return false;
         }
         if (window.FS_MAP && window.FS_MAP_READY) {
+            ensureStationList(window.FS_STATIONS || []);
             bindListClicks(window.FS_FOCUS_STATION);
             return true;
         }
 
         mapEl = cleanMapHost(mapEl);
         var stations = window.FS_STATIONS || [];
+        ensureStationList(stations);
         var map = L.map(mapEl, { scrollWheelZoom: true });
         L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
             maxZoom: 18,

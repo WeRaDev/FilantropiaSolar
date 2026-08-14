@@ -301,7 +301,7 @@ export default {
 .upload-historical-overlay {
 	position: fixed;
 	inset: 0;
-	z-index: 20050;
+	z-index: 100050;
 	background: rgba(0, 0, 0, 0.55);
 	display: flex;
 	align-items: center;
@@ -399,6 +399,7 @@ export default {
 	color: #ffffff;
 }
 .file-upload-area {
+	position: relative;
 	border: 1px dashed #666;
 	border-radius: 8px;
 	padding: 28px 12px;
@@ -407,6 +408,23 @@ export default {
 	background: #fafafa;
 	font-size: 13px;
 	color: #000000;
+	overflow: hidden;
+	min-height: 88px;
+}
+.file-input-overlay {
+	position: absolute;
+	inset: 0;
+	width: 100%;
+	height: 100%;
+	opacity: 0;
+	cursor: pointer;
+	z-index: 2;
+	font-size: 0;
+}
+.file-upload-label {
+	position: relative;
+	z-index: 1;
+	pointer-events: none;
 }
 .file-upload-area:hover {
 	border-color: #000;
@@ -470,3 +488,13 @@ export default {
 	cursor: not-allowed;
 }
 </style>
+<style>
+/* OC.dialogs.filepicker must sit above analytics (10000) and our upload card */
+.oc-dialog, .oc-dialog-dim, .toastify, .modal-mask {
+	z-index: 100100 !important;
+}
+.oc-dialog {
+	position: fixed !important;
+}
+</style>
+

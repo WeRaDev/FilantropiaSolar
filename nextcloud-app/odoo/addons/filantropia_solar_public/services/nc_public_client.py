@@ -34,14 +34,25 @@ def public_token() -> str:
 
 
 def nc_admin_url() -> str:
+    """Operator UI for FilantropiaSolar app (AIO on TRL5 after cutover)."""
     explicit = (os.environ.get("FS_NC_ADMIN_URL") or "").strip()
     if explicit:
-        return explicit
+        return explicit.rstrip("/") + (
+            "" if explicit.rstrip("/").endswith("filantropia_solar") else "/apps/filantropia_solar/"
+        )
+    # Prefer public browser origin when API base is an internal Docker hostname
+    for key in ("FS_NC_PUBLIC_ORIGIN", "WEBSITE_NC_URL"):
+        origin = (os.environ.get(key) or "").strip().rstrip("/")
+        if origin:
+            return origin + "/apps/filantropia_solar/"
     base = public_base_url()
-    # .../apps/filantropia_solar/api/public/v1 -> .../apps/filantropia_solar/
+    # Internal docker hosts are not clickable from the operator browser
+    if any(h in base for h in ("filantropia-nextcloud", "nextcloud-aio-", "localhost", "127.0.0.1")):
+        # TRL5 AIO is the single NC instance — use public HTTPS host when known
+        return "https://wera-ss-pt-tv-1.tailfb390c.ts.net/apps/filantropia_solar/"
     if "/apps/filantropia_solar" in base:
         return base.split("/apps/filantropia_solar")[0] + "/apps/filantropia_solar/"
-    return base
+    return base.rstrip("/") + "/apps/filantropia_solar/"
 
 
 class NcPublicClient:

@@ -17,7 +17,7 @@
 				<h1 class="app-title">FilantropiaSolar</h1>
 				<span class="app-tagline">built by <span class="wera-we">we</span><span class="wera-ra">ra</span></span>
 			</div>
-			<span class="app-version">v3.2.4</span>
+			<span class="app-version">v3.2.27</span>
 		</div>
 
 		<div class="kpi-container">
