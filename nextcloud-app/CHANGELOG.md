@@ -4,6 +4,20 @@ All notable changes to the Nextcloud app component. The desktop application
 has its own changelog at the repository root (`CHANGELOG.md`).
 This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.2.30] - 2026-08-14
+
+### Fixed
+- Restore original `app.png` asset (no generated icon)
+- Series/dataset range labels use only `series_from_date`/`series_to_date` (not install date)
+- View dataset opens full NC series table for validation (not Analysis)
+- Historical analysis never ML-generates; NC readings only (no weather fetch fill)
+
+### Added
+- `ViewDatasetModal` + NC-backed `GET .../readings` with capacity/price/savings columns
+
+### Changed
+- App version **3.2.30**
+
 ## [3.2.29] - 2026-08-14
 
 ### Fixed

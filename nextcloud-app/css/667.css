@@ -1,0 +1,57 @@
+
+.modal-overlay[data-v-e12b2484] {
+	position: fixed; inset: 0; background: rgba(0, 0, 0, 0.55);
+	display: flex; align-items: center; justify-content: center;
+	z-index: 12000; padding: 16px;
+}
+.modal-card[data-v-e12b2484] {
+	width: min(1100px, 96vw); height: min(85vh, 900px);
+	background: #fff; color: #111; border-radius: 12px;
+	display: flex; flex-direction: column; overflow: hidden;
+	box-shadow: 0 16px 48px rgba(0, 0, 0, 0.35);
+}
+.modal-head[data-v-e12b2484] {
+	display: flex; justify-content: space-between; gap: 12px;
+	padding: 12px 16px; border-bottom: 1px solid #e6e6e6; background: #fafafa;
+}
+.modal-head h3[data-v-e12b2484] { margin: 0 0 4px; font-size: 16px;
+}
+.sub[data-v-e12b2484] { margin: 0; font-size: 12px; color: #555;
+}
+.x[data-v-e12b2484], .btn[data-v-e12b2484] {
+	border: 1px solid #ccc; background: #fff; border-radius: 6px;
+	padding: 6px 10px; cursor: pointer; font-size: 12px;
+}
+.btn[data-v-e12b2484]:disabled { opacity: 0.5; cursor: not-allowed;
+}
+.toolbar[data-v-e12b2484] {
+	display: flex; flex-wrap: wrap; gap: 10px; align-items: end;
+	padding: 10px 16px; border-bottom: 1px solid #eee;
+}
+.toolbar label[data-v-e12b2484] { display: grid; gap: 2px; font-size: 11px; font-weight: 600; color: #444;
+}
+.toolbar input[data-v-e12b2484] { border: 1px solid #ccc; border-radius: 6px; padding: 6px 8px; font-size: 12px;
+}
+.table-wrap[data-v-e12b2484] { flex: 1; overflow: auto; padding: 0 0 8px;
+}
+table[data-v-e12b2484] { width: 100%; border-collapse: collapse; font-size: 12px;
+}
+th[data-v-e12b2484], td[data-v-e12b2484] { border-bottom: 1px solid #eee; padding: 6px 8px; text-align: left; white-space: nowrap;
+}
+th[data-v-e12b2484] { position: sticky; top: 0; background: #f7f7f7; z-index: 1;
+}
+.mono[data-v-e12b2484] { font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+.prov[data-v-e12b2484] { padding: 1px 6px; border-radius: 999px; font-size: 11px; font-weight: 600;
+}
+.prov.measured[data-v-e12b2484] { background: #e8f5e9; color: #2e7d32;
+}
+.prov.simulated[data-v-e12b2484] { background: #fff8e1; color: #f9a825;
+}
+.err[data-v-e12b2484] { color: #c62828; padding: 0 16px; font-size: 12px;
+}
+.muted[data-v-e12b2484] { color: #777; padding: 0 16px 8px; font-size: 12px; margin: 0;
+}
+.empty[data-v-e12b2484] { text-align: center; color: #888; padding: 24px !important;
+}
+

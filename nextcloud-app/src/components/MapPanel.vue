@@ -394,14 +394,17 @@ export default {
         }
 
         const datasetRangeLabel = (obj) => {
-            const from = obj?.series_from_date || obj?.customData?.seriesFromDate || obj?.customData?.fromDate || obj?.from_date
-            const to = obj?.series_to_date || obj?.customData?.seriesToDate || obj?.customData?.toDate || obj?.to_date
+            // Ops series bounds only — never training Excel from/to or install date.
+            const from = obj?.series_from_date || obj?.customData?.seriesFromDate
+            const to = obj?.series_to_date || obj?.customData?.seriesToDate
             const f = from ? String(from).slice(0, 10) : null
             const t = to ? String(to).slice(0, 10) : null
             if (f && t) return `${f} → ${t}`
             if (f) return `from ${f}`
             if (t) return `to ${t}`
-            return obj?.has_series_data ? 'Series present' : 'No series yet'
+            const n = Number(obj?.readings_count || 0)
+            if (n > 0) return `${n} hours (bounds pending)`
+            return 'No series yet — Populate dataset'
         }
 
         // Watch for filtered object changes (list chips / search)

@@ -165,11 +165,14 @@ export default {
 		const seriesRangeLabel = computed(() => {
 			const o = selectedObject.value
 			if (!o) return '—'
-			const from = (o.series_from_date || o.customData?.seriesFromDate || o.installation_date || o.customData?.installationDate || '').toString().slice(0, 10)
+			// Series bounds only (not installation date)
+			const from = (o.series_from_date || o.customData?.seriesFromDate || '').toString().slice(0, 10)
 			const to = (o.series_to_date || o.customData?.seriesToDate || '').toString().slice(0, 10)
 			if (from && to) return `${from} → ${to}`
 			if (from) return `from ${from} (no series end yet)`
-			return o.has_series_data ? 'Series present' : 'No series yet — use Populate dataset'
+			const n = Number(o.readings_count || 0)
+			if (n > 0) return `${n} hours (bounds pending)`
+			return 'No series yet — use Populate dataset'
 		})
 
 		const destroyMap = () => {
@@ -348,9 +351,8 @@ export default {
 
 		const viewDataset = () => {
 			if (!selectedObject.value) return
-			// Open Analysis in Historical mode on latest series day
-			store.openAnalyticsModal(selectedObject.value.id)
-			close()
+			// Full series table for manual validation (not Analysis charts)
+			store.openViewDatasetModal()
 		}
 
 		const populateDataset = async () => {

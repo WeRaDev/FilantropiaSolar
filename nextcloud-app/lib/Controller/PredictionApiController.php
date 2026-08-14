@@ -220,13 +220,31 @@ class PredictionApiController extends OCSController
                 );
             }
 
-            // Ops historical: serve NC series (never ML Excel) when station resolves in DB
-            // and is not a pure Mendeley dataset-only request without NC rows.
+            // Ops historical: NC series only (measured+populated). Never ML generate/fill.
             if ($mode === 'historical') {
                 $nc = $this->buildNcHistoricalPeriod($requestData, $centerDate, max(1, $days));
                 if ($nc !== null) {
                     return new JSONResponse($nc);
                 }
+                // Station resolved as ops with empty series: honest empty payload (do not ML-generate).
+                return new JSONResponse([
+                    'success' => true,
+                    'mode' => 'historical',
+                    'series_source' => 'nc_readings',
+                    'series_label' => 'none',
+                    'data_mode_label' => 'NO SERIES DATA',
+                    'weather_source' => 'none',
+                    'provenance_mix' => ['measured' => 0, 'simulated' => 0, 'total' => 0],
+                    'hourly_data' => [],
+                    'daily_data' => [],
+                    'period_statistics' => [
+                        'total_production_kwh' => 0,
+                        'hours' => 0,
+                        'days' => max(1, $days),
+                    ],
+                    'error' => null,
+                    'message' => 'No NC series for this window. Use Edit → Populate dataset.',
+                ]);
             }
 
             // Predicted/sim: enrich body from NC station so ML never depends on Excel ids
@@ -381,66 +399,10 @@ class PredictionApiController extends OCSController
             $byHour[$key] = $r;
         }
 
-        // Weather overlay (best-effort)
+        // Historical: do not fetch/generate weather — series rows already carry weather columns when populated.
         $weatherByHour = [];
-        $weatherSource = 'none';
-        try {
-            $wx = $this->weatherService->getHourlyWeatherByCoords(
-                (float) $station->getLatitude(),
-                (float) $station->getLongitude(),
-                $startDt,
-                $endDt,
-                preferHistorical: true,
-            );
-            if (is_array($wx) && !empty($wx['hourly'])) {
-                $weatherSource = (string) ($wx['source'] ?? 'api');
-                $times = $wx['hourly']['time'] ?? [];
-                // normalized shape may differ — handle list of entries
-            }
-            if (is_array($wx)) {
-                // WeatherService normalizeWeatherData returns list under hourly entries
-                $hourly = $wx['hourly'] ?? $wx;
-                if (isset($hourly[0]) && is_array($hourly[0])) {
-                    foreach ($hourly as $row) {
-                        $t = (string) ($row['timestamp'] ?? $row['time'] ?? '');
-                        if ($t === '') {
-                            continue;
-                        }
-                        try {
-                            $dt = new DateTimeImmutable($t);
-                            $k = AppTimezone::formatHourKey($dt);
-                            $weatherByHour[$k] = $row;
-                        } catch (\Throwable) {
-                            continue;
-                        }
-                    }
-                    $weatherSource = (string) ($wx['source'] ?? $weatherSource ?: 'api');
-                } elseif (isset($hourly['time']) && is_array($hourly['time'])) {
-                    $n = count($hourly['time']);
-                    for ($i = 0; $i < $n; $i++) {
-                        try {
-                            $dt = new DateTimeImmutable((string) $hourly['time'][$i]);
-                            $k = AppTimezone::formatHourKey($dt);
-                            $weatherByHour[$k] = [
-                                'temperature' => $hourly['temperature_2m'][$i] ?? null,
-                                'temperature_2m' => $hourly['temperature_2m'][$i] ?? null,
-                                'cloud_cover' => $hourly['cloud_cover'][$i] ?? null,
-                                'humidity' => $hourly['relative_humidity_2m'][$i] ?? null,
-                                'relative_humidity_2m' => $hourly['relative_humidity_2m'][$i] ?? null,
-                                'wind_speed' => $hourly['wind_speed_10m'][$i] ?? null,
-                                'wind_speed_10m' => $hourly['wind_speed_10m'][$i] ?? null,
-                                'shortwave_radiation' => $hourly['shortwave_radiation'][$i] ?? null,
-                            ];
-                        } catch (\Throwable) {
-                            continue;
-                        }
-                    }
-                    $weatherSource = 'api';
-                }
-            }
-        } catch (\Throwable $e) {
-            $this->logger->debug('NC historical weather overlay failed', ['exception' => $e]);
-        }
+        $weatherSource = 'series';
+
 
         $hourly = [];
         $cursor = $startDay;
@@ -478,17 +440,17 @@ class PredictionApiController extends OCSController
                 'hour' => (int) $cursor->format('G'),
                 'production_kwh' => $production,
                 'provenance' => $provenance,
-                'temperature' => isset($wx['temperature']) ? (float) $wx['temperature']
-                    : (isset($wx['temperature_2m']) ? (float) $wx['temperature_2m']
-                    : ($reading?->getTemperatureFloat() ?: null)),
-                'cloud_cover' => isset($wx['cloud_cover']) ? (float) $wx['cloud_cover']
-                    : ($reading?->getCloudCoverPct() !== null ? (float) $reading->getCloudCoverPct() : null),
+                'temperature' => $reading?->getTemperatureFloat()
+                    ?? (isset($wx['temperature']) ? (float) $wx['temperature'] : null)
+                    ?? (isset($wx['temperature_2m']) ? (float) $wx['temperature_2m'] : null),
+                'cloud_cover' => $reading?->getCloudCoverPct() !== null ? (float) $reading->getCloudCoverPct()
+                    : (isset($wx['cloud_cover']) ? (float) $wx['cloud_cover'] : null),
                 'humidity' => isset($wx['humidity']) ? (float) $wx['humidity']
                     : (isset($wx['relative_humidity_2m']) ? (float) $wx['relative_humidity_2m'] : null),
                 'wind_speed' => isset($wx['wind_speed']) ? (float) $wx['wind_speed']
                     : (isset($wx['wind_speed_10m']) ? (float) $wx['wind_speed_10m'] : null),
-                'shortwave_radiation' => isset($wx['shortwave_radiation']) ? (float) $wx['shortwave_radiation']
-                    : ($reading?->getRadiationFloat() ?: null),
+                'shortwave_radiation' => $reading?->getRadiationFloat()
+                    ?? (isset($wx['shortwave_radiation']) ? (float) $wx['shortwave_radiation'] : null),
             ];
             $cursor = $cursor->add(new DateInterval('PT1H'));
         }

@@ -41,6 +41,9 @@ export const useAppStore = defineStore('app', {
         // Edit station modal
         editStationModalOpen: false,
 
+        // View full NC series dataset (manual validation)
+        viewDatasetModalOpen: false,
+
         // Upload measured historical readings
         uploadHistoricalModalOpen: false,
 
@@ -208,8 +211,9 @@ export const useAppStore = defineStore('app', {
                         },
                         customData: {
                             serialNumber: inst.serial_number,
-                            fromDate: inst.from_date || inst.series_from_date || null,
-                            toDate: inst.to_date || inst.series_to_date || null,
+                            // Training Excel bounds (dataset only) — do not mix with ops series
+                            fromDate: inst.source === 'dataset' ? (inst.from_date || null) : null,
+                            toDate: inst.source === 'dataset' ? (inst.to_date || null) : null,
                             installedAt: inst.installed_at || null,
                             installationDate: inst.installation_date || null,
                             seriesFromDate: inst.series_from_date || null,
@@ -532,6 +536,24 @@ export const useAppStore = defineStore('app', {
         },
         closeEditStationModal() {
             this.editStationModalOpen = false
+        },
+        openViewDatasetModal() {
+            this.viewDatasetModalOpen = true
+        },
+        closeViewDatasetModal() {
+            this.viewDatasetModalOpen = false
+        },
+        async fetchStationSeries(objectId, { from, to, limit } = {}) {
+            const key = this.stationApiKey(objectId)
+            const params = {}
+            if (from) params.from = from
+            if (to) params.to = to
+            if (limit) params.limit = limit
+            const response = await axios.get(
+                generateUrl(`/apps/filantropia_solar/api/v1/installations/${encodeURIComponent(key)}/readings`),
+                { params },
+            )
+            return response.data
         },
         openUploadHistoricalModal() {
             this.uploadHistoricalModalOpen = true
