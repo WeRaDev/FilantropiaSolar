@@ -92,7 +92,7 @@ Ops run lifecycle on **Nextcloud admin**; CRM stages mirror NC (**Qualified→Vi
 
 ### MVP-7 — Automated + manual gates  
 **Maps:** D10  
-**Status:** Automated gates green; **local CRM lifecycle script signed** (2026-08-14); **TRL5 backup** `20260814-000958`. TRL5 deploy to NC 3.2.26+ still open.  
+**Status:** Automated gates green; local CRM script signed; **TRL5 deployed** NC **3.2.26** + Odoo **19.0.2.22.0** (2026-08-14). Optional: browser analytics smoke; ops fleet seed for public map.  
 
 - Tests: promote/remove; Won noop; public filter.  
 - Manual script: form → New (no NC) → Qualify → Virtual → Proposition → Planned on map → Installed → Running/Existing.  

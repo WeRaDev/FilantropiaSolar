@@ -1,6 +1,6 @@
 # MVP-7 — Automated + manual gates + TRL5 deploy
 
-**Status:** Automated gates green on `main` (PR #31 / NC **3.2.26**). **Local CRM lifecycle script signed eng 2026-08-14** (lead 56 → NC 38). **TRL5 backup taken** (`20260814-000958`, see `docs/ops/TRL5-BACKUP.md`). TRL5 code cutover (3.2.26 deploy) and remaining TRL5 smoke sign-off still open.  
+**Status:** Automated gates green; local CRM script signed; **TRL5 backup** `20260814-000958`; **TRL5 cutover deployed 2026-08-14** (NC **3.2.26**, Odoo module **19.0.2.22.0**). Remaining: optional browser analytics smoke + ops fleet seed (public API correctly empty while only `source=dataset` stations exist).  
 **Depends on:** MVP-1…6, series epic (NC 3.2.16+ / Odoo 19.0.2.22.0), analytics PR #31.
 
 ## Automated gates
@@ -156,6 +156,16 @@ docker compose --profile odoo up -d odoo
 - Backfill is incremental (`BACKFILL_CHUNK_DAYS = 7`); repeat runs catch up history.  
 - Note: `occ background-job:list` does **not** show interval; use `background-job:execute -vvv` (Next execution = last + 1h) or runtime `TimedJob::interval`.
 
+
+### Deploy log — 2026-08-14 (wera-ss-pt-tv-1)
+
+- Host path is **not** a git checkout; shipped via **tar stream** of `nextcloud-app/` + `docs/` from laptop `main` @ `e074c89` → `/opt/FilantropiaSolar/`.
+- Bind mount: `/opt/FilantropiaSolar/nextcloud-app` → NC `custom_apps/filantropia_solar` (and Odoo extra-addons / ML service tree).
+- `docker compose -f docker-compose.yml -f docker-compose.trl5.yml build ml-service && up -d --profile odoo`
+- `occ upgrade` → **filantropia_solar 3.2.26**; jobs: WeatherSync, Prediction, SeriesBackfill **52**, SeriesRollForward **53**
+- Odoo `-u filantropia_solar_public` → **19.0.2.22.0**; COW home arch_len unchanged **235554**
+- Public API empty is **expected** until non-dataset Planned/Running ops stations exist (Phase A fleet boundary). Seed/import CRM fleet separately if public map should list real sites.
+
 ### Post-deploy smoke
 
 | Check | Expect |
@@ -177,15 +187,16 @@ docker compose --profile odoo up -d odoo
 | Item | Pass | Initials | Date |
 |------|------|----------|------|
 | Backup taken | **Y** (`20260814-000958`) | eng | 2026-08-14 |
-| NC 3.2.26+ + upgrade | | | |
-| Odoo 19.0.2.22.0 | | | |
-| COW map OK | pre-check **Y** (arch_len 235554 at backup) | eng | 2026-08-14 |
-| Webhook/token OK | | | |
-| ML hourly OK | | | |
-| ML production accuracy gate | | | |
-| Series job smoke (1h interval) | | | |
-| Public site smoke | | | |
-| Analytics Historical + Predicted smoke | | | |
+| NC 3.2.26+ + upgrade | **Y** (`occ upgrade` → 3.2.26, needsDbUpgrade false) | eng | 2026-08-14 |
+| Odoo 19.0.2.22.0 | **Y** (`filantropia_solar_public` installed) | eng | 2026-08-14 |
+| COW map OK | **Y** (`page_inicio` arch_len **235554** post-upgrade) | eng | 2026-08-14 |
+| Webhook/token OK | **Y** (webhook URL set; token len 48; public API 401 without token) | eng | 2026-08-14 |
+| ML hourly OK | **Y** (`/health` healthy, 9 models) | eng | 2026-08-14 |
+| ML production accuracy gate | prior local PASS; TRL5 health OK (full PVGIS optional) | eng | 2026-08-14 |
+| Series job smoke (1h interval) | **Y** (job id **53** timed; next = last+1h) | eng | 2026-08-14 |
+| Public site smoke | **Y** (`/web/login`, `/inicio` 200; cloudflared up) | eng | 2026-08-14 |
+| Public API stations | **Y** (200 auth; **0** stations — only `source=dataset` on TRL5; filter excludes training corpus by design) | eng | 2026-08-14 |
+| Analytics Historical + Predicted smoke | | operator browser | |
 
 ## Related
 
