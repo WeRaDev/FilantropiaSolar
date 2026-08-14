@@ -70,10 +70,20 @@
 				<label>Short description
 					<textarea v-model="form.short_description" rows="3" placeholder="As shown on the public site" />
 				</label>
-				<label>Effective date
-					<input v-model="form.effective_date" type="date">
+				<label>Installation date (dataset start)
+					<input v-model="form.installation_date" type="date">
 				</label>
+				<div class="dataset-box">
+					<div class="dataset-label">Series / dataset range</div>
+					<div class="dataset-value">{{ seriesRangeLabel }}</div>
+					<div class="dataset-actions">
+						<button type="button" class="btn" :disabled="busy" @click="viewDataset">View dataset</button>
+						<button type="button" class="btn primary" :disabled="busy" @click="populateDataset">Populate dataset</button>
+					</div>
+					<p class="hint">Populate fills missing hours with ML simulation from installation date to now. Measured hours are never overwritten.</p>
+				</div>
 				<p v-if="error" class="err">{{ error }}</p>
+				<p v-if="info" class="ok">{{ info }}</p>
 			</div>
 			<footer class="modal-foot">
 				<button type="button" class="btn" :disabled="busy" @click="close">Cancel</button>
@@ -134,6 +144,7 @@ export default {
 		const selectedObject = computed(() => store.selectedObject)
 		const busy = ref(false)
 		const error = ref('')
+		const info = ref('')
 		const mapContainer = ref(null)
 		let map = null
 		let marker = null
@@ -148,7 +159,17 @@ export default {
 			grid_connection_type: 'on_grid',
 			website: '',
 			short_description: '',
-			effective_date: new Date().toISOString().slice(0, 10),
+			installation_date: new Date().toISOString().slice(0, 10),
+		})
+
+		const seriesRangeLabel = computed(() => {
+			const o = selectedObject.value
+			if (!o) return '—'
+			const from = (o.series_from_date || o.customData?.seriesFromDate || o.installation_date || o.customData?.installationDate || '').toString().slice(0, 10)
+			const to = (o.series_to_date || o.customData?.seriesToDate || '').toString().slice(0, 10)
+			if (from && to) return `${from} → ${to}`
+			if (from) return `from ${from} (no series end yet)`
+			return o.has_series_data ? 'Series present' : 'No series yet — use Populate dataset'
 		})
 
 		const destroyMap = () => {
@@ -230,8 +251,14 @@ export default {
 			form.grid_price_kwh = Number(o.grid_price_kwh ?? o.customData?.gridPriceKwh ?? 0.15)
 			form.website = o.website || o.customData?.website || ''
 			form.short_description = o.short_description || o.customData?.shortDescription || ''
-			form.effective_date = new Date().toISOString().slice(0, 10)
+			form.installation_date = (
+				o.installation_date
+				|| o.customData?.installationDate
+				|| (o.installed_at || o.customData?.installedAt || '').toString().slice(0, 10)
+				|| new Date().toISOString().slice(0, 10)
+			)
 			error.value = ''
+			info.value = ''
 
 			if (form.locationChoice === 'custom') {
 				await nextTick()
@@ -309,11 +336,46 @@ export default {
 					grid_connection_type: form.grid_connection_type,
 					website: form.website,
 					short_description: form.short_description,
-					effective_date: form.effective_date,
+					installation_date: form.installation_date,
 				})
 				close()
 			} catch (e) {
 				error.value = e.response?.data?.error || e.message || 'Save failed'
+			} finally {
+				busy.value = false
+			}
+		}
+
+		const viewDataset = () => {
+			if (!selectedObject.value) return
+			// Open Analysis in Historical mode on latest series day
+			store.openAnalyticsModal(selectedObject.value.id)
+			close()
+		}
+
+		const populateDataset = async () => {
+			if (!selectedObject.value) return
+			if (!confirm('Populate missing series hours with ML simulation from installation date to now?\nMeasured hours will not be overwritten.')) {
+				return
+			}
+			busy.value = true
+			error.value = ''
+			info.value = ''
+			try {
+				// Persist install date first so populate uses the correct start
+				if (form.installation_date) {
+					await store.updateStation(selectedObject.value.id, {
+						installation_date: form.installation_date,
+					})
+				}
+				const res = await store.populateStationSeries(selectedObject.value.id, {
+					from: form.installation_date || undefined,
+				})
+				const r = res?.result || {}
+				info.value = `Populate done: inserted ${r.inserted ?? 0}, skipped existing ${r.skipped_existing ?? 0}, skipped measured ${r.skipped_measured ?? 0}. Range ${res?.series_from_date || '?'} → ${res?.series_to_date || '?'}`
+				await store.fetchObjects()
+			} catch (e) {
+				error.value = e.response?.data?.error || e.message || 'Populate failed'
 			} finally {
 				busy.value = false
 			}
@@ -325,10 +387,14 @@ export default {
 			form,
 			busy,
 			error,
+			info,
+			seriesRangeLabel,
 			locations: LOCATIONS,
 			mapContainer,
 			close,
 			save,
+			viewDataset,
+			populateDataset,
 			updateMapMarker,
 		}
 	},
@@ -368,6 +434,15 @@ export default {
 	overflow-y: auto;
 }
 label { display: grid; gap: 4px; font-size: 12px; color: #333; font-weight: 600; }
+.dataset-box {
+	border: 1px solid #e0e0e0; border-radius: 8px; padding: 10px 12px; background: #fafafa;
+	display: grid; gap: 8px;
+}
+.dataset-label { font-size: 12px; font-weight: 700; color: #333; }
+.dataset-value { font-size: 13px; color: #111; font-family: ui-monospace, monospace; }
+.dataset-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.hint { margin: 0; font-size: 11px; color: #666; font-weight: 400; line-height: 1.35; }
+.ok { color: #2e7d32; font-size: 12px; margin: 0; }
 input, textarea, select {
 	border: 1px solid #cfcfcf;
 	border-radius: 6px;

@@ -7,6 +7,7 @@ namespace OCA\FilantropiaSolar\Db;
 use OCA\FilantropiaSolar\Service\AppTimezone;
 
 use DateTime;
+use DateTimeImmutable;
 use OCP\AppFramework\Db\DoesNotExistException;
 use OCP\AppFramework\Db\MultipleObjectsReturnedException;
 use OCP\AppFramework\Db\QBMapper;
@@ -275,6 +276,38 @@ class EnergyReadingMapper extends QBMapper
         $row = $this->findByInstallationAndTimestamp($installationId, $ts);
         if ($row === null) {
             return null;
+        }
+
+        return $row->getProductionFloat();
+    }
+
+    /**
+     * Latest production at or before $until (Europe/Lisbon wall-clock hour keys).
+     * Used for Current efficiency when roll-forward has not yet filled the exact last hour.
+     */
+    public function findLatestProductionAtOrBefore(int $installationId, \DateTimeInterface $until): ?float
+    {
+        $untilLocal = DateTimeImmutable::createFromInterface($until)->setTimezone(AppTimezone::zone());
+        $untilStr = $untilLocal->setTime((int) $untilLocal->format('H'), 0, 0)->format('Y-m-d H:i:s');
+
+        $qb = $this->db->getQueryBuilder();
+        $qb->select('*')
+            ->from($this->getTableName())
+            ->where($qb->expr()->eq('installation_id', $qb->createNamedParameter($installationId, IQueryBuilder::PARAM_INT)))
+            ->andWhere($qb->expr()->lte('timestamp', $qb->createNamedParameter($untilStr)))
+            ->orderBy('timestamp', 'DESC')
+            ->setMaxResults(1);
+
+        try {
+            $row = $this->findEntity($qb);
+        } catch (DoesNotExistException $e) {
+            return null;
+        } catch (MultipleObjectsReturnedException $e) {
+            $entities = $this->findEntities($qb);
+            $row = $entities[0] ?? null;
+            if ($row === null) {
+                return null;
+            }
         }
 
         return $row->getProductionFloat();

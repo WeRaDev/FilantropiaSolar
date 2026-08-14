@@ -12,6 +12,7 @@ use OCA\FilantropiaSolar\Db\InstallationMapper;
 use OCA\FilantropiaSolar\Service\FilantropiaAccess;
 use OCA\FilantropiaSolar\Service\OdooLifecycleMirror;
 use OCA\FilantropiaSolar\Service\SavingsService;
+use OCA\FilantropiaSolar\Service\SeriesSimulationService;
 use OCA\FilantropiaSolar\Service\StationLifecycle;
 use OCP\AppFramework\ApiController;
 use OCP\AppFramework\Db\DoesNotExistException;
@@ -45,6 +46,7 @@ class InstallationApiController extends ApiController
         private readonly LoggerInterface $logger,
         private readonly OdooLifecycleMirror $odooMirror,
         private readonly FilantropiaAccess $access,
+        private readonly SeriesSimulationService $seriesService,
     ) {
         parent::__construct(Application::APP_ID, $request);
     }
@@ -255,7 +257,13 @@ class InstallationApiController extends ApiController
             if (array_key_exists('installation_date', $payload) || array_key_exists('effective_date', $payload) || array_key_exists('installationDate', $payload)) {
                 $raw = $payload['installation_date'] ?? $payload['effective_date'] ?? $payload['installationDate'];
                 if ($raw) {
-                    $installation->setInstallationDate(new DateTime((string) $raw));
+                    $dt = new DateTime((string) $raw);
+                    $installation->setInstallationDate($dt);
+                    // Keep installed_at aligned for running stations so ops start matches series populate
+                    $state = $installation->getLifecycleState() ?: '';
+                    if ($state === StationLifecycle::RUNNING || $state === '') {
+                        $installation->setInstalledAt(clone $dt);
+                    }
                 }
             }
             if (array_key_exists('grid_connection_type', $payload) || array_key_exists('gridConnectionType', $payload)) {
@@ -278,6 +286,91 @@ class InstallationApiController extends ApiController
         } catch (\Exception $e) {
             $this->logger->error('Failed to update installation', ['id' => $id, 'exception' => $e]);
             return $this->errorResponse('Failed to update installation');
+        }
+    }
+
+    /**
+     * Populate missing simulated hours for a station series window.
+     * Never overwrites measured provenance. Uses ML simulate/hourly via SeriesSimulationService.
+     *
+     * POST /api/v1/installations/{id}/populate-series
+     * body: { from?: Y-m-d, to?: Y-m-d }  defaults install_date → last complete hour
+     */
+    #[NoAdminRequired]
+    #[NoCSRFRequired]
+    public function populateSeries(string $id): JSONResponse
+    {
+        $userId = $this->getUserId();
+        if (!$userId) {
+            return $this->errorResponse('Unauthorized', Http::STATUS_UNAUTHORIZED);
+        }
+        if (!$this->access->canEditMasterData()) {
+            return $this->errorResponse('FilantropiaSolarAdmin required', Http::STATUS_FORBIDDEN);
+        }
+
+        $installation = $this->resolveStation($id);
+        if ($installation === null) {
+            return $this->errorResponse('Installation not found', Http::STATUS_NOT_FOUND);
+        }
+        if (($installation->getSource() ?: '') === 'dataset') {
+            return $this->errorResponse('Cannot populate training corpus stations here', Http::STATUS_CONFLICT);
+        }
+
+        $payload = $this->request->getParams();
+        $fromRaw = (string) ($payload['from'] ?? $payload['start'] ?? '');
+        $toRaw = (string) ($payload['to'] ?? $payload['end'] ?? '');
+
+        try {
+            $zone = \OCA\FilantropiaSolar\Service\AppTimezone::zone();
+            $last = \OCA\FilantropiaSolar\Service\AppTimezone::lastCompleteHour();
+            if ($fromRaw !== '') {
+                $start = new \DateTimeImmutable($fromRaw, $zone);
+            } else {
+                $start = $this->seriesService->operationStart($installation);
+            }
+            $start = $start->setTime(0, 0, 0);
+            if ($toRaw !== '') {
+                $end = (new \DateTimeImmutable($toRaw, $zone))->setTime(23, 0, 0);
+            } else {
+                $end = $last;
+            }
+            if ($end > $last) {
+                $end = $last;
+            }
+            if ($start > $end) {
+                return $this->errorResponse('Invalid date range', Http::STATUS_BAD_REQUEST);
+            }
+
+            // Chunk large ranges (7 days) to stay within request timeouts
+            $total = ['requested' => 0, 'inserted' => 0, 'skipped_existing' => 0, 'skipped_measured' => 0, 'chunks' => 0];
+            $cursor = $start;
+            $chunkDays = \OCA\FilantropiaSolar\Service\SeriesSimulationService::BACKFILL_CHUNK_DAYS;
+            while ($cursor <= $end) {
+                $windowEnd = $cursor->add(new \DateInterval('P' . $chunkDays . 'D'))->sub(new \DateInterval('PT1H'));
+                if ($windowEnd > $end) {
+                    $windowEnd = $end;
+                }
+                $r = $this->seriesService->fillRange($installation, $cursor, $windowEnd);
+                $total['requested'] += $r['requested'];
+                $total['inserted'] += $r['inserted'];
+                $total['skipped_existing'] += $r['skipped_existing'];
+                $total['skipped_measured'] += $r['skipped_measured'];
+                $total['chunks']++;
+                $cursor = $windowEnd->add(new \DateInterval('PT1H'));
+            }
+
+            $bounds = $this->readingMapper->dateBounds((int) $installation->getId());
+            return new JSONResponse([
+                'success' => true,
+                'result' => $total,
+                'series_from_date' => $bounds['from'],
+                'series_to_date' => $bounds['to'],
+                'from' => $start->format('Y-m-d'),
+                'to' => $end->format('Y-m-d'),
+            ]);
+        } catch (\Throwable $e) {
+            $this->logger->error('populateSeries failed', ['id' => $id, 'exception' => $e]);
+            return $this->errorResponse('Populate failed: ' . $e->getMessage(), Http::STATUS_INTERNAL_SERVER_ERROR);
         }
     }
 
@@ -855,10 +948,18 @@ class InstallationApiController extends ApiController
             ? (float) $payload['self_consumption_factor']
             : SavingsService::factorForGridType($payload['grid_connection_type'] ?? null);
 
-        // Current efficiency = last COMPLETE Europe/Lisbon hour only (night/missing => 0, not stale peak).
+        // Current efficiency = kWh/kWp for the latest series hour at or before last complete
+        // Europe/Lisbon hour. Falls back when roll-forward has not filled the exact bucket yet
+        // (was showing 0% for every station while max_ts lagged wall clock).
         $lastHourKwh = null;
         try {
             $lastHourKwh = $this->readingMapper->findLastCompleteHourProduction($dbId);
+            if ($lastHourKwh === null) {
+                $lastHourKwh = $this->readingMapper->findLatestProductionAtOrBefore(
+                    $dbId,
+                    \OCA\FilantropiaSolar\Service\AppTimezone::lastCompleteHour(),
+                );
+            }
         } catch (\Throwable $e) {
             $lastHourKwh = null;
         }

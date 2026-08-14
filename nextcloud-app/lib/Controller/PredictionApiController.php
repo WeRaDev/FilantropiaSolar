@@ -14,8 +14,6 @@ use OCA\FilantropiaSolar\Db\EnergyReadingMapper;
 use OCA\FilantropiaSolar\Db\InstallationMapper;
 use OCA\FilantropiaSolar\Service\PredictionService;
 use OCA\FilantropiaSolar\Service\AppTimezone;
-use OCA\FilantropiaSolar\Service\SeriesSimulationService;
-use OCA\FilantropiaSolar\Service\StationLifecycle;
 use OCA\FilantropiaSolar\Service\WeatherService;
 use OCP\AppFramework\Http;
 use OCP\AppFramework\Http\Attribute\NoAdminRequired;
@@ -42,7 +40,6 @@ class PredictionApiController extends OCSController
         private readonly InstallationMapper $installationMapper,
         private readonly EnergyReadingMapper $readingMapper,
         private readonly WeatherService $weatherService,
-        private readonly SeriesSimulationService $seriesSimulationService,
         private readonly IClientService $clientService,
         private readonly LoggerInterface $logger,
         private readonly ?string $userId,
@@ -359,26 +356,14 @@ class PredictionApiController extends OCSController
         }
 
         $lastComplete = AppTimezone::lastCompleteHour();
-        // Cap end at last complete hour for fill + read of past series
-        $fillEnd = $endDay > $lastComplete ? $lastComplete : $endDay;
-        $fillStart = $startDay;
-        if ($fillStart > $fillEnd) {
-            $fillStart = $fillEnd->setTime(0, 0, 0);
-        }
-
-        // On-demand gap-fill for Running ops stations so Historical is not empty
-        // before SeriesBackfillJob / SeriesRollForwardJob catch up.
-        $state = $station->getLifecycleState() ?: '';
-        $source = $station->getSource() ?: '';
-        if ($state === StationLifecycle::RUNNING && $source !== 'dataset' && !$station->getSoftRemoved()) {
-            try {
-                // Prefer a short window around the chart first (faster UX).
-                $this->seriesSimulationService->fillRange($station, $fillStart, $fillEnd);
-            } catch (\Throwable $e) {
-                $this->logger->warning('On-demand series fill failed', [
-                    'installation_id' => $dbId,
-                    'exception' => $e,
-                ]);
+        // Historical mode: visualize existing NC series only (no on-demand ML fill).
+        // Populate/backfill is explicit via populate-series + background jobs.
+        // Cap chart end at last complete hour so future hours stay empty.
+        if ($endDay > $lastComplete) {
+            $endDay = $lastComplete->setTime(23, 0, 0);
+            if ($endDay < $startDay) {
+                $endDay = $lastComplete;
+                $startDay = $lastComplete->setTime(0, 0, 0);
             }
         }
 

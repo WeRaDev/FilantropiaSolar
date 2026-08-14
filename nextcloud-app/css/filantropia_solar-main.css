@@ -1,6 +1,6 @@
 .app-filantropia_solar{width:100%;height:calc(100vh - 50px);background-color:#fdfbf5;overflow:hidden}
 
-.app-header[data-v-3b664e93] {
+.app-header[data-v-37f88e14] {
 	min-height: 88px;
 	display: flex;
 	align-items: center;
@@ -11,13 +11,13 @@
 	gap: 16px;
 	flex-wrap: wrap;
 }
-.header-branding[data-v-3b664e93] {
+.header-branding[data-v-37f88e14] {
 	display: flex;
 	align-items: center;
 	gap: 12px;
 	flex-shrink: 0;
 }
-.app-title[data-v-3b664e93] {
+.app-title[data-v-37f88e14] {
 	font-family: Georgia, 'Times New Roman', serif;
 	font-style: italic;
 	font-size: 20px;
@@ -25,27 +25,27 @@
 	margin: 0;
 	line-height: 1.1;
 }
-.app-tagline[data-v-3b664e93] { font-size: 10px; color: #767676;
+.app-tagline[data-v-37f88e14] { font-size: 10px; color: #767676;
 }
-.wera-we[data-v-3b664e93] { color: #A89D3F; font-weight: 500;
+.wera-we[data-v-37f88e14] { color: #A89D3F; font-weight: 500;
 }
-.wera-ra[data-v-3b664e93] { color: #E8A020; font-weight: 500;
+.wera-ra[data-v-37f88e14] { color: #E8A020; font-weight: 500;
 }
-.app-version[data-v-3b664e93] {
+.app-version[data-v-37f88e14] {
 	font-size: 11px;
 	color: #767676;
 	padding: 2px 6px;
 	background: #f5f5f5;
 	border-radius: 4px;
 }
-.kpi-container[data-v-3b664e93] {
+.kpi-container[data-v-37f88e14] {
 	display: flex;
 	gap: 10px;
 	flex: 1;
 	justify-content: flex-end;
 	flex-wrap: wrap;
 }
-.kpi-card[data-v-3b664e93] {
+.kpi-card[data-v-37f88e14] {
 	min-width: 88px;
 	padding: 6px 10px;
 	background: #f5f5f5;
@@ -54,34 +54,34 @@
 	cursor: pointer;
 	border: 2px solid transparent;
 }
-.kpi-card[data-v-3b664e93]:hover { background: #ededed;
+.kpi-card[data-v-37f88e14]:hover { background: #ededed;
 }
-.kpi-card.active[data-v-3b664e93] { border-color: #A89D3F; background: #FDFBF5;
+.kpi-card.active[data-v-37f88e14] { border-color: #A89D3F; background: #FDFBF5;
 }
-.kpi-value[data-v-3b664e93] {
+.kpi-value[data-v-37f88e14] {
 	display: block;
 	font-size: 20px;
 	font-weight: 700;
 	line-height: 1.15;
 }
-.kpi-label[data-v-3b664e93] {
+.kpi-label[data-v-37f88e14] {
 	display: block;
 	font-size: 10px;
 	color: #666;
 	text-transform: uppercase;
 	letter-spacing: 0.02em;
 }
-.kpi-neutral .kpi-value[data-v-3b664e93] { color: #111111;
+.kpi-neutral .kpi-value[data-v-37f88e14] { color: #111111;
 }
-.kpi-online .kpi-value[data-v-3b664e93] { color: #22A559;
+.kpi-online .kpi-value[data-v-37f88e14] { color: #22A559;
 }
-.kpi-offline .kpi-value[data-v-3b664e93] { color: #CC2020;
+.kpi-offline .kpi-value[data-v-37f88e14] { color: #CC2020;
 }
-.kpi-planned .kpi-value[data-v-3b664e93] { color: #ef6c00;
+.kpi-planned .kpi-value[data-v-37f88e14] { color: #ef6c00;
 }
-.kpi-energy .kpi-value[data-v-3b664e93] { color: #CC2020;
+.kpi-energy .kpi-value[data-v-37f88e14] { color: #CC2020;
 }
-.kpi-savings .kpi-value[data-v-3b664e93] { color: #22A559;
+.kpi-savings .kpi-value[data-v-37f88e14] { color: #22A559;
 }
 
 

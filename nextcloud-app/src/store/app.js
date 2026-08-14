@@ -686,6 +686,26 @@ export const useAppStore = defineStore('app', {
             }
         },
 
+        async populateStationSeries(objectId, { from, to } = {}) {
+            const key = this.stationApiKey(objectId)
+            const body = {}
+            if (from) body.from = from
+            if (to) body.to = to
+            try {
+                const response = await axios.post(
+                    generateUrl(`/apps/filantropia_solar/api/v1/installations/${encodeURIComponent(key)}/populate-series`),
+                    body,
+                )
+                if (!response.data?.success) {
+                    throw new Error(response.data?.error || 'Populate failed')
+                }
+                return response.data
+            } catch (error) {
+                this.error = error.response?.data?.error || error.message || 'Populate failed'
+                throw error
+            }
+        },
+
         async importHistoricalReadings(objectId, readings) {
             const key = this.stationApiKey(objectId)
             try {

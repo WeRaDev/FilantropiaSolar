@@ -45,13 +45,16 @@ export function useAnalyticsDateRange({ selectedObject, analysisData, generateAn
     }
 
     /**
-     * Historical calendar scope = installation/operation start → today.
-     * Prefer installed_at / installation_date / from_date; series bounds only as fallback.
-     * Never allow future dates in Historical mode.
+     * Historical calendar = actual series bounds (series_from → series_to),
+     * falling back to install date → today when series empty.
+     * Never allow future dates or dates outside the station dataset.
      */
     const minDate = computed(() => {
         const o = selectedObject.value
         const cd = o?.customData || {}
+        // Prefer actual NC series bounds for Historical navigation
+        const seriesFrom = ymd(cd.seriesFromDate) || ymd(o?.series_from_date)
+        if (seriesFrom) return seriesFrom
         const candidates = [
             ymd(cd.installedAt),
             ymd(cd.installationDate),
@@ -59,16 +62,18 @@ export function useAnalyticsDateRange({ selectedObject, analysisData, generateAn
             ymd(o?.installed_at),
             ymd(o?.installation_date),
             ymd(o?.from_date),
-            ymd(cd.seriesFromDate),
-            ymd(o?.series_from_date),
         ].filter(Boolean)
         if (!candidates.length) return null
         return candidates.reduce((a, b) => (a < b ? a : b))
     })
 
     const maxDate = computed(() => {
-        // Historical: never beyond today in local (Europe/Lisbon) calendar
-        return localYmd()
+        const o = selectedObject.value
+        const cd = o?.customData || {}
+        const today = localYmd()
+        const seriesTo = ymd(cd.seriesToDate) || ymd(o?.series_to_date)
+        if (seriesTo && seriesTo < today) return seriesTo
+        return today
     })
 
     const effectiveMaxDate = computed(() => {

@@ -4,6 +4,22 @@ All notable changes to the Nextcloud app component. The desktop application
 has its own changelog at the repository root (`CHANGELOG.md`).
 This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.2.29] - 2026-08-14
+
+### Fixed
+- Current efficiency uses latest series hour at or before last complete Lisbon hour (no more permanent 0%)
+- Historical analysis no longer on-demand ML-fills; shows existing `oc_fs_readings` only (faster)
+- Historical calendar clamped to actual series_from/series_to bounds
+- Dataset range on info card uses series bounds; Edit exposes installation date + View/Populate dataset
+- Regenerated branded `app.png` (256) for navigation/settings icon
+
+### Added
+- `POST /api/v1/installations/{id}/populate-series` (chunked sim fill; never overwrites measured)
+- Design plan: `docs/architecture/ML-SERIES-POPULATE-PLAN.md`
+
+### Changed
+- App version **3.2.29**
+
 ## [3.2.28] - 2026-08-14
 
 ### Fixed
