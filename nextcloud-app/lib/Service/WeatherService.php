@@ -134,6 +134,30 @@ class WeatherService
     }
 
     /**
+     * N-day forecast from today (Open-Meteo forecast API), as a flat hourly list.
+     * Used by PredictionService background refresh.
+     *
+     * @return list<array<string, mixed>>
+     */
+    public function getForecast(float $lat, float $lon, int $days = 7): array
+    {
+        $days = max(1, min(16, $days));
+        $start = new DateTime('today');
+        $end = (clone $start)->modify('+' . max(0, $days - 1) . ' days');
+        $data = $this->getHourlyWeatherByCoords($lat, $lon, $start, $end, preferHistorical: false);
+        if ($data === null) {
+            return [];
+        }
+        $hourly = $data['hourly'] ?? [];
+        // Normalized shape is a list of entry arrays
+        if (isset($hourly[0]) && is_array($hourly[0])) {
+            return $hourly;
+        }
+
+        return [];
+    }
+
+    /**
      * Fetch weather data from Open-Meteo API.
      */
     private function fetchWeatherData(

@@ -307,16 +307,28 @@ class PredictionService
     public function refreshAllPredictions(): int
     {
         $refreshed = 0;
-        $installations = $this->installationMapper->findAll();
+        // Ops fleet only — skip Mendeley training corpus noise in cron
+        try {
+            $installations = $this->installationMapper->findOpsStations();
+        } catch (\Throwable $e) {
+            $this->logger->warning('refreshAllPredictions: findOpsStations failed, using findAll', [
+                'exception' => $e,
+            ]);
+            $installations = $this->installationMapper->findAll();
+        }
 
         foreach ($installations as $installation) {
-            if ($this->needsRefresh($installation->getId())) {
+            $id = (int) $installation->getId();
+            if ($id <= 0) {
+                continue;
+            }
+            if ($this->needsRefresh($id)) {
                 try {
-                    $this->generatePredictions($installation->getId());
+                    $this->generatePredictions($id);
                     $refreshed++;
                 } catch (\Exception $e) {
                     $this->logger->warning('Failed to refresh predictions', [
-                        'installation_id' => $installation->getId(),
+                        'installation_id' => $id,
                         'exception' => $e,
                     ]);
                 }

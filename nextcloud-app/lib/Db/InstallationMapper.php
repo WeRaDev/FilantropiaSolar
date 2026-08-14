@@ -147,24 +147,31 @@ class InstallationMapper extends QBMapper
     }
 
     /**
-     * Get unique locations for a user.
+     * Get unique location labels.
      *
+     * @param string|null $userId When set, limit to that user; null = all rows (ops jobs).
      * @return string[]
      */
-    public function getUniqueLocations(string $userId): array
+    public function getUniqueLocations(?string $userId = null): array
     {
         $qb = $this->db->getQueryBuilder();
 
         $qb->selectDistinct('location')
             ->from($this->getTableName())
-            ->where($qb->expr()->eq('user_id', $qb->createNamedParameter($userId)))
             ->orderBy('location', 'ASC');
+
+        if ($userId !== null && $userId !== '') {
+            $qb->where($qb->expr()->eq('user_id', $qb->createNamedParameter($userId)));
+        }
 
         $result = $qb->executeQuery();
         $locations = $result->fetchAll(\PDO::FETCH_COLUMN);
         $result->closeCursor();
 
-        return $locations;
+        return array_values(array_filter(
+            array_map(static fn ($v) => is_string($v) ? trim($v) : '', $locations ?: []),
+            static fn (string $v): bool => $v !== '',
+        ));
     }
 
     /**

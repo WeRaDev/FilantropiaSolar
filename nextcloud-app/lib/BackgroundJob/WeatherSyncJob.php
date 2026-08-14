@@ -46,8 +46,8 @@ class WeatherSyncJob extends TimedJob
         $this->logger->info('Starting weather sync job');
 
         try {
-            // Get unique locations from all installations
-            $locations = $this->mapper->getUniqueLocations();
+            // Unique weather keys: nearest known city per ops station + labelled locations
+            $locations = $this->collectWeatherLocations();
 
             if (empty($locations)) {
                 $this->logger->info('No installations to sync weather for');
@@ -84,6 +84,48 @@ class WeatherSyncJob extends TimedJob
     }
 
     /**
+     * @return list<string> Known Open-Meteo location names to warm the cache for.
+     */
+    private function collectWeatherLocations(): array
+    {
+        $keys = [];
+        try {
+            foreach ($this->mapper->findOpsStations() as $station) {
+                $lat = (float) $station->getLatitude();
+                $lon = (float) $station->getLongitude();
+                if ($lat != 0.0 || $lon != 0.0) {
+                    $keys[$this->weatherService->findNearestLocation($lat, $lon)] = true;
+                }
+                $label = trim((string) ($station->getLocation() ?: ''));
+                if ($label !== '' && isset($this->weatherService->getAvailableLocations()[$label])) {
+                    $keys[$label] = true;
+                }
+            }
+        } catch (\Throwable $e) {
+            $this->logger->warning('WeatherSyncJob: ops stations scan failed', ['exception' => $e]);
+        }
+
+        // Distinct labels from DB (may include custom names — only keep known cities)
+        try {
+            $known = $this->weatherService->getAvailableLocations();
+            foreach ($this->mapper->getUniqueLocations(null) as $label) {
+                if (isset($known[$label])) {
+                    $keys[$label] = true;
+                }
+            }
+        } catch (\Throwable $e) {
+            $this->logger->warning('WeatherSyncJob: unique locations failed', ['exception' => $e]);
+        }
+
+        if ($keys === []) {
+            // Always warm Lisbon as baseline
+            $keys['Lisbon'] = true;
+        }
+
+        return array_keys($keys);
+    }
+
+    /**
      * Sync weather data for a specific location.
      */
     private function syncLocationWeather(string $location): void
@@ -92,7 +134,7 @@ class WeatherSyncJob extends TimedJob
         $start = (clone $now)->modify('-24 hours');
         $end = (clone $now)->modify('+7 days');
 
-        // Fetch weather data
+        // Fetch weather data (forecast API for mixed past/future window)
         $weatherData = $this->weatherService->getHourlyWeather(
             $location,
             $start,
@@ -104,13 +146,13 @@ class WeatherSyncJob extends TimedJob
             throw new \RuntimeException("Failed to fetch weather for {$location}");
         }
 
-        // Store in cache table (optional - for faster access)
-        // The WeatherService already caches internally, but we could
-        // persist to a dedicated table for historical analysis
+        // WeatherService caches the response; this job warms that cache.
+        $hourly = $weatherData['hourly'] ?? [];
+        $hours = is_array($hourly) ? count($hourly) : 0;
 
         $this->logger->debug('Synced weather for location', [
             'location' => $location,
-            'hours' => count($weatherData['hourly'] ?? []),
+            'hours' => $hours,
         ]);
     }
 }
