@@ -4,6 +4,24 @@ All notable changes to the Nextcloud app component. The desktop application
 has its own changelog at the repository root (`CHANGELOG.md`).
 This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.2.26] - 2026-08-14
+
+### Added
+- Hourly NC series SoT (`oc_fs_readings.provenance`); `SeriesRollForwardJob` (3600s, Europe/Lisbon 05:00–22:00); chunked `SeriesBackfillJob`
+- Analytics Historical path from NC readings; Predicted for ops stations; View data overlay
+- Dual I/O: export/upload via computer or Nextcloud Files; upload modal teleport + z-index above analytics
+- Lifecycle CRM mirror (Odoo queue_job), public API Planned+Running filter, grid_connection_type
+- Europe/Lisbon timezone for series hours and efficiency; map location pin restore
+- Ops docs: MVP-7 gates, TRL5 backup runbook, ML production accuracy verifier
+
+### Changed
+- App version **3.2.26** (`appinfo/info.xml`, `package.json`); desktop remains **1.3.0** API-client
+- Odoo public module **19.0.2.22.0**
+
+### Notes
+- TRL5 may still run an older app until cutover; backup before deploy (`docs/ops/TRL5-BACKUP.md`)
+- Full incremental history for 3.2.x lives in git log / PR #31 and related merges on `main`
+
 ## [3.1.1] - 2026-07-28
 
 ### Added

@@ -1,7 +1,7 @@
 # FilantropiaSolar Desktop Edition
 
 Desktop client for the FilantropiaSolar platform. The **Nextcloud app is the
-server-side application** (stations, admin panel, public website, ML
+server-side application** (v3.2.26 — stations, analytics, series SoT, public website, ML
 estimates); this desktop edition is the client-side companion for analysts
 who prefer a native window over the browser.
 

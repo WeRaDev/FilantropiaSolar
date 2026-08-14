@@ -4,36 +4,36 @@ Solar energy management for Nextcloud. Monitor PV installations across
 Portugal, visualize production and weather, get ML-backed production
 estimates, and track savings against grid electricity prices.
 
-**Current version: 3.1.1** (see [CHANGELOG.md](CHANGELOG.md))
+**Current version: 3.2.26** (see [CHANGELOG.md](CHANGELOG.md) and `appinfo/info.xml`)
 
 ## Features
 
-- **Interactive map** — Leaflet map with golden markers for all installations
-  (dataset + user-created), including star-marked virtual stations
-- **Analytics modal** — hourly/daily energy and weather charts (Chart.js) with
-  day navigation, timeframes (Day/Week/Month/Year), weather layer toggles,
-  and CSV export
-- **ML-backed predictions** — ensemble model (RandomForest 0.4, GradientBoost
-  0.35, Linear 0.25) trained per installation on the Mendeley PV dataset
-  (26 engineered features), served by the bundled FastAPI ML microservice
-- **Virtual installations** — create custom simulated stations at any location
-  with optional historical data upload
-- **Admin dashboard** — global dataset station management, ML cache status,
-  model details, cache clearing, retraining, and dataset re-import
-- **Public read-only API** — token-authenticated stations/dashboard/estimate
-  endpoints for external consumers (used by the bundled Odoo public site)
-- **Odoo public website addon** — public NGO dashboard with live station data,
-  ML estimate calculator, and quote requests that create CRM leads
-- **Savings calculator** — "Light Saved" in EUR at 0.15 EUR/kWh (configurable)
-- **Weather sources** — Open-Meteo API first, historical files, then synthetic
-  simulation (source is traced and shown in the UI)
+- **Interactive map** — Leaflet map with lifecycle-aware markers (ops fleet +
+  virtuals); location pin fixed for edit-on-map
+- **Analytics modal** — Historical (NC series SoT) and Predicted modes;
+  Europe/Lisbon hour buckets; Day/Week/Month/Year; weather layers; View data;
+  export to computer or Nextcloud Files; measured CSV upload (modal stacks above analysis)
+- **Hourly series** — `oc_fs_readings` with `provenance` (`measured` immutable over
+  `simulated`); `SeriesRollForwardJob` (1h) and chunked `SeriesBackfillJob`
+- **ML-backed predictions** — ensemble models on Mendeley corpus; ops stations
+  use capacity/coords + simulate path; production accuracy verifier vs PVGIS
+- **Lifecycle** — virtual / planned / running (+ soft-remove); admin actions;
+  bearer lifecycle API for Odoo CRM mirror
+- **Virtual installations** — custom stations with optional historical upload
+- **Admin dashboard** — dataset/ops management, ML cache/train, FilantropiaSolarAdmin ACL
+- **Public read-only API** — Planned + Running only (no virtual/dataset leak);
+  stations/dashboard/estimate for Odoo public site
+- **Odoo addon (19.0.2.22.0)** — public map, candidatura → CRM, queue_job stage
+  mirror, grid_connection_type, NC Stations import/reconcile
+- **Savings / grid** — on-grid vs off-grid factors; configurable grid price
+- **Weather sources** — Open-Meteo, historical files, synthetic (traced in UI)
 - **Multi-language** — English and Portuguese
 
 ## Platform architecture
 
 | Service | Container | Port | Role |
 |---|---|---|---|
-| Nextcloud 28 (Apache) | `filantropia-nextcloud` | 8080 | App host (this app mounted at `custom_apps/filantropia_solar`) |
+| Nextcloud 28 (Apache) | `filantropia-nextcloud` | 8080 (TRL5: 18080) | App host (`custom_apps/filantropia_solar`) |
 | MariaDB 10.11 | `filantropia-db` | 3306 | Canonical station store (Nextcloud DB) |
 | Redis 7 | `filantropia-redis` | — | Cache |
 | ML microservice (FastAPI) | `filantropia-ml` | 8501 | Training, estimates, dashboard cache |
@@ -69,22 +69,21 @@ After an app version bump, apply migrations:
 docker exec -u 33 filantropia-nextcloud php occ upgrade
 ```
 
-## TRL4 deployment (SolarSeed-v3 ops network)
+## TRL4 / TRL5 deployment
 
-Join the stack to the SolarSeed-v3 monitoring network so Spirit/Prometheus
-can probe it:
+**TRL4** — join SolarSeed-v3 monitoring network:
 
 ```bash
-# after both stacks are up
 bash scripts/connect-trl4.sh
-# Probes from the ops network:
-#   http://filantropia-nextcloud:80   (Nextcloud)
-#   http://filantropia-ml:8501        (ML /health)
+# http://filantropia-nextcloud:80 · http://filantropia-ml:8501 on compose_city_internal
 ```
 
-Note: network connections are Docker state and do not survive container
-recreation — re-run the script after stack recreation. See the TRL4 notes in
-`../warp.md` for details and `FS_PUBLIC_API_TOKEN` handling.
+**TRL5** (`wera-ss-pt-tv-1`) — use `docker-compose.yml` + `docker-compose.trl5.yml`,
+backup first (`../docs/ops/TRL5-BACKUP.md`), then gates in
+`../docs/mvp/MVP-7-GATES-TRL5.md`. Cold start: `scripts/setup-trl5.sh`.
+
+Network joins are Docker state — re-run `connect-trl4.sh` after stack recreation.
+Token handling: `../warp.md`.
 
 ## Public API (external consumers)
 
@@ -93,7 +92,7 @@ Token-authenticated read-only endpoints under
 
 | Endpoint | Method | Description |
 |---|---|---|
-| `/stations` | GET | All dataset stations with location/capacity metadata |
+| `/stations` | GET | Public stations (Planned + Running lifecycle; not virtual/dataset-only) |
 | `/dashboard` | GET | Station count, total capacity, locations |
 | `/estimate` | POST | ML estimate for `{latitude, longitude, capacity_kwp, location?}` |
 
@@ -163,7 +162,7 @@ nextcloud-app/
 │   └── style/          # SCSS (golden brand palette)
 ├── ml-service/         # FastAPI ML microservice (training, estimates)
 ├── odoo/addons/        # filantropia_solar_public Odoo addon
-├── scripts/            # setup.sh, connect-trl4.sh
+├── scripts/            # setup.sh, setup-trl5.sh, connect-trl4.sh, backup-odoo-website.sh, verify-ml-production.py
 ├── templates/          # PHP shell
 ├── js/, css/           # Built assets (committed for app distribution)
 └── l10n/               # Translations (en, pt)
@@ -182,6 +181,13 @@ nextcloud-app/
 Photovoltaic Power Production Dataset — Sarmas, Elissaios; Matias, Nuno;
 Pereira, Catarina; Antunes, Ana Rita (2025), Mendeley Data, V3,
 doi:10.17632/dbh93b6vp8.3 (9 Portuguese installations, 302.56 kWp).
+
+## Ops docs (repo)
+
+- `../docs/mvp/MVP-7-GATES-TRL5.md` — automated + operator gates
+- `../docs/ops/TRL5-BACKUP.md` — Odoo + Nextcloud backup/restore
+- `../docs/ops/CRM-NC-LIFECYCLE-MIRROR.md` — stage matrix
+- `../docs/ops/ML-PRODUCTION-ACCURACY.md` — ML vs PVGIS gate
 
 ## License
 

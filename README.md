@@ -5,23 +5,26 @@ Nextcloud. Monitor stations on an interactive map, analyze production and
 weather, get ML-backed production estimates, and track savings against grid
 electricity prices.
 
-**Main application: the Nextcloud platform (v3.1.1)** — Nextcloud app,
-FastAPI ML microservice, and Odoo public website.
+**Main application: the Nextcloud platform (v3.2.26)** — Nextcloud app,
+FastAPI ML microservice, and Odoo public website / CRM lifecycle mirror.
 **Desktop edition: `desktop/` (v1.3.0)** — client-side Tkinter companion that
 consumes the Nextcloud API.
 
 Data source: Photovoltaic Power Production Dataset, Sarmas et al. (2025),
 Mendeley Data V3, doi:10.17632/dbh93b6vp8.3 (9 installations, 302.56 kWp;
-bundled in `data/` so a clean clone deploys self-contained).
+bundled in `data/` so a clean clone deploys self-contained). Ops fleet
+stations live in Nextcloud (`oc_fs_*`) with measured/simulated series — not
+the training corpus alone.
 
 ## Repository layout
 
 ```
 nextcloud-app/     # THE main app: Nextcloud app + ml-service + Odoo addon
-                   #   + setup/connect scripts (see nextcloud-app/README.md)
+                   #   + setup/connect/backup scripts (see nextcloud-app/README.md)
 desktop/           # Desktop edition (v1.3.0, API-client mode; v1.2.4 roadmap)
 data/              # Shared Mendeley dataset (tracked, self-contained)
 weather_files/     # Historical weather series per location
+docs/              # Architecture, MVP gates, ops runbooks (backup, CRM, ML)
 infra/gitea-runner/# Dev-CI runner stack (optional; not needed to deploy)
 archive/           # Permanent preservation area (tracked, never deleted)
 tasks/             # Work items / quality debt notes
@@ -31,10 +34,18 @@ tasks/             # Work items / quality debt notes
 
 | Layer | Where | What you get |
 |---|---|---|
-| Nextcloud app | server, `:8080` | Map + analytics dashboard, virtual stations, admin panel (station management, ML cache/model controls, retraining), tokened public API |
-| ML microservice | server, `:8501` | Per-installation ensemble models (26 features), training, estimates, dashboard cache |
-| Odoo public site | server, `:8069` | Public NGO dashboard with live station data, ML estimate calculator, quote requests into CRM (internet-facing via SolarSeed reverse proxy) |
-| Desktop edition | client machine | Native window over the same data: installations, 21-day analyses, charts and rankings, served from the server |
+| Nextcloud app | server, `:8080` (TRL5 `:18080`) | Map + analytics (Historical NC SoT / Predicted), Europe/Lisbon hours, dual computer/Nextcloud export-upload, lifecycle admin, tokened public + lifecycle APIs |
+| ML microservice | server, `:8501` | Per-installation ensemble models, training, estimates, hourly simulate, production accuracy gates vs PVGIS |
+| Odoo public site + CRM | server, `:8069` | Public map (Planned + Running), candidatura → CRM, queue_job lifecycle mirror (module **19.0.2.22.0**) |
+| Desktop edition | client machine | Native window over the same data via Nextcloud API |
+
+## Current release highlights (3.2.26)
+
+- **Series SoT:** hourly readings with `provenance` (`measured` wins over `simulated`); `SeriesRollForwardJob` every **1h** (05:00–22:00 Europe/Lisbon); chunked backfill
+- **Analytics:** NC historical path, Predicted for ops stations, Lisbon TZ, View data, upload modal above analysis (black text)
+- **I/O:** export/upload from computer or Nextcloud Files
+- **CRM ↔ NC:** stage matrix New → Virtual → Planned → Running; profile sync; grid connection type
+- **MVP-7:** automated gates green on `main`; local CRM script signed; TRL5 backup runbook — see `docs/mvp/MVP-7-GATES-TRL5.md` and `docs/ops/TRL5-BACKUP.md`
 
 ## Quick start (deployment)
 
@@ -47,33 +58,35 @@ bash nextcloud-app/scripts/setup.sh
 # ML service:  http://localhost:8501
 ```
 
-Optional Odoo public site:
+Optional Odoo public site + CRM:
 
 ```bash
 export FS_PUBLIC_API_TOKEN=$(cat ../SolarSeed-v3/.secrets/filantropia_public_api_token)
 (cd nextcloud-app && docker compose --profile odoo up -d --build)
-# Public site: http://localhost:8069/filantropia-solar
+# Public site: http://localhost:8069/  (e.g. /inicio, /instalacoes)
 ```
 
 After an app version bump: `docker exec -u 33 filantropia-nextcloud php occ upgrade`
 
-## TRL4/TRL5 deployment (SolarSeed ops network)
+## TRL4 / TRL5 deployment
 
 ```bash
-# with the SolarSeed stack up (compose_city_internal present)
+# TRL4 — SolarSeed ops network (Spirit/Prometheus probes)
 bash nextcloud-app/scripts/connect-trl4.sh
-# Spirit/Prometheus probe: http://filantropia-nextcloud:80 and
-# http://filantropia-ml:8501 on the ops network
+# http://filantropia-nextcloud:80 and http://filantropia-ml:8501 on compose_city_internal
+
+# TRL5 — production host (backup first)
+# docs/ops/TRL5-BACKUP.md  ·  docs/mvp/MVP-7-GATES-TRL5.md
+# Compose: docker-compose.yml + docker-compose.trl5.yml (NC :18080)
 ```
 
 `setup.sh` auto-joins the ops network when `${CITY_NET:-compose_city_internal}`
 exists. Network connections are Docker state: re-run `connect-trl4.sh` after
-stack recreation. Internet exposure of the public site (reverse proxy, TLS,
-domain) belongs to the SolarSeed infrastructure.
+stack recreation.
 
 Secrets: `FS_PUBLIC_API_TOKEN` is generated by `setup.sh` into the Nextcloud
 app config and exported to `SolarSeed-v3/.secrets/` (mode 600) — never
-committed. See `warp.md` for the full handling and rotation procedure.
+committed. See `warp.md` for handling and rotation.
 
 ## Desktop edition (client)
 
@@ -85,11 +98,11 @@ cd desktop && python main.py
 ```
 
 The desktop lists installations and requests analyses from the server — no
-local ML. App passwords are created in Nextcloud under
-Settings → Security → App passwords. See `desktop/README.md`.
+local ML. App passwords: Nextcloud Settings → Security → App passwords.
+See `desktop/README.md`.
 
 **Roadmap — v1.2.4 (planned):** branded client on the `nextcloud/desktop`
-base with server login, the FilantropiaSolar panel as default landing, other
+base with server login, FilantropiaSolar panel as default landing, other
 Nextcloud apps secondary, and optional file sync.
 
 ## Development
@@ -97,12 +110,15 @@ Nextcloud apps secondary, and optional file sync.
 | Area | Checks |
 |---|---|
 | Nextcloud app | `cd nextcloud-app && npm test && npm run build` |
-| Desktop | `cd desktop && ruff format --check . && ruff check . && mypy && pytest` |
+| Desktop | `cd desktop && ../.ci-venv/bin/python -m pytest -q` (or project venv) + ruff |
+| ML accuracy | `python3 nextcloud-app/scripts/verify-ml-production.py` |
 | CI | Gitea Actions in `.gitea/workflows/` (quality gates + Revisor audit) |
 
 Governance: `AGENTS.md` (agent behavior), `SOUL.md` (invariants), `warp.md`
-(status log + CI/runner playbook). Changelogs: `nextcloud-app/CHANGELOG.md`
-(app), `CHANGELOG.md` (desktop history), `desktop/docs/` (guides).
+(status log + CI/runner playbook). Docs: `docs/mvp/`, `docs/ops/`, `docs/adr/`.
+Changelogs: `nextcloud-app/CHANGELOG.md` (app), root `CHANGELOG.md` (desktop history).
+
+Primary remote: **Gitea** (`origin`); GitHub may mirror.
 
 ## License
 
