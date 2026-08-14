@@ -32,7 +32,8 @@ class Prediction extends Entity implements JsonSerializable
 {
     protected int $installationId = 0;
     protected DateTime $predictionDate;
-    protected int $hour = 0;
+    /** Sentinel -1 so setHour(0..23) always dirties the field for INSERT (Entity skips unchanged). */
+    protected int $hour = -1;
     protected ?string $predictedKwh = null;
     protected ?string $confidence = null;
     protected ?string $modelVersion = null;
@@ -50,6 +51,14 @@ class Prediction extends Entity implements JsonSerializable
         $this->addType('confidence', 'string');
         $this->addType('modelVersion', 'string');
         $this->addType('createdAt', 'datetime');
+    }
+
+    /**
+     * Override so hour 0 is persisted: default is -1, Entity only marks fields that change.
+     */
+    public function setHour(int $hour): void
+    {
+        $this->setter('hour', [$hour]);
     }
 
     /**
