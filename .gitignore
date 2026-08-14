@@ -443,3 +443,6 @@ nextcloud-app/composer.lock
 # Keep Odoo addon Python packages (models/ is a generic ignore elsewhere)
 !nextcloud-app/odoo/addons/**/models/
 !nextcloud-app/odoo/addons/**/models/**
+
+# Local feedback / notes (not product docs)
+Feedback/

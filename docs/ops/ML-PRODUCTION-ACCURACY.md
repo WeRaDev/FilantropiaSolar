@@ -1,7 +1,7 @@
 # ML energy production accuracy — validation report
 
 **Date:** 2026-08-13  
-**Status:** **PASS** (local stack NC 3.2.21 + ML healthy)  
+**Status:** **PASS** (2026-08-13 on NC 3.2.21; re-confirmed 2026-08-14 on `main` NC **3.2.26** + ML healthy)  
 **Branch:** `feat/analytics-nc-historical-hourly-status` (PR #31)  
 **Re-run:** `python3 nextcloud-app/scripts/verify-ml-production.py --json docs/ops/ml-production-accuracy-latest.json`
 
@@ -49,7 +49,7 @@ OpenAPI reference for PVGIS v6 (relative servers): `docs/ops/openapi.json`. Live
 - **P / STC** (`cap × GHI/1000`): **~0.82–0.85** — matches physics `system_efficiency ≈ 0.85` + light temp derate
 - **Night production:** none
 - **`predict/period` vs `simulate/hourly`:** ratio ≈ **1.0**
-- **Ops stations outside Mendeley corpus:** Predicted path works via sim mode + capacity/coords (NC 3.2.21)
+- **Ops stations outside Mendeley corpus:** Predicted path works via sim mode + capacity/coords (NC 3.2.21+; **3.2.26** on main)
 
 Raw JSON snapshot: `docs/ops/ml-production-accuracy-2026-08-13.json`  
 Earlier sample note: `docs/ops/PVGIS-ML-COMPARE.md`
@@ -83,7 +83,7 @@ curl -sS http://127.0.0.1:8501/health
 python3 nextcloud-app/scripts/verify-ml-production.py --json /tmp/ml-acc.json
 ```
 
-NC app version for this validation: **3.2.21**.
+NC app version for original validation: **3.2.21**. Current `main` after PR #31: **3.2.26** (linearity re-check PASS with `--skip-pvgis` on 2026-08-14).
 
 ### TRL5 (operator — after backup)
 
