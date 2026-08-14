@@ -67,6 +67,17 @@ def parse_install_date(st: dict) -> tuple[str, int]:
     raise ValueError(f"station {st.get('name')!r} missing install_date/year")
 
 
+def db_engine() -> str:
+    return (os.environ.get("FS_DB_ENGINE") or "mysql").strip().lower()
+
+
+def sql_bool(value: bool) -> str:
+    """Boolean literal for MySQL/MariaDB (0/1) or Postgres (FALSE/TRUE)."""
+    if db_engine() in {"postgres", "postgresql", "pg"}:
+        return "TRUE" if value else "FALSE"
+    return "1" if value else "0"
+
+
 def run_sql(sql: str) -> str:
     # Prefer env override for TRL5 / non-dev passwords (never log the value).
     db_pass = (
@@ -78,7 +89,7 @@ def run_sql(sql: str) -> str:
     db_container = os.environ.get("FS_DB_CONTAINER", DB_CONTAINER)
     db_user = os.environ.get("FS_DB_USER", DB_USER)
     db_name = os.environ.get("FS_DB_NAME", DB_NAME)
-    engine = (os.environ.get("FS_DB_ENGINE") or "mysql").strip().lower()
+    engine = db_engine()
 
     if engine in {"postgres", "postgresql", "pg"}:
         cmd = [
@@ -156,7 +167,9 @@ def main() -> int:
         grid_connection = (
             "off_grid" if "off-grid" in notes_l or "off_grid" in notes_l else "on_grid"
         )
-        is_virtual = 1 if lifecycle == "virtual" else 0
+        is_virtual_sql = sql_bool(lifecycle == "virtual")
+        soft_removed_sql = sql_bool(False)
+        error_flag_sql = sql_bool(False)
         installed_at = f"{install_date} 00:00:00" if lifecycle == "running" else "NULL"
         org = (st.get("org") or "").strip()
         notes = (st.get("notes") or "").strip()
@@ -174,6 +187,20 @@ def main() -> int:
         existing = run_sql(
             f"SELECT id FROM oc_fs_installations WHERE serial_number={sql_escape(serial)} LIMIT 1;"
         ).strip()
+        # Fallback: same fleet name (handles renames like Mount-Inn Horses -> Rita)
+        if not existing:
+            existing = run_sql(
+                f"SELECT id FROM oc_fs_installations WHERE source='fleet' AND name={sql_escape(name)} LIMIT 1;"
+            ).strip()
+        # Capacity fallback for known renames (Rita was Mount-Inn Horses @ 1.38 kWp)
+        rita_kwp = 1.38
+        kwp_eps = 0.01
+        if not existing and name == "Rita" and abs(kwp - rita_kwp) < kwp_eps:
+            existing = run_sql(
+                "SELECT id FROM oc_fs_installations WHERE source='fleet' "
+                f"AND capacity_kwp BETWEEN {rita_kwp - kwp_eps:.2f} "
+                f"AND {rita_kwp + kwp_eps:.2f} LIMIT 1;"
+            ).strip()
 
         if existing:
             # existing may be "12" or "12\n"; take first token
@@ -181,14 +208,15 @@ def main() -> int:
             sql = f"""
 UPDATE oc_fs_installations SET
   name={sql_escape(name)},
+  serial_number={sql_escape(serial)},
   location={sql_escape(location)},
   latitude={lat:.8f},
   longitude={lon:.8f},
   capacity_kwp={kwp:.2f},
   source='fleet',
   lifecycle_state={sql_escape(lifecycle)},
-  is_virtual={is_virtual},
-  soft_removed=0,
+  is_virtual={is_virtual_sql},
+  soft_removed={soft_removed_sql},
   installation_date={sql_escape(install_date)},
   installed_at={installed_at if installed_at == "NULL" else sql_escape(installed_at)},
   short_description={sql_escape(short_description)},
@@ -222,14 +250,14 @@ INSERT INTO oc_fs_installations (
   {sql_escape(install_date)},
   {sql_escape(now)},
   {sql_escape(now)},
-  {is_virtual},
+  {is_virtual_sql},
   'fleet',
   {sql_escape(lifecycle)},
-  0,
+  {soft_removed_sql},
   {installed_at if installed_at == "NULL" else sql_escape(installed_at)},
   {sql_escape(short_description)},
   {sql_escape(location)},
-  0
+  {error_flag_sql}
 );
 """
             run_sql(sql)
