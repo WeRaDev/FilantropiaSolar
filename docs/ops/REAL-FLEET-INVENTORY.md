@@ -66,3 +66,7 @@ Machine-readable inventory + approximate coordinates:
 - Seed script: `python3 nextcloud-app/scripts/seed_real_fleet.py`
 
 Coordinates are **approximate Portugal placeholders** for map/weather until ops supplies survey GPS.
+
+## TRL5 seed 2026-08-14
+
+Seeded via `nextcloud-app/scripts/seed_real_fleet.py` on wera-ss-pt-tv-1: 11 fleet rows, public API 11, CRM import 11 leads. Dataset Mendeley rows remain non-public.

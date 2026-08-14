@@ -40,23 +40,35 @@ def slugify(name: str) -> str:
 
 
 def run_sql(sql: str) -> str:
-    cmd = [
-        "docker",
-        "exec",
-        "-i",
-        DB_CONTAINER,
-        "mariadb",
-        f"-u{DB_USER}",
-        f"-p{DB_PASS}",
-        DB_NAME,
-        "-N",
-        "-e",
-        sql,
-    ]
-    proc = subprocess.run(cmd, capture_output=True, text=True, check=False)
-    if proc.returncode != 0:
-        raise RuntimeError(proc.stderr or proc.stdout or "mariadb failed")
-    return proc.stdout
+    # Prefer env override for TRL5 / non-dev passwords (never log the value).
+    db_pass = (
+        __import__("os").environ.get("FS_DB_PASS")
+        or __import__("os").environ.get("MYSQL_PASSWORD")
+        or DB_PASS
+    )
+    db_container = __import__("os").environ.get("FS_DB_CONTAINER", DB_CONTAINER)
+    last_err = ""
+    for client in ("mariadb", "mysql"):
+        cmd = [
+            "docker",
+            "exec",
+            "-i",
+            db_container,
+            client,
+            f"-u{DB_USER}",
+            f"-p{db_pass}",
+            DB_NAME,
+            "-N",
+            "-e",
+            sql,
+        ]
+        proc = subprocess.run(cmd, capture_output=True, text=True, check=False)
+        if proc.returncode == 0:
+            return proc.stdout
+        last_err = proc.stderr or proc.stdout or f"{client} failed"
+        if "not found" not in last_err.lower() and "executable file not found" not in last_err.lower():
+            break
+    raise RuntimeError(last_err or "sql client failed")
 
 
 def main() -> int:
@@ -79,6 +91,11 @@ def main() -> int:
             lifecycle = "planned"
         else:
             lifecycle = "running"
+        grid_connection = (
+            "off_grid"
+            if "off-grid" in notes_l or "off_grid" in notes_l
+            else "on_grid"
+        )
         is_virtual = 1 if lifecycle == "virtual" else 0
         install_date = f"{year}-01-01"
         installed_at = f"{year}-01-01 00:00:00" if lifecycle == "running" else "NULL"
@@ -116,6 +133,7 @@ UPDATE oc_fs_installations SET
   short_description={sql_escape(short_description)},
   nearest_location={sql_escape(location)},
   grid_price_kwh=0.1500,
+  grid_connection_type={sql_escape(grid_connection)},
   updated_at={sql_escape(now)}
 WHERE id={int(existing)};
 """
@@ -126,7 +144,7 @@ WHERE id={int(existing)};
             sql = f"""
 INSERT INTO oc_fs_installations (
   user_id, name, serial_number, location, latitude, longitude, capacity_kwp,
-  grid_price_kwh, installation_date, created_at, updated_at, is_virtual, source,
+  grid_price_kwh, grid_connection_type, installation_date, created_at, updated_at, is_virtual, source,
   lifecycle_state, soft_removed, installed_at, short_description, nearest_location, error_flag
 ) VALUES (
   NULL,
@@ -137,6 +155,7 @@ INSERT INTO oc_fs_installations (
   {lon:.8f},
   {kwp:.2f},
   0.1500,
+  {sql_escape(grid_connection)},
   {sql_escape(install_date)},
   {sql_escape(now)},
   {sql_escape(now)},

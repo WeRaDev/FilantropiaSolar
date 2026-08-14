@@ -1,6 +1,6 @@
 # MVP-7 — Automated + manual gates + TRL5 deploy
 
-**Status:** Automated gates green; local CRM script signed; **TRL5 backup** `20260814-000958`; **TRL5 cutover deployed 2026-08-14** (NC **3.2.26**, Odoo module **19.0.2.22.0**). Remaining: optional browser analytics smoke + ops fleet seed (public API correctly empty while only `source=dataset` stations exist).  
+**Status:** Automated gates green; local CRM script signed; **TRL5 deployed** NC **3.2.26** + Odoo **19.0.2.22.0** (2026-08-14); **real fleet seeded** (11 stations, public API + CRM import). Remaining: optional browser analytics Historical/Predicted smoke on TRL5 NC UI.  
 **Depends on:** MVP-1…6, series epic (NC 3.2.16+ / Odoo 19.0.2.22.0), analytics PR #31.
 
 ## Automated gates
@@ -166,6 +166,15 @@ docker compose --profile odoo up -d odoo
 - Odoo `-u filantropia_solar_public` → **19.0.2.22.0**; COW home arch_len unchanged **235554**
 - Public API empty is **expected** until non-dataset Planned/Running ops stations exist (Phase A fleet boundary). Seed/import CRM fleet separately if public map should list real sites.
 
+
+### Fleet seed — 2026-08-14 (TRL5)
+
+- Ran `nextcloud-app/scripts/seed_real_fleet.py` on host against `filantropia-db` (`source=fleet`, kWp = W/1000).
+- **11** stations: 10 `running` + PurposeFlow `planned`; Penedo `grid_connection_type=off_grid`.
+- Public API: `success=true`, **count 11**, dashboard `total_capacity_kwp=39.75` (planned_count=1, existing_count=10).
+- Odoo: synced `FS_PUBLIC_API_TOKEN` / `FS_LIFECYCLE_API_TOKEN` via `/opt/FilantropiaSolar/nextcloud-app/.env.trl5` (mode 600, not in git); recreated Odoo; `fs.station.sync.import_all_from_nc` → **created 11**, bound 11 CRM leads.
+- Training corpus: 9× `source=dataset` retained, still **not** on public map (Phase A boundary).
+
 ### Post-deploy smoke
 
 | Check | Expect |
@@ -195,7 +204,7 @@ docker compose --profile odoo up -d odoo
 | ML production accuracy gate | prior local PASS; TRL5 health OK (full PVGIS optional) | eng | 2026-08-14 |
 | Series job smoke (1h interval) | **Y** (job id **53** timed; next = last+1h) | eng | 2026-08-14 |
 | Public site smoke | **Y** (`/web/login`, `/inicio` 200; cloudflared up) | eng | 2026-08-14 |
-| Public API stations | **Y** (200 auth; **0** stations — only `source=dataset` on TRL5; filter excludes training corpus by design) | eng | 2026-08-14 |
+| Public API stations | **Y** (200 auth; **11** fleet stations after seed — 10 existing + 1 planned; dataset still excluded) | eng | 2026-08-14 |
 | Analytics Historical + Predicted smoke | | operator browser | |
 
 ## Related

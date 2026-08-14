@@ -10,3 +10,4 @@ vendor/
 composer.lock
 __pycache__/
 **/__pycache__/
+.env.trl5

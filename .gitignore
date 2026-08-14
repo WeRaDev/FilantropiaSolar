@@ -447,3 +447,4 @@ nextcloud-app/composer.lock
 # Local feedback / notes (not product docs)
 Feedback/
 **/__pycache__/
+**/.env.trl5
