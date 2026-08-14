@@ -210,6 +210,7 @@ docker compose --profile odoo up -d odoo
 ## Related
 
 - `docs/ops/TRL5-BACKUP.md`  
+- `docs/ops/TRL5-NC-ACCESS.md` — Filantropia NC vs AIO; how to open the app  
 - `docs/ops/SERIES-SIM-GRID-ADMIN.md`  
 - `docs/ops/CRM-NC-LIFECYCLE-MIRROR.md`  
 - `docs/ops/ODOO-WEBSITE-COW-VIEWS.md`  

@@ -1,13 +1,19 @@
 # TRL5 (wera-ss-pt-tv-1) overrides — avoid Nextcloud AIO on :80/:8080
+# FilantropiaSolar Nextcloud is a SEPARATE instance from Nextcloud AIO.
+# - AIO (general files): host :80 / :8080 — does NOT include filantropia_solar
+# - Filantropia NC: 127.0.0.1:18080 + Tailscale :18080 — has FilantropiaSolar app
 services:
   nextcloud:
     ports: !override
       - "127.0.0.1:18080:80"
+      - "100.82.252.18:18080:80"
     environment:
-      - NEXTCLOUD_TRUSTED_DOMAINS=localhost filantropia-nextcloud 127.0.0.1 filantropiasolar.wera.global wera-ss-pt-tv-1.tailfb390c.ts.net
+      - NEXTCLOUD_TRUSTED_DOMAINS=localhost filantropia-nextcloud 127.0.0.1 filantropiasolar.wera.global wera-ss-pt-tv-1.tailfb390c.ts.net 100.82.252.18
   odoo:
     ports: !override
       - "127.0.0.1:8069:8069"
+      - "100.82.252.18:8069:8069"
   ml-service:
     ports: !override
       - "127.0.0.1:8501:8501"
+      - "100.82.252.18:8501:8501"
