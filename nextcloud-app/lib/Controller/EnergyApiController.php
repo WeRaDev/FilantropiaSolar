@@ -61,17 +61,26 @@ class EnergyApiController extends OCSController
 		$station = $this->resolveStation($id);
 		if ($station !== null) {
 			$dbId = (int) $station->getId();
+			$opStart = $this->seriesService->operationStart($station);
 			$since = null;
 			$until = null;
 			try {
 				if ($fromRaw !== '') {
 					$since = new DateTime($fromRaw . (str_contains($fromRaw, ' ') ? '' : ' 00:00:00'));
+				} else {
+					// Default view window starts at installation/operation date.
+					$since = DateTime::createFromImmutable($opStart);
 				}
 				if ($toRaw !== '') {
 					$until = new DateTime($toRaw . (str_contains($toRaw, ' ') ? '' : ' 23:59:59'));
 				}
 			} catch (\Throwable) {
 				return new JSONResponse(['error' => 'Invalid from/to'], Http::STATUS_BAD_REQUEST);
+			}
+			// Never return simulated pre-install hours as the default dataset window.
+			$floor = DateTime::createFromImmutable($opStart);
+			if ($since === null || $since < $floor) {
+				$since = $floor;
 			}
 
 			$rows = $this->readingMapper->findByInstallation($dbId, $since, $until);
@@ -109,7 +118,7 @@ class EnergyApiController extends OCSController
                                         'savings_eur' => round($prod * $price * $factor, 6),
                                 ];
                         }
-			$bounds = $this->readingMapper->dateBounds($dbId);
+			$bounds = $this->readingMapper->dateBounds($dbId, $opStart);
 			return new JSONResponse([
 				'success' => true,
 				'source' => 'nc_readings',

@@ -4,6 +4,18 @@ All notable changes to the Nextcloud app component. The desktop application
 has its own changelog at the repository root (`CHANGELOG.md`).
 This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.2.31] - 2026-08-14
+
+### Fixed
+- Installation date is the dataset/series start: API clamps `series_from_date`, metrics, readings default window, and Historical calendar min to install/ops start
+- Saving a later installation date or Populate prunes pre-install **simulated** hours only (measured never deleted)
+- `operationStart` prefers `installation_date` over `installed_at`
+- TRL5 recovery: macOS `tar` AppleDouble (`._*.php`) poisoned NC attribute router (`._PredictionApiController`); strip `._*`/`.DS_Store` on deploy and use `COPYFILE_DISABLE=1 tar`
+
+### Changed
+- App version **3.2.31**
+- Cloudflared TRL5 ingress: public NC hosts `wera-ss-pt-tv-1.wera.global` / `.cloud.wera.global` → `nextcloud-aio-apache:11000`
+
 ## [3.2.30] - 2026-08-14
 
 ### Fixed

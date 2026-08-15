@@ -11,12 +11,24 @@ Exposes the Filantropia Solar **Odoo public website** via Cloudflare Tunnel.
 | Code path | `/opt/FilantropiaSolar` |
 | Module | `filantropia_solar_public` **19.0.2.7.0** (P2 SEO/FAQ/blog) |
 | Tunnel | `filantropia-solar` (`6571cd54-a08d-46da-a4ca-9630c1a0d090`) |
-| Ingress | `http://filantropia-odoo:8069` on Docker net `nextcloud-app_filantropia-net` |
+| Ingress | Odoo `http://filantropia-odoo:8069`; Nextcloud AIO `http://nextcloud-aio-apache:11000` |
+| Nextcloud public URL (working TLS) | https://wera-ss-pt-tv-1.wera.global |
+| Nextcloud alt hostname | `wera-ss-pt-tv-1.cloud.wera.global` (DNS+tunnel ready; needs CF Advanced Cert for `*.cloud.wera.global`) |
+| Tunnel runtime (TRL5) | `/home/wera-admin/cloudflared-nc` (writable); `/opt/.../infra/cloudflared` is root-owned mirror |
 
 ```
 Internet -> Cloudflare edge -> filantropia-cloudflared (TRL5)
-         -> http://filantropia-odoo:8069
+         -> http://filantropia-odoo:8069                    (filantropiasolar.wera.global)
+         -> http://nextcloud-aio-apache:11000               (wera-ss-pt-tv-1.wera.global)
+         -> http://nextcloud-aio-apache:11000               (wera-ss-pt-tv-1.cloud.wera.global)
 ```
+
+### Nextcloud notes
+- cloudflared must be on **both** `nextcloud-app_filantropia-net` and `nextcloud-aio`.
+- NC trusted_domains include both public hostnames + Tailscale domain.
+- AIO forces `OVERWRITEHOST` from `NC_DOMAIN` (Tailscale). Host-aware override:
+  `/var/www/html/config/zzz-public-domain.config.php` inside `nextcloud-aio-nextcloud`.
+- Universal SSL covers `*.wera.global` only (one label). Multi-level `*.cloud.wera.global` needs an Advanced Certificate in Cloudflare.
 
 Mac and TRL4 are **not** the public origin. Keep only one active tunnel connector.
 

@@ -1,11 +1,21 @@
 tunnel: 6571cd54-a08d-46da-a4ca-9630c1a0d090
 credentials-file: /etc/cloudflared/credentials.json
 
-# Prefer Docker DNS to filantropia-odoo when cloudflared shares filantropia-net.
-# host.docker.internal only works if Odoo publishes on the host (and is reachable).
+# Prefer Docker DNS when cloudflared shares the target network.
+# host.docker.internal only works if the origin publishes on the host.
 ingress:
   - hostname: filantropiasolar.wera.global
     service: http://filantropia-odoo:8069
     originRequest:
       httpHostHeader: filantropiasolar.wera.global
+  # Nextcloud AIO public edge (Universal SSL: single-level *.wera.global)
+  - hostname: wera-ss-pt-tv-1.wera.global
+    service: http://nextcloud-aio-apache:11000
+    originRequest:
+      httpHostHeader: wera-ss-pt-tv-1.wera.global
+  # Multi-level name (needs Cloudflare Advanced Certificate for *.cloud.wera.global)
+  - hostname: wera-ss-pt-tv-1.cloud.wera.global
+    service: http://nextcloud-aio-apache:11000
+    originRequest:
+      httpHostHeader: wera-ss-pt-tv-1.cloud.wera.global
   - service: http_status:404

@@ -60,23 +60,51 @@ class SeriesSimulationService
 	}
 
 	/**
-	 * Operation start for backfill window.
+	 * Operation / series start for backfill window (installation date when set).
+	 * Prefer installation_date over installed_at so Edit "dataset start" wins.
 	 */
 	public function operationStart(Installation $station): DateTimeImmutable
 	{
 		$candidates = [
-			$station->getInstalledAt(),
 			$station->getInstallationDate(),
+			$station->getInstalledAt(),
 			$station->getFromDate(),
 			$station->getCreatedAt(),
 		];
 		foreach ($candidates as $dt) {
 			if ($dt instanceof DateTime) {
-				return DateTimeImmutable::createFromMutable($dt)->setTimezone(AppTimezone::zone());
+				return DateTimeImmutable::createFromMutable($dt)
+					->setTimezone(AppTimezone::zone())
+					->setTime(0, 0, 0);
 			}
 		}
 
-		return AppTimezone::now();
+		return AppTimezone::now()->setTime(0, 0, 0);
+	}
+
+	/**
+	 * Drop simulated hours before installation/operation start. Measured rows stay.
+	 *
+	 * @return int Number of deleted simulated rows
+	 */
+	public function pruneSimulatedBeforeOperationStart(Installation $station): int
+	{
+		$dbId = (int) $station->getId();
+		if ($dbId <= 0) {
+			return 0;
+		}
+
+		$start = $this->operationStart($station);
+		try {
+			return $this->readingMapper->deleteSimulatedBefore($dbId, $start);
+		} catch (\Throwable $e) {
+			$this->logger->warning('pruneSimulatedBeforeOperationStart failed', [
+				'id' => $dbId,
+				'exception' => $e,
+			]);
+
+			return 0;
+		}
 	}
 
 	/**

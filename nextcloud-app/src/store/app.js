@@ -244,6 +244,8 @@ export const useAppStore = defineStore('app', {
                         short_description: inst.short_description || '',
                         grid_price_kwh: inst.grid_price_kwh != null ? Number(inst.grid_price_kwh) : 0.15,
                         grid_connection_type: inst.grid_connection_type || 'on_grid',
+                        installation_date: inst.installation_date || null,
+                        installed_at: inst.installed_at || null,
                         total_production_kwh: Number(inst.total_production_kwh || 0),
                         total_savings_eur: Number(inst.total_savings_eur || 0),
                         readings_count: Number(inst.readings_count || 0),

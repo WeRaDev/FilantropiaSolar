@@ -6,4 +6,12 @@ ingress:
     service: http://127.0.0.1:8069
     originRequest:
       httpHostHeader: filantropiasolar.wera.global
+  - hostname: wera-ss-pt-tv-1.wera.global
+    service: http://127.0.0.1:11000
+    originRequest:
+      httpHostHeader: wera-ss-pt-tv-1.wera.global
+  - hostname: wera-ss-pt-tv-1.cloud.wera.global
+    service: http://127.0.0.1:11000
+    originRequest:
+      httpHostHeader: wera-ss-pt-tv-1.cloud.wera.global
   - service: http_status:404

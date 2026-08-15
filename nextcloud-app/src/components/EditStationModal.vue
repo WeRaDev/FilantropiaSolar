@@ -80,7 +80,7 @@
 						<button type="button" class="btn" :disabled="busy" @click="viewDataset">View dataset</button>
 						<button type="button" class="btn primary" :disabled="busy" @click="populateDataset">Populate dataset</button>
 					</div>
-					<p class="hint">Populate fills missing hours with ML simulation from installation date to now. Measured hours are never overwritten.</p>
+				<p class="hint">Installation date is the dataset start. Populate fills missing hours from that date to now and removes earlier simulated hours. Measured hours are never overwritten or deleted.</p>
 				</div>
 				<p v-if="error" class="err">{{ error }}</p>
 				<p v-if="info" class="ok">{{ info }}</p>
@@ -165,8 +165,13 @@ export default {
 		const seriesRangeLabel = computed(() => {
 			const o = selectedObject.value
 			if (!o) return '—'
-			// Series bounds only (not installation date)
-			const from = (o.series_from_date || o.customData?.seriesFromDate || '').toString().slice(0, 10)
+			// Dataset start = installation date (form or stored); end = series_to
+			const install = (form.installation_date
+				|| o.installation_date
+				|| o.customData?.installationDate
+				|| '').toString().slice(0, 10)
+			const seriesFrom = (o.series_from_date || o.customData?.seriesFromDate || '').toString().slice(0, 10)
+			const from = install || seriesFrom
 			const to = (o.series_to_date || o.customData?.seriesToDate || '').toString().slice(0, 10)
 			if (from && to) return `${from} → ${to}`
 			if (from) return `from ${from} (no series end yet)`
@@ -374,7 +379,8 @@ export default {
 					from: form.installation_date || undefined,
 				})
 				const r = res?.result || {}
-				info.value = `Populate done: inserted ${r.inserted ?? 0}, skipped existing ${r.skipped_existing ?? 0}, skipped measured ${r.skipped_measured ?? 0}. Range ${res?.series_from_date || '?'} → ${res?.series_to_date || '?'}`
+				const pruned = r.pruned_simulated_before_install ?? 0
+				info.value = `Populate done: inserted ${r.inserted ?? 0}, skipped existing ${r.skipped_existing ?? 0}, skipped measured ${r.skipped_measured ?? 0}, pruned pre-install simulated ${pruned}. Range ${res?.series_from_date || '?'} → ${res?.series_to_date || '?'}`
 				await store.fetchObjects()
 			} catch (e) {
 				error.value = e.response?.data?.error || e.message || 'Populate failed'

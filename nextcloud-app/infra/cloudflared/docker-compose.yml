@@ -18,8 +18,12 @@ services:
       - ./credentials.json:/etc/cloudflared/credentials.json:ro
     networks:
       - filantropia-net
+      - nextcloud-aio
 
 networks:
   filantropia-net:
     external: true
     name: nextcloud-app_filantropia-net
+  nextcloud-aio:
+    external: true
+    name: nextcloud-aio

@@ -254,10 +254,15 @@ class InstallationApiController extends ApiController
                 $d = $payload['short_description'] ?? $payload['shortDescription'];
                 $installation->setShortDescription($d !== null && $d !== '' ? (string) $d : null);
             }
+            $installDateChanged = false;
             if (array_key_exists('installation_date', $payload) || array_key_exists('effective_date', $payload) || array_key_exists('installationDate', $payload)) {
                 $raw = $payload['installation_date'] ?? $payload['effective_date'] ?? $payload['installationDate'];
                 if ($raw) {
                     $dt = new DateTime((string) $raw);
+                    $prev = $installation->getInstallationDate();
+                    $prevYmd = $prev?->format('Y-m-d');
+                    $nextYmd = $dt->format('Y-m-d');
+                    $installDateChanged = $prevYmd !== $nextYmd;
                     $installation->setInstallationDate($dt);
                     // Keep installed_at aligned for running stations so ops start matches series populate
                     $state = $installation->getLifecycleState() ?: '';
@@ -278,9 +283,20 @@ class InstallationApiController extends ApiController
             // Profile edits (location/name/coords/etc.) must mirror to CRM.
             $this->odooMirror->notify($updated);
 
+            $pruned = 0;
+            if ($installDateChanged && ($updated->getSource() ?: '') !== 'dataset') {
+                // Installation date is the dataset start: drop pre-start simulated hours only.
+                $pruned = $this->seriesService->pruneSimulatedBeforeOperationStart($updated);
+            }
+
+            $payloadOut = $this->lifecyclePayload($updated);
+            if ($pruned > 0) {
+                $payloadOut['pruned_simulated_before_install'] = $pruned;
+            }
+
             return new JSONResponse([
                 'success' => true,
-                'installation' => $this->lifecyclePayload($updated),
+                'installation' => $payloadOut,
                 'message' => 'Installation updated successfully',
             ]);
         } catch (\Exception $e) {
@@ -323,12 +339,19 @@ class InstallationApiController extends ApiController
         try {
             $zone = \OCA\FilantropiaSolar\Service\AppTimezone::zone();
             $last = \OCA\FilantropiaSolar\Service\AppTimezone::lastCompleteHour();
+            $opStart = $this->seriesService->operationStart($installation);
+            // Always drop simulated hours before install/ops start before filling.
+            $pruned = $this->seriesService->pruneSimulatedBeforeOperationStart($installation);
             if ($fromRaw !== '') {
                 $start = new \DateTimeImmutable($fromRaw, $zone);
             } else {
-                $start = $this->seriesService->operationStart($installation);
+                $start = $opStart;
             }
             $start = $start->setTime(0, 0, 0);
+            // Never populate earlier than installation/operation start.
+            if ($start < $opStart) {
+                $start = $opStart;
+            }
             if ($toRaw !== '') {
                 $end = (new \DateTimeImmutable($toRaw, $zone))->setTime(23, 0, 0);
             } else {
@@ -342,7 +365,14 @@ class InstallationApiController extends ApiController
             }
 
             // Chunk large ranges (7 days) to stay within request timeouts
-            $total = ['requested' => 0, 'inserted' => 0, 'skipped_existing' => 0, 'skipped_measured' => 0, 'chunks' => 0];
+            $total = [
+                'requested' => 0,
+                'inserted' => 0,
+                'skipped_existing' => 0,
+                'skipped_measured' => 0,
+                'chunks' => 0,
+                'pruned_simulated_before_install' => $pruned,
+            ];
             $cursor = $start;
             $chunkDays = \OCA\FilantropiaSolar\Service\SeriesSimulationService::BACKFILL_CHUNK_DAYS;
             while ($cursor <= $end) {
@@ -359,7 +389,7 @@ class InstallationApiController extends ApiController
                 $cursor = $windowEnd->add(new \DateInterval('PT1H'));
             }
 
-            $bounds = $this->readingMapper->dateBounds((int) $installation->getId());
+            $bounds = $this->readingMapper->dateBounds((int) $installation->getId(), $opStart);
             return new JSONResponse([
                 'success' => true,
                 'result' => $total,
@@ -928,9 +958,28 @@ class InstallationApiController extends ApiController
             return $payload;
         }
 
+        // Installation/operation start is the dataset window floor for ops metrics.
+        $seriesStart = null;
         try {
-            $production = $this->readingMapper->sumProductionAll($dbId);
-            $count = $this->readingMapper->countByInstallation($dbId);
+            $seriesStartYmd = $payload['installation_date']
+                ?? (isset($payload['installed_at']) ? substr((string) $payload['installed_at'], 0, 10) : null)
+                ?? $payload['from_date']
+                ?? null;
+            if (is_string($seriesStartYmd) && $seriesStartYmd !== '') {
+                $seriesStart = new \DateTimeImmutable($seriesStartYmd, \OCA\FilantropiaSolar\Service\AppTimezone::zone());
+            }
+        } catch (\Throwable) {
+            $seriesStart = null;
+        }
+
+        try {
+            if ($seriesStart !== null) {
+                $production = $this->readingMapper->sumProductionFrom($dbId, $seriesStart);
+                $count = $this->readingMapper->countFrom($dbId, $seriesStart);
+            } else {
+                $production = $this->readingMapper->sumProductionAll($dbId);
+                $count = $this->readingMapper->countByInstallation($dbId);
+            }
             // Active badge: last complete Europe/Lisbon hour must be measured (not merely any historical measured row).
             $hasMeasured = $this->readingMapper->hasMeasuredLastCompleteHour($dbId);
             $hasAnyMeasured = $this->readingMapper->hasMeasuredData($dbId);
@@ -987,7 +1036,8 @@ class InstallationApiController extends ApiController
         $payload['self_consumption_factor'] = $factor;
         $payload['series_mix'] = $mix;
         try {
-            $bounds = $this->readingMapper->dateBounds($dbId);
+            // Clamp reported series start to installation date (dataset start).
+            $bounds = $this->readingMapper->dateBounds($dbId, $seriesStart);
             $payload['series_from_date'] = $bounds['from'];
             $payload['series_to_date'] = $bounds['to'];
         } catch (\Throwable $e) {

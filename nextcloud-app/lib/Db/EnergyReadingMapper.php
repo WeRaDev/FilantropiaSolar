@@ -226,6 +226,78 @@ class EnergyReadingMapper extends QBMapper
     }
 
     /**
+     * Delete simulated (non-measured) readings strictly before a cutoff timestamp.
+     * Measured provenance is never deleted here.
+     *
+     * @param \DateTimeInterface $cutoff Inclusive series start (typically install date 00:00 Lisbon)
+     */
+    public function deleteSimulatedBefore(int $installationId, \DateTimeInterface $cutoff): int
+    {
+        $cutoffLocal = DateTimeImmutable::createFromInterface($cutoff)->setTimezone(AppTimezone::zone());
+        $cutoffStr = $cutoffLocal->setTime(0, 0, 0)->format('Y-m-d H:i:s');
+
+        $qb = $this->db->getQueryBuilder();
+        $qb->delete($this->getTableName())
+            ->where($qb->expr()->eq(
+                'installation_id',
+                $qb->createNamedParameter($installationId, IQueryBuilder::PARAM_INT),
+            ))
+            ->andWhere($qb->expr()->lt('timestamp', $qb->createNamedParameter($cutoffStr)))
+            ->andWhere($qb->expr()->orX(
+                $qb->expr()->eq(
+                    'provenance',
+                    $qb->createNamedParameter(EnergyReading::PROVENANCE_SIMULATED),
+                ),
+                $qb->expr()->isNull('provenance'),
+                $qb->expr()->eq('provenance', $qb->createNamedParameter('')),
+            ));
+
+        return $qb->executeStatement();
+    }
+
+    /**
+     * Sum production at/after a cutoff (ops series window from install date).
+     */
+    public function sumProductionFrom(int $installationId, \DateTimeInterface $since): float
+    {
+        $sinceLocal = DateTimeImmutable::createFromInterface($since)->setTimezone(AppTimezone::zone());
+        $sinceStr = $sinceLocal->setTime(0, 0, 0)->format('Y-m-d H:i:s');
+
+        $qb = $this->db->getQueryBuilder();
+        $qb->select($qb->createFunction('COALESCE(SUM(production_kwh), 0)'))
+            ->from($this->getTableName())
+            ->where($qb->expr()->eq('installation_id', $qb->createNamedParameter($installationId, IQueryBuilder::PARAM_INT)))
+            ->andWhere($qb->expr()->gte('timestamp', $qb->createNamedParameter($sinceStr)));
+
+        $result = $qb->executeQuery();
+        $sum = (float) $result->fetchOne();
+        $result->closeCursor();
+
+        return $sum;
+    }
+
+    /**
+     * Count readings at/after a cutoff.
+     */
+    public function countFrom(int $installationId, \DateTimeInterface $since): int
+    {
+        $sinceLocal = DateTimeImmutable::createFromInterface($since)->setTimezone(AppTimezone::zone());
+        $sinceStr = $sinceLocal->setTime(0, 0, 0)->format('Y-m-d H:i:s');
+
+        $qb = $this->db->getQueryBuilder();
+        $qb->select($qb->createFunction('COUNT(*)'))
+            ->from($this->getTableName())
+            ->where($qb->expr()->eq('installation_id', $qb->createNamedParameter($installationId, IQueryBuilder::PARAM_INT)))
+            ->andWhere($qb->expr()->gte('timestamp', $qb->createNamedParameter($sinceStr)));
+
+        $result = $qb->executeQuery();
+        $count = (int) $result->fetchOne();
+        $result->closeCursor();
+
+        return $count;
+    }
+
+    /**
      * Whether any measured readings exist for the installation (Active vs Offline).
      */
     public function hasMeasuredData(int $installationId): bool
@@ -541,10 +613,12 @@ class EnergyReadingMapper extends QBMapper
 
     /**
      * Min/max reading timestamps for calendar bounds (Y-m-d).
+     * When $notBefore is set, only readings on/after that day are considered and
+     * from is never earlier than that day (installation date = series start).
      *
      * @return array{from: ?string, to: ?string}
      */
-    public function dateBounds(int $installationId): array
+    public function dateBounds(int $installationId, ?\DateTimeInterface $notBefore = null): array
     {
         $qb = $this->db->getQueryBuilder();
         $qb->selectAlias($qb->createFunction('MIN(timestamp)'), 'min_ts')
@@ -552,18 +626,29 @@ class EnergyReadingMapper extends QBMapper
             ->from($this->getTableName())
             ->where($qb->expr()->eq('installation_id', $qb->createNamedParameter($installationId, IQueryBuilder::PARAM_INT)));
 
+        $floorYmd = null;
+        if ($notBefore !== null) {
+            $floor = DateTimeImmutable::createFromInterface($notBefore)->setTimezone(AppTimezone::zone())->setTime(0, 0, 0);
+            $floorYmd = $floor->format('Y-m-d');
+            $qb->andWhere($qb->expr()->gte('timestamp', $qb->createNamedParameter($floor->format('Y-m-d H:i:s'))));
+        }
+
         $result = $qb->executeQuery();
         $row = $result->fetch();
         $result->closeCursor();
         if (!$row || empty($row['min_ts'])) {
             return ['from' => null, 'to' => null];
         }
-        $min = (string) $row['min_ts'];
-        $max = (string) $row['max_ts'];
+        $min = substr((string) $row['min_ts'], 0, 10);
+        $max = substr((string) $row['max_ts'], 0, 10);
+        // Installation date is the dataset start even if the first filled hour is later.
+        if ($floorYmd !== null) {
+            $min = $floorYmd;
+        }
 
         return [
-            'from' => substr($min, 0, 10),
-            'to' => substr($max, 0, 10),
+            'from' => $min,
+            'to' => $max,
         ];
     }
 

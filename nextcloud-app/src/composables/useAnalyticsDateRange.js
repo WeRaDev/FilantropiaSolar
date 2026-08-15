@@ -45,22 +45,22 @@ export function useAnalyticsDateRange({ selectedObject, analysisData, generateAn
     }
 
     /**
-     * Historical calendar = actual series bounds (series_from → series_to),
-     * falling back to install date → today when series empty.
-     * Never allow future dates or dates outside the station dataset.
+     * Historical calendar min = installation date (dataset start) when set,
+     * else series_from, else other ops start candidates.
+     * Never allow dates before the station was installed.
      */
     const minDate = computed(() => {
         const o = selectedObject.value
         const cd = o?.customData || {}
-        // Prefer actual NC series bounds for Historical navigation
+        // Installation date is the dataset start when set.
+        const install = ymd(cd.installationDate) || ymd(o?.installation_date)
+        if (install) return install
         const seriesFrom = ymd(cd.seriesFromDate) || ymd(o?.series_from_date)
         if (seriesFrom) return seriesFrom
         const candidates = [
             ymd(cd.installedAt),
-            ymd(cd.installationDate),
-            ymd(cd.fromDate),
             ymd(o?.installed_at),
-            ymd(o?.installation_date),
+            ymd(cd.fromDate),
             ymd(o?.from_date),
         ].filter(Boolean)
         if (!candidates.length) return null

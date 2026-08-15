@@ -394,8 +394,9 @@ export default {
         }
 
         const datasetRangeLabel = (obj) => {
-            // Ops series bounds only — never training Excel from/to or install date.
-            const from = obj?.series_from_date || obj?.customData?.seriesFromDate
+            // Dataset start prefers installation date; end is series_to (API already clamps from).
+            const install = obj?.installation_date || obj?.customData?.installationDate
+            const from = obj?.series_from_date || obj?.customData?.seriesFromDate || install
             const to = obj?.series_to_date || obj?.customData?.seriesToDate
             const f = from ? String(from).slice(0, 10) : null
             const t = to ? String(to).slice(0, 10) : null
