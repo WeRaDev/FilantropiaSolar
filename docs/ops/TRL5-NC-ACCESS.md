@@ -53,6 +53,39 @@ docker start filantropia-nextcloud
 # Optionally occ app:disable filantropia_solar on AIO
 ```
 
+## Outbound email (TRL5, verified 2026-08-16)
+
+NC and Odoo send mail through **host Proton Mail Bridge**, not a container MTA.
+
+**Verified working:** NC Admin email test, Odoo Test Connection, and Odoo user invitation delivery.
+
+| Piece | Value |
+|-------|--------|
+| Bridge SMTP | `127.0.0.1:1025` STARTTLS + AUTH |
+| Bridge mailbox | `cloud@wera.global` (account `Tomás Crespim` index `0`) |
+| Docker reachability | `protonmail-smtp-docker-proxy.service` → `172.18.0.1:1025` / `172.19.0.1:1025` |
+| NC SMTP | `172.18.0.1:1025`, `mail_smtpsecure=tls` + self-signed `mail_smtpstreamoptions`, from `cloud@wera.global` |
+| Odoo outgoing server | `Proton Bridge (host via docker gw)` — same host/port, `starttls` / `login`, `from_filter=wera.global` |
+| Odoo identity | company / OdooBot / admin = `cloud@wera.global`; alias domain bounce/catchall/default_from all `cloud` |
+
+### If mail stops after Bridge restart
+Bridge may show `signed out` / `locked`. Re-login:
+```bash
+ssh -t wera-admin@wera-ss-pt-tv-1.tailfb390c.ts.net
+sudo systemctl restart protonmail.service   # only if tmux session missing
+sudo -u protonmail tmux attach -t protonmail
+# Bridge CLI:
+list
+login 0
+# Proton password + 2FA
+list   # expect connected
+info 0 # refresh SMTP password into NC/Odoo if rotated
+# Ctrl-b then d to detach
+sudo systemctl restart protonmail-smtp-docker-proxy.service
+```
+
+Full procedure and failure matrix: SolarSeed-v3 `ops/RUNBOOK.md` → **TRL5 outbound email**.
+
 ## AIO upgrades
 
 After AIO updates Nextcloud container, re-check:
