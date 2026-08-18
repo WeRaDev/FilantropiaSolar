@@ -3,8 +3,10 @@
 from __future__ import annotations
 
 import base64
+import hashlib
 import json
 import logging
+import math
 import os
 import urllib.request
 
@@ -61,6 +63,12 @@ _PANEL_WATTS = 550  # 550 W per panel
 # (admin-editable EUR/kWh is a Nextcloud-app follow-up per Feedback).
 _DISPLAY_EUR_PER_KWH = 0.15
 _DISPLAY_SPECIFIC_YIELD_KWH_PER_KWP = 1400.0  # Portugal-indicative
+
+# Public website only: never expose exact station coordinates on the map.
+# Nextcloud keeps precise lat/lng; Odoo applies a stable jitter within ~1 km
+# so markers stay regionally meaningful but resist equipment theft scouting.
+_PUBLIC_MAP_OFFSET_RADIUS_M = 1000.0
+_METERS_PER_DEG_LAT = 111_320.0
 
 # Progress bar percentages for the candidatura funnel
 _STEP_PROGRESS = {
@@ -129,8 +137,85 @@ class FilantropiaSolarPublicController(http.Controller):
         with urllib.request.urlopen(req, timeout=30) as resp:
             return json.loads(resp.read().decode("utf-8"))
 
+    @staticmethod
+    def _public_map_seed(station: dict) -> str:
+        """Stable seed so the same station always gets the same public offset."""
+        for key in ("id", "installation_id", "installationId", "name"):
+            val = station.get(key)
+            if val is not None and str(val).strip() != "":
+                return f"fs-public-map:{key}:{val}"
+        lat = station.get("latitude")
+        lng = station.get("longitude")
+        return f"fs-public-map:ll:{lat}:{lng}"
+
+    @classmethod
+    def _offset_public_coordinates(
+        cls, latitude: float, longitude: float, seed: str
+    ) -> tuple[float, float]:
+        """Return lat/lng jittered uniformly inside a ~1 km radius disk."""
+        digest = hashlib.sha256(seed.encode("utf-8")).digest()
+        u1 = int.from_bytes(digest[0:8], "big") / float(1 << 64)
+        u2 = int.from_bytes(digest[8:16], "big") / float(1 << 64)
+        # Avoid clustering at center: radius ~ R * sqrt(U)
+        radius_m = _PUBLIC_MAP_OFFSET_RADIUS_M * math.sqrt(max(u1, 1e-12))
+        theta = 2.0 * math.pi * u2
+        north_m = radius_m * math.cos(theta)
+        east_m = radius_m * math.sin(theta)
+        dlat = north_m / _METERS_PER_DEG_LAT
+        cos_lat = math.cos(math.radians(latitude))
+        meters_per_deg_lng = _METERS_PER_DEG_LAT * max(abs(cos_lat), 0.01)
+        dlng = east_m / meters_per_deg_lng
+        out_lat = max(_LAT_MIN, min(_LAT_MAX, latitude + dlat))
+        out_lng = max(_LNG_MIN, min(_LNG_MAX, longitude + dlng))
+        return out_lat, out_lng
+
+    def _apply_public_location_privacy(self, station: dict) -> dict:
+        """Replace exact coordinates for website payloads; NC remains precise."""
+        row = dict(station)
+        lat = self._as_float(row.get("latitude"), None)
+        lng = self._as_float(row.get("longitude"), None)
+        if lat is None or lng is None:
+            row["location_is_approximate"] = True
+            return row
+        if not (_LAT_MIN <= lat <= _LAT_MAX and _LNG_MIN <= lng <= _LNG_MAX):
+            row["location_is_approximate"] = True
+            return row
+        seed = self._public_map_seed(row)
+        pub_lat, pub_lng = self._offset_public_coordinates(lat, lng, seed)
+        row["latitude"] = round(pub_lat, 5)
+        row["longitude"] = round(pub_lng, 5)
+        row["location_is_approximate"] = True
+        # Never ship residual precise fields on the public site payload
+        for leak_key in (
+            "exact_latitude",
+            "exact_longitude",
+            "lat",
+            "lng",
+            "lon",
+            "gps",
+            "coordinates",
+            "geo_point",
+            "address",
+            "street",
+            "street2",
+            "zip",
+            "zipcode",
+        ):
+            row.pop(leak_key, None)
+        return row
+
+    def _format_metric_number(self, value: float, decimals: int = 0) -> str:
+        """PT-friendly thousands spacing for public metrics."""
+        try:
+            num = float(value or 0)
+        except (TypeError, ValueError):
+            num = 0.0
+        if decimals <= 0:
+            return f"{int(round(num)):,}".replace(",", " ")
+        fmt = f"{{:,.{decimals}f}}"; return fmt.format(num).replace(",", " ")
+
     def _enrich_metrics(self, stations: list, dashboard: dict) -> dict:
-        """Add indicative total money saved until Nextcloud supplies aggregates."""
+        """Normalize NC public dashboard + station metrics for website templates."""
         dash = dict(dashboard or {})
         station_count = int(dash.get("station_count") or len(stations) or 0)
         capacity = self._as_float(dash.get("total_capacity_kwp"), 0.0)
@@ -143,21 +228,52 @@ class FilantropiaSolarPublicController(http.Controller):
                     if (s.get("location") or "").strip()
                 }
             )
-        # Prefer API field if present later; else indicative estimate
+
+        # Money saved: prefer NC dashboard aggregate (series-backed when present)
         total_saved = dash.get("total_money_saved_eur")
+        if total_saved is None and stations:
+            # Fall back to sum of station NC fields
+            total_saved = 0.0
+            any_series = False
+            for s in stations:
+                if s.get("has_series_data"):
+                    any_series = True
+                    total_saved += self._as_float(
+                        s.get("total_savings_eur", s.get("money_saved_eur")), 0.0
+                    )
+            if not any_series:
+                total_saved = None
         if total_saved is None:
             annual_kwh = capacity * _DISPLAY_SPECIFIC_YIELD_KWH_PER_KWP
             total_saved = annual_kwh * _DISPLAY_EUR_PER_KWH
             dash["savings_is_indicative"] = True
         else:
-            dash["savings_is_indicative"] = False
+            # Keep NC flag when provided
+            if dash.get("savings_is_indicative") is None:
+                dash["savings_is_indicative"] = False
+
+        # Energy generated: prefer NC dashboard; else sum station series kWh
+        total_energy = dash.get("total_energy_generated_kwh")
+        if total_energy is None:
+            total_energy = dash.get("total_production_kwh")
+        if total_energy is None and stations:
+            total_energy = sum(
+                self._as_float(s.get("total_production_kwh"), 0.0) for s in stations
+            )
+        total_energy = self._as_float(total_energy, 0.0)
+
         dash["station_count"] = station_count
         dash["total_capacity_kwp"] = capacity
+        dash["total_capacity_display"] = self._format_metric_number(capacity, 1)
         dash["locations"] = locations
         dash["location_count"] = len(locations)
         dash["total_money_saved_eur"] = float(total_saved or 0)
-        dash["total_money_saved_display"] = f"{int(float(total_saved or 0)):,}".replace(
-            ",", " "
+        dash["total_money_saved_display"] = self._format_metric_number(
+            float(total_saved or 0), 0
+        )
+        dash["total_energy_generated_kwh"] = float(total_energy or 0)
+        dash["total_energy_generated_display"] = self._format_metric_number(
+            float(total_energy or 0), 0
         )
         # Per-station indicative savings + short info blurb for list/map popups
         enriched = []
@@ -210,7 +326,8 @@ class FilantropiaSolarPublicController(http.Controller):
                     )
             row["info"] = info
             row["short_description"] = info
-            enriched.append(row)
+            # Website map/list only: approximate coordinates (~1 km). NC keeps exact.
+            enriched.append(self._apply_public_location_privacy(row))
         return dash, enriched
 
     def _get_public_data(self):
@@ -561,7 +678,19 @@ class FilantropiaSolarPublicController(http.Controller):
         return self._render("filantropia_solar_public.page_inicio")
 
     # ------------------------------------------------------------------
-    # Installations list ("Ver mais")
+    # Projects page (map + station list moved off homepage)
+    # ------------------------------------------------------------------
+    @http.route(
+        ["/projetos", "/projects", "/filantropia/projetos"],
+        type="http",
+        auth="public",
+        website=True,
+    )
+    def projetos(self, **kwargs):
+        return self._render("filantropia_solar_public.page_projetos")
+
+    # ------------------------------------------------------------------
+    # Installations list (legacy deep link; prefer /projetos)
     # ------------------------------------------------------------------
     @http.route(
         ["/instalacoes", "/filantropia/instalacoes"],

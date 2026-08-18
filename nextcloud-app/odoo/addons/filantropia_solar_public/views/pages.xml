@@ -39,80 +39,76 @@
                     </div>
                 </section>
 
-                <section class="container py-4" id="rede">
-                    <h2 class="text-center mb-3">Rede de instalações</h2>
+                <section class="container py-4" id="vantagens">
+                    <h2 class="text-center mb-3">Porquê solar doado?</h2>
+                    <div class="row g-4">
+                        <div class="col-md-4">
+                            <div class="fs-card h-100 fs-keypoint">
+                                <h3 class="fs-card-title">Menos custos de eletricidade</h3>
+                                <p class="mb-0">Ao produzir e consumir a sua própria eletricidade, a organização reduz a fatura elétrica ao longo do tempo.</p>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="fs-card h-100 fs-keypoint">
+                                <h3 class="fs-card-title">Mais de 25 anos de produção</h3>
+                                <p class="mb-0">O sistema pode continuar a fornecer energia durante mais de 25 anos, com impacto estável no orçamento da ONG.</p>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="fs-card h-100 fs-keypoint">
+                                <h3 class="fs-card-title">Poupança superior ao investimento</h3>
+                                <p class="mb-0">Com o tempo, a poupança acumulada torna-se superior ao custo original de instalação do sistema.</p>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <section class="container py-4" id="progresso">
+                    <h2 class="text-center mb-3">O Nosso Progresso</h2>
                     <t t-if="api_error">
                         <div class="alert alert-warning text-center" t-esc="api_error"/>
                     </t>
                     <div class="row g-4">
-                        <div class="col-12 col-lg-4">
-                            <div class="fs-card">
-                                <h3 class="fs-card-title">Painéis instalados</h3>
-                                <ul class="list-unstyled fs-metrics mb-0">
-                                    <li><strong>Estações:</strong> <span t-esc="dashboard.get('station_count', 0)"/></li>
-                                    <li><strong>Capacidade total:</strong> <span t-esc="dashboard.get('total_capacity_kwp', 0)"/> kWp</li>
-                                    <li><strong>Localizações:</strong> <span t-esc="dashboard.get('location_count', len(dashboard.get('locations', [])))"/></li>
-                                    <li>
-                                        <strong>Poupança total estimada:</strong>
-                                        <span t-esc="dashboard.get('total_money_saved_display', '0')"/> EUR/ano
-                                        <t t-if="dashboard.get('savings_is_indicative')">
-                                            <div class="small text-muted">Estimativa indicativa (não é medição real): capacidade × produção específica de referência × preço médio de energia. O valor administrativo poderá ser configurado na app Nextcloud.</div>
-                                        </t>
-                                    </li>
-                                </ul>
+                        <div class="col-6 col-md-3">
+                            <div class="fs-card text-center h-100 fs-progress-metric">
+                                <div class="fs-metric-value" t-esc="dashboard.get('station_count', 0)"/>
+                                <div class="fs-metric-label">Estações</div>
                             </div>
-                            <div class="fs-card mt-4">
-                                <button type="button" class="fs-expand-toggle fs-card-title mb-0" id="fs-stations-toggle"
-                                        aria-expanded="false" aria-controls="fs-stations-expand" data-bs-target="#fs-stations-expand">
-                                    <span>Estações</span>
-                                    <span class="fs-chevron" aria-hidden="true">▼</span>
-                                </button>
-                                <div id="fs-stations-expand" class="fs-expand-body collapse" role="region" aria-labelledby="fs-stations-toggle">
-                                    <ul class="list-unstyled fs-station-list mb-0">
-                                        <t t-foreach="stations" t-as="station">
-                                            <t t-set="fs_cat" t-value="(station.get('public_category') or station.get('lifecycle_state') or '')"/>
-                                            <t t-set="fs_cat_l" t-value="(fs_cat or '').lower()"/>
-                                            <t t-set="fs_status_label" t-value="'Planeada' if fs_cat_l in ('planned',) else ('Em operação' if fs_cat_l in ('existing', 'running') else (fs_cat or '—'))"/>
-                                            <t t-set="fs_status_cls" t-value="'fs-status-planned' if fs_cat_l in ('planned',) else ('fs-status-running' if fs_cat_l in ('existing', 'running') else 'fs-status-other')"/>
-                                            <li class="fs-station-list-item fs-station-item"
-                                                t-att-data-station-id="station.get('id') or station.get('installation_id')"
-                                                t-att-data-lat="station.get('latitude')"
-                                                t-att-data-lng="station.get('longitude')"
-                                                t-att-data-status="fs_cat_l">
-                                                <div class="fs-station-title-row">
-                                                    <strong t-esc="station.get('name')"/>
-                                                    <span t-attf-class="fs-status-badge #{fs_status_cls}" t-esc="fs_status_label"/>
-                                                </div>
-                                                <div class="fs-station-meta text-muted small">
-                                                    <span t-esc="station.get('location', 'Desconhecido')"/>
-                                                    <span>|</span>
-                                                    <span><t t-esc="station.get('capacity_kwp', 0)"/> kWp</span>
-                                                    <span>|</span>
-                                                    <span>Poupança estimada: <t t-esc="station.get('money_saved_display', '—')"/> EUR/ano</span>
-                                                </div>
-                                                <div class="fs-station-info small">
-                                                    <strong>Descrição:</strong>
-                                                    <span t-esc="station.get('info', '')"/>
-                                                </div>
-                                                <t t-if="station.get('website_href') or station.get('website')">
-                                                    <div class="fs-station-web small">
-                                                        <a t-att-href="station.get('website_href') or station.get('website')"
-                                                           target="_blank" rel="noopener">Website</a>
-                                                    </div>
-                                                </t>
-                                            </li>
-                                        </t>
-                                    </ul>
+                        </div>
+                        <div class="col-6 col-md-3">
+                            <div class="fs-card text-center h-100 fs-progress-metric">
+                                <div class="fs-metric-value">
+                                    <span t-esc="dashboard.get('total_capacity_display', dashboard.get('total_capacity_kwp', 0))"/>
+                                    <span class="fs-metric-unit">kWp</span>
                                 </div>
+                                <div class="fs-metric-label">Capacidade total</div>
                             </div>
                         </div>
-                        <div class="col-12 col-lg-8">
-                            <div class="fs-card">
-                                <h3 class="fs-card-title">Mapa</h3>
-                                <div id="fs-stations-map" class="fs-map"/>
-                                <p class="small text-muted mt-2 mb-0">Clique numa estação da lista ou num marcador para focar o mapa. Estados: Planeada / Em operação.</p>
+                        <div class="col-6 col-md-3">
+                            <div class="fs-card text-center h-100 fs-progress-metric">
+                                <div class="fs-metric-value">
+                                    <span t-esc="dashboard.get('total_money_saved_display', '0')"/>
+                                    <span class="fs-metric-unit">EUR</span>
+                                </div>
+                                <div class="fs-metric-label">Poupança total</div>
+                                <t t-if="dashboard.get('savings_is_indicative')">
+                                    <div class="small text-muted mt-1">Estimativa indicativa</div>
+                                </t>
                             </div>
                         </div>
+                        <div class="col-6 col-md-3">
+                            <div class="fs-card text-center h-100 fs-progress-metric">
+                                <div class="fs-metric-value">
+                                    <span t-esc="dashboard.get('total_energy_generated_display', '0')"/>
+                                    <span class="fs-metric-unit">kWh</span>
+                                </div>
+                                <div class="fs-metric-label">Energia gerada total</div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="text-center mt-4">
+                        <p class="text-muted mb-3">Consulte o mapa e a lista das estações na página Projetos. As posições no mapa público são aproximadas (até cerca de 1 km), por segurança do equipamento.</p>
+                        <a href="/projetos" class="btn fs-btn-primary">Ver projetos e mapa</a>
                     </div>
                 </section>
 
@@ -177,7 +173,13 @@
                         <div class="fs-card mb-2 fs-faq-item">
                             <button class="fs-faq-q" type="button" data-fs-faq="5" aria-expanded="false">Há limite de potência?</button>
                             <div class="fs-faq-a d-none" data-fs-faq-panel="5">
-                                <p class="mb-0">Projetos normalmente enquadráveis no regime simplificado aplicável até 30 kW (DGEG).</p>
+                                <p class="mb-0">Cada instalação é dimensionada consoante o local. Em regra, os projetos enquadram-se no regime simplificado aplicável até 30 kW (DGEG). O volume anual de doações da Filantropia Solar situa-se entre 15 e 18 kWp no total.</p>
+                            </div>
+                        </div>
+                        <div class="fs-card mb-2 fs-faq-item">
+                            <button class="fs-faq-q" type="button" data-fs-faq="5b" aria-expanded="false">Quanta potência podem doar?</button>
+                            <div class="fs-faq-a d-none" data-fs-faq-panel="5b">
+                                <p class="mb-0">A Filantropia Solar está limitada a um total de instalações entre 15 e 18 kWp por ano.</p>
                             </div>
                         </div>
                         <div class="fs-card mb-2 fs-faq-item">
@@ -213,17 +215,8 @@
                     </p>
                 </section>
             </div>
-            <t t-call="filantropia_solar_public.snippet_leaflet_map"/>
             <script type="text/javascript">
                 document.addEventListener('DOMContentLoaded', function () {
-                    var btn = document.getElementById('fs-stations-toggle');
-                    var body = document.getElementById('fs-stations-expand');
-                    if (btn &amp;&amp; body) {
-                        btn.addEventListener('click', function () {
-                            var open = body.classList.toggle('show');
-                            btn.setAttribute('aria-expanded', open ? 'true' : 'false');
-                        });
-                    }
                     var qs = document.querySelectorAll('[data-fs-faq]');
                     qs.forEach(function (q) {
                         q.addEventListener('click', function () {
@@ -249,6 +242,118 @@
         </t>
     </template>
 
+    <!-- ========== PROJECTS (map + station list) ========== -->
+    <template id="page_projetos" name="Filantropia Solar — Projetos">
+        <t t-call="website.layout">
+            <t t-set="additional_title">Projetos</t>
+            <t t-set="website_meta_description">Mapa e lista das estações da rede Filantropia Solar em Portugal (localização aproximada por segurança).</t>
+            <t t-set="dashboard" t-value="dashboard or {}"/>
+            <t t-set="stations" t-value="stations or []"/>
+            <t t-set="stations_json" t-value="stations_json or '[]'"/>
+            <t t-set="api_error" t-value="api_error or ''"/>
+            <div id="wrap" class="fs-public-wrap">
+                <section class="container py-5">
+                    <h1 class="mb-2 text-center">Projetos</h1>
+                    <p class="lead text-center text-muted mb-4">Mapa e lista das estações da rede Filantropia Solar.</p>
+                    <t t-if="api_error">
+                        <div class="alert alert-warning text-center" t-esc="api_error"/>
+                    </t>
+                    <div class="row g-4">
+                        <div class="col-12 col-lg-4">
+                            <div class="fs-card">
+                                <h3 class="fs-card-title">Painéis instalados</h3>
+                                <ul class="list-unstyled fs-metrics mb-0">
+                                    <li><strong>Estações:</strong> <span t-esc="dashboard.get('station_count', 0)"/></li>
+                                    <li><strong>Capacidade total:</strong> <span t-esc="dashboard.get('total_capacity_display', dashboard.get('total_capacity_kwp', 0))"/> kWp</li>
+                                    <li><strong>Poupança total:</strong> <span t-esc="dashboard.get('total_money_saved_display', '0')"/> EUR
+                                        <t t-if="dashboard.get('savings_is_indicative')">
+                                            <span class="small text-muted"> (indicativa)</span>
+                                        </t>
+                                    </li>
+                                    <li><strong>Energia gerada total:</strong> <span t-esc="dashboard.get('total_energy_generated_display', '0')"/> kWh</li>
+                                </ul>
+                            </div>
+                            <div class="fs-card mt-4">
+                                <button type="button" class="fs-expand-toggle fs-card-title mb-0" id="fs-stations-toggle"
+                                        aria-expanded="true" aria-controls="fs-stations-expand" data-bs-target="#fs-stations-expand">
+                                    <span>Estações</span>
+                                    <span class="fs-chevron" aria-hidden="true">▼</span>
+                                </button>
+                                <div id="fs-stations-expand" class="fs-expand-body collapse show" role="region" aria-labelledby="fs-stations-toggle">
+                                    <ul class="list-unstyled fs-station-list mb-0">
+                                        <t t-foreach="stations" t-as="station">
+                                            <t t-set="fs_cat" t-value="(station.get('public_category') or station.get('lifecycle_state') or '')"/>
+                                            <t t-set="fs_cat_l" t-value="(fs_cat or '').lower()"/>
+                                            <t t-set="fs_status_label" t-value="'Planeada' if fs_cat_l in ('planned',) else ('Em operação' if fs_cat_l in ('existing', 'running') else (fs_cat or '—'))"/>
+                                            <t t-set="fs_status_cls" t-value="'fs-status-planned' if fs_cat_l in ('planned',) else ('fs-status-running' if fs_cat_l in ('existing', 'running') else 'fs-status-other')"/>
+                                            <li class="fs-station-list-item fs-station-item"
+                                                t-att-data-station-id="station.get('id') or station.get('installation_id')"
+                                                t-att-data-lat="station.get('latitude')"
+                                                t-att-data-lng="station.get('longitude')"
+                                                t-att-data-status="fs_cat_l">
+                                                <div class="fs-station-title-row">
+                                                    <strong t-esc="station.get('name')"/>
+                                                    <span t-attf-class="fs-status-badge #{fs_status_cls}" t-esc="fs_status_label"/>
+                                                </div>
+                                                <div class="fs-station-meta text-muted small">
+                                                    <span t-esc="station.get('location', 'Desconhecido')"/>
+                                                    <span>|</span>
+                                                    <span><t t-esc="station.get('capacity_kwp', 0)"/> kWp</span>
+                                                    <span>|</span>
+                                                    <span>Poupança estimada: <t t-esc="station.get('money_saved_display', '—')"/> EUR/ano</span>
+                                                </div>
+                                                <div class="fs-station-info small">
+                                                    <strong>Descrição:</strong>
+                                                    <span t-esc="station.get('info', '')"/>
+                                                </div>
+                                                <t t-if="station.get('website_href') or station.get('website')">
+                                                    <div class="fs-station-web small">
+                                                        <a t-att-href="station.get('website_href') or station.get('website')"
+                                                           target="_blank" rel="noopener">Website</a>
+                                                    </div>
+                                                </t>
+                                            </li>
+                                        </t>
+                                    </ul>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-12 col-lg-8">
+                            <div class="fs-card">
+                                <h3 class="fs-card-title">Mapa</h3>
+                                <div id="fs-stations-map" class="fs-map"/>
+                                <p class="small text-muted mt-2 mb-0">
+                                    Clique numa estação da lista ou num marcador para focar o mapa.
+                                    Estados: Planeada / Em operação.
+                                    <strong>As localizações no mapa são aproximadas</strong> (deslocamento aleatório estável até cerca de 1 km)
+                                    para proteger o equipamento; a app Nextcloud mantém as coordenadas exatas apenas para gestão interna.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="mt-4 d-flex flex-wrap gap-2 justify-content-center">
+                        <a href="/projetos" class="btn fs-btn-secondary">Ver mapa em Projetos</a>
+                        <a href="/inicio" class="btn fs-btn-secondary">Voltar ao início</a>
+                        <a href="/candidatura" class="btn fs-btn-primary">Candidatar instalação</a>
+                    </div>
+                </section>
+            </div>
+            <t t-call="filantropia_solar_public.snippet_leaflet_map"/>
+            <script type="text/javascript">
+                document.addEventListener('DOMContentLoaded', function () {
+                    var btn = document.getElementById('fs-stations-toggle');
+                    var body = document.getElementById('fs-stations-expand');
+                    if (btn &amp;&amp; body) {
+                        btn.addEventListener('click', function () {
+                            var open = body.classList.toggle('show');
+                            btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+                        });
+                    }
+                });
+            </script>
+        </t>
+    </template>
+
     <!-- ========== INSTALLATIONS LIST ========== -->
     <template id="page_instalacoes" name="Filantropia Solar — Instalações">
         <t t-call="website.layout">
@@ -259,7 +364,7 @@
             <div id="wrap" class="fs-public-wrap">
                 <section class="container py-5">
                     <h1 class="mb-3">Instalações</h1>
-                    <p class="text-muted">Lista detalhada das estações (atalho). No início, use o bloco expansível «Estações» junto ao mapa.</p>
+                    <p class="text-muted">Lista detalhada (atalho legado). Preferir a página <a href="/projetos">Projetos</a> com mapa e lista. As coordenadas públicas são aproximadas.</p>
                     <div class="table-responsive fs-card">
                         <table class="table table-striped mb-0">
                             <thead>

@@ -354,6 +354,7 @@ def _ensure_blog_posts(env):
 # opt-in only via ir.config_parameter (see _maybe_reset_website_cows).
 _FS_VIEW_KEYS = (
     "filantropia_solar_public.page_inicio",
+    "filantropia_solar_public.page_projetos",
     "filantropia_solar_public.page_instalacoes",
     "filantropia_solar_public.page_contacto",
     "filantropia_solar_public.page_candidatura",

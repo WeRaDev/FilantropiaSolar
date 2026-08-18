@@ -200,10 +200,14 @@
         var stations = window.FS_STATIONS || [];
         ensureStationList(stations);
         var map = L.map(mapEl, { scrollWheelZoom: true });
+        // Cap zoom: public markers are intentionally approximate (~1 km).
         L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-            maxZoom: 18,
+            maxZoom: 14,
             attribution: "&copy; OpenStreetMap contributors",
         }).addTo(map);
+        if (typeof map.setMaxZoom === "function") {
+            map.setMaxZoom(14);
+        }
 
         var markers = [];
         var byId = {};
@@ -261,6 +265,8 @@
                 html +=
                     "<br/><strong>Descri\u00e7\u00e3o:</strong> " + esc(info);
             }
+            html +=
+                "<br/><em class=\"text-muted\">Localiza\u00e7\u00e3o aproximada (at\u00e9 ~1 km)</em>";
             var w = absUrl(s.website_href || s.website);
             if (w) {
                 html +=
@@ -271,7 +277,7 @@
             m.bindPopup(html, { autoPan: false, maxWidth: 280 });
             m.on("click", function () {
                 map.invalidateSize(false);
-                map.setView([lat, lng], Math.max(map.getZoom() || 0, 13), {
+                map.setView([lat, lng], Math.min(Math.max(map.getZoom() || 0, 12), 14), {
                     animate: false,
                 });
                 m.openPopup();
@@ -334,7 +340,7 @@
             map.invalidateSize(false);
             // Center the station in the map box. Disable popup autoPan so the
             // marker stays geometrically centered after openPopup().
-            var targetZoom = Math.max(map.getZoom() || 0, 13);
+            var targetZoom = Math.min(Math.max(map.getZoom() || 0, 12), 14);
             map.setView([entry.lat, entry.lng], targetZoom, { animate: false });
             if (entry.marker) {
                 entry.marker.openPopup();

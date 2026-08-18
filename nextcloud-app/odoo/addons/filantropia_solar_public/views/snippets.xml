@@ -85,6 +85,6 @@
         <script type="text/javascript">
             window.FS_STATIONS = <t t-out="stations_json"/>;
         </script>
-        <script type="text/javascript" src="/filantropia_solar_public/static/src/js/stations_map.js?v=4"></script>
+        <script type="text/javascript" src="/filantropia_solar_public/static/src/js/stations_map.js?v=5"></script>
     </template>
 </odoo>

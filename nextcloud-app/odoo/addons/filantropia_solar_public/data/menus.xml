@@ -6,6 +6,12 @@
         <field name="sequence">10</field>
         <field name="parent_id" ref="website.main_menu"/>
     </record>
+    <record id="menu_projetos" model="website.menu">
+        <field name="name">Projetos</field>
+        <field name="url">/projetos</field>
+        <field name="sequence">15</field>
+        <field name="parent_id" ref="website.main_menu"/>
+    </record>
     <record id="menu_casos" model="website.menu">
         <field name="name">Casos de Sucesso</field>
         <field name="url">/blog</field>

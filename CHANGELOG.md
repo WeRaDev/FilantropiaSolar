@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 2026-08-18 — FilantropiaSolar public site / NC 3.2.32
+
+- Nextcloud public API: dashboard energy aggregate for Odoo **O Nosso Progresso**.
+- Odoo addon `filantropia_solar_public` **19.0.2.27.0**: Projetos page, homepage metrics, FAQ/key points (PT), ~1 km public map privacy.
+- See `nextcloud-app/CHANGELOG.md` and `docs/ops/ODOO-WEBSITE-COW-VIEWS.md`.
+
 ## [1.2.3] - 2025-11-14
 
 ### Fixed

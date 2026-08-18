@@ -83,6 +83,7 @@ class PublicApiController extends ApiController
 		$rows = $this->loadPublicStations();
 		$totalCapacity = 0.0;
 		$totalSeriesSavings = 0.0;
+		$totalSeriesEnergyKwh = 0.0;
 		$hasAnySeries = false;
 		$locations = [];
 		$planned = 0;
@@ -100,6 +101,7 @@ class PublicApiController extends ApiController
 			if ($stats['has_series_data']) {
 				$hasAnySeries = true;
 				$totalSeriesSavings += $stats['total_savings_eur'];
+				$totalSeriesEnergyKwh += $stats['total_production_kwh'];
 			}
 		}
 
@@ -110,11 +112,17 @@ class PublicApiController extends ApiController
 			'locations' => array_keys($locations),
 			'planned_count' => $planned,
 			'existing_count' => $existing,
+			// Cumulative series totals (0 when no readings yet)
+			'total_energy_generated_kwh' => round($totalSeriesEnergyKwh, 2),
+			'total_production_kwh' => round($totalSeriesEnergyKwh, 2),
 		];
 		if ($hasAnySeries) {
 			$payload['total_money_saved_eur'] = round($totalSeriesSavings, 2);
 			$payload['savings_is_indicative'] = false;
 			$payload['savings_source'] = 'nc_readings';
+			$payload['energy_source'] = 'nc_readings';
+		} else {
+			$payload['energy_source'] = 'none';
 		}
 
 		return new JSONResponse($payload);

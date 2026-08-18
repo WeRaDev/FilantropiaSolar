@@ -4,6 +4,17 @@ All notable changes to the Nextcloud app component. The desktop application
 has its own changelog at the repository root (`CHANGELOG.md`).
 This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 3.2.32 — 2026-08-18
+
+### Public API / Odoo website
+- Public dashboard now exposes cumulative `total_energy_generated_kwh` / `total_production_kwh` from NC series readings (plus existing station count, capacity, money saved).
+- Odoo public site **19.0.2.25.0–19.0.2.27.0**:
+  - New **Projetos** page (`/projetos`) with station list + map (moved off homepage).
+  - Homepage **O Nosso Progresso** metrics (estações, capacidade, poupança, energia) fed from NC public API.
+  - Homepage key points + FAQ item on annual donation capacity (15–18 kWp/ano).
+  - Public map coordinates obfuscated server-side (~1 km stable jitter); NC keeps exact GPS. Map max zoom capped.
+  - COW-safe upgrades (preserve Website Builder views); ops notes in `docs/ops/ODOO-WEBSITE-COW-VIEWS.md`.
+
 ## [3.2.31] - 2026-08-14
 
 ### Fixed

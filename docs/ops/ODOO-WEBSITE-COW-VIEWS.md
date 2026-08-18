@@ -33,6 +33,7 @@ odoo -d filantropia_public -u filantropia_solar_public --stop-after-init
 ## Keys watched
 
 - `filantropia_solar_public.page_inicio`
+- `filantropia_solar_public.page_projetos`
 - `filantropia_solar_public.page_instalacoes`
 - `filantropia_solar_public.page_contacto`
 - `filantropia_solar_public.page_candidatura`
@@ -110,3 +111,26 @@ the correct markup/logic. After deploy:
 Expected UX: list click or marker click **centers** the station in the map box,
 opens popup with Planeada/Em operação badge, markers are lifecycle-colored.
 
+
+
+## 19.0.2.25.0 — Projetos page + public map privacy
+
+- New route `/projetos` hosts map + station list (module baseline).
+- Homepage baseline points to Projetos; **published COW home is preserved** on
+  `-u` and is **not** auto-rewritten. After deploy, either:
+  - edit the home COW in Website Builder (remove embedded map/list; link to
+    `/projetos`; add key points + FAQ), or
+  - accept dual map until the COW is edited (privacy still applies because
+    coordinates are obfuscated in the Odoo controller for all public pages).
+- Public station coordinates are offset server-side within ~1 km; Nextcloud
+  keeps exact GPS. Map max zoom is capped in `stations_map.js`.
+- FAQ baseline adds annual donation capacity 15–18 kWp.
+- **Do not** set `reset_website_cows` on TRL5 to pick up home baseline changes.
+
+
+## 19.0.2.25.0–19.0.2.27.0 — Projetos, progresso, map privacy
+
+- `/projetos` hosts map + station list; homepage baseline uses **O Nosso Progresso** (NC metrics) instead of embedded map.
+- Public map offset radius: **1000 m** (`_PUBLIC_MAP_OFFSET_RADIUS_M`); NC retains exact coordinates.
+- Published TRL5 home is a website COW: module `-u` preserves it. Content edits for home were applied surgically in DB when Website Builder could not remove frozen Leaflet markup.
+- Do **not** set `reset_website_cows` on TRL5 without backup.
