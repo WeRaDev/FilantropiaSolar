@@ -7,6 +7,7 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 ## 3.2.32 — 2026-08-18
 
 ### Public API / Odoo website
+- Homepage success-story cards use the **first paragraph of each blog post body** (not stale `teaser_manual` seed blurbs); language code coercion fixes empty cards when `request.lang` is LangData.
 - Public dashboard now exposes cumulative `total_energy_generated_kwh` / `total_production_kwh` from NC series readings (plus existing station count, capacity, money saved).
 - Odoo public site **19.0.2.25.0–19.0.2.27.0**:
   - New **Projetos** page (`/projetos`) with station list + map (moved off homepage).

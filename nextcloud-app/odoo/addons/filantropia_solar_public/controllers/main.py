@@ -352,17 +352,146 @@ class FilantropiaSolarPublicController(http.Controller):
         dashboard, stations = self._enrich_metrics(stations, dashboard)
         return stations, dashboard, api_error
 
+    @staticmethod
+    def _strip_html_to_text(raw: str) -> str:
+        """Convert HTML/QWeb-ish markup to plain text (no html module needed)."""
+        if not raw:
+            return ""
+        parts: list[str] = []
+        in_tag = False
+        for ch in raw:
+            if ch == "<":
+                in_tag = True
+                continue
+            if ch == ">":
+                in_tag = False
+                parts.append(" ")
+                continue
+            if not in_tag:
+                parts.append(ch)
+        text = "".join(parts)
+        # Decode a few common entities used in blog content
+        for a, b in (
+            ("&nbsp;", " "),
+            ("&amp;", "&"),
+            ("&quot;", '"'),
+            ("&#39;", "'"),
+            ("&lt;", "<"),
+            ("&gt;", ">"),
+        ):
+            text = text.replace(a, b)
+        return " ".join(text.split()).strip()
+
+    @classmethod
+    def _first_paragraph_teaser(cls, content: str, max_len: int = 320) -> str:
+        """Use the first real paragraph of the blog post as the homepage blurb."""
+        raw = content or ""
+        # Prefer explicit <p>...</p> blocks when present
+        chunks: list[str] = []
+        lower = raw.lower()
+        start = 0
+        while True:
+            i = lower.find("<p", start)
+            if i < 0:
+                break
+            gt = lower.find(">", i)
+            if gt < 0:
+                break
+            j = lower.find("</p>", gt)
+            if j < 0:
+                break
+            piece = cls._strip_html_to_text(raw[gt + 1 : j])
+            if piece and len(piece) >= 40:
+                chunks.append(piece)
+                break
+            start = j + 4
+        if not chunks:
+            plain = cls._strip_html_to_text(raw)
+            # First sentence-ish block
+            for sep in (". ", "! ", "? ", "\n"):
+                if sep in plain:
+                    head, _rest = plain.split(sep, 1)
+                    candidate = (head + sep.strip()).strip()
+                    if len(candidate) >= 40:
+                        plain = candidate
+                        break
+            chunks = [plain] if plain else []
+        teaser = chunks[0] if chunks else ""
+        if len(teaser) > max_len:
+            cut = teaser[: max_len - 1].rsplit(" ", 1)[0].rstrip(",;:")
+            teaser = (cut or teaser[: max_len - 1]).rstrip() + "…"
+        return teaser
+
+    def _website_lang_code(self) -> str:
+        """Resolve public-website language code (always a plain str)."""
+
+        def _code(val) -> str:
+            if val is None or val is False:
+                return ""
+            if isinstance(val, str):
+                return val
+            # odoo.tools.lang.LangData and similar
+            for attr in ("code", "lang", "name"):
+                try:
+                    c = getattr(val, attr, None)
+                except Exception:
+                    c = None
+                if isinstance(c, str) and c:
+                    return c
+            try:
+                # mapping-like
+                c = val.get("code")  # type: ignore[attr-defined]
+                if isinstance(c, str) and c:
+                    return c
+            except Exception:
+                pass
+            s = str(val)
+            # LangData str may look like "pt_PT" or "Portuguese"
+            if "_" in s and len(s) <= 12 and " " not in s:
+                return s
+            return ""
+
+        website = getattr(request, "website", None)
+        default = "pt_PT"
+        try:
+            if website and getattr(website, "default_lang_id", None):
+                default = _code(website.default_lang_id) or _code(
+                    getattr(website.default_lang_id, "code", None)
+                ) or default
+        except Exception:
+            pass
+
+        path = ""
+        cookie_lang = ""
+        try:
+            req = request.httprequest
+            path = (req.path or "").lower()
+            cookie_lang = _code(req.cookies.get("frontend_lang"))
+        except Exception:
+            pass
+
+        lang = (
+            cookie_lang
+            or _code(getattr(request, "lang", None))
+            or _code(request.env.context.get("lang"))
+            or default
+        )
+        # Explicit English URL keeps English
+        if path.startswith("/en/") or path == "/en":
+            if lang.startswith("en"):
+                return lang
+            return "en_US"
+        # Honor Portuguese website default when request lang is English without /en/
+        if default.startswith("pt") and lang.startswith("en"):
+            return default
+        return lang or default
+
+
     def _success_stories(self, limit: int = 3) -> list[dict]:
         """Return published success-story blog posts for homepage teasers."""
         stories: list[dict] = []
         try:
-            # Respect current website language for translated post fields
-            lang = (
-                request.env.context.get("lang")
-                or getattr(request, "lang", None)
-                or (request.website.default_lang_id.code if request.website else None)
-                or "pt_PT"
-            )
+            lang = self._website_lang_code()
             BlogPost = request.env["blog.post"].sudo().with_context(lang=lang)
             blog = request.env.ref(
                 "filantropia_solar_public.blog_casos_sucesso",
@@ -384,52 +513,70 @@ class FilantropiaSolarPublicController(http.Controller):
                 )
                 if b:
                     domain = [*domain, ("blog_id", "=", b.id)]
-            posts = BlogPost.search(domain, order="id asc", limit=max(limit, 10))
+            # Newest published first so authentic updates surface on the home page
+            order = "write_date desc, id desc"
+            if "post_date" in BlogPost._fields:
+                order = "post_date desc, id desc"
+            posts = BlogPost.search(domain, order=order, limit=max(limit, 10))
 
-            # Animal-shelter-first editorial order
+            # Soft editorial boost for animal-shelter stories without freezing old blurbs
             def _story_rank(p):
                 n = (p.name or "").casefold()
-                if "abrigo" in n or "shelter" in n or "animal" in n:
-                    return (0, p.id)
-                if "tavira" in n:
-                    return (1, p.id)
-                return (2, p.id)
+                boost = 0
+                if any(k in n for k in ("abrigo", "shelter", "animal", "gatos", "zoófila", "zoofila")):
+                    boost = -1
+                # write_date / id already newest-first from search; keep stable secondary
+                wid = getattr(p, "write_date", None) or getattr(p, "post_date", None)
+                return (boost, -(p.id or 0) if wid is None else 0, -(p.id or 0))
 
             ranked = sorted(posts, key=_story_rank)
             posts = posts.browse([p.id for p in ranked[:limit]])
             for post in posts:
-                teaser = ""
-                if "teaser_manual" in post._fields and post.teaser_manual:
-                    teaser = post.teaser_manual
-                elif "teaser" in post._fields and post.teaser:
-                    teaser = post.teaser
-                elif post.content:
-                    # strip tags lightly without importing html
-                    raw = post.content or ""
-                    parts = []
-                    in_tag = False
-                    for ch in raw:
-                        if ch == "<":
-                            in_tag = True
-                            continue
-                        if ch == ">":
-                            in_tag = False
-                            parts.append(" ")
-                            continue
-                        if not in_tag:
-                            parts.append(ch)
-                    teaser = "".join(parts)
-                    teaser = " ".join(teaser.split())[:220]
+                # Display name/subtitle/url in request language when possible.
+                post_l = post.with_context(lang=lang)
+                content_lang = post_l.content or ""
+                content_pt = post.with_context(lang="pt_PT").content or ""
+                plain_lang = self._strip_html_to_text(content_lang)
+                plain_pt = self._strip_html_to_text(content_pt)
+                # Authentic stories were authored in PT; EN often still holds short
+                # seed blurbs. Prefer the longer body for the homepage paragraph.
+                content = content_lang
+                if len(plain_pt) > max(len(plain_lang), 250) and (
+                    len(plain_lang) < 250
+                    or plain_lang.casefold() in plain_pt.casefold()
+                    or "was among the first organisations" in plain_lang
+                    or "cut operating costs by more than" in plain_lang
+                ):
+                    content = content_pt
+                # Prefer the live first paragraph of the post body so homepage cards
+                # match authentic blog content (stale teaser_manual often drifts).
+                teaser = self._first_paragraph_teaser(content)
+                if not teaser and "teaser" in post_l._fields and post_l.teaser:
+                    teaser = self._strip_html_to_text(post_l.teaser)[:320]
+                if not teaser and "teaser_manual" in post_l._fields and post_l.teaser_manual:
+                    teaser = self._strip_html_to_text(post_l.teaser_manual)[:320]
+                # Title: if EN name is a seed label and PT name is authentic, use PT
+                name = post_l.name or ""
+                name_pt = post.with_context(lang="pt_PT").name or ""
+                if name_pt and (
+                    not name
+                    or name in ("Braga Animal Shelter", "Uniao Zoofila", "Tavira Animal Shelter")
+                    or (str(lang).startswith("en") and len(plain_pt) > len(plain_lang) + 200)
+                ):
+                    # Keep EN title only when it is a real translation; seed titles swap to PT
+                    if name in ("Braga Animal Shelter", "Uniao Zoofila", "Tavira Animal Shelter"):
+                        name = name_pt
+                subtitle = post_l.subtitle or post.with_context(lang="pt_PT").subtitle or ""
                 url = (
-                    post.website_url
-                    if "website_url" in post._fields
-                    else f"/blog/{post.id}"
+                    post_l.website_url
+                    if "website_url" in post_l._fields
+                    else f"/blog/{post_l.id}"
                 )
                 stories.append(
                     {
-                        "id": post.id,
-                        "name": post.name,
-                        "subtitle": post.subtitle or "",
+                        "id": post_l.id,
+                        "name": name,
+                        "subtitle": subtitle,
                         "teaser": teaser,
                         "url": url,
                     }
