@@ -29,6 +29,7 @@ return [
         ['name' => 'installation_api#promotePlanned', 'url' => '/api/v1/installations/{id}/promote-planned', 'verb' => 'POST'],
         ['name' => 'installation_api#markInstalled', 'url' => '/api/v1/installations/{id}/mark-installed', 'verb' => 'POST'],
         ['name' => 'installation_api#softRemove', 'url' => '/api/v1/installations/{id}/soft-remove', 'verb' => 'POST'],
+        ['name' => 'installation_api#setPublicArchived', 'url' => '/api/v1/installations/{id}/set-public-archived', 'verb' => 'POST'],
         ['name' => 'installation_api#setLifecycle', 'url' => '/api/v1/installations/{id}/set-lifecycle', 'verb' => 'POST'],
         ['name' => 'installation_api#populateSeries', 'url' => '/api/v1/installations/{id}/populate-series', 'verb' => 'POST'],
 
@@ -71,6 +72,7 @@ return [
         ['name' => 'admin_api#promotePlanned', 'url' => '/api/v1/admin/stations/{installationId}/promote-planned', 'verb' => 'POST'],
         ['name' => 'admin_api#markInstalled', 'url' => '/api/v1/admin/stations/{installationId}/mark-installed', 'verb' => 'POST'],
         ['name' => 'admin_api#softRemove', 'url' => '/api/v1/admin/stations/{installationId}/soft-remove', 'verb' => 'POST'],
+        ['name' => 'admin_api#setPublicArchived', 'url' => '/api/v1/admin/stations/{installationId}/set-public-archived', 'verb' => 'POST'],
         ['name' => 'admin_api#reimportDataset', 'url' => '/api/v1/admin/dataset/reimport', 'verb' => 'POST'],
         ['name' => 'admin_api#getCacheStatus', 'url' => '/api/v1/admin/ml/cache', 'verb' => 'GET'],
         ['name' => 'admin_api#clearCache', 'url' => '/api/v1/admin/ml/cache/clear', 'verb' => 'POST'],

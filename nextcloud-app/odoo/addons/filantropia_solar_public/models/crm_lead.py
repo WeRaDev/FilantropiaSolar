@@ -32,6 +32,12 @@ class CrmLead(models.Model):
         copy=False,
         help="Nextcloud internal station primary key when known.",
     )
+    fs_nc_public_archived = fields.Boolean(
+        string='NC Public Archived',
+        help='Running station hidden from public map but still counted in stats.',
+        default=False,
+        copy=False,
+    )
     fs_nc_lifecycle_state = fields.Selection(
         selection=[
             ("virtual", "Virtual"),
@@ -120,6 +126,8 @@ class CrmLead(models.Model):
                 vals["fs_nc_db_id"] = int(station["id"])
         if station.get("lifecycle_state"):
             vals["fs_nc_lifecycle_state"] = station["lifecycle_state"]
+        if "public_archived" in station:
+            vals["fs_nc_public_archived"] = bool(station.get("public_archived"))
         # Prefer NC snapshot when present so CRM stays symmetrical with NC.
         if station.get("name"):
             # Keep station title (name) in sync; only seed partner_name when empty

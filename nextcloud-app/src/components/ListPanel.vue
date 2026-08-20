@@ -65,7 +65,7 @@
                     </div>
                     <div class="item-secondary">
                         <span class="item-location">{{ obj.location || 'Unknown' }}</span>
-                        <span class="lifecycle-badge" :class="[lifecycleOf(obj), { removed: obj.soft_removed }]">
+                        <span class="lifecycle-badge" :class="[lifecycleOf(obj), { removed: obj.soft_removed, archived: obj.public_archived }]">
                             {{ lifecycleLabel(obj) }}
                         </span>
                     </div>
@@ -208,13 +208,21 @@ export default {
 
 
         const lifecycleLabel = (obj) => {
-            const state = lifecycleOf(obj)
-            return obj.soft_removed ? `${state} (removed)` : state
+            let label = lifecycleOf(obj)
+            if (obj.public_archived) {
+                label = `${label} (archived)`
+            }
+            if (obj.soft_removed) {
+                label = `${label} (removed)`
+            }
+            return label
         }
 
         const publicLabel = (obj) => {
             if (obj.soft_removed) return 'hidden'
+            if (obj.public_archived) return 'archived'
             const cat = obj.public_category || obj.customData?.publicCategory
+            if (cat === 'archived') return 'archived'
             if (!cat || cat === 'none') return 'hidden'
             return cat
         }
@@ -647,6 +655,7 @@ export default {
 .lifecycle-badge.planned { background: #fff3e0; color: #ef6c00; }
 .lifecycle-badge.running { background: #e8f5e9; color: #2e7d32; }
 .lifecycle-badge.removed { text-decoration: line-through; }
+.lifecycle-badge.archived { opacity: 0.85; border-style: dashed; }
 
 .public-badge.planned { background: #fff8e1; color: #f9a825; }
 .public-badge.existing { background: #e0f2f1; color: #00695c; }

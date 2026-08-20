@@ -5,6 +5,11 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 2026-08-20 — public_archived running stations
+
+- NC **3.2.33** / Odoo **19.0.2.30.0**: Running stations can be **Archived** (hidden from public map, still counted in stats).
+- See `nextcloud-app/CHANGELOG.md` and `docs/ops/CRM-NC-LIFECYCLE-MIRROR.md`.
+
 ## 2026-08-18 — FilantropiaSolar public site / NC 3.2.32
 
 - Nextcloud public API: dashboard energy aggregate for Odoo **O Nosso Progresso**.

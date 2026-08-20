@@ -9,7 +9,8 @@ namespace OCA\FilantropiaSolar\Service;
  *
  * Ops labels: virtual | planned | running
  * Running mode: offline (predicted) | active (measured historical present)
- * Public: planned | existing | none (virtual or soft-removed)
+ * Public map: planned | existing | none (virtual, soft-removed, or public_archived)
+ * public_archived: still running for stats; hidden from public map only
  */
 final class StationLifecycle
 {
@@ -23,6 +24,8 @@ final class StationLifecycle
 	public const PUBLIC_NONE = 'none';
 	public const PUBLIC_PLANNED = 'planned';
 	public const PUBLIC_EXISTING = 'existing';
+	/** Map-hidden running station that still counts in aggregates. */
+	public const PUBLIC_ARCHIVED = 'archived';
 
 	/** @var list<string> */
 	public const STATES = [self::VIRTUAL, self::PLANNED, self::RUNNING];
@@ -44,16 +47,34 @@ final class StationLifecycle
 		return self::RUNNING;
 	}
 
-	public static function isPublic(string $lifecycleState, bool $softRemoved): bool
+	/**
+	 * Whether station contributes to public/ops energy statistics
+	 * (planned + running, including public-archived running).
+	 */
+	public static function isPublic(string $lifecycleState, bool $softRemoved, bool $publicArchived = false): bool
 	{
 		if ($softRemoved) {
+			return false;
+		}
+		// public_archived does not remove statistical contribution
+		unset($publicArchived);
+
+		return $lifecycleState === self::PLANNED || $lifecycleState === self::RUNNING;
+	}
+
+	/**
+	 * Whether station should appear on the public website map/list.
+	 */
+	public static function isPublicMapVisible(string $lifecycleState, bool $softRemoved, bool $publicArchived = false): bool
+	{
+		if ($softRemoved || $publicArchived) {
 			return false;
 		}
 
 		return $lifecycleState === self::PLANNED || $lifecycleState === self::RUNNING;
 	}
 
-	public static function publicCategory(string $lifecycleState, bool $softRemoved): string
+	public static function publicCategory(string $lifecycleState, bool $softRemoved, bool $publicArchived = false): string
 	{
 		if ($softRemoved || $lifecycleState === self::VIRTUAL) {
 			return self::PUBLIC_NONE;
@@ -62,7 +83,7 @@ final class StationLifecycle
 			return self::PUBLIC_PLANNED;
 		}
 		if ($lifecycleState === self::RUNNING) {
-			return self::PUBLIC_EXISTING;
+			return $publicArchived ? self::PUBLIC_ARCHIVED : self::PUBLIC_EXISTING;
 		}
 
 		return self::PUBLIC_NONE;

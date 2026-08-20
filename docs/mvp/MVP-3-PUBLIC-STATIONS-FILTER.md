@@ -41,3 +41,8 @@ dates) unchanged. Extra keys are additive.
 
 - Odoo CRM lifecycle client (MVP-5/6)
 - Admin UI (MVP-4)
+
+## Amendment (3.2.33)
+
+- `public_archived` running stations are **excluded from** `GET /stations` (map)
+  but **included in** `GET /dashboard` aggregates (`archived_count`).

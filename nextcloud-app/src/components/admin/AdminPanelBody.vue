@@ -37,6 +37,8 @@
 				@promote="promoteStation"
 				@install="installStation"
 				@soft-remove="softRemoveStation"
+				@public-archive="archiveStation"
+				@public-unarchive="unarchiveStation"
 				@filter-lifecycle="onFilterLifecycle"
 				@filter-source="onFilterSource"
 				@filter-soft-removed="onFilterSoftRemoved"
@@ -174,6 +176,17 @@ export default {
 			await store.softRemove(station)
 		}
 
+		const archiveStation = async (station) => {
+			if (!confirm(`Archive "${station.name}" from the public map?\nIt stays Running and still counts in stats.`)) {
+				return
+			}
+			await store.setPublicArchived(station, true)
+		}
+
+		const unarchiveStation = async (station) => {
+			await store.setPublicArchived(station, false)
+		}
+
 		const onFilterLifecycle = async (value) => {
 			await store.setLifecycleFilter(value)
 		}
@@ -219,6 +232,8 @@ export default {
 			promoteStation,
 			installStation,
 			softRemoveStation,
+			archiveStation,
+			unarchiveStation,
 			onFilterLifecycle,
 			onFilterSource,
 			onFilterSoftRemoved,

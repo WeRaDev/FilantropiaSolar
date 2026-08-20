@@ -56,9 +56,10 @@ class OdooLifecycleMirror
 				'installation_id' => $station->getInstallationId(),
 				'lifecycle_state' => $state,
 				'running_mode' => StationLifecycle::runningMode($state, false),
-				'is_public' => StationLifecycle::isPublic($state, $soft),
-				'public_category' => StationLifecycle::publicCategory($state, $soft),
+				'is_public' => StationLifecycle::isPublic($state, $soft, (bool) (isset($station) ? $station->getPublicArchived() : (isset($inst) ? $inst->getPublicArchived() : false))),
+				'public_category' => StationLifecycle::publicCategory($state, $soft, (bool) (isset($station) ? $station->getPublicArchived() : (isset($inst) ? $inst->getPublicArchived() : false))),
 				'soft_removed' => $soft,
+				'public_archived' => (bool) $station->getPublicArchived(),
 				'odoo_lead_id' => $station->getOdooLeadId(),
 				'capacity_kwp' => (float) $station->getCapacityKwp(),
 				'grid_price_kwh' => $station->getGridPriceKwh() !== null && $station->getGridPriceKwh() !== ''

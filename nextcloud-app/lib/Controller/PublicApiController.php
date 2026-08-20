@@ -80,7 +80,8 @@ class PublicApiController extends ApiController
 			return new JSONResponse(['error' => 'unauthorized'], Http::STATUS_UNAUTHORIZED);
 		}
 
-		$rows = $this->loadPublicStations();
+		// Stats include public_archived running stations; map list does not.
+		$rows = $this->loadPublicStatsStations();
 		$totalCapacity = 0.0;
 		$totalSeriesSavings = 0.0;
 		$totalSeriesEnergyKwh = 0.0;
@@ -88,6 +89,7 @@ class PublicApiController extends ApiController
 		$locations = [];
 		$planned = 0;
 		$existing = 0;
+		$archived = 0;
 		foreach ($rows as $i) {
 			$totalCapacity += (float) $i->getCapacityKwp();
 			$locations[$i->getLocation()] = true;
@@ -96,6 +98,9 @@ class PublicApiController extends ApiController
 				$planned++;
 			} elseif ($category === StationLifecycle::PUBLIC_EXISTING) {
 				$existing++;
+			} elseif ($category === StationLifecycle::PUBLIC_ARCHIVED) {
+				$archived++;
+				$existing++; // still counts as running for aggregates
 			}
 			$stats = $this->seriesStatsFor($i);
 			if ($stats['has_series_data']) {
@@ -112,6 +117,7 @@ class PublicApiController extends ApiController
 			'locations' => array_keys($locations),
 			'planned_count' => $planned,
 			'existing_count' => $existing,
+			'archived_count' => $archived,
 			// Cumulative series totals (0 when no readings yet)
 			'total_energy_generated_kwh' => round($totalSeriesEnergyKwh, 2),
 			'total_production_kwh' => round($totalSeriesEnergyKwh, 2),
@@ -188,6 +194,19 @@ class PublicApiController extends ApiController
 		}
 	}
 
+	/** @return Installation[] */
+	private function loadPublicStatsStations(): array
+	{
+		try {
+			return $this->mapper->findPublicStatsStations();
+		} catch (\Throwable $e) {
+			$this->logger->warning('findPublicStatsStations failed; falling back to findPublicStations', [
+				'exception' => $e,
+			]);
+			return $this->loadPublicStations();
+		}
+	}
+
 	/**
 	 * @return array<string, mixed>
 	 */
@@ -209,6 +228,7 @@ class PublicApiController extends ApiController
 			'to_date' => $i->getToDate()?->format('Y-m-d'),
 			'public_category' => $category,
 			'lifecycle_state' => $this->stateOf($i),
+			'public_archived' => (bool) $i->getPublicArchived(),
 			'website' => $website,
 			'short_description' => $short !== null && $short !== '' ? $short : null,
 			'description' => $short !== null && $short !== '' ? $short : null,
@@ -298,7 +318,7 @@ class PublicApiController extends ApiController
 
 	private function publicCategoryOf(Installation $i): string
 	{
-		return StationLifecycle::publicCategory($this->stateOf($i), $i->getSoftRemoved());
+		return StationLifecycle::publicCategory($this->stateOf($i), $i->getSoftRemoved(), (bool) $i->getPublicArchived());
 	}
 
 	/**

@@ -85,6 +85,7 @@ class FsStationSync(models.AbstractModel):
             "fs_is_donation_application": True,
             "fs_nc_installation_id": installation_id or False,
             "fs_nc_lifecycle_state": station.get("lifecycle_state") or False,
+            "fs_nc_public_archived": bool(station.get("public_archived")),
             "fs_nc_sync_state": "ok",
             "fs_nc_sync_error": False,
             "fs_nc_last_sync_at": fields.Datetime.now(),

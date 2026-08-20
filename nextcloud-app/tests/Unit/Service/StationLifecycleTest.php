@@ -31,8 +31,18 @@ class StationLifecycleTest extends TestCase
 		$this->assertFalse(StationLifecycle::isPublic('virtual', false));
 		$this->assertTrue(StationLifecycle::isPublic('planned', false));
 		$this->assertTrue(StationLifecycle::isPublic('running', false));
+		$this->assertTrue(StationLifecycle::isPublic('running', false, true)); // archived still counts
 		$this->assertFalse(StationLifecycle::isPublic('planned', true));
 		$this->assertFalse(StationLifecycle::isPublic('running', true));
+	}
+
+	public function testPublicMapVisibility(): void
+	{
+		$this->assertFalse(StationLifecycle::isPublicMapVisible('virtual', false));
+		$this->assertTrue(StationLifecycle::isPublicMapVisible('planned', false));
+		$this->assertTrue(StationLifecycle::isPublicMapVisible('running', false));
+		$this->assertFalse(StationLifecycle::isPublicMapVisible('running', false, true));
+		$this->assertFalse(StationLifecycle::isPublicMapVisible('running', true, false));
 	}
 
 	public function testPublicCategory(): void
@@ -40,6 +50,7 @@ class StationLifecycleTest extends TestCase
 		$this->assertSame('none', StationLifecycle::publicCategory('virtual', false));
 		$this->assertSame('planned', StationLifecycle::publicCategory('planned', false));
 		$this->assertSame('existing', StationLifecycle::publicCategory('running', false));
+		$this->assertSame('archived', StationLifecycle::publicCategory('running', false, true));
 		$this->assertSame('none', StationLifecycle::publicCategory('running', true));
 	}
 

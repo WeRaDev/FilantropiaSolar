@@ -54,6 +54,8 @@ use OCP\AppFramework\Db\Entity;
  * @method void setLifecycleState(string $lifecycleState)
  * @method bool getSoftRemoved()
  * @method void setSoftRemoved(bool $softRemoved)
+ * @method bool getPublicArchived()
+ * @method void setPublicArchived(bool $publicArchived)
  * @method int|null getOdooLeadId()
  * @method void setOdooLeadId(?int $odooLeadId)
  * @method DateTime|null getInstalledAt()
@@ -87,6 +89,7 @@ class Installation extends Entity implements JsonSerializable
 	protected ?string $nearestLocation = null;
 	protected string $lifecycleState = StationLifecycle::RUNNING;
 	protected bool $softRemoved = false;
+	protected bool $publicArchived = false;
 	protected ?int $odooLeadId = null;
 	protected ?DateTime $installedAt = null;
 	protected ?string $website = null;
@@ -118,6 +121,7 @@ class Installation extends Entity implements JsonSerializable
 		$this->addType('nearestLocation', 'string');
 		$this->addType('lifecycleState', 'string');
 		$this->addType('softRemoved', 'boolean');
+		$this->addType('publicArchived', 'boolean');
 		$this->addType('odooLeadId', 'integer');
 		$this->addType('installedAt', 'datetime');
 		$this->addType('website', 'string');
@@ -182,12 +186,18 @@ class Installation extends Entity implements JsonSerializable
 
 	public function isPubliclyVisible(): bool
 	{
-		return StationLifecycle::isPublic($this->lifecycleState, $this->softRemoved);
+		// Stats/public membership (includes archived running)
+		return StationLifecycle::isPublic($this->lifecycleState, $this->softRemoved, $this->publicArchived);
+	}
+
+	public function isPublicMapVisible(): bool
+	{
+		return StationLifecycle::isPublicMapVisible($this->lifecycleState, $this->softRemoved, $this->publicArchived);
 	}
 
 	public function getPublicCategory(): string
 	{
-		return StationLifecycle::publicCategory($this->lifecycleState, $this->softRemoved);
+		return StationLifecycle::publicCategory($this->lifecycleState, $this->softRemoved, $this->publicArchived);
 	}
 
 	public function getRunningMode(): ?string
@@ -229,14 +239,16 @@ class Installation extends Entity implements JsonSerializable
 			'nearestLocation' => $this->nearestLocation,
 			'lifecycle_state' => $state,
 			'soft_removed' => $this->softRemoved,
+			'public_archived' => $this->publicArchived,
 			'odoo_lead_id' => $this->odooLeadId,
 			'installed_at' => $this->installedAt?->format('c'),
 			'website' => $this->website,
 			'short_description' => $this->shortDescription,
 			'grid_connection_type' => $this->gridConnectionType !== '' ? $this->gridConnectionType : self::GRID_ON,
 			'self_consumption_factor' => $this->getSelfConsumptionFactor(),
-			'is_public' => StationLifecycle::isPublic($state, $this->softRemoved),
-			'public_category' => StationLifecycle::publicCategory($state, $this->softRemoved),
+			'is_public' => StationLifecycle::isPublic($state, $this->softRemoved, $this->publicArchived),
+			'is_public_map_visible' => StationLifecycle::isPublicMapVisible($state, $this->softRemoved, $this->publicArchived),
+			'public_category' => StationLifecycle::publicCategory($state, $this->softRemoved, $this->publicArchived),
 			'running_mode' => StationLifecycle::runningMode(
 				$state,
 				(bool) ($this->hasMeasuredData ?? false),

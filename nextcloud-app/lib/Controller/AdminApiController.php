@@ -407,6 +407,63 @@ class AdminApiController extends ApiController
         ]);
     }
 
+
+    /**
+     * Hide/show a running station on the public map while keeping stats (Archived label).
+     *
+     * POST /api/v1/admin/stations/{installationId}/set-public-archived
+     * Body: { "public_archived": true|false }
+     */
+    #[NoCSRFRequired]
+    public function setPublicArchived(string $installationId): JSONResponse
+    {
+        $station = $this->mapper->findByInstallationKey($installationId);
+        if ($station === null) {
+            return $this->error('Station not found', Http::STATUS_NOT_FOUND);
+        }
+
+        $raw = $this->request->getParam('public_archived', null);
+        if ($raw === null) {
+            // allow JSON body alternate
+            $raw = $this->request->getParam('archived', null);
+        }
+        if ($raw === null) {
+            return $this->error('public_archived boolean required', Http::STATUS_BAD_REQUEST);
+        }
+        $archived = filter_var($raw, FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE);
+        if ($archived === null) {
+            return $this->error('public_archived must be boolean', Http::STATUS_BAD_REQUEST);
+        }
+
+        $state = $this->stateOf($station);
+        if ($archived && $state !== StationLifecycle::RUNNING) {
+            return $this->error(
+                'Only running stations can be public-archived (current: ' . $state . ')',
+                Http::STATUS_CONFLICT,
+            );
+        }
+        if ($station->getSoftRemoved()) {
+            return $this->error('Soft-removed stations cannot be public-archived', Http::STATUS_CONFLICT);
+        }
+
+        $station->setPublicArchived((bool) $archived);
+        $station->setUpdatedAt(new DateTime());
+        $station = $this->mapper->update($station);
+        $this->logger->info('Admin set public_archived', [
+            'installation_id' => $station->getInstallationId(),
+            'public_archived' => (bool) $archived,
+        ]);
+        $this->odooMirror->notify($station);
+
+        return new JSONResponse([
+            'success' => true,
+            'station' => $this->toStationArray($station),
+            'message' => $archived
+                ? 'Station archived from public map (still counted in stats)'
+                : 'Station restored to public map',
+        ]);
+    }
+
     /**
      * GET /api/v1/admin/settings
      */
@@ -535,10 +592,11 @@ class AdminApiController extends ApiController
             'source' => $station->getSource(),
             'lifecycle_state' => $state,
             'soft_removed' => $station->getSoftRemoved(),
+            'public_archived' => (bool) $station->getPublicArchived(),
             'odoo_lead_id' => $station->getOdooLeadId(),
             'installed_at' => $station->getInstalledAt()?->format('c'),
-            'is_public' => StationLifecycle::isPublic($state, $station->getSoftRemoved()),
-            'public_category' => StationLifecycle::publicCategory($state, $station->getSoftRemoved()),
+            'is_public' => StationLifecycle::isPublic($state, $station->getSoftRemoved(), (bool) $station->getPublicArchived()),
+            'public_category' => StationLifecycle::publicCategory($state, $station->getSoftRemoved(), (bool) $station->getPublicArchived()),
             'is_virtual' => StationLifecycle::isVirtualFlag($state),
         ];
     }

@@ -288,7 +288,7 @@ class InstallationMapper extends QBMapper
     }
 
     /**
-     * Public map/list: Planned + Running, not soft-removed, never Virtual.
+     * Public map/list: Planned + Running, not soft-removed, not public_archived, never Virtual.
      *
      * @return Installation[]
      */
@@ -306,7 +306,38 @@ class InstallationMapper extends QBMapper
                 $qb->expr()->eq('soft_removed', $qb->createNamedParameter(0, IQueryBuilder::PARAM_INT)),
                 $qb->expr()->isNull('soft_removed'),
             ))
+            ->andWhere($qb->expr()->orX(
+                $qb->expr()->eq('public_archived', $qb->createNamedParameter(0, IQueryBuilder::PARAM_INT)),
+                $qb->expr()->isNull('public_archived'),
+            ))
             // Mendeley training corpus is never public fleet (M0)
+            ->andWhere($qb->expr()->neq('source', $qb->createNamedParameter('dataset')))
+            ->orderBy('location', 'ASC')
+            ->addOrderBy('name', 'ASC');
+
+        return $this->findEntities($qb);
+    }
+
+    /**
+     * Public/ops statistics fleet: Planned + Running, not soft-removed.
+     * Includes public_archived running stations (hidden from map, counted in stats).
+     *
+     * @return Installation[]
+     */
+    public function findPublicStatsStations(): array
+    {
+        $qb = $this->db->getQueryBuilder();
+
+        $qb->select('*')
+            ->from($this->getTableName())
+            ->where($qb->expr()->in(
+                'lifecycle_state',
+                $qb->createNamedParameter(['planned', 'running'], IQueryBuilder::PARAM_STR_ARRAY),
+            ))
+            ->andWhere($qb->expr()->orX(
+                $qb->expr()->eq('soft_removed', $qb->createNamedParameter(0, IQueryBuilder::PARAM_INT)),
+                $qb->expr()->isNull('soft_removed'),
+            ))
             ->andWhere($qb->expr()->neq('source', $qb->createNamedParameter('dataset')))
             ->orderBy('location', 'ASC')
             ->addOrderBy('name', 'ASC');

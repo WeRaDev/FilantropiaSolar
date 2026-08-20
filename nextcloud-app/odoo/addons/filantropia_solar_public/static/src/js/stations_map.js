@@ -45,6 +45,13 @@
         if (cat === "planned") {
             return { cat: "planned", label: "Planeada", color: "#E8A020" };
         }
+        if (cat === "archived") {
+            return {
+                cat: "archived",
+                label: "Arquivada",
+                color: "#795548",
+            };
+        }
         if (cat === "existing" || cat === "running") {
             return {
                 cat: "running",

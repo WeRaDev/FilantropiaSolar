@@ -329,3 +329,25 @@
     color: #5c5848;
     font-weight: 600;
 }
+
+
+/* Ideal-fit profile box */
+.fs-ideal-fit {
+    border-color: #d9cf9a;
+    background: linear-gradient(180deg, #fffdf6 0%, #ffffff 100%);
+}
+.fs-ideal-fit .fs-card-title {
+    font-size: 1.35rem;
+    margin-bottom: 0.75rem;
+}
+.fs-ideal-fit p {
+    line-height: 1.6;
+    color: #3a382f;
+}
+
+
+.fs-status-archived {
+  background: #efebe9;
+  color: #5d4037;
+  border: 1px solid #bcaaa4;
+}

@@ -39,6 +39,18 @@
                     </div>
                 </section>
 
+                <section class="container py-4" id="perfil-ideal">
+                    <div class="row justify-content-center">
+                        <div class="col-12 col-lg-8">
+                            <div class="fs-card fs-ideal-fit text-center">
+                                <h2 class="fs-card-title mb-3">Um encaixe perfeito</h2>
+                                <p class="mb-3">O caso ideal é uma ONG já ligada à rede elétrica, com cerca de <strong>50 m²</strong> de superfície soalheira virada a <strong>sul</strong>, e um uso de eletricidade sobretudo durante o dia, <strong>7 dias por semana</strong>.</p>
+                                <p class="mb-0 text-muted small">Não é uma lista de condições obrigatórias — é o perfil em que a doação solar tende a fazer mais sentido e a gerar mais impacto.</p>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
                 <section class="container py-4" id="vantagens">
                     <h2 class="text-center mb-3">Porquê solar doado?</h2>
                     <div class="row g-4">
@@ -284,8 +296,8 @@
                                         <t t-foreach="stations" t-as="station">
                                             <t t-set="fs_cat" t-value="(station.get('public_category') or station.get('lifecycle_state') or '')"/>
                                             <t t-set="fs_cat_l" t-value="(fs_cat or '').lower()"/>
-                                            <t t-set="fs_status_label" t-value="'Planeada' if fs_cat_l in ('planned',) else ('Em operação' if fs_cat_l in ('existing', 'running') else (fs_cat or '—'))"/>
-                                            <t t-set="fs_status_cls" t-value="'fs-status-planned' if fs_cat_l in ('planned',) else ('fs-status-running' if fs_cat_l in ('existing', 'running') else 'fs-status-other')"/>
+                                            <t t-set="fs_status_label" t-value="'Planeada' if fs_cat_l in ('planned',) else ('Arquivada' if fs_cat_l in ('archived',) else ('Em operação' if fs_cat_l in ('existing', 'running') else (fs_cat or '—')))"/>
+                                            <t t-set="fs_status_cls" t-value="'fs-status-planned' if fs_cat_l in ('planned',) else ('fs-status-archived' if fs_cat_l in ('archived',) else ('fs-status-running' if fs_cat_l in ('existing', 'running') else 'fs-status-other'))"/>
                                             <li class="fs-station-list-item fs-station-item"
                                                 t-att-data-station-id="station.get('id') or station.get('installation_id')"
                                                 t-att-data-lat="station.get('latitude')"
@@ -382,8 +394,8 @@
                                 <t t-foreach="stations" t-as="station">
                                     <t t-set="fs_cat" t-value="(station.get('public_category') or station.get('lifecycle_state') or '')"/>
                                     <t t-set="fs_cat_l" t-value="(fs_cat or '').lower()"/>
-                                    <t t-set="fs_status_label" t-value="'Planeada' if fs_cat_l in ('planned',) else ('Em operação' if fs_cat_l in ('existing', 'running') else (fs_cat or '—'))"/>
-                                    <t t-set="fs_status_cls" t-value="'fs-status-planned' if fs_cat_l in ('planned',) else ('fs-status-running' if fs_cat_l in ('existing', 'running') else 'fs-status-other')"/>
+                                    <t t-set="fs_status_label" t-value="'Planeada' if fs_cat_l in ('planned',) else ('Arquivada' if fs_cat_l in ('archived',) else ('Em operação' if fs_cat_l in ('existing', 'running') else (fs_cat or '—')))"/>
+                                    <t t-set="fs_status_cls" t-value="'fs-status-planned' if fs_cat_l in ('planned',) else ('fs-status-archived' if fs_cat_l in ('archived',) else ('fs-status-running' if fs_cat_l in ('existing', 'running') else 'fs-status-other'))"/>
                                     <tr class="fs-station-list-item"
                                         t-att-data-station-id="station.get('id') or station.get('installation_id')"
                                         t-att-data-lat="station.get('latitude')"

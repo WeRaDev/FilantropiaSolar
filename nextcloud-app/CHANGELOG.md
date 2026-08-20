@@ -4,9 +4,17 @@ All notable changes to the Nextcloud app component. The desktop application
 has its own changelog at the repository root (`CHANGELOG.md`).
 This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 3.2.33 — 2026-08-20
+
+### Lifecycle / public map
+- New station flag **`public_archived`**: Running stations can be labelled **Archived** so they stay in NC stats/energy totals but are **hidden from the public website map/list**.
+- Public API: `/stations` omits archived; `/dashboard` still includes them (`archived_count` added).
+- Admin: **Archive map** / **Unarchive map** actions on Stations & lifecycle.
+
 ## 3.2.32 — 2026-08-18
 
 ### Public API / Odoo website
+- Homepage box **Um encaixe perfeito** (perfil ideal em PT: ONG na rede, ~50 m² a sul, consumo diurno 7 dias/semana) entre «Como funciona» e «Porquê solar doado?».
 - Homepage success-story cards use the **first paragraph of each blog post body** (not stale `teaser_manual` seed blurbs); language code coercion fixes empty cards when `request.lang` is LangData.
 - Public dashboard now exposes cumulative `total_energy_generated_kwh` / `total_production_kwh` from NC series readings (plus existing station count, capacity, money saved).
 - Odoo public site **19.0.2.25.0–19.0.2.27.0**:

@@ -4,7 +4,7 @@
 			<div>
 				<h3>Stations &amp; lifecycle</h3>
 				<p class="section-sub">
-					Promote Virtual → Planned, mark Planned installed (Running/Existing), soft-remove from public.
+					Promote Virtual → Planned, mark Planned installed (Running/Existing), archive from public map (stats kept), or soft-remove.
 					Hard delete remains dataset-only.
 				</p>
 			</div>
@@ -131,6 +131,24 @@
 								Soft-remove
 							</button>
 							<button
+								v-if="canArchive(station)"
+								class="btn-link"
+								:disabled="disabled"
+								title="Hide from public map but keep in stats (Archived)"
+								@click="$emit('public-archive', station)"
+							>
+								Archive map
+							</button>
+							<button
+								v-if="canUnarchive(station)"
+								class="btn-link"
+								:disabled="disabled"
+								title="Show again on public map"
+								@click="$emit('public-unarchive', station)"
+							>
+								Unarchive map
+							</button>
+							<button
 								v-if="station.source === 'dataset'"
 								class="btn-link"
 								:disabled="disabled"
@@ -203,6 +221,8 @@ export default {
 		'promote',
 		'install',
 		'soft-remove',
+		'public-archive',
+		'public-unarchive',
 		'filter-lifecycle',
 		'filter-source',
 		'filter-soft-removed',
@@ -224,16 +244,25 @@ export default {
 			}
 		},
 		publicLabel(station) {
-			if (station.soft_removed || station.public_category === 'none') {
+			if (station.soft_removed) {
+				return 'hidden'
+			}
+			if (station.public_archived || station.public_category === 'archived') {
+				return 'archived'
+			}
+			if (station.public_category === 'none') {
 				return 'hidden'
 			}
 			return station.public_category || '—'
 		},
 		publicClass(station) {
-			const cat = station.soft_removed ? 'none' : (station.public_category || 'none')
+			let cat = station.public_category || 'none'
+			if (station.soft_removed) cat = 'none'
+			else if (station.public_archived) cat = 'archived'
 			return {
 				planned: cat === 'planned',
 				existing: cat === 'existing',
+				archived: cat === 'archived',
 				none: cat === 'none',
 			}
 		},
@@ -251,6 +280,14 @@ export default {
 		},
 		canSoftRemove(station) {
 			return !station.soft_removed
+		},
+		canArchive(station) {
+			return !station.soft_removed
+				&& station.lifecycle_state === 'running'
+				&& !station.public_archived
+		},
+		canUnarchive(station) {
+			return !station.soft_removed && !!station.public_archived
 		},
 	},
 }
@@ -396,6 +433,11 @@ export default {
 .badge.public.existing {
 	background: #e0f2f1;
 	color: #00695c;
+}
+
+.badge.public.archived {
+	background: #efebe9;
+	color: #5d4037;
 }
 
 .badge.public.none {

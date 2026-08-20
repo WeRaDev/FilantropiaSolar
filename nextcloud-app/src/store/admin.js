@@ -205,6 +205,27 @@ export const useAdminStore = defineStore('admin', {
 			}
 		},
 
+		async setPublicArchived(station, archived = true) {
+			const key = this.stationKey(station)
+			this.actionLoading = true
+			this.clearFeedback()
+			try {
+				const response = await axios.post(
+					generateUrl(`${API_BASE}/stations/${encodeURIComponent(key)}/set-public-archived`),
+					{ public_archived: !!archived },
+				)
+				this.message = response.data?.message
+					|| (archived ? 'Station archived from public map' : 'Station restored to public map')
+				await this.fetchStations()
+				return response.data
+			} catch (error) {
+				this.error = error.response?.data?.error || error.message || 'Failed to update public archive flag'
+				throw error
+			} finally {
+				this.actionLoading = false
+			}
+		},
+
 		async reimportDataset() {
 			this.actionLoading = true
 			this.clearFeedback()

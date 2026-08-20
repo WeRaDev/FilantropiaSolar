@@ -7,6 +7,7 @@
 | Qualified | virtual | hidden |
 | Proposition | planned | Planeada |
 | Installed | running | Em operação |
+| Installed + public_archived | running (archived) | hidden from map; stats kept |
 
 ## Day-to-day
 | Task | Where |
@@ -49,7 +50,8 @@
 | Short description | `fs_station_short_description` | `short_description` | profile / virtual | webhook / import |
 | Lifecycle | `fs_nc_lifecycle_state`, `stage_id` | `lifecycle_state` | stage actions / set-lifecycle | webhook / import |
 | Link keys | `fs_nc_installation_id`, `fs_nc_db_id` | `installation_id`, `id` | bind-lead / virtual | webhook / import |
-| Soft-removed | (no CRM stage; archived if missing from ops list) | `soft_removed` | — | webhook / import (active=False if gone) |
+| Soft-removed | (no CRM stage) | `soft_removed` | — | webhook / import (active=False if gone) |
+| Public archived | `fs_nc_public_archived` | `public_archived` | NC admin / API | webhook / import |
 
 ### Intentionally not mirrored
 - CRM contact-only: `email_from`, `phone`, `contact_name`, candidatura bill attachments / description dump
