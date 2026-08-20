@@ -10,6 +10,7 @@
 |--------|------|--------|
 | `lifecycle_state` | string(16) | `virtual` \| `planned` \| `running` |
 | `soft_removed` | bool | default false |
+| `public_archived` | bool | default false; **running only** — hide public map, keep stats (3.2.33+) |
 | `odoo_lead_id` | int nullable unique | CRM idempotency |
 | `installed_at` | datetime nullable | set on mark-installed (MVP-2+) |
 
@@ -52,8 +53,8 @@ docker exec -u 33 filantropia-nextcloud php occ upgrade
 cd nextcloud-app && ./vendor/bin/phpunit --filter 'InstallationTest|StationLifecycleTest'
 ```
 
-## Out of scope (later stories)
+## Later stories (status)
 
-- Lifecycle write HTTP API (MVP-2)  
-- Public API switch to `findPublicStations` (MVP-3)  
-- Admin UI buttons (MVP-4)  
+- Lifecycle write HTTP API (MVP-2) — done  
+- Public API `findPublicStations` (MVP-3) + `public_archived` map omit (3.2.33) — done  
+- Admin + main UI lifecycle / archive (MVP-4, 3.2.34) — done; see `docs/ops/PUBLIC-ARCHIVED-LIFECYCLE.md`  

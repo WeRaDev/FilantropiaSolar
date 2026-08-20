@@ -7,11 +7,20 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 ## 3.2.34 — 2026-08-20
 
 ### Lifecycle / public map
-- Main dashboard **Set lifecycle** modal: **Archive / Unarchive** for running stations (public map hide, stats kept).
+- Main dashboard **Set lifecycle** modal lists four choices: **Virtual**, **Planned**, **Running**, **Archived**.
+  - **Archived** = Running + `public_archived` (hidden from public website map/list; still counted in NC stats/dashboard).
+  - Archived is enabled for Running stations; Virtual/Planned must be promoted to Running first.
 - List filter chip **Archived**; store maps `public_archived` end-to-end.
-- Odoo CRM pipeline stage **Archived** (`filantropia_solar_public.stage_archived`) with bidirectional NC mirror.
-- Token lifecycle API: `POST .../set-public-archived`; demote from Running clears archive flag.
+- Session API: `POST /api/v1/installations/{id}/set-public-archived`.
+- Token lifecycle API: `POST /api/lifecycle/v1/stations/{id}/set-public-archived` (Odoo CRM glue).
+- Demote away from Running clears `public_archived`.
+- Odoo CRM pipeline stage **Archived** (`filantropia_solar_public.stage_archived`, seq 80, not won) with bidirectional NC mirror.
 - Odoo public module **19.0.2.31.0**.
+- Ops notes: `docs/ops/PUBLIC-ARCHIVED-LIFECYCLE.md`, CRM matrix in `docs/ops/CRM-NC-LIFECYCLE-MIRROR.md`.
+
+### Deploy / TRL5
+- macOS tar deploy must use `COPYFILE_DISABLE=1` and strip `._*` / `.DS_Store` (AppleDouble poisons NC attribute router → Internal Server Error).
+- There is no in-app Upgrade button: deploy files + `occ upgrade` / Odoo `-u filantropia_solar_public`.
 
 ## 3.2.33 — 2026-08-20
 

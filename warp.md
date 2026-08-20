@@ -112,6 +112,11 @@ source venv/bin/activate && python - <<'PY'
 PY
 ```
 
+## Current status (2026-08-20)
+- **NC app 3.2.34 / Odoo public 19.0.2.31.0**: public **Archived** lifecycle (Running + `public_archived`). Main **Set lifecycle** shows Virtual | Planned | Running | **Archived**; CRM stage **Archived**; public map omits archived; dashboard stats keep them. Ops: `docs/ops/PUBLIC-ARCHIVED-LIFECYCLE.md`, Gitea PR `#32`.
+- **TRL5**: AIO Nextcloud SoT; deploy with `COPYFILE_DISABLE=1` and strip `._*` (AppleDouble → NC 500). No in-app Upgrade UI — `occ upgrade` + Odoo `-u`.
+- The dated status sections below are retained as a running history log, not the current state.
+
 ## Current status (2026-07-28)
 - **Quality gates live**: PR#3 merged (`902fc30`) — ruff (384→0), mypy (204→0 in 56 files), bandit (16→0), pytest 36+1 all green locally and in CI. `.gitea/workflows/ci.yml` `quality-gates` job enforces ruff format+lint, mypy, bandit, pytest on push/PR.
 - **Runner containerized**: `infra/gitea-runner/` compose stack (`gitea/act_runner:0.4.0`, `restart: unless-stopped`) replaces the nohup host daemon (merged via PR#4). Org runner `wera-global-docker-runner` is online; job images are `gitea/runner-images` (node + Python 3.12). Registration persists in the `runner-data` Docker volume (survives Docker Desktop restarts; fresh token only needed after `down -v`).

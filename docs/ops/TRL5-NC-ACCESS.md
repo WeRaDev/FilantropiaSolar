@@ -17,10 +17,16 @@ Verify:
 ```bash
 ssh root@100.82.252.18
 docker exec -u 33 nextcloud-aio-nextcloud php occ app:list | grep filantropia
-# filantropia_solar: 3.2.26
+# filantropia_solar: 3.2.34+
 docker exec nextcloud-aio-database psql -U nextcloud -d nextcloud_database -tAc \
   "SELECT count(*) FROM oc_fs_installations WHERE source='fleet';"
 # 11
+# public_archived column (3.2.33+)
+docker exec nextcloud-aio-database psql -U nextcloud -d nextcloud_database -c \
+  "SELECT column_name FROM information_schema.columns WHERE table_name='oc_fs_installations' AND column_name='public_archived';"
+# Never leave AppleDouble files in the app (breaks routing with 500):
+docker exec nextcloud-aio-nextcloud find /var/www/html/custom_apps/filantropia_solar -name '._*' | wc -l
+# expect 0
 ```
 
 ## Architecture after cutover
@@ -42,6 +48,29 @@ docker exec nextcloud-aio-database psql -U nextcloud -d nextcloud_database -tAc 
 4. Fleet seed (11 stations) into AIO Postgres.  
 5. Odoo env: token + API base URLs on `nextcloud-aio-apache:11000`.  
 6. Dual-job risk removed by stopping Filantropia NC.
+
+## Deploying app updates (no Upgrade UI)
+
+Nextcloud does not expose an in-app Filantropia “Upgrade” control for this product path. Operator flow:
+
+1. Build frontend if UI changed: `cd nextcloud-app && npm run build`.
+2. Package with **`COPYFILE_DISABLE=1 tar`** and **never** ship `._*` / `.DS_Store`.
+3. Extract into AIO volume `.../custom_apps/filantropia_solar` and `/opt/FilantropiaSolar/nextcloud-app`.
+4. `docker exec -u 33 nextcloud-aio-nextcloud php occ upgrade` then `maintenance:mode --off`.
+5. Odoo addon is bind-mounted from `/opt/.../odoo/addons`; run `odoo -u filantropia_solar_public --stop-after-init` and restart `filantropia-odoo`.
+
+Full archive lifecycle + smoke: `docs/ops/PUBLIC-ARCHIVED-LIFECYCLE.md`.
+
+### AppleDouble Internal Server Error
+
+If logs show `Class "OCA\FilantropiaSolar\Controller\._Something" does not exist`:
+
+```bash
+docker exec -u root nextcloud-aio-nextcloud find /var/www/html/custom_apps/filantropia_solar -name '._*' -delete
+docker restart nextcloud-aio-nextcloud
+```
+
+Unauthenticated `/apps/filantropia_solar/` should return **401/login**, not **500**.
 
 ## Rollback
 

@@ -1,20 +1,26 @@
 # Ops: CRM ↔ NC lifecycle mirror
 
 ## Stage matrix
-| CRM | NC | Public map |
-|-----|-----|------------|
-| New | (no station) | — |
-| Qualified | virtual | hidden |
-| Proposition | planned | Planeada |
-| Installed | running | Em operação |
-| Installed + public_archived | running (archived) | hidden from map; stats kept |
+| CRM | NC lifecycle | `public_archived` | Public website map |
+|-----|--------------|-------------------|--------------------|
+| New | (no station) | — | — |
+| Qualified | virtual | false | hidden |
+| Proposition | planned | false | Planeada |
+| Installed | running | false | Em operação |
+| **Archived** | running | **true** | **hidden** (stats still count) |
+
+Notes:
+- **Archived is not a fifth NC lifecycle_state.** NC stays `running` with boolean `public_archived`.
+- CRM stage xmlid: `filantropia_solar_public.stage_archived` (sequence 80, `is_won=False`).
+- Soft-remove is different: drops public membership entirely; not the same as Archive.
 
 ## Day-to-day
 | Task | Where |
 |------|--------|
 | See all mirrored stations | Odoo **Filantropia → NC Stations** |
 | Import / reconcile from NC | **Filantropia → NC Dashboard → Import NC stations** |
-| Change lifecycle | CRM pipeline stage **or** NC admin lifecycle actions |
+| Change lifecycle | CRM pipeline stage **or** NC main app **Set lifecycle** **or** NC admin |
+| Archive / unarchive public map | NC **Set lifecycle → Archived / Running** **or** CRM drag to **Archived / Installed** **or** NC admin Archive map |
 | Edit name/location/capacity/website/description | CRM lead Filantropia NC tab **or** NC station edit (both sync) |
 | NGO application | Website `/candidatura` → CRM opportunity (New); promote to Qualified to create Virtual |
 
@@ -35,6 +41,9 @@
 | CRM stage not in NC | queue_job pending/failed; `fs_nc_sync_error` on lead |
 | Station profile edit in NC not in CRM | NC `PUT /api/v1/installations/{id}` must notify webhook (3.2.14+); check lead match via `odoo_lead_id` / `fs_nc_db_id` (location changes rewrite `installation_id`) |
 | Map list click / center broken | COW map host; `stations_map.js?v=`; hard refresh — see `ODOO-WEBSITE-COW-VIEWS.md` |
+| No **Archived** CRM column | Module ≥ 19.0.2.31.0 + `-u filantropia_solar_public`; ensure xmlid `filantropia_solar_public.stage_archived` |
+| NC Set lifecycle missing Archived | App ≥ 3.2.34; hard-refresh browser; open a **Running** station |
+| Archive not mirrored CRM↔NC | Webhook payload includes `public_archived`; Odoo `set_public_archived` client path; lead `fs_nc_public_archived` |
 
 
 ## Station field matrix (canonical sync)
@@ -51,7 +60,7 @@
 | Lifecycle | `fs_nc_lifecycle_state`, `stage_id` | `lifecycle_state` | stage actions / set-lifecycle | webhook / import |
 | Link keys | `fs_nc_installation_id`, `fs_nc_db_id` | `installation_id`, `id` | bind-lead / virtual | webhook / import |
 | Soft-removed | (no CRM stage) | `soft_removed` | — | webhook / import (active=False if gone) |
-| Public archived | `fs_nc_public_archived` | `public_archived` | NC admin / API | webhook / import |
+| Public archived | `fs_nc_public_archived`, stage **Archived** | `public_archived` | CRM stage **or** NC Set lifecycle **or** admin / API | webhook / import |
 
 ### Intentionally not mirrored
 - CRM contact-only: `email_from`, `phone`, `contact_name`, candidatura bill attachments / description dump
