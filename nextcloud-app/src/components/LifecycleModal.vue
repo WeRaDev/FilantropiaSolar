@@ -12,31 +12,23 @@
 				</p>
 				<div class="choices">
 					<button
-						v-for="s in states"
-						:key="s"
+						v-for="opt in options"
+						:key="opt.id"
 						type="button"
 						class="choice"
-						:class="{ active: current === s && !isArchived }"
-						:disabled="busy || selectedObject.soft_removed"
-						@click="choose(s)"
+						:class="{ active: opt.active, archive: opt.id === 'archived' }"
+						:disabled="busy || selectedObject.soft_removed || opt.disabled"
+						:title="opt.title || ''"
+						@click="choose(opt.id)"
 					>
-						{{ label(s) }}
+						<span class="choice-title">{{ opt.label }}</span>
+						<span v-if="opt.hint" class="choice-sub">{{ opt.hint }}</span>
 					</button>
 				</div>
-				<div v-if="canToggleArchive" class="archive-block">
-					<p class="archive-hint">
-						Public map: hide running stations from the website while keeping them in stats.
-					</p>
-					<button
-						type="button"
-						class="choice choice-archive"
-						:class="{ active: isArchived }"
-						:disabled="busy || selectedObject.soft_removed"
-						@click="toggleArchive"
-					>
-						{{ isArchived ? 'Unarchive (show on public map)' : 'Archive (hide from public map)' }}
-					</button>
-				</div>
+				<p class="archive-hint">
+					Archived keeps the station in stats but hides it from the public website map.
+					Only available for Running stations.
+				</p>
 				<p v-if="error" class="err">{{ error }}</p>
 			</div>
 		</div>
@@ -55,8 +47,7 @@ export default {
 		const selectedObject = computed(() => store.selectedObject)
 		const busy = ref(false)
 		const error = ref('')
-		const states = ['virtual', 'planned', 'running']
-		const current = computed(() =>
+		const lifecycle = computed(() =>
 			selectedObject.value?.lifecycle_state
 			|| selectedObject.value?.customData?.lifecycleState
 			|| 'running',
@@ -67,44 +58,78 @@ export default {
 			|| selectedObject.value?.public_category === 'archived'
 			|| selectedObject.value?.customData?.publicCategory === 'archived',
 		))
-		const canToggleArchive = computed(() =>
-			current.value === 'running' && !selectedObject.value?.soft_removed,
+		const canArchive = computed(() =>
+			lifecycle.value === 'running' && !selectedObject.value?.soft_removed,
 		)
 		const currentLabel = computed(() => {
-			const base = label(current.value)
+			const base = lifecycle.value.charAt(0).toUpperCase() + lifecycle.value.slice(1)
 			return isArchived.value ? `${base} (archived)` : base
 		})
-		const label = (s) => s.charAt(0).toUpperCase() + s.slice(1)
+		const options = computed(() => {
+			const lc = lifecycle.value
+			const archived = isArchived.value
+			return [
+				{
+					id: 'virtual',
+					label: 'Virtual',
+					active: lc === 'virtual' && !archived,
+					disabled: false,
+				},
+				{
+					id: 'planned',
+					label: 'Planned',
+					active: lc === 'planned' && !archived,
+					disabled: false,
+				},
+				{
+					id: 'running',
+					label: 'Running',
+					hint: archived ? 'On public map' : '',
+					active: lc === 'running' && !archived,
+					disabled: false,
+				},
+				{
+					id: 'archived',
+					label: 'Archived',
+					hint: 'Hidden from public map, still in stats',
+					active: archived,
+					disabled: !canArchive.value && !archived,
+					title: (!canArchive.value && !archived)
+						? 'Set lifecycle to Running first'
+						: '',
+				},
+			]
+		})
 		const close = () => store.closeLifecycleModal()
-		const choose = async (s) => {
-			if (!selectedObject.value || (s === current.value && !isArchived.value)) {
-				close()
+		const choose = async (id) => {
+			if (!selectedObject.value) {
+				return
+			}
+			const opt = options.value.find((o) => o.id === id)
+			if (!opt || opt.disabled || opt.active) {
+				if (opt?.active) close()
 				return
 			}
 			busy.value = true
 			error.value = ''
 			try {
-				// Leaving archive via lifecycle change: unarchive first when staying running.
-				if (isArchived.value && s === 'running') {
-					await store.setPublicArchived(selectedObject.value.id, false)
+				const sid = selectedObject.value.id
+				if (id === 'archived') {
+					// Ensure running, then archive from public map.
+					if (lifecycle.value !== 'running') {
+						await store.setLifecycle(sid, 'running')
+					}
+					await store.setPublicArchived(sid, true)
+				} else if (id === 'running') {
+					if (isArchived.value) {
+						await store.setPublicArchived(sid, false)
+					} else if (lifecycle.value !== 'running') {
+						await store.setLifecycle(sid, 'running')
+					}
 				} else {
-					await store.setLifecycle(selectedObject.value.id, s)
+					// virtual / planned — demote and clear archive if needed
+					await store.setLifecycle(sid, id)
 				}
-				close()
-			} catch (e) {
-				error.value = e.response?.data?.error || e.message || 'Failed'
-			} finally {
-				busy.value = false
-			}
-		}
-		const toggleArchive = async () => {
-			if (!selectedObject.value || !canToggleArchive.value) {
-				return
-			}
-			busy.value = true
-			error.value = ''
-			try {
-				await store.setPublicArchived(selectedObject.value.id, !isArchived.value)
 				close()
 			} catch (e) {
 				error.value = e.response?.data?.error || e.message || 'Failed'
@@ -115,17 +140,12 @@ export default {
 		return {
 			isOpen,
 			selectedObject,
-			states,
-			current,
+			options,
 			currentLabel,
-			isArchived,
-			canToggleArchive,
 			busy,
 			error,
-			label,
 			close,
 			choose,
-			toggleArchive,
 		}
 	},
 }
@@ -156,18 +176,17 @@ export default {
 .hint { margin: 0 0 14px; font-size: 13px; color: #333; }
 .hint strong { color: #111; }
 .choices { display: grid; gap: 8px; }
-.archive-block {
-	margin-top: 14px;
-	padding-top: 12px;
-	border-top: 1px solid #ececec;
-}
 .archive-hint {
-	margin: 0 0 8px;
+	margin: 12px 0 0;
 	font-size: 12px;
 	color: #555;
 	line-height: 1.35;
 }
 .choice {
+	display: flex;
+	flex-direction: column;
+	align-items: flex-start;
+	gap: 2px;
 	border: 1px solid #cfcfcf;
 	background: #fff;
 	color: #111;
@@ -176,11 +195,14 @@ export default {
 	font-size: 14px;
 	font-weight: 600;
 	cursor: pointer;
+	text-align: left;
 }
-.choice-archive.active {
-	border-color: #6d6d6d;
-	background: #f0f0f0;
-	box-shadow: inset 0 0 0 1px #6d6d6d;
+.choice-title { font-size: 14px; font-weight: 600; }
+.choice-sub {
+	font-size: 11px;
+	font-weight: 500;
+	color: #666;
+	line-height: 1.3;
 }
 .choice:hover:not(:disabled) {
 	background: #f7f7f7;
@@ -191,6 +213,11 @@ export default {
 	background: #FDFBF5;
 	color: #111;
 	box-shadow: inset 0 0 0 1px #A89D3F;
+}
+.choice.archive.active {
+	border-color: #6d6d6d;
+	background: #f0f0f0;
+	box-shadow: inset 0 0 0 1px #6d6d6d;
 }
 .choice:disabled {
 	opacity: .55;
