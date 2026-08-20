@@ -69,6 +69,15 @@ _DISPLAY_SPECIFIC_YIELD_KWH_PER_KWP = 1400.0  # Portugal-indicative
 # so markers stay regionally meaningful but resist equipment theft scouting.
 _PUBLIC_MAP_OFFSET_RADIUS_M = 1000.0
 _METERS_PER_DEG_LAT = 111_320.0
+# Blog teaser heuristics
+_MIN_PARAGRAPH_CHARS = 40
+_LANG_CODE_MAX_LEN = 12
+_MIN_AUTHENTIC_BODY_CHARS = 250
+_EN_SEED_STORY_TITLES = (
+    "Braga Animal Shelter",
+    "Uniao Zoofila",
+    "Tavira Animal Shelter",
+)
 
 # Progress bar percentages for the candidatura funnel
 _STEP_PROGRESS = {
@@ -211,7 +220,7 @@ class FilantropiaSolarPublicController(http.Controller):
         except (TypeError, ValueError):
             num = 0.0
         if decimals <= 0:
-            return f"{int(round(num)):,}".replace(",", " ")
+            return f"{round(num):,}".replace(",", " ")
         fmt = f"{{:,.{decimals}f}}"
         return fmt.format(num).replace(",", " ")
 
@@ -248,10 +257,9 @@ class FilantropiaSolarPublicController(http.Controller):
             annual_kwh = capacity * _DISPLAY_SPECIFIC_YIELD_KWH_PER_KWP
             total_saved = annual_kwh * _DISPLAY_EUR_PER_KWH
             dash["savings_is_indicative"] = True
-        else:
-            # Keep NC flag when provided
-            if dash.get("savings_is_indicative") is None:
-                dash["savings_is_indicative"] = False
+        # Keep NC flag when provided
+        elif dash.get("savings_is_indicative") is None:
+            dash["savings_is_indicative"] = False
 
         # Energy generated: prefer NC dashboard; else sum station series kWh
         total_energy = dash.get("total_energy_generated_kwh")
@@ -402,7 +410,7 @@ class FilantropiaSolarPublicController(http.Controller):
             if j < 0:
                 break
             piece = cls._strip_html_to_text(raw[gt + 1 : j])
-            if piece and len(piece) >= 40:
+            if piece and len(piece) >= _MIN_PARAGRAPH_CHARS:
                 chunks.append(piece)
                 break
             start = j + 4
@@ -413,7 +421,7 @@ class FilantropiaSolarPublicController(http.Controller):
                 if sep in plain:
                     head, _rest = plain.split(sep, 1)
                     candidate = (head + sep.strip()).strip()
-                    if len(candidate) >= 40:
+                    if len(candidate) >= _MIN_PARAGRAPH_CHARS:
                         plain = candidate
                         break
             chunks = [plain] if plain else []
@@ -448,7 +456,7 @@ class FilantropiaSolarPublicController(http.Controller):
                 pass
             s = str(val)
             # LangData str may look like "pt_PT" or "Portuguese"
-            if "_" in s and len(s) <= 12 and " " not in s:
+            if "_" in s and len(s) <= _LANG_CODE_MAX_LEN and " " not in s:
                 return s
             return ""
 
@@ -553,8 +561,8 @@ class FilantropiaSolarPublicController(http.Controller):
                 # Authentic stories were authored in PT; EN often still holds short
                 # seed blurbs. Prefer the longer body for the homepage paragraph.
                 content = content_lang
-                if len(plain_pt) > max(len(plain_lang), 250) and (
-                    len(plain_lang) < 250
+                if len(plain_pt) > max(len(plain_lang), _MIN_AUTHENTIC_BODY_CHARS) and (
+                    len(plain_lang) < _MIN_AUTHENTIC_BODY_CHARS
                     or plain_lang.casefold() in plain_pt.casefold()
                     or "was among the first organisations" in plain_lang
                     or "cut operating costs by more than" in plain_lang
@@ -574,26 +582,8 @@ class FilantropiaSolarPublicController(http.Controller):
                 # Title: if EN name is a seed label and PT name is authentic, use PT
                 name = post_l.name or ""
                 name_pt = post.with_context(lang="pt_PT").name or ""
-                if name_pt and (
-                    not name
-                    or name
-                    in (
-                        "Braga Animal Shelter",
-                        "Uniao Zoofila",
-                        "Tavira Animal Shelter",
-                    )
-                    or (
-                        str(lang).startswith("en")
-                        and len(plain_pt) > len(plain_lang) + 200
-                    )
-                ):
-                    # Keep EN title only when it is a real translation; seed titles swap to PT
-                    if name in (
-                        "Braga Animal Shelter",
-                        "Uniao Zoofila",
-                        "Tavira Animal Shelter",
-                    ):
-                        name = name_pt
+                if name_pt and name in _EN_SEED_STORY_TITLES:
+                    name = name_pt
                 subtitle = (
                     post_l.subtitle or post.with_context(lang="pt_PT").subtitle or ""
                 )
