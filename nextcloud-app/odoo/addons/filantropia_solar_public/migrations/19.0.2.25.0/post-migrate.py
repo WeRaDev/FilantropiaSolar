@@ -72,6 +72,4 @@ def migrate(cr, _version):
                 "filantropia_solar_public 19.0.2.25.0: created website menu Projetos"
             )
     except Exception:
-        _logger.exception(
-            "filantropia_solar_public 19.0.2.25.0 post-migrate failed"
-        )
+        _logger.exception("filantropia_solar_public 19.0.2.25.0 post-migrate failed")

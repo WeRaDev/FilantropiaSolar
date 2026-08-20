@@ -37,8 +37,8 @@ class CrmLead(models.Model):
         help="Nextcloud internal station primary key when known.",
     )
     fs_nc_public_archived = fields.Boolean(
-        string='NC Public Archived',
-        help='Running station hidden from public map but still counted in stats.',
+        string="NC Public Archived",
+        help="Running station hidden from public map but still counted in stats.",
         default=False,
         copy=False,
     )
@@ -499,9 +499,12 @@ class CrmLead(models.Model):
             )
             return True
         # Archiving requires Running; ensure installed first when missing.
-        if want and self.fs_nc_lifecycle_state != "running":
-            if not self.fs_mark_installed():
-                return False
+        if (
+            want
+            and self.fs_nc_lifecycle_state != "running"
+            and not self.fs_mark_installed()
+        ):
+            return False
         key = self._fs_installation_key()
         if not key:
             self._fs_mark_error(

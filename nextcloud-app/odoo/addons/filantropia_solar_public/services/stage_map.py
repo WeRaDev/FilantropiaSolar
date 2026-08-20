@@ -134,8 +134,10 @@ def lifecycle_action_for_stage_change(
     new_archived = is_archived_stage(new_name, is_won=new_is_won)
     if new_archived and not old_archived:
         return "set_public_archived"
-    if old_archived and not new_archived and is_installed_stage(
-        is_won=new_is_won, stage_name=new_name
+    if (
+        old_archived
+        and not new_archived
+        and is_installed_stage(is_won=new_is_won, stage_name=new_name)
     ):
         return "clear_public_archived"
 

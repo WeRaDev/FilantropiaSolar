@@ -212,7 +212,8 @@ class FilantropiaSolarPublicController(http.Controller):
             num = 0.0
         if decimals <= 0:
             return f"{int(round(num)):,}".replace(",", " ")
-        fmt = f"{{:,.{decimals}f}}"; return fmt.format(num).replace(",", " ")
+        fmt = f"{{:,.{decimals}f}}"
+        return fmt.format(num).replace(",", " ")
 
     def _enrich_metrics(self, stations: list, dashboard: dict) -> dict:
         """Normalize NC public dashboard + station metrics for website templates."""
@@ -455,9 +456,11 @@ class FilantropiaSolarPublicController(http.Controller):
         default = "pt_PT"
         try:
             if website and getattr(website, "default_lang_id", None):
-                default = _code(website.default_lang_id) or _code(
-                    getattr(website.default_lang_id, "code", None)
-                ) or default
+                default = (
+                    _code(website.default_lang_id)
+                    or _code(getattr(website.default_lang_id, "code", None))
+                    or default
+                )
         except Exception:
             pass
 
@@ -485,7 +488,6 @@ class FilantropiaSolarPublicController(http.Controller):
         if default.startswith("pt") and lang.startswith("en"):
             return default
         return lang or default
-
 
     def _success_stories(self, limit: int = 3) -> list[dict]:
         """Return published success-story blog posts for homepage teasers."""
@@ -523,7 +525,17 @@ class FilantropiaSolarPublicController(http.Controller):
             def _story_rank(p):
                 n = (p.name or "").casefold()
                 boost = 0
-                if any(k in n for k in ("abrigo", "shelter", "animal", "gatos", "zoófila", "zoofila")):
+                if any(
+                    k in n
+                    for k in (
+                        "abrigo",
+                        "shelter",
+                        "animal",
+                        "gatos",
+                        "zoófila",
+                        "zoofila",
+                    )
+                ):
                     boost = -1
                 # write_date / id already newest-first from search; keep stable secondary
                 wid = getattr(p, "write_date", None) or getattr(p, "post_date", None)
@@ -553,20 +565,38 @@ class FilantropiaSolarPublicController(http.Controller):
                 teaser = self._first_paragraph_teaser(content)
                 if not teaser and "teaser" in post_l._fields and post_l.teaser:
                     teaser = self._strip_html_to_text(post_l.teaser)[:320]
-                if not teaser and "teaser_manual" in post_l._fields and post_l.teaser_manual:
+                if (
+                    not teaser
+                    and "teaser_manual" in post_l._fields
+                    and post_l.teaser_manual
+                ):
                     teaser = self._strip_html_to_text(post_l.teaser_manual)[:320]
                 # Title: if EN name is a seed label and PT name is authentic, use PT
                 name = post_l.name or ""
                 name_pt = post.with_context(lang="pt_PT").name or ""
                 if name_pt and (
                     not name
-                    or name in ("Braga Animal Shelter", "Uniao Zoofila", "Tavira Animal Shelter")
-                    or (str(lang).startswith("en") and len(plain_pt) > len(plain_lang) + 200)
+                    or name
+                    in (
+                        "Braga Animal Shelter",
+                        "Uniao Zoofila",
+                        "Tavira Animal Shelter",
+                    )
+                    or (
+                        str(lang).startswith("en")
+                        and len(plain_pt) > len(plain_lang) + 200
+                    )
                 ):
                     # Keep EN title only when it is a real translation; seed titles swap to PT
-                    if name in ("Braga Animal Shelter", "Uniao Zoofila", "Tavira Animal Shelter"):
+                    if name in (
+                        "Braga Animal Shelter",
+                        "Uniao Zoofila",
+                        "Tavira Animal Shelter",
+                    ):
                         name = name_pt
-                subtitle = post_l.subtitle or post.with_context(lang="pt_PT").subtitle or ""
+                subtitle = (
+                    post_l.subtitle or post.with_context(lang="pt_PT").subtitle or ""
+                )
                 url = (
                     post_l.website_url
                     if "website_url" in post_l._fields
@@ -1156,7 +1186,9 @@ class FilantropiaSolarPublicController(http.Controller):
         step3_price_kwh = (post.get("step3_price_kwh") or "").strip()
         step3_usage_pattern = (post.get("step3_usage_pattern") or "").strip()
         step3_description = (post.get("step3_description") or "").strip()
-        step3_grid_connection = (post.get("step3_grid_connection") or "on_grid").strip().lower()
+        step3_grid_connection = (
+            (post.get("step3_grid_connection") or "on_grid").strip().lower()
+        )
         if step3_grid_connection not in ("on_grid", "off_grid"):
             step3_grid_connection = "on_grid"
         if step3_grid_connection == "off_grid":
@@ -1228,7 +1260,7 @@ class FilantropiaSolarPublicController(http.Controller):
             "fs_station_latitude": self._as_float(location_lat, 0.0),
             "fs_station_longitude": self._as_float(location_lng, 0.0),
             "fs_station_grid_connection_type": step3_grid_connection,
-                    "fs_station_capacity_kwp": kwp,
+            "fs_station_capacity_kwp": kwp,
             "fs_station_website": website,
             "fs_station_short_description": step2_description or False,
             "fs_nc_sync_state": "pending",

@@ -319,9 +319,7 @@ class ClientHttpTests(unittest.TestCase):
             self.assertTrue(result["station"]["public_archived"])
             req = urlopen.call_args[0][0]
             self.assertEqual(req.get_method(), "POST")
-            self.assertTrue(
-                req.full_url.endswith("/stations/x/set-public-archived")
-            )
+            self.assertTrue(req.full_url.endswith("/stations/x/set-public-archived"))
 
     def test_update_profile_posts(self):
         response_body = json.dumps(
