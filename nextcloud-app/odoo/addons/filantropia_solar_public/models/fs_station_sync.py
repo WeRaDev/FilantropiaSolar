@@ -22,8 +22,12 @@ class FsStationSync(models.AbstractModel):
     _description = "Filantropia NC station CRM mirror"
 
     @api.model
-    def _stage_for_nc_state(self, lifecycle_state: str | None):
-        xmlid = stage_xmlid_for_nc_state(lifecycle_state)
+    def _stage_for_nc_state(
+        self, lifecycle_state: str | None, *, public_archived: bool = False
+    ):
+        xmlid = stage_xmlid_for_nc_state(
+            lifecycle_state, public_archived=bool(public_archived)
+        )
         if not xmlid:
             return self.env.ref("crm.stage_lead1", raise_if_not_found=False)
         return self.env.ref(xmlid, raise_if_not_found=False)
@@ -77,7 +81,10 @@ class FsStationSync(models.AbstractModel):
                 [("fs_nc_installation_id", "=", installation_id)], limit=1
             )
 
-        stage = self._stage_for_nc_state(station.get("lifecycle_state"))
+        public_archived = bool(station.get("public_archived"))
+        stage = self._stage_for_nc_state(
+            station.get("lifecycle_state"), public_archived=public_archived
+        )
         name = station.get("name") or installation_id or "NC station"
         vals = {
             "type": "opportunity",
@@ -85,7 +92,7 @@ class FsStationSync(models.AbstractModel):
             "fs_is_donation_application": True,
             "fs_nc_installation_id": installation_id or False,
             "fs_nc_lifecycle_state": station.get("lifecycle_state") or False,
-            "fs_nc_public_archived": bool(station.get("public_archived")),
+            "fs_nc_public_archived": public_archived,
             "fs_nc_sync_state": "ok",
             "fs_nc_sync_error": False,
             "fs_nc_last_sync_at": fields.Datetime.now(),

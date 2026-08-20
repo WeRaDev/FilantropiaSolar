@@ -4,6 +4,15 @@ All notable changes to the Nextcloud app component. The desktop application
 has its own changelog at the repository root (`CHANGELOG.md`).
 This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 3.2.34 — 2026-08-20
+
+### Lifecycle / public map
+- Main dashboard **Set lifecycle** modal: **Archive / Unarchive** for running stations (public map hide, stats kept).
+- List filter chip **Archived**; store maps `public_archived` end-to-end.
+- Odoo CRM pipeline stage **Archived** (`filantropia_solar_public.stage_archived`) with bidirectional NC mirror.
+- Token lifecycle API: `POST .../set-public-archived`; demote from Running clears archive flag.
+- Odoo public module **19.0.2.31.0**.
+
 ## 3.2.33 — 2026-08-20
 
 ### Lifecycle / public map

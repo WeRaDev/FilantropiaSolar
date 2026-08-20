@@ -39,8 +39,8 @@
             <group string="Nextcloud station">
               <field name="fs_nc_installation_id" readonly="1"/>
               <field name="fs_nc_db_id" readonly="1"/>
-              <field name="fs_nc_public_archived" readonly="1"/>
-                            <field name="fs_nc_lifecycle_state" readonly="1"/>
+<field name="fs_nc_public_archived" readonly="1"/>
+              <field name="fs_nc_lifecycle_state" readonly="1"/>
             </group>
           </group>
           <group string="Station snapshot (from candidatura)">

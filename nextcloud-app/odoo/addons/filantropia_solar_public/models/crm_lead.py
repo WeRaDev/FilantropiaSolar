@@ -13,7 +13,11 @@ from ..services.nc_lifecycle_client import (
     NcLifecycleError,
     redact_secrets,
 )
-from ..services.stage_map import lifecycle_action_for_stage_change, nc_state_for_stage
+from ..services.stage_map import (
+    is_archived_stage,
+    lifecycle_action_for_stage_change,
+    nc_state_for_stage,
+)
 
 _logger = logging.getLogger(__name__)
 
@@ -483,6 +487,72 @@ class CrmLead(models.Model):
                 lead.fs_set_lifecycle(target)
         return True
 
+    def fs_set_public_archived(self, public_archived: bool = True) -> bool:
+        """Archive/unarchive linked NC station on the public map."""
+        self.ensure_one()
+        want = bool(public_archived)
+        if bool(self.fs_nc_public_archived) == want and (
+            self.fs_nc_lifecycle_state == "running" or not want
+        ):
+            self.with_context(fs_skip_nc_enqueue=True).write(
+                {"fs_nc_sync_state": "ok", "fs_nc_sync_error": False}
+            )
+            return True
+        # Archiving requires Running; ensure installed first when missing.
+        if want and self.fs_nc_lifecycle_state != "running":
+            if not self.fs_mark_installed():
+                return False
+        key = self._fs_installation_key()
+        if not key:
+            self._fs_mark_error(
+                NcLifecycleError("missing NC station link for set-public-archived")
+            )
+            return False
+        try:
+            result = self._fs_client().set_public_archived(
+                key, want, actor=f"odoo-lead-{self.id}"
+            )
+            self._fs_apply_station_payload(result, origin="crm")
+            _logger.info(
+                "NC set-public-archived %s for lead %s -> %s",
+                want,
+                self.id,
+                self.fs_nc_installation_id,
+            )
+            return True
+        except NcLifecycleError as exc:
+            self._fs_mark_error(exc)
+            _logger.warning(
+                "NC set-public-archived failed for lead %s: %s",
+                self.id,
+                redact_secrets(str(exc)),
+            )
+            return False
+
+    def fs_enqueue_set_public_archived(self, public_archived: bool = True):
+        """Enqueue public map archive toggle."""
+        want = bool(public_archived)
+        for lead in self:
+            if not lead.fs_is_donation_application and not lead.fs_nc_installation_id:
+                continue
+            lead.with_context(fs_skip_nc_enqueue=True).write(
+                {
+                    "fs_nc_sync_state": "pending",
+                    "fs_nc_sync_error": False,
+                    "fs_nc_sync_origin": "crm",
+                }
+            )
+            if hasattr(lead, "with_delay"):
+                lead.with_delay(
+                    priority=10,
+                    description=f"NC public_archived={want} for lead {lead.id}",
+                    channel="root.filantropia",
+                    identity_key=f"fs-pub-arch-{int(want)}-{lead.id}",
+                ).fs_set_public_archived(want)
+            else:
+                lead.fs_set_public_archived(want)
+        return True
+
     def fs_enqueue_create_virtual(self):
         """Enqueue Virtual create (non-blocking)."""
         for lead in self:
@@ -592,7 +662,28 @@ class CrmLead(models.Model):
                 new_stage.name if new_stage else None,
                 is_won=bool(new_stage.is_won) if new_stage else False,
             )
-            if target and lead.fs_nc_lifecycle_state == target:
+            new_name = new_stage.name if new_stage else None
+            new_is_won = bool(new_stage.is_won) if new_stage else False
+            want_archived = is_archived_stage(new_name, is_won=new_is_won)
+            if action == "set_public_archived":
+                if lead.fs_nc_lifecycle_state == "running" and bool(
+                    lead.fs_nc_public_archived
+                ):
+                    continue
+                lead.fs_enqueue_set_public_archived(True)
+                continue
+            if action == "clear_public_archived":
+                if lead.fs_nc_lifecycle_state == "running" and not bool(
+                    lead.fs_nc_public_archived
+                ):
+                    continue
+                lead.fs_enqueue_set_public_archived(False)
+                continue
+            if (
+                target
+                and lead.fs_nc_lifecycle_state == target
+                and bool(lead.fs_nc_public_archived) == want_archived
+            ):
                 continue
             if action == "ensure_virtual":
                 lead.fs_enqueue_create_virtual()

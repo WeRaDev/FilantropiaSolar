@@ -20,9 +20,9 @@ export const useAppStore = defineStore('app', {
             end: new Date().toISOString().split('T')[0],
             label: 'Month'
         },
-        filters: {
+filters: {
             status: [], // ['active', 'warning', 'offline'] - empty means all
-            lifecycle: [], // ['virtual','planned','running'] - empty means all
+            lifecycle: [], // ['virtual','planned','running','archived','online','offline'] - empty means all
             searchTerm: ''
         },
 
@@ -81,14 +81,17 @@ export const useAppStore = defineStore('app', {
                 result = result.filter(o => state.filters.status.includes(o.status || 'active'))
             }
 
-            // Filter by lifecycle chips (supports virtual/planned/running/online/offline)
+// Filter by lifecycle chips (supports virtual/planned/running/archived/online/offline)
             if (state.filters.lifecycle && state.filters.lifecycle.length > 0) {
                 result = result.filter(o => {
                     const lc = o.lifecycle_state || o.customData?.lifecycleState || 'running'
                     const st = o.status || 'active'
+                    const archived = Boolean(o.public_archived || o.customData?.publicArchived)
                     return state.filters.lifecycle.some((f) => {
-                        if (f === 'online') return lc === 'running' && st === 'active' && !o.soft_removed
-                        if (f === 'offline') return lc === 'running' && st !== 'active' && !o.soft_removed
+                        if (f === 'online') return lc === 'running' && st === 'active' && !o.soft_removed && !archived
+                        if (f === 'offline') return lc === 'running' && st !== 'active' && !o.soft_removed && !archived
+                        if (f === 'archived') return archived && !o.soft_removed
+                        if (f === 'running') return lc === 'running' && !archived
                         return lc === f
                     })
                 })
@@ -195,9 +198,16 @@ export const useAppStore = defineStore('app', {
                 
                 // Map to layout spec object model
                 this.objects = installations.map(inst => {
-                    const lifecycle = inst.lifecycle_state
+const lifecycle = inst.lifecycle_state
                         || (inst.is_virtual ? 'virtual' : 'running')
                     const softRemoved = Boolean(inst.soft_removed)
+                    const publicArchived = Boolean(inst.public_archived)
+                    const publicCategory = inst.public_category
+                        || (softRemoved || lifecycle === 'virtual'
+                            ? 'none'
+                            : (publicArchived
+                                ? 'archived'
+                                : (lifecycle === 'planned' ? 'planned' : 'existing')))
                     return {
                         id: inst.id,
                         installation_id: inst.installation_id || inst.id,
@@ -223,10 +233,8 @@ export const useAppStore = defineStore('app', {
                             dbId: inst.db_id || null,
                             lifecycleState: lifecycle,
                             softRemoved,
-                            publicCategory: inst.public_category
-                                || (softRemoved || lifecycle === 'virtual'
-                                    ? 'none'
-                                    : (lifecycle === 'planned' ? 'planned' : 'existing')),
+                            publicArchived,
+                            publicCategory,
                             isPublic: Boolean(inst.is_public),
                             odooLeadId: inst.odoo_lead_id ?? null,
                             installedAt: inst.installed_at || null,
@@ -239,7 +247,8 @@ export const useAppStore = defineStore('app', {
                         },
                         lifecycle_state: lifecycle,
                         soft_removed: softRemoved,
-                        public_category: inst.public_category || null,
+                        public_archived: publicArchived,
+                        public_category: publicCategory,
                         website: inst.website || '',
                         short_description: inst.short_description || '',
                         grid_price_kwh: inst.grid_price_kwh != null ? Number(inst.grid_price_kwh) : 0.15,
@@ -667,7 +676,7 @@ export const useAppStore = defineStore('app', {
             }
         },
 
-        async setLifecycle(objectId, lifecycleState) {
+async setLifecycle(objectId, lifecycleState) {
             const obj = this.objects.find(o => o.id === objectId)
             const key = this.stationApiKey(objectId)
             try {
@@ -687,6 +696,28 @@ export const useAppStore = defineStore('app', {
                 return response.data
             } catch (error) {
                 this.error = error.response?.data?.error || error.message || 'Lifecycle update failed'
+                throw error
+            }
+        },
+
+        async setPublicArchived(objectId, archived = true) {
+            const key = this.stationApiKey(objectId)
+            try {
+                const response = await axios.post(
+                    generateUrl(`/apps/filantropia_solar/api/v1/installations/${encodeURIComponent(key)}/set-public-archived`),
+                    { public_archived: !!archived },
+                )
+                if (!response.data?.success) {
+                    throw new Error(response.data?.error || 'Archive update failed')
+                }
+                await this.fetchObjects()
+                if (this.selectedObjectId) {
+                    const still = this.objects.find(o => o.id === objectId || o.installation_id === key)
+                    if (still) this.selectedObjectId = still.id
+                }
+                return response.data
+            } catch (error) {
+                this.error = error.response?.data?.error || error.message || 'Archive update failed'
                 throw error
             }
         },

@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <odoo>
-  <!-- Align core CRM pipeline with ADR 0006 names (no extra stage rows). -->
+  <!-- Align core CRM pipeline with ADR 0006 names + public-map Archived. -->
   <record id="crm.stage_lead1" model="crm.stage">
     <field name="name">New</field>
     <field name="sequence">1</field>
@@ -17,5 +17,12 @@
     <field name="name">Installed</field>
     <field name="sequence">70</field>
     <field name="is_won" eval="True"/>
+  </record>
+  <!-- Running station hidden from public map; not a won/lost terminal. -->
+  <record id="stage_archived" model="crm.stage">
+    <field name="name">Archived</field>
+    <field name="sequence">80</field>
+    <field name="is_won" eval="False"/>
+    <field name="fold" eval="False"/>
   </record>
 </odoo>

@@ -23,6 +23,7 @@
             <button class="chip chip-virtual" :class="{ active: lifecycleFilters.includes('virtual') }" @click="toggleLifecycle('virtual')">Virtual</button>
             <button class="chip chip-planned" :class="{ active: lifecycleFilters.includes('planned') }" @click="toggleLifecycle('planned')">Planned</button>
             <button class="chip chip-running" :class="{ active: lifecycleFilters.includes('running') }" @click="toggleLifecycle('running')">Running</button>
+            <button class="chip chip-archived" :class="{ active: lifecycleFilters.includes('archived') }" @click="toggleLifecycle('archived')">Archived</button>
             <button class="chip chip-offline" :class="{ active: lifecycleFilters.includes('offline') }" @click="toggleLifecycle('offline')">Offline</button>
             <button class="chip chip-online" :class="{ active: lifecycleFilters.includes('online') }" @click="toggleLifecycle('online')">Online</button>
         </div>
@@ -362,6 +363,11 @@ export default {
     background: var(--color-primary, #0082c9);
     color: #fff;
     border-color: var(--color-primary, #0082c9);
+}
+
+.chip-archived.active {
+    background: #6d6d6d;
+    border-color: #6d6d6d;
 }
 
 .status-dot {

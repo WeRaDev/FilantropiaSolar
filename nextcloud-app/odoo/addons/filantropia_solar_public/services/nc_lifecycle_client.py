@@ -199,6 +199,20 @@ class NcLifecycleClient:
             body["actor"] = actor
         return self._request("POST", f"stations/{enc}/set-lifecycle", body)
 
+    def set_public_archived(
+        self,
+        installation_id: str,
+        public_archived: bool,
+        *,
+        actor: str | None = None,
+    ) -> dict[str, Any]:
+        """Hide/show running station on public map (stats retained)."""
+        enc = quote(str(installation_id), safe="")
+        body: dict[str, Any] = {"public_archived": bool(public_archived)}
+        if actor:
+            body["actor"] = actor
+        return self._request("POST", f"stations/{enc}/set-public-archived", body)
+
     def update_profile(
         self,
         installation_id: str,

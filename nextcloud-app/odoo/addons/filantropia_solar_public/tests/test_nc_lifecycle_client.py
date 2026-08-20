@@ -22,6 +22,7 @@ from services.nc_lifecycle_client import (
     redact_secrets,
 )
 from services.stage_map import (
+    is_archived_stage,
     is_installed_stage,
     is_proposition_stage,
     is_qualified_stage,
@@ -96,7 +97,31 @@ class StageMapTests(unittest.TestCase):
         self.assertEqual(stage_xmlid_for_nc_state("virtual"), "crm.stage_lead2")
         self.assertEqual(stage_xmlid_for_nc_state("planned"), "crm.stage_lead3")
         self.assertEqual(stage_xmlid_for_nc_state("running"), "crm.stage_lead4")
+        self.assertEqual(
+            stage_xmlid_for_nc_state("running", public_archived=True),
+            "filantropia_solar_public.stage_archived",
+        )
         self.assertIsNone(stage_xmlid_for_nc_state(None))
+
+    def test_archived_stage_matrix(self):
+        self.assertTrue(is_archived_stage("Archived"))
+        self.assertEqual(nc_state_for_stage("Archived"), "running")
+        self.assertEqual(
+            lifecycle_action_for_stage_change("Installed", "Archived", old_is_won=True),
+            "set_public_archived",
+        )
+        self.assertEqual(
+            lifecycle_action_for_stage_change("Archived", "Installed", new_is_won=True),
+            "clear_public_archived",
+        )
+        self.assertEqual(
+            lifecycle_action_for_stage_change("Archived", "Qualified"),
+            "set_lifecycle_virtual",
+        )
+        self.assertEqual(
+            lifecycle_action_for_stage_change("Qualified", "Archived"),
+            "set_public_archived",
+        )
 
 
 class RedactTests(unittest.TestCase):
@@ -267,6 +292,36 @@ class ClientHttpTests(unittest.TestCase):
             req = urlopen.call_args[0][0]
             self.assertEqual(req.get_method(), "POST")
             self.assertTrue(req.full_url.endswith("/stations/x/set-lifecycle"))
+
+    def test_set_public_archived_posts(self):
+        response_body = json.dumps(
+            {
+                "success": True,
+                "station": {
+                    "installation_id": "x",
+                    "lifecycle_state": "running",
+                    "public_archived": True,
+                },
+            }
+        ).encode()
+        mock_resp = MagicMock()
+        mock_resp.read.return_value = response_body
+        mock_resp.__enter__.return_value = mock_resp
+        mock_resp.__exit__.return_value = False
+        with patch(
+            "services.nc_lifecycle_client.urllib.request.urlopen",
+            return_value=mock_resp,
+        ) as urlopen:
+            client = NcLifecycleClient(
+                base_url="http://nc/api/lifecycle/v1", token="tok"
+            )
+            result = client.set_public_archived("x", True, actor="odoo-lead-1")
+            self.assertTrue(result["station"]["public_archived"])
+            req = urlopen.call_args[0][0]
+            self.assertEqual(req.get_method(), "POST")
+            self.assertTrue(
+                req.full_url.endswith("/stations/x/set-public-archived")
+            )
 
     def test_update_profile_posts(self):
         response_body = json.dumps(

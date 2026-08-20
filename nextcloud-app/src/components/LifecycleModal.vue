@@ -6,18 +6,35 @@
 				<button type="button" class="x" @click="close">Close</button>
 			</header>
 			<div class="modal-body">
-				<p class="hint">{{ selectedObject.name }} — current: <strong>{{ current }}</strong></p>
+				<p class="hint">
+					{{ selectedObject.name }} — current:
+					<strong>{{ currentLabel }}</strong>
+				</p>
 				<div class="choices">
 					<button
 						v-for="s in states"
 						:key="s"
 						type="button"
 						class="choice"
-						:class="{ active: current === s }"
+						:class="{ active: current === s && !isArchived }"
 						:disabled="busy || selectedObject.soft_removed"
 						@click="choose(s)"
 					>
 						{{ label(s) }}
+					</button>
+				</div>
+				<div v-if="canToggleArchive" class="archive-block">
+					<p class="archive-hint">
+						Public map: hide running stations from the website while keeping them in stats.
+					</p>
+					<button
+						type="button"
+						class="choice choice-archive"
+						:class="{ active: isArchived }"
+						:disabled="busy || selectedObject.soft_removed"
+						@click="toggleArchive"
+					>
+						{{ isArchived ? 'Unarchive (show on public map)' : 'Archive (hide from public map)' }}
 					</button>
 				</div>
 				<p v-if="error" class="err">{{ error }}</p>
@@ -44,17 +61,35 @@ export default {
 			|| selectedObject.value?.customData?.lifecycleState
 			|| 'running',
 		)
+		const isArchived = computed(() => Boolean(
+			selectedObject.value?.public_archived
+			|| selectedObject.value?.customData?.publicArchived
+			|| selectedObject.value?.public_category === 'archived'
+			|| selectedObject.value?.customData?.publicCategory === 'archived',
+		))
+		const canToggleArchive = computed(() =>
+			current.value === 'running' && !selectedObject.value?.soft_removed,
+		)
+		const currentLabel = computed(() => {
+			const base = label(current.value)
+			return isArchived.value ? `${base} (archived)` : base
+		})
 		const label = (s) => s.charAt(0).toUpperCase() + s.slice(1)
 		const close = () => store.closeLifecycleModal()
 		const choose = async (s) => {
-			if (!selectedObject.value || s === current.value) {
+			if (!selectedObject.value || (s === current.value && !isArchived.value)) {
 				close()
 				return
 			}
 			busy.value = true
 			error.value = ''
 			try {
-				await store.setLifecycle(selectedObject.value.id, s)
+				// Leaving archive via lifecycle change: unarchive first when staying running.
+				if (isArchived.value && s === 'running') {
+					await store.setPublicArchived(selectedObject.value.id, false)
+				} else {
+					await store.setLifecycle(selectedObject.value.id, s)
+				}
 				close()
 			} catch (e) {
 				error.value = e.response?.data?.error || e.message || 'Failed'
@@ -62,7 +97,36 @@ export default {
 				busy.value = false
 			}
 		}
-		return { isOpen, selectedObject, states, current, busy, error, label, close, choose }
+		const toggleArchive = async () => {
+			if (!selectedObject.value || !canToggleArchive.value) {
+				return
+			}
+			busy.value = true
+			error.value = ''
+			try {
+				await store.setPublicArchived(selectedObject.value.id, !isArchived.value)
+				close()
+			} catch (e) {
+				error.value = e.response?.data?.error || e.message || 'Failed'
+			} finally {
+				busy.value = false
+			}
+		}
+		return {
+			isOpen,
+			selectedObject,
+			states,
+			current,
+			currentLabel,
+			isArchived,
+			canToggleArchive,
+			busy,
+			error,
+			label,
+			close,
+			choose,
+			toggleArchive,
+		}
 	},
 }
 </script>
@@ -92,6 +156,17 @@ export default {
 .hint { margin: 0 0 14px; font-size: 13px; color: #333; }
 .hint strong { color: #111; }
 .choices { display: grid; gap: 8px; }
+.archive-block {
+	margin-top: 14px;
+	padding-top: 12px;
+	border-top: 1px solid #ececec;
+}
+.archive-hint {
+	margin: 0 0 8px;
+	font-size: 12px;
+	color: #555;
+	line-height: 1.35;
+}
 .choice {
 	border: 1px solid #cfcfcf;
 	background: #fff;
@@ -101,6 +176,11 @@ export default {
 	font-size: 14px;
 	font-weight: 600;
 	cursor: pointer;
+}
+.choice-archive.active {
+	border-color: #6d6d6d;
+	background: #f0f0f0;
+	box-shadow: inset 0 0 0 1px #6d6d6d;
 }
 .choice:hover:not(:disabled) {
 	background: #f7f7f7;

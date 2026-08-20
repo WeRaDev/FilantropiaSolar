@@ -290,7 +290,7 @@ class LifecycleApiController extends ApiController
 		]);
 	}
 
-	/**
+/**
 	 * POST /api/lifecycle/v1/stations/{installationId}/soft-remove
 	 */
 	#[PublicPage]
@@ -319,6 +319,75 @@ class LifecycleApiController extends ApiController
 		return new JSONResponse([
 			'success' => true,
 			'station' => $this->toLifecycleArray($station),
+		]);
+	}
+
+	/**
+	 * POST /api/lifecycle/v1/stations/{installationId}/set-public-archived
+	 *
+	 * Hide/show a running station on the public map while keeping stats.
+	 * Body: { "public_archived": true|false }
+	 */
+	#[PublicPage]
+	#[NoCSRFRequired]
+	public function setPublicArchived(string $installationId): JSONResponse
+	{
+		if (!$this->authorized()) {
+			return $this->error('unauthorized', Http::STATUS_UNAUTHORIZED, 'unauthorized');
+		}
+
+		$station = $this->mapper->findByInstallationKey($installationId);
+		if ($station === null) {
+			return $this->error('station not found', Http::STATUS_NOT_FOUND, 'not_found');
+		}
+		if (($station->getSource() ?: '') === 'dataset') {
+			return $this->error('dataset stations are not part of the CRM mirror', Http::STATUS_CONFLICT, 'dataset_excluded');
+		}
+
+		$payload = $this->jsonBody();
+		$raw = $payload['public_archived'] ?? $payload['archived']
+			?? $this->request->getParam('public_archived', $this->request->getParam('archived', null));
+		if ($raw === null) {
+			return $this->error('public_archived boolean required', Http::STATUS_BAD_REQUEST, 'validation_error');
+		}
+		$archived = filter_var($raw, FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE);
+		if ($archived === null) {
+			return $this->error('public_archived must be boolean', Http::STATUS_BAD_REQUEST, 'validation_error');
+		}
+
+		$state = $this->stateOf($station);
+		if ($archived && $state !== StationLifecycle::RUNNING) {
+			return $this->error(
+				'Only running stations can be public-archived (current: ' . $state . ')',
+				Http::STATUS_CONFLICT,
+				'illegal_transition',
+			);
+		}
+		if ($station->getSoftRemoved()) {
+			return $this->error(
+				'Soft-removed stations cannot be public-archived',
+				Http::STATUS_CONFLICT,
+				'illegal_transition',
+			);
+		}
+
+		$prev = (bool) $station->getPublicArchived();
+		if ($prev !== (bool) $archived) {
+			$station->setPublicArchived((bool) $archived);
+			$station->setUpdatedAt(new DateTime());
+			$station = $this->mapper->update($station);
+			$this->logger->info('Lifecycle set public_archived', [
+				'installation_id' => $station->getInstallationId(),
+				'public_archived' => (bool) $archived,
+				'actor' => $payload['actor'] ?? null,
+			]);
+		}
+
+		$this->notifyOdooMirror($station);
+		return new JSONResponse([
+			'success' => true,
+			'station' => $this->toLifecycleArray($station),
+			'idempotent' => $prev === (bool) $archived,
 		]);
 	}
 
@@ -570,7 +639,7 @@ class LifecycleApiController extends ApiController
 			);
 		}
 
-		$prev = $this->stateOf($station);
+$prev = $this->stateOf($station);
 		if ($prev !== $target) {
 			$station->applyLifecycleState($target);
 			if ($target === StationLifecycle::RUNNING && $station->getInstalledAt() === null) {
@@ -580,6 +649,9 @@ class LifecycleApiController extends ApiController
 			// semantics do not keep a stale install date after Virtual/Planned.
 			if ($target !== StationLifecycle::RUNNING) {
 				$station->setInstalledAt(null);
+				if ($station->getPublicArchived()) {
+					$station->setPublicArchived(false);
+				}
 			}
 			$station->setUpdatedAt(new DateTime());
 			$station = $this->mapper->update($station);
@@ -629,13 +701,16 @@ class LifecycleApiController extends ApiController
 		$state = $this->stateOf($station);
 		$soft = $station->getSoftRemoved();
 
+$archived = (bool) $station->getPublicArchived();
+
 		return [
 			'id' => $station->getId(),
 			'installation_id' => $station->getInstallationId(),
 			'lifecycle_state' => $state,
 			'running_mode' => StationLifecycle::runningMode($state, false),
-			'is_public' => StationLifecycle::isPublic($state, $soft, (bool) (isset($station) ? $station->getPublicArchived() : (isset($inst) ? $inst->getPublicArchived() : false))),
-			'public_category' => StationLifecycle::publicCategory($state, $soft, (bool) (isset($station) ? $station->getPublicArchived() : (isset($inst) ? $inst->getPublicArchived() : false))),
+			'is_public' => StationLifecycle::isPublic($state, $soft, $archived),
+			'public_category' => StationLifecycle::publicCategory($state, $soft, $archived),
+			'public_archived' => $archived,
 			'soft_removed' => $soft,
 			'odoo_lead_id' => $station->getOdooLeadId(),
 			'capacity_kwp' => (float) $station->getCapacityKwp(),
