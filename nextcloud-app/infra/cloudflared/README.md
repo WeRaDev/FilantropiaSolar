@@ -1,4 +1,4 @@
-# Cloudflare Tunnel — filantropiasolar.wera.global
+# Cloudflare Tunnel — filantropiasolar.pt
 
 Exposes the Filantropia Solar **Odoo public website** via Cloudflare Tunnel.
 
@@ -6,7 +6,7 @@ Exposes the Filantropia Solar **Odoo public website** via Cloudflare Tunnel.
 
 | Item | Value |
 |------|--------|
-| Public URL | https://filantropiasolar.wera.global |
+| Public URL | https://filantropiasolar.pt |
 | Origin host | TRL5 `wera-ss-pt-tv-1` (`root@100.82.252.18` Tailscale) |
 | Code path | `/opt/FilantropiaSolar` |
 | Module | `filantropia_solar_public` **19.0.2.7.0** (P2 SEO/FAQ/blog) |
@@ -18,7 +18,7 @@ Exposes the Filantropia Solar **Odoo public website** via Cloudflare Tunnel.
 
 ```
 Internet -> Cloudflare edge -> filantropia-cloudflared (TRL5)
-         -> http://filantropia-odoo:8069                    (filantropiasolar.wera.global)
+         -> http://filantropia-odoo:8069                    (filantropiasolar.pt)
          -> http://nextcloud-aio-apache:11000               (wera-ss-pt-tv-1.wera.global)
          -> http://nextcloud-aio-apache:11000               (wera-ss-pt-tv-1.cloud.wera.global)
 ```
@@ -73,7 +73,7 @@ Then copy `credentials.json` to the origin host and `docker compose up -d` in `i
 # On TRL5
 docker ps --filter name=filantropia
 curl -sS -o /dev/null -w '%{http_code}\n' http://127.0.0.1:8069/inicio
-curl -sS -o /dev/null -w '%{http_code}\n' https://filantropiasolar.wera.global/inicio
+curl -sS -o /dev/null -w '%{http_code}\n' https://filantropiasolar.pt/inicio
 
 docker compose -f /opt/FilantropiaSolar/nextcloud-app/infra/cloudflared/docker-compose.yml logs --tail 50
 ```
@@ -99,4 +99,4 @@ bash nextcloud-app/scripts/export-odoo-website.sh
 ## Odoo proxy
 
 `proxy_mode = True` in `odoo/config/odoo.conf`.
-`web.base.url` = `https://filantropiasolar.wera.global` (freeze recommended).
+`web.base.url` = `https://filantropiasolar.pt` (freeze recommended).

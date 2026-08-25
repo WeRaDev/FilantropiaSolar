@@ -4,10 +4,20 @@ credentials-file: /etc/cloudflared/credentials.json
 # Prefer Docker DNS when cloudflared shares the target network.
 # host.docker.internal only works if the origin publishes on the host.
 ingress:
+  # Public Odoo website (primary)
+  - hostname: filantropiasolar.pt
+    service: http://filantropia-odoo:8069
+    originRequest:
+      httpHostHeader: filantropiasolar.pt
+  - hostname: www.filantropiasolar.pt
+    service: http://filantropia-odoo:8069
+    originRequest:
+      httpHostHeader: www.filantropiasolar.pt
+  # Legacy hostname (keep until DNS fully cut over)
   - hostname: filantropiasolar.wera.global
     service: http://filantropia-odoo:8069
     originRequest:
-      httpHostHeader: filantropiasolar.wera.global
+      httpHostHeader: filantropiasolar.pt
   # Nextcloud AIO public edge (Universal SSL: single-level *.wera.global)
   - hostname: wera-ss-pt-tv-1.wera.global
     service: http://nextcloud-aio-apache:11000

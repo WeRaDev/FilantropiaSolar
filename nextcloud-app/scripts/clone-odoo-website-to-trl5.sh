@@ -313,9 +313,9 @@ REMOTE
 echo "[4/4] Public probe..."
 sleep 3
 for path in /inicio /candidatura /contacto /instalacoes; do
-  /usr/bin/curl -sS -o /dev/null -w "https://filantropiasolar.wera.global$path %{http_code} bytes=%{size_download}\n" --max-time 25 \
+  /usr/bin/curl -sS -o /dev/null -w "https://filantropiasolar.pt$path %{http_code} bytes=%{size_download}\n" --max-time 25 \
     -H 'Accept-Language: pt-PT' -H 'Cookie: frontend_lang=pt_PT' \
-    "https://filantropiasolar.wera.global$path"
+    "https://filantropiasolar.pt$path"
 done
 
 rm -rf "$TMPDIR"

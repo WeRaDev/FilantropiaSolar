@@ -103,7 +103,7 @@ Run on a non-production CRM lead (or TRL5 after backup). Do **not** log tokens.
 
 ## TRL5 deploy note (wera-ss-pt-tv-1)
 
-**Hostname:** `wera-ss-pt-tv-1.tailfb390c.ts.net` · public `filantropiasolar.wera.global`  
+**Hostname:** `wera-ss-pt-tv-1.tailfb390c.ts.net` · public `filantropiasolar.pt`  
 **Compose:** `docker-compose.yml` + `docker-compose.trl5.yml` (NC `:18080`, Odoo `:8069`, ML `:8501`).  
 **Minimum NC on cutover:** **3.2.26** (PR #31 analytics + series roll-forward hourly).
 

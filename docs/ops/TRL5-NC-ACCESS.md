@@ -9,7 +9,7 @@ The separate `filantropia-nextcloud` container is **stopped** (`restart=no`).
 |---------|-----|
 | AIO (users / primary) | Host **:80** / **:8080** / **:8443** (your existing AIO entry) |
 | App path | **Apps → FilantropiaSolar** or `/apps/filantropia_solar/` |
-| Public website (Odoo) | https://filantropiasolar.wera.global |
+| Public website (Odoo) | https://filantropiasolar.pt |
 | Public/lifecycle API (internal) | `http://nextcloud-aio-apache:11000/index.php/apps/filantropia_solar/api/...` |
 
 Verify:

@@ -40,7 +40,7 @@ echo "    installed=${installed:-no}"
 echo "[4/8] NC config + app..."
 docker exec -u 33 "$NC" php occ config:system:set allow_local_remote_servers --value=true --type=boolean || true
 docker exec -u 33 "$NC" php occ config:system:set trusted_domains 2 --value=filantropia-nextcloud || true
-docker exec -u 33 "$NC" php occ config:system:set trusted_domains 3 --value=filantropiasolar.wera.global || true
+docker exec -u 33 "$NC" php occ config:system:set trusted_domains 3 --value=filantropiasolar.pt || true
 docker exec -u 33 "$NC" php occ app:enable filantropia_solar || true
 docker exec -u 33 "$NC" php occ upgrade || true
 docker exec -u 33 "$NC" php occ maintenance:mode --off || true
@@ -87,11 +87,11 @@ docker exec filantropia-odoo odoo -d filantropia_public -i base,website,crm,fila
 docker exec -i filantropia-odoo odoo shell -d filantropia_public \
   --db_host=odoo-db --db_user=odoo --db_password=odoo_dev_password --no-http <<'PY'
 ICP = env['ir.config_parameter'].sudo()
-ICP.set_param('web.base.url', 'https://filantropiasolar.wera.global')
+ICP.set_param('web.base.url', 'https://filantropiasolar.pt')
 ICP.set_param('web.base.url.freeze', 'True')
 w = env['website'].search([], limit=1)
 if w:
-    w.write({'domain': 'https://filantropiasolar.wera.global', 'name': 'Filantropia Solar'})
+    w.write({'domain': 'https://filantropiasolar.pt', 'name': 'Filantropia Solar'})
 env.cr.commit()
 print('web.base.url', ICP.get_param('web.base.url'))
 print('website', w.name if w else None, w.domain if w else None)

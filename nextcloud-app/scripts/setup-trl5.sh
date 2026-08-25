@@ -7,7 +7,7 @@ NC=filantropia-nextcloud
 NC_URL=http://127.0.0.1:18080
 ML_URL=http://127.0.0.1:8501
 TOKEN_FILE="$(cd ../.secrets && pwd)/filantropia_public_api_token"
-PUBLIC_HOST="${PUBLIC_HOSTNAME:-filantropiasolar.wera.global}"
+PUBLIC_HOST="${PUBLIC_HOSTNAME:-filantropiasolar.pt}"
 
 echo "[1/9] Pull/build core + odoo stack..."
 if [ -f "$TOKEN_FILE" ]; then

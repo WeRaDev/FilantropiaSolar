@@ -2,7 +2,7 @@
 # Deploy Filantropia Solar public edge:
 #   - TRL4 network join (Nextcloud + ML + Odoo)
 #   - Odoo proxy_mode + public hostname
-#   - Cloudflare tunnel -> filantropiasolar.wera.global
+#   - Cloudflare tunnel -> filantropiasolar.pt
 #
 # Usage:
 #   bash nextcloud-app/scripts/deploy-public-tunnel.sh           # full deploy if credentials exist
@@ -15,7 +15,7 @@ set -u
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 APP="$ROOT/nextcloud-app"
 CF_DIR="$APP/infra/cloudflared"
-HOST_NAME="${PUBLIC_HOSTNAME:-filantropiasolar.wera.global}"
+HOST_NAME="${PUBLIC_HOSTNAME:-filantropiasolar.pt}"
 TUNNEL_NAME="${TUNNEL_NAME:-filantropia-solar}"
 CITY_NET="${CITY_NET:-compose_city_internal}"
 ODOO_URL="${ODOO_URL:-http://127.0.0.1:8069}"
