@@ -1,0 +1,24 @@
+[Unit]
+Description=FilantropiaSolar Odoo/ML/tunnel stack (TRL5)
+Documentation=file:///opt/FilantropiaSolar/nextcloud-app/scripts/trl5-ensure-stack.sh
+After=docker.service network-online.target
+Wants=network-online.target
+Requires=docker.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+TimeoutStartSec=600
+WorkingDirectory=/opt/FilantropiaSolar/nextcloud-app
+Environment=FILANTROPIA_APP_ROOT=/opt/FilantropiaSolar/nextcloud-app
+Environment=FILANTROPIA_SECRETS_DIR=/opt/FilantropiaSolar/.secrets
+Environment=FILANTROPIA_CF_DIR=/home/wera-admin/cloudflared-nc
+Environment=COMPOSE_FILE=docker-compose.yml:docker-compose.trl5.yml
+# Re-run ensure on failure a few times (e.g. Docker not fully ready).
+Restart=on-failure
+RestartSec=15
+ExecStart=/bin/bash /opt/FilantropiaSolar/nextcloud-app/scripts/trl5-ensure-stack.sh
+ExecStop=/bin/bash -c 'cd /opt/FilantropiaSolar/nextcloud-app && COMPOSE_FILE=docker-compose.yml:docker-compose.trl5.yml docker compose --profile odoo stop odoo || true'
+
+[Install]
+WantedBy=multi-user.target

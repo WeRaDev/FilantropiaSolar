@@ -1,14 +1,15 @@
 # TRL5 (wera-ss-pt-tv-1) overrides
-# As of 2026-08-14 FilantropiaSolar app SoT is Nextcloud AIO (not filantropia-nextcloud).
-# Keep legacy NC compose service optional for rollback; Odoo/ML talk to AIO apache:11000.
-# Browser NC admin: https://wera-ss-pt-tv-1.tailfb390c.ts.net/apps/filantropia_solar/
+# FilantropiaSolar app SoT is Nextcloud AIO (not filantropia-nextcloud).
+# Boot: systemd filantropia-stack.service -> scripts/trl5-ensure-stack.sh
 services:
   nextcloud:
     ports: !override
       - "127.0.0.1:18080:80"
       - "100.82.252.18:18080:80"
     environment:
-- NEXTCLOUD_TRUSTED_DOMAINS=localhost filantropia-nextcloud 127.0.0.1 filantropiasolar.pt www.filantropiasolar.pt filantropiasolar.wera.global wera-ss-pt-tv-1.tailfb390c.ts.net 100.82.252.18
+      - NEXTCLOUD_TRUSTED_DOMAINS=localhost filantropia-nextcloud 127.0.0.1 filantropiasolar.pt www.filantropiasolar.pt filantropiasolar.wera.global wera-ss-pt-tv-1.tailfb390c.ts.net 100.82.252.18
+    # Legacy compose NC must stay off on TRL5 after reboot.
+    restart: "no"
   odoo:
     ports: !override
       - "127.0.0.1:8069:8069"

@@ -1,0 +1,13 @@
+[Unit]
+Description=Heal FilantropiaSolar Odoo network membership (TRL5)
+After=docker.service filantropia-stack.service
+Requires=docker.service
+
+[Service]
+Type=oneshot
+TimeoutStartSec=300
+Environment=FILANTROPIA_APP_ROOT=/opt/FilantropiaSolar/nextcloud-app
+Environment=FILANTROPIA_SECRETS_DIR=/opt/FilantropiaSolar/.secrets
+Environment=FILANTROPIA_CF_DIR=/home/wera-admin/cloudflared-nc
+Environment=COMPOSE_FILE=docker-compose.yml:docker-compose.trl5.yml
+ExecStart=/bin/bash /opt/FilantropiaSolar/nextcloud-app/scripts/trl5-ensure-stack.sh

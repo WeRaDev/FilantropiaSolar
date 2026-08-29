@@ -111,9 +111,17 @@ services:
     profiles:
       - odoo
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U odoo -h 127.0.0.1"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 10s
 
   # Odoo 19 public website and CRM (optional, odoo profile only)
   # Custom image bakes openupgradelib/requests for OCA queue_job (see odoo/Dockerfile).
+  # Depends only on odoo-db by default. TRL5 uses AIO Nextcloud (not filantropia-nextcloud);
+  # do not require the legacy NC container or Odoo will fail/restart when it is stopped.
   odoo:
     build:
       context: ./odoo
@@ -121,8 +129,8 @@ services:
     image: filantropia-odoo:19.0
     container_name: filantropia-odoo
     depends_on:
-      - odoo-db
-      - nextcloud
+      odoo-db:
+        condition: service_healthy
     ports:
       - "8069:8069"
     environment:
@@ -149,6 +157,16 @@ services:
     profiles:
       - odoo
     restart: unless-stopped
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "python3 -c \"import urllib.request; urllib.request.urlopen('http://127.0.0.1:8069/web/login', timeout=5)\"",
+        ]
+      interval: 30s
+      timeout: 10s
+      retries: 10
+      start_period: 60s
 
 networks:
   filantropia-net:
