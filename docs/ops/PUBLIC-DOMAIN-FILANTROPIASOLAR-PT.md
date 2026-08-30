@@ -46,3 +46,7 @@ Expect **200** on public URLs after DNS. **521/525** means DNS/proxy is not boun
 
 1. Set Odoo `web.base.url` / website domain back to `https://filantropiasolar.wera.global`
 2. Revert cloudflared ingress primary hostname (legacy rule can remain)
+
+## Tunnel log noise vs real outages
+
+QUIC `timeout: no recent network activity` / `Connection terminated` on `filantropia-cloudflared` is common and often **does not** mean Odoo is down. Classify failures with `docs/ops/CLOUDFLARED-TUNNEL-ERRORS.md` and `docs/ops/TRL5-ODOO-BOOT.md`.

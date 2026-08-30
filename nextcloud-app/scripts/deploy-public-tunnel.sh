@@ -101,9 +101,10 @@ cf_create() {
   cp "$CREDS" "$CF_DIR/credentials.json"
   chmod 600 "$CF_DIR/credentials.json"
   # write config with real id, local service to host odoo
-  cat > "$CF_DIR/config.yml" <<YML
+cat > "$CF_DIR/config.yml" <<YML
 tunnel: $TID
 credentials-file: /etc/cloudflared/credentials.json
+protocol: http2
 
 ingress:
   - hostname: $HOST_NAME
@@ -113,9 +114,10 @@ ingress:
   - service: http_status:404
 YML
   # also keep a host-run config
-  cat > "$CF_DIR/config.host.yml" <<YML
+cat > "$CF_DIR/config.host.yml" <<YML
 tunnel: $TID
 credentials-file: $CF_DIR/credentials.json
+protocol: http2
 
 ingress:
   - hostname: $HOST_NAME

@@ -123,6 +123,7 @@ if [ -f "$CF_DIR/credentials.json" ] && [ -f "$CF_DIR/config.yml" ]; then
   cat > "$CF_DIR/config.yml" <<YML
 tunnel: 6571cd54-a08d-46da-a4ca-9630c1a0d090
 credentials-file: /etc/cloudflared/credentials.json
+protocol: http2
 
 ingress:
   - hostname: $PUBLIC_HOST

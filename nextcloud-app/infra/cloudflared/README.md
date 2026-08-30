@@ -35,10 +35,11 @@ Mac and TRL4 are **not** the public origin. Keep only one active tunnel connecto
 ## Architecture notes
 
 - Odoo binds `127.0.0.1:8069` on the host (see `docker-compose.trl5.yml`).
-- cloudflared must share `nextcloud-app_filantropia-net` and target **container DNS**
-  `filantropia-odoo:8069` (not `host.docker.internal`, which 502s when the publish is localhost-only).
+- cloudflared must share **both** `nextcloud-app_filantropia-net` and `nextcloud-aio`, and target **container DNS**
+  `filantropia-odoo:8069` / `nextcloud-aio-apache:11000` (not `host.docker.internal`, which 502s when the publish is localhost-only).
 - `credentials.json` must be mode `644` (image runs non-root).
 - Nextcloud AIO already owns `:8080` on TRL5; Filantropia NC uses `127.0.0.1:18080`.
+- Persistent `ERR` / `timeout: no recent network activity` on **QUIC** is usually edge/UDP path noise while origins stay healthy — see `docs/ops/CLOUDFLARED-TUNNEL-ERRORS.md` (optional `protocol: http2`).
 
 ## TRL5 bring-up
 

@@ -12,7 +12,7 @@ services:
     image: cloudflare/cloudflared:2025.8.1
     container_name: filantropia-cloudflared
     restart: unless-stopped
-    command: tunnel --config /etc/cloudflared/config.yml run
+    command: tunnel --config /etc/cloudflared/config.yml --protocol http2 run
     volumes:
       - ./config.yml:/etc/cloudflared/config.yml:ro
       - ./credentials.json:/etc/cloudflared/credentials.json:ro
