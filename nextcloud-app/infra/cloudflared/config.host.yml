@@ -1,6 +1,8 @@
 tunnel: 6571cd54-a08d-46da-a4ca-9630c1a0d090
 credentials-file: /Users/mikhailananyin/Documents/WeRa Global/ProductionBase/FilantropiaSolar/nextcloud-app/infra/cloudflared/credentials.json
 protocol: http2
+edge-ip-version: "4"
+ha-connections: 2
 
 ingress:
   - hostname: filantropiasolar.pt

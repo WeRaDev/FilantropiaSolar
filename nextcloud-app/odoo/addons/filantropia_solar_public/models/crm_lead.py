@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import contextlib
 import logging
+import time
 from typing import ClassVar
 
 from odoo import api, fields, models
@@ -20,6 +21,14 @@ from ..services.stage_map import (
 )
 
 _logger = logging.getLogger(__name__)
+
+# CRM->NC profile/lifecycle writes often race the NC->CRM webhook on the same
+# crm.lead row (Postgres serialization failure). Keep retries small and bounded.
+_FS_WRITE_MAX_ATTEMPTS = 4
+_FS_WRITE_BACKOFF_SEC = (0.05, 0.15, 0.35, 0.75)
+# Webhook echo window: if CRM just applied the same station, inbound NC can no-op.
+_FS_CRM_ECHO_SECONDS = 20
+_FS_JOB_MAX_RETRIES = 5
 
 
 class CrmLead(models.Model):
@@ -115,6 +124,64 @@ class CrmLead(models.Model):
     def _fs_client(self) -> NcLifecycleClient:
         return NcLifecycleClient()
 
+    @staticmethod
+    def _fs_is_serialization_error(exc: BaseException) -> bool:
+        """True for Postgres concurrent-update / serialization failures."""
+        msg = str(exc).lower()
+        if "could not serialize access" in msg:
+            return True
+        if "serialization failure" in msg:
+            return True
+        if "concurrent update" in msg:
+            return True
+        # psycopg / odoo may wrap SQLSTATE 40001 / 40P01
+        code = getattr(exc, "pgcode", None) or getattr(exc, "sqlstate", None)
+        if code in ("40001", "40P01"):
+            return True
+        cause = getattr(exc, "__cause__", None)
+        if cause is not None and cause is not exc:
+            return CrmLead._fs_is_serialization_error(cause)
+        return False
+
+    def _fs_safe_write(self, vals: dict, *, attempts: int | None = None) -> bool:
+        """Write lead fields with short retries on concurrent update.
+
+        Returns True if the write committed. False if serialization kept failing
+        (caller may treat as soft-success when NC already has the data).
+        """
+        max_attempts = attempts if attempts is not None else _FS_WRITE_MAX_ATTEMPTS
+        last_exc: BaseException | None = None
+        for attempt in range(max_attempts):
+            try:
+                # Invalidate so we do not write from a stale cache after a race.
+                self.invalidate_recordset()
+                self.with_context(fs_skip_nc_enqueue=True).write(vals)
+                return True
+            except Exception as exc:
+                last_exc = exc
+                if not self._fs_is_serialization_error(exc):
+                    raise
+                delay = _FS_WRITE_BACKOFF_SEC[
+                    min(attempt, len(_FS_WRITE_BACKOFF_SEC) - 1)
+                ]
+                _logger.warning(
+                    "crm.lead write serialize conflict id=%s attempt=%s/%s; sleep %.2fs",
+                    self.ids,
+                    attempt + 1,
+                    max_attempts,
+                    delay,
+                )
+                # Abort failed cursor work before retry when env supports it.
+                with contextlib.suppress(Exception):
+                    self.env.cr.rollback()
+                time.sleep(delay)
+        _logger.warning(
+            "crm.lead write gave up after serialize races id=%s last=%s",
+            self.ids,
+            redact_secrets(str(last_exc) if last_exc else ""),
+        )
+        return False
+
     def _fs_apply_station_payload(self, payload: dict, *, origin: str = "crm") -> None:
         station = (payload or {}).get("station") or {}
         vals = {
@@ -172,12 +239,20 @@ class CrmLead(models.Model):
         gct = (station.get("grid_connection_type") or "").strip().lower()
         if gct in ("on_grid", "off_grid"):
             vals["fs_station_grid_connection_type"] = gct
-        # origin stamp must not re-trigger outbound stage jobs
-        self.with_context(fs_skip_nc_enqueue=True).write(vals)
+        # origin stamp must not re-trigger outbound stage jobs.
+        # Soft-succeed on persistent serialize races: NC already has the payload
+        # and the inbound webhook often commits the CRM row first.
+        if not self._fs_safe_write(vals):
+            _logger.info(
+                "NC payload apply soft-ok after serialize race lead=%s origin=%s iid=%s",
+                self.id,
+                origin,
+                vals.get("fs_nc_installation_id") or self.fs_nc_installation_id,
+            )
 
     def _fs_mark_error(self, exc: Exception) -> None:
         msg = redact_secrets(str(exc))
-        self.with_context(fs_skip_nc_enqueue=True).write(
+        self._fs_safe_write(
             {
                 "fs_nc_sync_state": "error",
                 "fs_nc_sync_error": msg[:2000],
@@ -412,6 +487,7 @@ class CrmLead(models.Model):
             if hasattr(lead, "with_delay"):
                 lead.with_delay(
                     priority=12,
+                    max_retries=_FS_JOB_MAX_RETRIES,
                     description=f"NC profile sync for lead {lead.id}",
                     channel="root.filantropia",
                     identity_key=f"fs-profile-{lead.id}",
@@ -479,6 +555,7 @@ class CrmLead(models.Model):
             if hasattr(lead, "with_delay"):
                 lead.with_delay(
                     priority=10,
+                    max_retries=_FS_JOB_MAX_RETRIES,
                     description=f"NC set-lifecycle {target} for lead {lead.id}",
                     channel="root.filantropia",
                     identity_key=f"fs-set-lc-{target}-{lead.id}",
@@ -548,6 +625,7 @@ class CrmLead(models.Model):
             if hasattr(lead, "with_delay"):
                 lead.with_delay(
                     priority=10,
+                    max_retries=_FS_JOB_MAX_RETRIES,
                     description=f"NC public_archived={want} for lead {lead.id}",
                     channel="root.filantropia",
                     identity_key=f"fs-pub-arch-{int(want)}-{lead.id}",
@@ -571,6 +649,7 @@ class CrmLead(models.Model):
             if hasattr(lead, "with_delay"):
                 lead.with_delay(
                     priority=10,
+                    max_retries=_FS_JOB_MAX_RETRIES,
                     description=f"NC Virtual create for lead {lead.id}",
                     channel="root.filantropia",
                     identity_key=f"fs-virtual-{lead.id}",
@@ -594,6 +673,7 @@ class CrmLead(models.Model):
             if hasattr(lead, "with_delay"):
                 lead.with_delay(
                     priority=10,
+                    max_retries=_FS_JOB_MAX_RETRIES,
                     description=f"NC promote Planned for lead {lead.id}",
                     channel="root.filantropia",
                     identity_key=f"fs-promote-{lead.id}",
@@ -617,6 +697,7 @@ class CrmLead(models.Model):
             if hasattr(lead, "with_delay"):
                 lead.with_delay(
                     priority=10,
+                    max_retries=_FS_JOB_MAX_RETRIES,
                     description=f"NC mark installed for lead {lead.id}",
                     channel="root.filantropia",
                     identity_key=f"fs-installed-{lead.id}",

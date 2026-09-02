@@ -42,6 +42,7 @@ if docker ps -a --format '{{.Names}}' | grep -qx filantropia-nextcloud; then
 fi
 
 # Cloudflare tunnel sidecar (public website + NC hostnames).
+# TRL5 production uses network_mode: host + localhost origins (see infra/cloudflared).
 if [ -f "$CF_DIR/docker-compose.yml" ] && [ -f "$CF_DIR/config.yml" ] && [ -f "$CF_DIR/credentials.json" ]; then
   chmod 644 "$CF_DIR/config.yml" "$CF_DIR/credentials.json" 2>/dev/null || true
   $COMPOSE_BIN compose -f "$CF_DIR/docker-compose.yml" up -d \
@@ -49,6 +50,10 @@ if [ -f "$CF_DIR/docker-compose.yml" ] && [ -f "$CF_DIR/config.yml" ] && [ -f "$
 else
   log "WARN: cloudflared dir incomplete at $CF_DIR"
 fi
+
+cf_uses_host_net() {
+  grep -qE '^[[:space:]]*network_mode:[[:space:]]*host' "$CF_DIR/docker-compose.yml" 2>/dev/null
+}
 
 ensure_net() {
   local container="$1"
@@ -69,8 +74,11 @@ ensure_net filantropia-odoo nextcloud-app_filantropia-net
 ensure_net filantropia-ml nextcloud-app_filantropia-net
 ensure_net filantropia-db nextcloud-app_filantropia-net
 ensure_net filantropia-redis nextcloud-app_filantropia-net
-ensure_net filantropia-cloudflared nextcloud-app_filantropia-net
-ensure_net filantropia-cloudflared nextcloud-aio
+# Bridge-mode cloudflared only: host-network mode has no Docker networks to heal.
+if ! cf_uses_host_net; then
+  ensure_net filantropia-cloudflared nextcloud-app_filantropia-net
+  ensure_net filantropia-cloudflared nextcloud-aio
+fi
 # AIO apache also needs filantropia-net for Odoo→NC API from same overlay path when used.
 ensure_net nextcloud-aio-apache nextcloud-app_filantropia-net 2>/dev/null || true
 ensure_net nextcloud-aio-nextcloud nextcloud-app_filantropia-net 2>/dev/null || true

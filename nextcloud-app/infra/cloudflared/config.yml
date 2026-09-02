@@ -1,32 +1,41 @@
 tunnel: 6571cd54-a08d-46da-a4ca-9630c1a0d090
 credentials-file: /etc/cloudflared/credentials.json
 protocol: http2
+# TRL5 has no global IPv6 WAN route; pin edge dials to IPv4.
+edge-ip-version: "4"
+# Fewer edge sessions on lossy ISP anycast path (default 4).
+ha-connections: 2
 
-# Prefer Docker DNS when cloudflared shares the target network.
-# host.docker.internal only works if the origin publishes on the host.
+# Host-network runtime (TRL5): origins on published localhost ports.
+# Bridge dual-net alternative (legacy): filantropia-odoo:8069 + nextcloud-aio-apache:11000
+# requires attaching the container to both external Docker networks.
 ingress:
-  # Public Odoo website (primary)
   - hostname: filantropiasolar.pt
-    service: http://filantropia-odoo:8069
+    service: http://127.0.0.1:8069
     originRequest:
       httpHostHeader: filantropiasolar.pt
+      connectTimeout: 10s
+      keepAliveTimeout: 90s
   - hostname: www.filantropiasolar.pt
-    service: http://filantropia-odoo:8069
+    service: http://127.0.0.1:8069
     originRequest:
       httpHostHeader: www.filantropiasolar.pt
-  # Legacy hostname (keep until DNS fully cut over)
+      connectTimeout: 10s
+      keepAliveTimeout: 90s
   - hostname: filantropiasolar.wera.global
-    service: http://filantropia-odoo:8069
+    service: http://127.0.0.1:8069
     originRequest:
       httpHostHeader: filantropiasolar.pt
-  # Nextcloud AIO public edge (Universal SSL: single-level *.wera.global)
+      connectTimeout: 10s
+      keepAliveTimeout: 90s
   - hostname: wera-ss-pt-tv-1.wera.global
-    service: http://nextcloud-aio-apache:11000
+    service: http://127.0.0.1:11000
     originRequest:
       httpHostHeader: wera-ss-pt-tv-1.wera.global
-  # Multi-level name (needs Cloudflare Advanced Certificate for *.cloud.wera.global)
+      connectTimeout: 10s
   - hostname: wera-ss-pt-tv-1.cloud.wera.global
-    service: http://nextcloud-aio-apache:11000
+    service: http://127.0.0.1:11000
     originRequest:
       httpHostHeader: wera-ss-pt-tv-1.cloud.wera.global
+      connectTimeout: 10s
   - service: http_status:404

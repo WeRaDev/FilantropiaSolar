@@ -11,20 +11,22 @@ Exposes the Filantropia Solar **Odoo public website** via Cloudflare Tunnel.
 | Code path | `/opt/FilantropiaSolar` |
 | Module | `filantropia_solar_public` **19.0.2.7.0** (P2 SEO/FAQ/blog) |
 | Tunnel | `filantropia-solar` (`6571cd54-a08d-46da-a4ca-9630c1a0d090`) |
-| Ingress | Odoo `http://filantropia-odoo:8069`; Nextcloud AIO `http://nextcloud-aio-apache:11000` |
+| Ingress (host net) | Odoo `http://127.0.0.1:8069`; Nextcloud AIO `http://127.0.0.1:11000` |
+| Edge settings | `protocol: http2`, `edge-ip-version: 4`, `ha-connections: 2`, `network_mode: host` |
 | Nextcloud public URL (working TLS) | https://wera-ss-pt-tv-1.wera.global |
 | Nextcloud alt hostname | `wera-ss-pt-tv-1.cloud.wera.global` (DNS+tunnel ready; needs CF Advanced Cert for `*.cloud.wera.global`) |
 | Tunnel runtime (TRL5) | `/home/wera-admin/cloudflared-nc` (writable); `/opt/.../infra/cloudflared` is root-owned mirror |
 
 ```
-Internet -> Cloudflare edge -> filantropia-cloudflared (TRL5)
-         -> http://filantropia-odoo:8069                    (filantropiasolar.pt)
-         -> http://nextcloud-aio-apache:11000               (wera-ss-pt-tv-1.wera.global)
-         -> http://nextcloud-aio-apache:11000               (wera-ss-pt-tv-1.cloud.wera.global)
+Internet -> Cloudflare edge -> filantropia-cloudflared (TRL5, host network)
+         -> http://127.0.0.1:8069                    (filantropiasolar.pt)
+         -> http://127.0.0.1:11000                   (wera-ss-pt-tv-1.wera.global)
+         -> http://127.0.0.1:11000                   (wera-ss-pt-tv-1.cloud.wera.global)
 ```
 
 ### Nextcloud notes
-- cloudflared must be on **both** `nextcloud-app_filantropia-net` and `nextcloud-aio`.
+- **Host-network mode (production):** cloudflared uses the host stack and localhost publish ports. Dual Docker-network attachment is **not** required.
+- **Legacy bridge mode:** if compose is switched back to bridge, cloudflared must join **both** `nextcloud-app_filantropia-net` and `nextcloud-aio`, with ingress to container DNS names.
 - NC trusted_domains include both public hostnames + Tailscale domain.
 - AIO forces `OVERWRITEHOST` from `NC_DOMAIN` (Tailscale). Host-aware override:
   `/var/www/html/config/zzz-public-domain.config.php` inside `nextcloud-aio-nextcloud`.
@@ -34,12 +36,12 @@ Mac and TRL4 are **not** the public origin. Keep only one active tunnel connecto
 
 ## Architecture notes
 
-- Odoo binds `127.0.0.1:8069` on the host (see `docker-compose.trl5.yml`).
-- cloudflared must share **both** `nextcloud-app_filantropia-net` and `nextcloud-aio`, and target **container DNS**
-  `filantropia-odoo:8069` / `nextcloud-aio-apache:11000` (not `host.docker.internal`, which 502s when the publish is localhost-only).
+- Odoo binds `127.0.0.1:8069` on the host (see `docker-compose.trl5.yml`); AIO apache publishes `127.0.0.1:11000`.
+- Production cloudflared uses **`network_mode: host`** so edge TCP does not traverse Docker bridge NAT (2026-09-01: dual-bridge mode flapped to public **502/530** on a lossy path to Cloudflare anycast while origins stayed **200**).
+- Edge knobs: **HTTP/2**, **IPv4-only** (`edge-ip-version: 4`), **`ha-connections: 2`**.
 - `credentials.json` must be mode `644` (image runs non-root).
 - Nextcloud AIO already owns `:8080` on TRL5; Filantropia NC uses `127.0.0.1:18080`.
-- Persistent `ERR` / `timeout: no recent network activity` on **QUIC** is usually edge/UDP path noise while origins stay healthy — see `docs/ops/CLOUDFLARED-TUNNEL-ERRORS.md` (optional `protocol: http2`).
+- Persistent edge ERR / reconnect noise while public stays **200** is documented in `docs/ops/CLOUDFLARED-TUNNEL-ERRORS.md`.
 
 ## TRL5 bring-up
 

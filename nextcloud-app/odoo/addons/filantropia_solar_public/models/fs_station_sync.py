@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import contextlib
+from datetime import timedelta
 import logging
 
 from odoo import api, fields, models
@@ -15,6 +16,11 @@ from ..services.nc_lifecycle_client import (
 from ..services.stage_map import stage_xmlid_for_nc_state
 
 _logger = logging.getLogger(__name__)
+
+# Inbound NC webhook often echoes a CRM->NC profile/lifecycle write within
+# milliseconds. Applying it again races the outbound job's crm.lead write
+# (Postgres "could not serialize access due to concurrent update").
+_FS_CRM_ECHO_SECONDS = 20
 
 
 class FsStationSync(models.AbstractModel):
@@ -80,6 +86,16 @@ class FsStationSync(models.AbstractModel):
             lead = Lead.search(
                 [("fs_nc_installation_id", "=", installation_id)], limit=1
             )
+
+        # Dampen CRM->NC->CRM echo: if this lead was just written by CRM (or is
+        # still pending an outbound job), skip a redundant webhook upsert.
+        if lead and origin == "nc" and self._is_crm_echo(lead, station):
+            _logger.info(
+                "NC webhook echo skipped for lead %s iid=%s (recent CRM origin)",
+                lead.id,
+                installation_id or lead.fs_nc_installation_id,
+            )
+            return lead
 
         public_archived = bool(station.get("public_archived"))
         stage = self._stage_for_nc_state(
@@ -151,9 +167,44 @@ class FsStationSync(models.AbstractModel):
             vals["team_id"] = mirror_team.id
 
         if lead:
-            lead.with_context(fs_skip_nc_enqueue=True).write(vals)
+            if hasattr(lead, "_fs_safe_write"):
+                lead._fs_safe_write(vals)
+            else:
+                lead.with_context(fs_skip_nc_enqueue=True).write(vals)
             return lead
         return Lead.with_context(fs_skip_nc_enqueue=True).create(vals)
+
+    @api.model
+    def _is_crm_echo(self, lead, station: dict) -> bool:
+        """True when inbound NC event is an echo of a recent CRM outbound write."""
+        if not lead or not lead.exists():
+            return False
+        # Still waiting on outbound job: webhook is almost certainly the echo.
+        if (lead.fs_nc_sync_state or "") == "pending" and (
+            lead.fs_nc_sync_origin or ""
+        ) == "crm":
+            return True
+        if (lead.fs_nc_sync_origin or "") != "crm":
+            return False
+        last = lead.fs_nc_last_sync_at
+        if not last:
+            return False
+        now = fields.Datetime.now()
+        try:
+            age = now - last
+        except TypeError:
+            return False
+        if age > timedelta(seconds=_FS_CRM_ECHO_SECONDS):
+            return False
+        # Same station identity when NC sends ids (avoid suppressing real edits
+        # that arrive on a different station bound later).
+        st_iid = (station.get("installation_id") or "").strip()
+        lead_iid = (lead.fs_nc_installation_id or "").strip()
+        if st_iid and lead_iid and st_iid != lead_iid:
+            st_db = station.get("id")
+            if st_db is None or int(st_db or 0) != int(lead.fs_nc_db_id or 0):
+                return False
+        return True
 
     @api.model
     def _bind_nc_lead_if_needed(

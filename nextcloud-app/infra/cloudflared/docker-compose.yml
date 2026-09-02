@@ -3,8 +3,12 @@
 # Prerequisites:
 #   1. cloudflared login + tunnel create (see scripts/deploy-public-tunnel.sh)
 #   2. credentials.json present in this directory (mode 644 for non-root image)
-#   3. config.yml tunnel ID set; ingress -> http://filantropia-odoo:8069
-#   4. Odoo stack up on the same Docker network
+#   3. config.yml tunnel ID set; ingress -> http://127.0.0.1:8069 / :11000
+#   4. Odoo publishes 127.0.0.1:8069; AIO apache publishes 127.0.0.1:11000
+#
+# Runtime note (2026-09-01): use host networking on TRL5. Dual-bridge mode
+# still works for origins, but edge TCP over Docker NAT was flaky on the
+# site Wi‑Fi/ISP path (public 502/530 while Odoo stayed 200).
 #
 # Start: docker compose -f nextcloud-app/infra/cloudflared/docker-compose.yml up -d
 services:
@@ -12,18 +16,10 @@ services:
     image: cloudflare/cloudflared:2025.8.1
     container_name: filantropia-cloudflared
     restart: unless-stopped
-    command: tunnel --config /etc/cloudflared/config.yml --protocol http2 run
+    network_mode: host
+    command: tunnel --config /etc/cloudflared/config.yml --protocol http2 --edge-ip-version 4 run
+    environment:
+      - TUNNEL_DNS_RESOLVER_ADDRS=1.1.1.1:53,1.0.0.1:53
     volumes:
       - ./config.yml:/etc/cloudflared/config.yml:ro
       - ./credentials.json:/etc/cloudflared/credentials.json:ro
-    networks:
-      - filantropia-net
-      - nextcloud-aio
-
-networks:
-  filantropia-net:
-    external: true
-    name: nextcloud-app_filantropia-net
-  nextcloud-aio:
-    external: true
-    name: nextcloud-aio

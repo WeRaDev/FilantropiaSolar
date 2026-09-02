@@ -39,6 +39,7 @@ Notes:
 | CRM missing stations | Import button; lead `user_id` not OdooBot; open **NC Stations** not only My Pipeline |
 | NC change not in CRM | Webhook URL + token; Odoo logs; lead `fs_nc_sync_*` fields |
 | CRM stage not in NC | queue_job pending/failed; `fs_nc_sync_error` on lead |
+| queue_job profile storm / `could not serialize access` | CRM job + NC webhook both write `crm.lead`; cancel pending `fs-profile-*`; module ≥ **19.0.2.32.0** (echo dampen + safe write) |
 | Station profile edit in NC not in CRM | NC `PUT /api/v1/installations/{id}` must notify webhook (3.2.14+); check lead match via `odoo_lead_id` / `fs_nc_db_id` (location changes rewrite `installation_id`) |
 | Map list click / center broken | COW map host; `stations_map.js?v=`; hard refresh — see `ODOO-WEBSITE-COW-VIEWS.md` |
 | No **Archived** CRM column | Module ≥ 19.0.2.31.0 + `-u filantropia_solar_public`; ensure xmlid `filantropia_solar_public.stage_archived` |
