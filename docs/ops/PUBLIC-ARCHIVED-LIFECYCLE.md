@@ -1,7 +1,7 @@
 # Ops: Public Archived lifecycle
 
-**NC app:** 3.2.34+ (UI); 3.2.33+ (flag + APIs)  
-**Odoo module:** 19.0.2.31.0+  
+**NC app:** 3.2.36+ (current TRL5); 3.2.34+ (Archived UI); 3.2.33+ (flag + APIs)  
+**Odoo module:** 19.0.2.34.0+ (current TRL5); Archived stage from 19.0.2.31.0+  
 **PR:** Gitea `#32` (`feat/lifecycle-archive-ui-crm-stage`)
 
 ## What it means

@@ -76,8 +76,8 @@ def nc_admin_url() -> str:
             ":18080",
         )
     ):
-        # TRL5 AIO is the single NC instance — Tailscale HTTPS host
-        return "https://wera-ss-pt-tv-1.tailfb390c.ts.net/apps/filantropia_solar/"
+        # TRL5 AIO public hostname (Cloudflare tunnel), not Tailscale-only
+        return "https://wera-ss-pt-tv-1.wera.global/apps/filantropia_solar/"
     if "/apps/filantropia_solar" in base:
         return _with_app_path(base.split("/apps/filantropia_solar")[0])
     # http(s)://host:port/... → host origin + app path

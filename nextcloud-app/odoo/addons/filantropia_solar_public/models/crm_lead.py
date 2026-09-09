@@ -286,17 +286,22 @@ class CrmLead(models.Model):
         if capacity <= 0:
             capacity = 1.0  # NC requires positive capacity; ops can edit later
 
+        lat = float(self.fs_station_latitude or 0.0)
+        lng = float(self.fs_station_longitude or 0.0)
         # Station title: opportunity name; org stays in partner_name / organization_name.
         station_name = (
             (self.name or "").strip()
             or (self.partner_name or "").strip()
             or f"Lead {self.id}"
         )
+        if not station_name:
+            self._fs_mark_error(NcLifecycleError("station name is required for NC virtual create"))
+            return False
         payload = {
             "odoo_lead_id": int(self.id),
             "name": station_name,
-            "latitude": float(self.fs_station_latitude or 0.0),
-            "longitude": float(self.fs_station_longitude or 0.0),
+            "latitude": lat,
+            "longitude": lng,
             "capacity_kwp": capacity,
             "location_label": self.fs_station_location_label or self.city or "Portugal",
             "organization_name": self.partner_name or "",

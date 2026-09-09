@@ -100,11 +100,10 @@ class LifecycleApiController extends ApiController
 				$existing->setCapacityKwp((string) $capacityKwp);
 				$dirty = true;
 			}
-			if ($latitude != 0.0 || $longitude != 0.0) {
-				$existing->setLatitude((string) $latitude);
-				$existing->setLongitude((string) $longitude);
-				$dirty = true;
-			}
+			// Always allow CRM to refresh coordinates (including 0.0 placeholders).
+			$existing->setLatitude(sprintf('%.8F', $latitude));
+			$existing->setLongitude(sprintf('%.8F', $longitude));
+			$dirty = true;
 			if ($gridConnection !== '') {
 				$existing->setGridConnectionType($gridConnection);
 				$dirty = true;
@@ -135,9 +134,13 @@ class LifecycleApiController extends ApiController
 			$station = new Installation();
 			$station->setName($name);
 			$station->setLocation($locationLabel !== '' ? $locationLabel : 'crm');
-			$station->setLatitude((string) $latitude);
-			$station->setLongitude((string) $longitude);
-			$station->setCapacityKwp((string) $capacityKwp);
+			// Entity only INSERTs dirty fields. Defaults are latitude/longitude='0',
+			// so setLatitude('0') is treated as unchanged and omitted → Postgres
+			// NOT NULL violation on oc_fs_installations.latitude. Use fixed-precision
+			// strings so 0.0 is always persisted.
+			$station->setLatitude(sprintf('%.8F', $latitude));
+			$station->setLongitude(sprintf('%.8F', $longitude));
+			$station->setCapacityKwp(sprintf('%.2F', $capacityKwp));
 			$station->setSerialNumber('lead' . $odooLeadId);
 			$station->setSource('crm');
 			$station->setUserId(null);

@@ -45,6 +45,8 @@ Notes:
 | No **Archived** CRM column | Module ≥ 19.0.2.31.0 + `-u filantropia_solar_public`; ensure xmlid `filantropia_solar_public.stage_archived` |
 | NC Set lifecycle missing Archived | App ≥ 3.2.34; hard-refresh browser; open a **Running** station |
 | Archive not mirrored CRM↔NC | Webhook payload includes `public_archived`; Odoo `set_public_archived` client path; lead `fs_nc_public_archived` |
+| **Sync Virtual to NC** HTTP 500 on lat/lng | NC Entity skips fields equal to defaults (`'0'`); zero coords never INSERT → Postgres NOT NULL. App ≥ **3.2.35** always writes `sprintf('%.8F', lat/lng)` in `createVirtual` |
+| Website `/candidatura` or `/contacto` creates lead but **My Pipeline empty** | Lead `user_id` was Odoo `public` (inactive). Module ≥ **19.0.2.33.0** sets admin/sales team via `_crm_lead_pipeline_defaults()`; reassign stale leads |
 
 
 ## Station field matrix (canonical sync)

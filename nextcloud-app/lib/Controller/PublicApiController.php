@@ -169,6 +169,24 @@ class PublicApiController extends ApiController
 				'timeout' => 30,
 			]);
 			$data = json_decode((string) $response->getBody(), true);
+			if (!is_array($data)) {
+				$data = [];
+			}
+			// Ensure savings = production × price × on-grid self-consumption (0.4).
+			// Older ML builds used production × price only.
+			$prod = isset($data['annual_production_kwh']) ? (float) $data['annual_production_kwh'] : null;
+			if ($prod !== null && $prod >= 0.0) {
+				$price = isset($data['grid_price_kwh']) ? (float) $data['grid_price_kwh'] : (float) Application::DEFAULT_GRID_PRICE;
+				if ($price <= 0.0) {
+					$price = (float) Application::DEFAULT_GRID_PRICE;
+				}
+				$factor = 0.4; // on-grid prosumer default
+				$data['annual_production_kwh'] = round($prod, 2);
+				$data['annual_savings_eur'] = round($prod * $price * $factor, 2);
+				$data['self_consumption_factor'] = $factor;
+				$data['grid_price_kwh'] = $price;
+				$data['grid_connection_type'] = 'on_grid';
+			}
 			return new JSONResponse(['success' => true, 'estimate' => $data]);
 		} catch (\Throwable $e) {
 			$this->logger->error('Public estimate proxy failed', ['exception' => $e]);

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import base64
+import contextlib
 import hashlib
 import json
 import logging
@@ -63,6 +64,9 @@ _PANEL_WATTS = 550  # 550 W per panel
 # (admin-editable EUR/kWh is a Nextcloud-app follow-up per Feedback).
 _DISPLAY_EUR_PER_KWH = 0.15
 _DISPLAY_SPECIFIC_YIELD_KWH_PER_KWP = 1400.0  # Portugal-indicative
+# On-grid prosumers consume ~40% of solar generation on average.
+_SELF_CONSUMPTION_ON_GRID = 0.4
+_SELF_CONSUMPTION_OFF_GRID = 1.0
 
 # Public website only: never expose exact station coordinates on the map.
 # Nextcloud keeps precise lat/lng; Odoo applies a stable jitter within ~1 km
@@ -255,7 +259,8 @@ class FilantropiaSolarPublicController(http.Controller):
                 total_saved = None
         if total_saved is None:
             annual_kwh = capacity * _DISPLAY_SPECIFIC_YIELD_KWH_PER_KWP
-            total_saved = annual_kwh * _DISPLAY_EUR_PER_KWH
+            # On-grid default self-consumption for indicative homepage KPI
+            total_saved = annual_kwh * _DISPLAY_EUR_PER_KWH * _SELF_CONSUMPTION_ON_GRID
             dash["savings_is_indicative"] = True
         # Keep NC flag when provided
         elif dash.get("savings_is_indicative") is None:
@@ -295,7 +300,15 @@ class FilantropiaSolarPublicController(http.Controller):
                 saved = row.get("total_savings_eur")
             indicative = bool(row.get("savings_is_indicative"))
             if saved is None:
-                saved = cap * _DISPLAY_SPECIFIC_YIELD_KWH_PER_KWP * _DISPLAY_EUR_PER_KWH
+                factor = self._as_float(
+                    row.get("self_consumption_factor"), _SELF_CONSUMPTION_ON_GRID
+                )
+                saved = (
+                    cap
+                    * _DISPLAY_SPECIFIC_YIELD_KWH_PER_KWP
+                    * _DISPLAY_EUR_PER_KWH
+                    * factor
+                )
                 indicative = True
             elif (
                 row.get("has_series_data") is False
@@ -613,6 +626,37 @@ class FilantropiaSolarPublicController(http.Controller):
         except (TypeError, ValueError):
             return default
 
+    def _normalize_estimate(
+        self, estimate: dict | None, *, grid_connection: str = "on_grid"
+    ) -> dict:
+        """Ensure annual_savings_eur uses self-consumption factor (0.4 on-grid)."""
+        est = dict(estimate or {})
+        prod = self._as_float(est.get("annual_production_kwh"), None)
+        if prod is None or prod < 0:
+            return est
+        gct = (grid_connection or "on_grid").strip().lower()
+        factor = (
+            _SELF_CONSUMPTION_OFF_GRID
+            if gct == "off_grid"
+            else _SELF_CONSUMPTION_ON_GRID
+        )
+        price = self._as_float(est.get("grid_price_kwh"), _DISPLAY_EUR_PER_KWH)
+        if price <= 0:
+            price = _DISPLAY_EUR_PER_KWH
+        # Always recompute from production so UI matches on-grid 40% rule even if
+        # an older ML build returned production * price without the factor.
+        est["annual_production_kwh"] = round(prod, 2)
+        est["annual_savings_eur"] = round(prod * price * factor, 2)
+        est["self_consumption_factor"] = factor
+        est["grid_connection_type"] = gct if gct in ("on_grid", "off_grid") else "on_grid"
+        est["grid_price_kwh"] = price
+        if est.get("capacity_kwp") is not None:
+            with contextlib.suppress(TypeError, ValueError):
+                cap = float(est["capacity_kwp"] or 0)
+                if cap > 0:
+                    est["specific_energy_kwh_kwp"] = round(prod / cap, 4)
+        return est
+
     def _estimate(self, location, latitude, longitude, capacity_kwp):
         payload = {
             "location": location or None,
@@ -623,7 +667,14 @@ class FilantropiaSolarPublicController(http.Controller):
         if payload["latitude"] is None or payload["longitude"] is None:
             payload.pop("latitude", None)
             payload.pop("longitude", None)
-        return self._fetch_json("estimate", payload=payload).get("estimate", {})
+        raw = self._fetch_json("estimate", payload=payload)
+        est = raw.get("estimate") if isinstance(raw, dict) else {}
+        if not isinstance(est, dict):
+            est = {}
+        # NC may nest ML body or return fields at top-level
+        if not est and isinstance(raw, dict) and "annual_production_kwh" in raw:
+            est = raw
+        return self._normalize_estimate(est)
 
     def _compute_panels(self, area_m2: float) -> tuple[int, float]:
         """Calculate how many 2m x 1m panels fit and the resulting DC kWp."""
@@ -713,6 +764,26 @@ class FilantropiaSolarPublicController(http.Controller):
             return "Coordenadas de mapa inválidas."
         return None
 
+    def _crm_lead_pipeline_defaults(self) -> dict:
+        """Salesperson/team so website leads appear in CRM Pipeline.
+
+        Public auth creates under sudo without an operator uid; Odoo would
+        otherwise default ``user_id`` to the inactive ``public`` user and the
+        opportunity vanishes from My Pipeline / normal sales filters.
+        """
+        vals: dict = {}
+        try:
+            Sync = request.env["fs.station.sync"].sudo()
+            user = Sync._default_mirror_user()
+            team = Sync._default_mirror_team()
+            if user:
+                vals["user_id"] = user.id
+            if team:
+                vals["team_id"] = team.id
+        except Exception as exc:
+            _logger.warning("CRM pipeline defaults unavailable: %s", exc)
+        return vals
+
     def _attach_files(self, lead):
         """Store uploaded form files as ir.attachment records on the lead."""
         Attachment = request.env["ir.attachment"].sudo()
@@ -741,7 +812,13 @@ class FilantropiaSolarPublicController(http.Controller):
                     )
 
     def _base_values(self, **extra):
-        stations, dashboard, api_error = self._get_public_data()
+        # Candidatura funnel POSTs do not need the public fleet payload; skipping
+        # stations+dashboard shaves the multi-second wait on each step.
+        light = bool(extra.pop("light_public_data", False))
+        if light:
+            stations, dashboard, api_error = [], {}, None
+        else:
+            stations, dashboard, api_error = self._get_public_data()
         values = {
             "stations": stations,
             "stations_json": Markup(json.dumps(stations)),
@@ -892,6 +969,7 @@ class FilantropiaSolarPublicController(http.Controller):
         if not self._rate_limit_ok("contacto"):
             return self._render(
                 "filantropia_solar_public.page_contacto",
+                light_public_data=True,
                 form_error="Demasiados pedidos. Aguarde alguns minutos e tente novamente.",
             )
         name = (post.get("contact_name") or "").strip()
@@ -899,27 +977,24 @@ class FilantropiaSolarPublicController(http.Controller):
         phone = (post.get("contact_phone") or "").strip()
         message = (post.get("contact_message") or "").strip()
 
-        lead = (
-            request.env["crm.lead"]
-            .sudo()
-            .create(
-                {
-                    "name": f"Filantropia Solar Contacto — {name or 'Visitante'}",
-                    "contact_name": name or False,
-                    "email_from": email or False,
-                    "phone": phone or False,
-                    "description": "\n".join(
-                        [
-                            "Contacto simples (não candidatura)",
-                            f"Telefone: {phone}",
-                            "",
-                            "Mensagem:",
-                            message,
-                        ]
-                    ),
-                }
-            )
-        )
+        contact_vals = {
+            "name": f"Filantropia Solar Contacto — {name or 'Visitante'}",
+            "type": "opportunity",
+            "contact_name": name or False,
+            "email_from": email or False,
+            "phone": phone or False,
+            "description": "\n".join(
+                [
+                    "Contacto simples (não candidatura)",
+                    f"Telefone: {phone}",
+                    "",
+                    "Mensagem:",
+                    message,
+                ]
+            ),
+        }
+        contact_vals.update(self._crm_lead_pipeline_defaults())
+        lead = request.env["crm.lead"].sudo().create(contact_vals)
         _logger.info("Contact lead created: %s", lead.id)
         return self._render(
             "filantropia_solar_public.page_contacto",
@@ -947,6 +1022,7 @@ class FilantropiaSolarPublicController(http.Controller):
         return self._render(
             "filantropia_solar_public.page_candidatura",
             step=1,
+            light_public_data=True,
         )
 
     @http.route(
@@ -962,6 +1038,7 @@ class FilantropiaSolarPublicController(http.Controller):
             return self._render(
                 "filantropia_solar_public.page_candidatura",
                 step=1,
+                light_public_data=True,
                 form_error="Demasiados pedidos. Aguarde alguns minutos e tente novamente.",
             )
         step1_name = (post.get("step1_name") or "").strip()
@@ -975,6 +1052,7 @@ class FilantropiaSolarPublicController(http.Controller):
             return self._render(
                 "filantropia_solar_public.page_candidatura",
                 step=1,
+                light_public_data=True,
                 form_error=map_err,
                 step1_name=step1_name,
                 step1_email=step1_email,
@@ -1003,6 +1081,7 @@ class FilantropiaSolarPublicController(http.Controller):
                 )
                 or {}
             )
+            estimate = self._normalize_estimate(estimate)
         except Exception as exc:
             form_error = (
                 "Não foi possível obter a estimativa automática. "
@@ -1013,6 +1092,7 @@ class FilantropiaSolarPublicController(http.Controller):
         return self._render(
             "filantropia_solar_public.page_candidatura",
             step=2,
+            light_public_data=True,
             step1_name=step1_name,
             step1_email=step1_email,
             location=location,
@@ -1044,6 +1124,7 @@ class FilantropiaSolarPublicController(http.Controller):
             return self._render(
                 "filantropia_solar_public.page_candidatura",
                 step=2,
+                light_public_data=True,
                 form_error="Demasiados pedidos. Aguarde alguns minutos e tente novamente.",
             )
         org_type = (post.get("step2_org_type") or "").strip()
@@ -1061,7 +1142,9 @@ class FilantropiaSolarPublicController(http.Controller):
         step2_org_name = (post.get("step2_org_name") or "").strip()
         step2_website = (post.get("step2_website") or "").strip()
         step2_description = (post.get("step2_description") or "").strip()
-        estimate = self._parse_estimate_data(post.get("estimate_data"))
+        estimate = self._normalize_estimate(
+            self._parse_estimate_data(post.get("estimate_data"))
+        )
 
         common = {
             "step1_name": step1_name,
@@ -1089,37 +1172,36 @@ class FilantropiaSolarPublicController(http.Controller):
             return self._render(
                 "filantropia_solar_public.page_candidatura",
                 step=3,
+                light_public_data=True,
                 **common,
             )
 
         loc_label = location_custom if location == "outro" else location
-        lead = (
-            request.env["crm.lead"]
-            .sudo()
-            .create(
-                {
-                    "name": f"Filantropia Solar — {step2_org_name or 'SME referral'}",
-                    "contact_name": step1_name or False,
-                    "email_from": step1_email or False,
-                    "partner_name": step2_org_name or False,
-                    "description": "\n".join(
-                        [
-                            "NÃO ELEGÍVEL para Filantropia Solar (SME/for-profit referral)",
-                            f"Org type: {org_type}",
-                            f"Location: {loc_label}",
-                            f"Available area: {available_area} m²",
-                            f"Estimated capacity: {capacity_kwp} kWp",
-                            f"Description: {step2_description}",
-                            "Handed off to WeRa Global.",
-                        ]
-                    ),
-                }
-            )
-        )
+        sme_vals = {
+            "name": f"Filantropia Solar — {step2_org_name or 'SME referral'}",
+            "type": "opportunity",
+            "contact_name": step1_name or False,
+            "email_from": step1_email or False,
+            "partner_name": step2_org_name or False,
+            "description": "\n".join(
+                [
+                    "NÃO ELEGÍVEL para Filantropia Solar (SME/for-profit referral)",
+                    f"Org type: {org_type}",
+                    f"Location: {loc_label}",
+                    f"Available area: {available_area} m²",
+                    f"Estimated capacity: {capacity_kwp} kWp",
+                    f"Description: {step2_description}",
+                    "Handed off to WeRa Global.",
+                ]
+            ),
+        }
+        sme_vals.update(self._crm_lead_pipeline_defaults())
+        lead = request.env["crm.lead"].sudo().create(sme_vals)
         _logger.info("SME lead created: %s -> WeRa referral", lead.id)
         return self._render(
             "filantropia_solar_public.page_candidatura",
             step="sme",
+            light_public_data=True,
             **common,
         )
 
@@ -1136,6 +1218,7 @@ class FilantropiaSolarPublicController(http.Controller):
             return self._render(
                 "filantropia_solar_public.page_candidatura",
                 step=3,
+                light_public_data=True,
                 form_error="Demasiados pedidos. Aguarde alguns minutos e tente novamente.",
             )
         bill_err = self._validate_bill_uploads()
@@ -1143,6 +1226,7 @@ class FilantropiaSolarPublicController(http.Controller):
             return self._render(
                 "filantropia_solar_public.page_candidatura",
                 step=3,
+                light_public_data=True,
                 form_error=bill_err,
                 step1_name=(post.get("step1_name") or "").strip(),
                 step1_email=(post.get("step1_email") or "").strip(),
@@ -1185,21 +1269,29 @@ class FilantropiaSolarPublicController(http.Controller):
             # Off-grid: no grid bill / kWh price questions
             step3_monthly_spend = ""
             step3_price_kwh = ""
-        # Recompute estimate from ML when possible; fall back to posted payload
+        # Prefer step-1 estimate payload (already shown to user) to avoid a second
+        # multi-second ML round-trip on final submit; recompute only if missing.
         loc_label = self._location_label(location, location_custom)
-        estimate = {}
-        try:
-            estimate = (
-                self._estimate(
-                    loc_label, location_lat or None, location_lng or None, kwp
+        estimate = self._normalize_estimate(
+            self._parse_estimate_data(post.get("estimate_data")),
+            grid_connection=step3_grid_connection,
+        )
+        if not estimate.get("annual_production_kwh"):
+            try:
+                estimate = (
+                    self._estimate(
+                        loc_label, location_lat or None, location_lng or None, kwp
+                    )
+                    or {}
                 )
-                or {}
-            )
-        except Exception as exc:
-            _logger.warning("Final estimate recompute failed: %s", exc)
-            estimate = self._parse_estimate_data(post.get("estimate_data"))
-        if not estimate:
-            estimate = self._parse_estimate_data(post.get("estimate_data"))
+                estimate = self._normalize_estimate(
+                    estimate, grid_connection=step3_grid_connection
+                )
+            except Exception as exc:
+                _logger.warning("Final estimate recompute failed: %s", exc)
+                estimate = self._normalize_estimate(
+                    {}, grid_connection=step3_grid_connection
+                )
         surface_label = surface_other if surface_type == "other" else surface_type
 
         description_lines = [
@@ -1258,6 +1350,7 @@ class FilantropiaSolarPublicController(http.Controller):
         }
         if price_kwh > 0:
             lead_vals["fs_station_grid_price_kwh"] = price_kwh
+        lead_vals.update(self._crm_lead_pipeline_defaults())
         lead = request.env["crm.lead"].sudo().create(lead_vals)
         self._attach_files(lead)
         # Deferred Virtual: New CRM stage has no NC station until Qualified
@@ -1270,6 +1363,7 @@ class FilantropiaSolarPublicController(http.Controller):
         return self._render(
             "filantropia_solar_public.page_candidatura",
             step=4,
+            light_public_data=True,
             submitted=True,
             step1_name=step1_name,
             step1_email=step1_email,

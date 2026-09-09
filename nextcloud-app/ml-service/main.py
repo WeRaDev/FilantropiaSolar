@@ -62,6 +62,9 @@ ENSEMBLE_WEIGHT_RF = 0.4
 ENSEMBLE_WEIGHT_GB = 0.35
 ENSEMBLE_WEIGHT_LINEAR = 0.25
 GRID_PRICE_EUR_PER_KWH = 0.15
+# On-grid prosumers consume ~40% of generation on average (rest exported).
+SELF_CONSUMPTION_FACTOR_ON_GRID = 0.4
+SELF_CONSUMPTION_FACTOR_OFF_GRID = 1.0
 MINIMUM_TRAINING_SAMPLES = 200
 DASHBOARD_CACHE_TTL_SECONDS = 900
 MAX_SIMULATION_DAYS = 400
@@ -623,9 +626,15 @@ async def estimate_annual_production(request: EstimateRequest):
         method = "physics_fallback"
 
     specific_energy = annual_production_kwh / request.capacity_kwp
+    # Default estimate assumes on-grid self-consumption (0.4).
+    savings = (
+        annual_production_kwh
+        * GRID_PRICE_EUR_PER_KWH
+        * SELF_CONSUMPTION_FACTOR_ON_GRID
+    )
     return EstimateResponse(
         annual_production_kwh=round(annual_production_kwh, 2),
-        annual_savings_eur=round(annual_production_kwh * GRID_PRICE_EUR_PER_KWH, 2),
+        annual_savings_eur=round(savings, 2),
         specific_energy_kwh_kwp=round(specific_energy, 4),
         method=method,
     )

@@ -26,8 +26,8 @@ fi
 # Prefer AIO Nextcloud for FS_* if not already set in environment.
 export FS_API_BASE_URL="${FS_API_BASE_URL:-http://nextcloud-aio-apache:11000/index.php/apps/filantropia_solar/api/public/v1}"
 export FS_LIFECYCLE_API_BASE_URL="${FS_LIFECYCLE_API_BASE_URL:-http://nextcloud-aio-apache:11000/index.php/apps/filantropia_solar/api/lifecycle/v1}"
-export FS_NC_ADMIN_URL="${FS_NC_ADMIN_URL:-https://wera-ss-pt-tv-1.tailfb390c.ts.net}"
-export FS_NC_PUBLIC_ORIGIN="${FS_NC_PUBLIC_ORIGIN:-https://wera-ss-pt-tv-1.tailfb390c.ts.net}"
+export FS_NC_ADMIN_URL="${FS_NC_ADMIN_URL:-https://wera-ss-pt-tv-1.wera.global}"
+export FS_NC_PUBLIC_ORIGIN="${FS_NC_PUBLIC_ORIGIN:-https://wera-ss-pt-tv-1.wera.global}"
 
 log "COMPOSE_FILE=$COMPOSE_FILE"
 

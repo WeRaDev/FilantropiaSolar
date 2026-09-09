@@ -112,6 +112,12 @@ source venv/bin/activate && python - <<'PY'
 PY
 ```
 
+## Current status (2026-09-09)
+- **NC app 3.2.36 / Odoo public 19.0.2.34.0** (TRL5 live): on-grid savings × **0.4** self-consumption (ML + NC public estimate + Odoo normalize); candidatura one-shot submit + `light_public_data`; CRM website leads get admin/sales pipeline defaults; virtual create always persists lat/lng (`sprintf` fix for Doctrine default omit → HTTP 500); Odoo **NC Admin URL** → `https://wera-ss-pt-tv-1.wera.global`. Ops: `docs/ops/PUBLIC-CANDIDATURA-ESTIMATE.md`, Gitea PR `#32`.
+- **Also live**: public **Archived** lifecycle (Running + `public_archived`); cloudflared host-net HTTP/2 IPv4; CRM↔NC serialize/echo guards (19.0.2.32.0+).
+- **TRL5**: AIO Nextcloud SoT; deploy with `COPYFILE_DISABLE=1` and strip `._*` (AppleDouble → NC 500). No in-app Upgrade UI — `occ upgrade` + Odoo `-u`.
+- The dated status sections below are retained as a running history log, not the current state.
+
 ## Current status (2026-08-20)
 - **NC app 3.2.34 / Odoo public 19.0.2.31.0**: public **Archived** lifecycle (Running + `public_archived`). Main **Set lifecycle** shows Virtual | Planned | Running | **Archived**; CRM stage **Archived**; public map omits archived; dashboard stats keep them. Ops: `docs/ops/PUBLIC-ARCHIVED-LIFECYCLE.md`, Gitea PR `#32`.
 - **TRL5**: AIO Nextcloud SoT; deploy with `COPYFILE_DISABLE=1` and strip `._*` (AppleDouble → NC 500). No in-app Upgrade UI — `occ upgrade` + Odoo `-u`.

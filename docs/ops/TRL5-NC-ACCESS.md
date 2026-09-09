@@ -8,16 +8,18 @@ The separate `filantropia-nextcloud` container is **stopped** (`restart=no`).
 | Surface | URL |
 |---------|-----|
 | AIO (users / primary) | Host **:80** / **:8080** / **:8443** (your existing AIO entry) |
-| App path | **Apps → FilantropiaSolar** or `/apps/filantropia_solar/` |
+| App path (public host) | https://wera-ss-pt-tv-1.wera.global/apps/filantropia_solar/ |
+| App path (local AIO) | **Apps → FilantropiaSolar** or `/apps/filantropia_solar/` |
 | Public website (Odoo) | https://filantropiasolar.pt |
 | Public/lifecycle API (internal) | `http://nextcloud-aio-apache:11000/index.php/apps/filantropia_solar/api/...` |
+| Odoo **NC Admin URL** default | `FS_NC_ADMIN_URL=https://wera-ss-pt-tv-1.wera.global` → link `/apps/filantropia_solar/` |
 
 Verify:
 
 ```bash
 ssh root@100.82.252.18
 docker exec -u 33 nextcloud-aio-nextcloud php occ app:list | grep filantropia
-# filantropia_solar: 3.2.34+
+# filantropia_solar: 3.2.36+
 docker exec nextcloud-aio-database psql -U nextcloud -d nextcloud_database -tAc \
   "SELECT count(*) FROM oc_fs_installations WHERE source='fleet';"
 # 11

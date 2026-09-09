@@ -4,6 +4,19 @@ All notable changes to the Nextcloud app component. The desktop application
 has its own changelog at the repository root (`CHANGELOG.md`).
 This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 3.2.36 — 2026-09-09
+
+### Fixed
+- **Virtual create lat/lng HTTP 500**: Doctrine Entity omits fields equal to defaults (`latitude`/`longitude` default `'0'`). CRM zero-coords payloads never INSERT → Postgres NOT NULL. `LifecycleApiController::createVirtual` now always persists coords via `sprintf('%.8F', …)` (3.2.35+).
+- **Candidatura CRM leads invisible in My Pipeline**: website forms created leads as Odoo `public` user (`user_id=3`, inactive). Assign admin/sales team via `_crm_lead_pipeline_defaults()` on contacto / SME / enviar (Odoo **19.0.2.33.0+**).
+- **Double-submit on slow candidatura**: multi-second ML estimate allowed repeated clicks. One-shot JS disables submit buttons and shows “A processar…”; step renders use `light_public_data=True` (skip stations+dashboard fetch); final submit reuses cached estimate (Odoo **19.0.2.34.0**).
+
+### Changed
+- **On-grid self-consumption 0.4**: annual savings = production × grid_price × **0.4** (prosumers consume ~40% on average). Applied in ML estimate, NC public estimate proxy, Odoo `_normalize_estimate` / homepage KPI. UI note: “on-grid: ~40% autoconsumo”. Off-grid remains factor 1.0.
+- **NC Admin URL** default for Odoo dashboard / TRL5 compose / `trl5-ensure-stack.sh`: `https://wera-ss-pt-tv-1.wera.global` (was Tailscale Magicsock host).
+- App version **3.2.36**; Odoo public module **19.0.2.34.0**.
+- Ops: `docs/ops/CRM-NC-LIFECYCLE-MIRROR.md`, `docs/ops/TRL5-NC-ACCESS.md`, `docs/ops/PUBLIC-CANDIDATURA-ESTIMATE.md`.
+
 ## 3.2.34 — 2026-08-20
 
 ### Lifecycle / public map

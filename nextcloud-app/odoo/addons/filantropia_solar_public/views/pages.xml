@@ -527,7 +527,7 @@
                                     (<span t-esc="panel_count"/> painéis)
                                 </t>.
                             </p>
-                            <p class="small text-muted mb-0">Estimativa indicativa; sujeita a validação técnica.</p>
+                            <p class="small text-muted mb-0">Estimativa indicativa (on-grid: ~40% autoconsumo); sujeita a validação técnica.</p>
                         </div>
                     </t>
 
@@ -750,6 +750,35 @@
             </div>
             <script type="text/javascript">
                 document.addEventListener('DOMContentLoaded', function () {
+                    // Prevent double-submit while ML estimate / CRM create is in flight
+                    function bindOnceSubmit(form) {
+                        if (!form || form.getAttribute('data-fs-once') === '1') return;
+                        form.setAttribute('data-fs-once', '1');
+                        form.addEventListener('submit', function (ev) {
+                            if (form.getAttribute('data-fs-submitting') === '1') {
+                                ev.preventDefault();
+                                return false;
+                            }
+                            form.setAttribute('data-fs-submitting', '1');
+                            var btns = form.querySelectorAll('button[type="submit"], input[type="submit"]');
+                            for (var i = 0; i &lt; btns.length; i++) {
+                                var b = btns[i];
+                                b.disabled = true;
+                                if (b.tagName === 'BUTTON') {
+                                    if (!b.getAttribute('data-fs-label')) {
+                                        b.setAttribute('data-fs-label', b.textContent || '');
+                                    }
+                                    b.textContent = 'A processar…';
+                                }
+                            }
+                        });
+                    }
+                    bindOnceSubmit(document.getElementById('fs-step1-form'));
+                    bindOnceSubmit(document.getElementById('fs-step2-form'));
+                    bindOnceSubmit(document.getElementById('fs-step3-form'));
+                    var contactForm = document.querySelector('form[action="/contacto/enviar"]');
+                    bindOnceSubmit(contactForm);
+
                     var loc = document.getElementById('location');
                     var customWrap = document.getElementById('location_custom_wrap');
                     var mapWrap = document.getElementById('pick_map_wrap');
