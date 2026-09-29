@@ -112,6 +112,13 @@ source venv/bin/activate && python - <<'PY'
 PY
 ```
 
+## Current status (2026-09-29)
+- **TRL5 Odoo public addon 19.0.2.35.0**: deployed and installed; public station/dashboard snapshot refreshes every 15 minutes and serves a stale-marked snapshot if Nextcloud is unavailable. Public website leads queue an administrator notice; the first Qualified transition queues the selected user notice. Imports and non-website leads are excluded.
+- **Off-host Odoo recovery**: daily 02:00 UTC timer publishes verified DB + filestore bundles to Frank's encrypted `/data` with 30-day retention. The 2026-09-29 recovery set and checksums are recorded in `docs/ops/TRL5-BACKUP.md`.
+- **Standby/failover**: Frank's Odoo remains stopped (`restart=no`). TRL5 is the source of truth while online; routine bundles are TRL5-originated snapshots and do not change Frank's database or start Odoo. On failback, if Frank accepted no writes, keep TRL5's pre-outage DB/filestore in place; if Frank accepted writes or that is uncertain, fence Frank, take a fresh verified Frank-originated pair, preserve TRL5's rollback state, and restore/validate before returning the single writer. Frank's promotion blockers remain addon source `19.0.2.34.0` vs recovery DB `19.0.2.35.0`, unset `FS_NC_OFFLINE`, inactive `filantropia-cloudflared.service`, and Docker root on ext4 `/data-bulk/docker` separate from encrypted `/data`. See `docs/ops/TRL5-ODOO-BOOT.md` and `docs/ops/TRL4-ODOO-FAILOVER.md`.
+- **Final verification**: TRL5 Odoo and PostgreSQL healthy; the public `/inicio`, `/projetos`, and `/contacto` routes return HTTP 200. The rollback-only notification probe left no leads or outgoing mail; no test email was sent.
+- The dated status sections below are retained as a running history log, not the current state.
+
 ## Current status (2026-09-09)
 - **NC app 3.2.36 / Odoo public 19.0.2.34.0** (TRL5 live): on-grid savings × **0.4** self-consumption (ML + NC public estimate + Odoo normalize); candidatura one-shot submit + `light_public_data`; CRM website leads get admin/sales pipeline defaults; virtual create always persists lat/lng (`sprintf` fix for Doctrine default omit → HTTP 500); Odoo **NC Admin URL** → `https://wera-ss-pt-tv-1.wera.global`. Ops: `docs/ops/PUBLIC-CANDIDATURA-ESTIMATE.md`, Gitea PR `#32`.
 - **Also live**: public **Archived** lifecycle (Running + `public_archived`); cloudflared host-net HTTP/2 IPv4; CRM↔NC serialize/echo guards (19.0.2.32.0+).

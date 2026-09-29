@@ -20,7 +20,77 @@ Take a backup **before** any TRL5 deploy, `occ upgrade`, Odoo `-u filantropia_so
 | NC `config.php` | file mode `600` on host only | Secrets; do not commit |
 | Checksums | `SHA256SUMS.txt` + `MANIFEST.txt` | Integrity |
 
-Do **not** commit dumps, `config.php`, or tokens. Keep them under `.local-backups/` or on the TRL5 host only.
+Do **not** commit dumps, `config.php`, or tokens. Keep local copies under
+gitignored `.local-backups/`; host recovery sets may be stored on TRL5 or
+Frank's encrypted `/data/backups/filantropia/odoo/` under restricted access.
+
+## Automated TRL5 → Frank Odoo recovery set
+
+TRL5's `filantropia-odoo-backup.timer` runs daily at **02:00 UTC** and invokes
+`filantropia-odoo-backup.service`. The job creates a custom-format PostgreSQL
+dump plus the Odoo filestore, writes a manifest and component checksums,
+validates both archives, uploads through restricted SFTP with a pinned Frank
+host key, downloads a round-trip copy for SHA-256 verification, and only then
+publishes the bundle atomically under Frank's encrypted
+`/data/backups/filantropia/odoo/`. Successful bundles are retained for 30 days.
+
+Routine backups only write recovery bundles; they **do not** update Frank's
+dormant Odoo database/filestore or start its Odoo container. The bundle does
+not include addon source, container configuration, or secrets. It is a
+TRL5-originated promotion snapshot and does not capture writes accepted by
+Frank after promotion. On failback, if Frank is proven to have accepted no
+writes, keep TRL5's pre-outage database/filestore in place and do not restore
+a TRL5-originated bundle from Frank back onto TRL5. If Frank accepted writes
+or that cannot be ruled out, create and verify a fresh Frank-originated
+database/filestore recovery set; preserve TRL5's pre-failback state for
+rollback before restoring that set to TRL5.
+
+Monitor the timer and latest run from an operator workstation:
+
+```bash
+ssh root@100.82.252.18 'systemctl is-active filantropia-odoo-backup.timer'
+ssh root@100.82.252.18 'systemctl list-timers --all filantropia-odoo-backup.timer --no-pager'
+ssh root@100.82.252.18 'systemctl show filantropia-odoo-backup.service -p Result -p ExecMainStatus -p ExecMainStartTimestamp'
+ssh root@100.82.252.18 'journalctl -u filantropia-odoo-backup.service -n 50 --no-pager'
+```
+
+For a candidate bundle on Frank, compare its outer and component hashes to a
+trusted run record, then parse both archives without starting Odoo:
+
+```bash
+B=/data/backups/filantropia/odoo/filantropia-odoo-20260929T020002Z.tar
+sha256sum "$B"
+tar -xOf "$B" odoo.dump | sha256sum
+tar -xOf "$B" filestore.tar | sha256sum
+tar -xOf "$B" odoo.dump | docker exec -i filantropia-odoo-db pg_restore --list >/dev/null
+tar -xOf "$B" filestore.tar | tar -tf - >/dev/null
+```
+
+## Verification log — 2026-09-29
+
+| Item | Verified value |
+|------|----------------|
+| Recovery bundle | `/data/backups/filantropia/odoo/filantropia-odoo-20260929T020002Z.tar` |
+| Size | 145,735,680 bytes |
+| Bundle SHA-256 | `33cd2a1f49d700a81f3966c17f5f2a26ac54180263c7b0640edc4f81de6e92c2` |
+| `odoo.dump` SHA-256 | `2856d0d8e55c360258fd6071b4ac88c98b77d58820f9b25bdc36bdab1143b0c9` |
+| `filestore.tar` SHA-256 | `109cbc496733be54d89830cb5ae033687316b0581a504b8e8c1509716a71fde6` |
+| Validation | Manifest component hashes match streamed component hashes; Frank's `pg_restore --list` passed; timer run and publication succeeded |
+| Daily timer | Active; service exit 0 at 2026-09-29 02:00:01 UTC; next run 2026-09-30 02:00 UTC |
+| Frank Odoo | `filantropia-odoo` exited with restart policy `no`; no restore or promotion performed |
+
+## Verification log — 2026-09-28
+
+| Item | Verified value |
+|------|----------------|
+| Recovery bundle | `/data/backups/filantropia/odoo/filantropia-odoo-20260928T170237Z.tar` |
+| Size | 145,694,720 bytes |
+| Bundle SHA-256 | `6029381fecdc935820bbecb20d806f0fad12164e870603d1e2f0abf94bf47561` |
+| `odoo.dump` SHA-256 | `3d44b889dd377e42cd9a1c41f6b7c9a1e029701ced2694d6a50d5e2df9b4fedc` |
+| `filestore.tar` SHA-256 | `5ef2bfaf3db80be769c849f6ded7bc14e34fc46480feec03e620ec838a2dd81e` |
+| Validation | Round-trip copy matched; `pg_restore --list` passed on TRL5 and Frank; filestore archive passed content validation |
+| Daily timer | Active; latest service result success, exit 0; next run 2026-09-29 02:00 UTC |
+| Frank Odoo | `filantropia-odoo` exited with restart policy `no`; no restore or promotion performed |
 
 ## Quick path (recommended)
 
@@ -118,7 +188,8 @@ aacb374b79d7dcc8797e7f3e02c828ba36fa683db76b4b870e233f3460c62de3  nextcloud-mysq
 
 ## Restore notes (emergency)
 
-**Odoo full DB** (destructive — stop Odoo writers first):
+**Odoo full DB** (destructive — stop Odoo writers first; if Frank was promoted,
+fence it before restoring/restarting TRL5):
 
 ```bash
 # On TRL5
@@ -126,6 +197,62 @@ docker exec -i filantropia-odoo-db pg_restore -U odoo -d filantropia_public --cl
   < /opt/FilantropiaSolar/backups/trl5-STAMP/odoo-filantropia_public.dump
 docker compose --profile odoo up -d odoo
 ```
+
+### Frank failover restore (explicitly gated)
+
+Do this only during an explicitly approved promotion, after the current
+public writer is fenced. This replaces Frank's database/filestore with a
+TRL5-originated snapshot. Before proceeding, rule out prior unreconciled
+Frank-originated writes; if that cannot be proved, stop and capture/reconcile
+them first. Keep `filantropia-odoo` stopped throughout the restore. Confirm
+the addon source and Odoo configuration on Frank match the database being
+restored (currently module `19.0.2.35.0`); these are not in the bundle. Do not
+route traffic or start Frank merely because the bundle validates.
+
+On Frank as root, select the exact verified bundle and validate it before any
+destructive operation:
+
+```bash
+B=/data/backups/filantropia/odoo/filantropia-odoo-20260929T020002Z.tar
+WORK=$(mktemp -d /data/filantropia-restore.XXXXXX)
+STORE=/data-bulk/docker/volumes/nextcloud-app_odoo_data/_data/filestore
+STAMP=$(date -u +%Y%m%dT%H%M%SZ)
+STAGE="$STORE/.filantropia_public.restore-$STAMP"
+TARGET="$STORE/filantropia_public"
+OLD="$STORE/filantropia_public.before-$STAMP"
+
+docker inspect --format '{{.State.Status}}' filantropia-odoo  # must be exited
+sha256sum "$B"  # compare with the trusted bundle SHA-256 in the run log
+tar -xf "$B" -C "$WORK"
+(cd "$WORK" && sha256sum -c SHA256SUMS.txt)
+docker exec -i filantropia-odoo-db pg_restore --list < "$WORK/odoo.dump" >/dev/null
+tar -tf "$WORK/filestore.tar" >/dev/null
+```
+
+Only after all checks succeed, restore both components while Odoo remains
+stopped. The filestore archive contains a top-level `filantropia_public/`
+directory; stage it on the same volume, keep the old tree for rollback, and
+do not remove that old tree until the promoted service is verified:
+
+```bash
+docker exec -i filantropia-odoo-db pg_restore \
+  -U odoo -d filantropia_public --clean --if-exists --exit-on-error --no-owner \
+  < "$WORK/odoo.dump"
+
+mkdir -p "$STAGE"
+tar -xf "$WORK/filestore.tar" -C "$STAGE"
+test -d "$STAGE/filantropia_public"
+if [ -d "$TARGET" ]; then mv "$TARGET" "$OLD"; fi
+mv "$STAGE/filantropia_public" "$TARGET"
+```
+
+If restoration or the filestore swap fails, leave Odoo stopped. Retain the
+old filestore tree and any pre-restore Frank recovery set required because of
+known/uncertain divergence; otherwise retry only from the selected verified
+TRL5 bundle. After restore, validate the module version and database/filestore,
+then follow
+`docs/ops/TRL5-ODOO-BOOT.md` and `docs/ops/TRL4-ODOO-FAILOVER.md` for explicit
+promotion, ingress, one-writer, and failback gates.
 
 **Nextcloud MySQL** (destructive):
 
