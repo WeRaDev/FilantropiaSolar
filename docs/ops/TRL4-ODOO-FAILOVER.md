@@ -6,6 +6,24 @@ The public website returns HTTP 200, but its origin has not been proven to be
 Frank. Docker root is `/data-bulk/docker` on `/dev/sda7` ext4; encrypted
 `/data` is a separate mount and does not protect the Docker data at rest.
 **Do not start Odoo, switch a route, stop the DB, or mount over this store yet.**
+On 2026-09-29 a read-only aggregate check found 27 CRM leads on Frank (latest
+lead write August 18) versus 22 on TRL5 (latest lead write September 29).
+This does not prove Frank accepted outage writes, but it blocks any destructive
+Frank restore until record, attachment, and queued-job provenance is assessed.
+A further read-only, in-memory comparison (no customer fields or lead IDs
+printed) found 17 matching ID/creation-time pairs, ten Frank-only leads and
+five TRL5-only leads. The Frank-only set has **four direct attachments across
+four leads and 18 linked messages**; eight were last written by a different
+user ID from their creator. No Frank job had `model_name = 'crm.lead'`, but
+this does not rule out indirect jobs or show whether a lead is historical
+test data. User IDs and timestamps cannot prove which host served public
+writes. Preserve and privately review the records and matching filestore
+before any overwrite; the original destructive-restore stop remains in force.
+On September 30, another read-only comparison found the same 27/22 split,
+ten Frank-only leads, four direct attachments and 18 linked messages.
+TRL5's latest lead write is now September 30. Frank remains stopped while
+TRL5 Odoo is healthy; neither the historical lead dates nor the current
+container states prove public writer ownership or permit an overwrite.
 
 Frank needs only the Filantropia website/CRM and its Odoo PostgreSQL during a
 TRL5 outage. The legacy `filantropia-nextcloud`, MariaDB, Redis and ML
@@ -25,7 +43,10 @@ a separate City service and must not be substituted for either API source.
    TRL5 promotion snapshot; it does not contain writes accepted by Frank after
    promotion. Before replacing Frank's current volume, rule out any prior
    unreconciled Frank-originated writes; if that cannot be proved, stop and
-   capture/reconcile that state first. Handle City data separately.
+   capture/reconcile that state first. Preserve a coherent pre-restore Frank
+   database/filestore pair for rollback before any destructive promotion;
+   this is not a routine off-host backup of an unwritten standby. Handle City
+   data separately.
 3. On a development workstation, validate the additive overlay from the
    FilantropiaSolar repository root using
    `docker compose -f nextcloud-app/docker-compose.yml -f nextcloud-app/docker-compose.trl4-failover.yml --profile odoo config --quiet`. Confirm the
@@ -37,8 +58,9 @@ a separate City service and must not be substituted for either API source.
 ## Outage rehearsal and controlled activation (separate approvals)
 1. Select an approved window and a proved alternative public origin or a
    tested site rollback. Do not activate Frank's Cloudflare connector while
-   another origin receives public writes. Confirm verified backups and the
-   storage migration/startup guards first; the retired SolarSeed bootstrap
+   another origin receives public writes. Confirm the selected TRL5 recovery
+   pair, an independent City backup, the reversible root-backed runtime
+   cutover, and storage startup guards first; the retired SolarSeed bootstrap
    scripts are **not** a shortcut around these gates.
 2. Run only the `odoo-db` and `odoo` Compose services with the `odoo` profile
    and the overlay; never run a plain `up` of the legacy Nextcloud stack.
@@ -66,6 +88,56 @@ a separate City service and must not be substituted for either API source.
    connector in a separately approved step; capture request tracing and a
    rollback route. The current HTTP 200 alone is not that proof.
 
+### Local controller-level outage simulation (2026-10-02)
+Three isolated tests passed:
+
+- With `FS_NC_OFFLINE=1`, the controller served the dated last-known-good
+  snapshot with a stale-data notice; the patched HTTP client was not called.
+- When the stations request succeeded but the dashboard request timed out,
+  the controller returned the entire previous complete snapshot rather than
+  mixing live and stale data.
+- A successful refresh persisted the complete enriched, privacy-filtered
+  public snapshot.
+
+Reproduction from the repository root:
+
+```bash
+python3 nextcloud-app/odoo/addons/filantropia_solar_public/tests/test_public_map_privacy.py PublicSnapshotFallbackTests.test_offline_snapshot_is_dated_and_never_calls_nextcloud
+python3 nextcloud-app/odoo/addons/filantropia_solar_public/tests/test_public_map_privacy.py PublicSnapshotFallbackTests.test_partial_live_failure_uses_entire_last_complete_snapshot
+python3 nextcloud-app/odoo/addons/filantropia_solar_public/tests/test_public_model_hooks.py PublicSnapshotCronTests.test_refresh_persists_complete_public_enriched_snapshot
+```
+
+This verifies only the Odoo controller's Nextcloud-dependency fallback using
+mocks. No Docker services, TRL5, or Frank were contacted or changed. It does
+**not** verify Embassy host promotion, PostgreSQL replication, independent
+fencing, public ingress cutover, or failback; the isolated host-level rehearsal
+and the gates in ADR 0007 remain outstanding.
+
+## Software lease fence (repository implementation, 2026-10-05)
+
+Repository code now includes a cooperative software fence rather than TRL5 power
+control:
+
+- Lease protocol: `nextcloud-app/infra/embassy/lease.py`
+- Host self-fence guard: `nextcloud-app/infra/embassy/lease_guard.py`
+- Cloudflare Worker + Durable Object gate: `nextcloud-app/infra/cloudflare-writer-gate/`
+- Isolated lab authority: `nextcloud-app/infra/embassy/lab/`
+- Postgres bootstrap helpers: `nextcloud-app/infra/embassy/replication_bootstrap.py`
+- Staged filestore promotion: `nextcloud-app/infra/embassy/filestore_promote.py`
+
+Dual-probe failure (origin readiness down **and** public routes down across
+confirmation cycles) is the Embassy takeover trigger. It is **not** proof that
+TRL5 has stopped writing. The Durable Object must refuse TRL5 renewals, the
+TRL5 lease guard must stop local writers, and Frank may acquire the next epoch
+only after lease expiry, drain, self-fence grace, standby validation, and
+filestore checks.
+
+Production defaults remain fail-closed (`automatic_actions_enabled = false`,
+`request_takeover_on_outage = false`). Do not deploy the Worker route, seed
+replication against live hosts, or enable automatic actions without separate
+approval and a successful isolated rehearsal. Residual risk: software fencing
+cannot stop a wedged host or a write path that bypasses the lease guard.
+
 ## Failback (manual single-writer gate)
 TRL5 remains the source of truth while online. When TRL5 returns, fence Frank
 before making TRL5 authoritative. Determine whether Frank accepted any
@@ -90,10 +162,11 @@ approved window. Validate the serving origin and accepted lead path.
    The older TRL5-to-Frank recovery bundle is not a substitute for this set.
 3. Preserve TRL5's pre-failback database/filestore as a rollback point before
    the destructive restore. Restore the fresh Frank-originated pair to TRL5
-   while its Odoo writer remains stopped. Validate database/filestore
-   consistency, accepted leads, attachments, and queued jobs.
-4. Only after validation, activate TRL5 and route ingress back to it. Keep
-   Frank fenced; never allow both Odoo instances to accept writes.
+   while its Odoo writer remains stopped. With Frank fenced, start TRL5 Odoo
+   behind closed public ingress and validate database/filestore consistency,
+   the website, accepted leads, attachments, and queued jobs.
+4. Only after validation, route ingress back to TRL5. Keep Frank fenced;
+   never allow both Odoo instances to accept writes.
 
 Reconcile pending/error jobs only under operator supervision after the
 authoritative writer is chosen. **Automated safe failback is not demonstrated;

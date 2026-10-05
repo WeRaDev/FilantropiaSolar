@@ -1,0 +1,20 @@
+[Unit]
+Description=Filantropia Odoo software-lease guard (self-fence)
+Documentation=file:///opt/FilantropiaSolar/nextcloud-app/infra/embassy/lease_guard.py
+After=docker.service network-online.target
+Wants=network-online.target
+Requires=docker.service
+
+[Service]
+Type=oneshot
+WorkingDirectory=/opt/FilantropiaSolar/nextcloud-app
+Environment=PYTHONPATH=/opt/FilantropiaSolar/nextcloud-app/infra
+Environment=FILANTROPIA_LEASE_GUARD_STATE=/etc/filantropia-embassy/lease-guard-state.json
+Environment=FILANTROPIA_ODOO_FENCE_FILE=/etc/filantropia-embassy/odoo-fenced.json
+EnvironmentFile=-/etc/filantropia-embassy/lease.env
+# Fail closed: non-zero exit leaves the host fenced for the ensure script.
+ExecStart=/usr/bin/python3 -m embassy.lease_guard once
+Nice=5
+
+[Install]
+WantedBy=multi-user.target

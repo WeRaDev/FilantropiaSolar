@@ -1,0 +1,25 @@
+# Repository-owned writer gate. Do not deploy without separate approval.
+name = "filantropia-odoo-writer-gate"
+main = "src/writer-gate.js"
+compatibility_date = "2024-09-23"
+
+# Production route attachment is intentional and external to CI.
+# routes = [{ pattern = "filantropiasolar.pt/*", zone_name = "filantropiasolar.pt" }]
+
+[durable_objects]
+bindings = [{ name = "WRITER_LEASE", class_name = "WriterLeaseObject" }]
+
+[[migrations]]
+tag = "v1"
+new_classes = ["WriterLeaseObject"]
+
+# Secrets (set via wrangler secret, never commit):
+# LEASE_API_TOKEN, ORIGIN_SHARED_SECRET
+# Vars for isolated/non-prod only:
+# ORIGIN_TRL5_URL, ORIGIN_FRANK_URL, LEASE_TTL_SECONDS, LEASE_DRAIN_SECONDS, LEASE_GRACE_SECONDS
+
+[vars]
+LEASE_TTL_SECONDS = "30"
+LEASE_DRAIN_SECONDS = "5"
+LEASE_GRACE_SECONDS = "15"
+LEASE_SOURCE_NAME = "cloudflare-durable-object-lease"

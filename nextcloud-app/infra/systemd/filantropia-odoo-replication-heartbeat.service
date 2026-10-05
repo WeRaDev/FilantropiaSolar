@@ -1,0 +1,21 @@
+[Unit]
+Description=Record an Odoo PostgreSQL replication heartbeat on the active writer
+After=docker.service
+Requires=docker.service
+ConditionPathExists=/etc/filantropia-embassy/replication.env
+
+[Service]
+Type=oneshot
+User=root
+Group=root
+UMask=0077
+TimeoutStartSec=15s
+EnvironmentFile=/etc/filantropia-embassy/replication.env
+Environment=PYTHONPATH=/usr/local/lib/filantropia-embassy
+ExecStart=/usr/bin/python3 -m embassy.heartbeat
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectHome=yes
+ProtectSystem=strict
+ReadWritePaths=/run
+

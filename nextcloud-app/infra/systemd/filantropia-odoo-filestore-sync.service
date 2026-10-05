@@ -1,0 +1,28 @@
+[Unit]
+Description=Pull Odoo filestore from the authoritative writer to encrypted standby storage
+After=network-online.target
+Wants=network-online.target
+ConditionPathIsMountPoint=/data
+ConditionPathExists=/data/filantropia-embassy
+ConditionPathExists=/etc/filantropia-embassy/filestore.env
+ConditionPathExists=/etc/filantropia-embassy/filestore-readonly
+ConditionPathExists=/etc/filantropia-embassy/known_hosts
+
+[Service]
+Type=oneshot
+User=root
+Group=root
+UMask=0077
+TimeoutStartSec=90s
+EnvironmentFile=/etc/filantropia-embassy/filestore.env
+Environment=PYTHONPATH=/usr/local/lib/filantropia-embassy
+ExecStart=/usr/bin/python3 -m embassy.filestore_sync
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectHome=yes
+ProtectSystem=strict
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+RestrictSUIDSGID=yes
+ReadWritePaths=/data/filantropia-embassy

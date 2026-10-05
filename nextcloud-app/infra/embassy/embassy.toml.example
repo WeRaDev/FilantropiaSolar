@@ -1,0 +1,55 @@
+# Copy to /etc/filantropia-embassy/embassy.toml, set owner root:root and mode 0600.
+# Replace every example value after verifying the live node, code, and encrypted paths.
+
+[primary]
+node_id = "trl5"
+writer_generation = "REPLACE_WITH_CURRENT_WRITER_GENERATION"
+readiness_url = "http://100.64.0.10:8069/filantropia/embassy/readiness"
+readiness_token_env = "FS_EMBASSY_READINESS_TOKEN"
+timeout_seconds = 5
+public_routes = [
+  "https://solar.example/inicio",
+  "https://solar.example/projetos",
+  "https://solar.example/contacto",
+]
+
+[standby]
+refresh_status = true
+status_file = "/data/filantropia-embassy/standby-status.json"
+database_container = "filantropia-odoo-db"
+database_name = "filantropia_public"
+query_timeout_seconds = 30
+filestore_root = "/data/filantropia-embassy/filestore/filantropia_public"
+filestore_marker = "/data/filantropia-embassy/filestore-status.json"
+addon_source_directory = "/opt/filantropia/nextcloud-app/odoo/addons/filantropia_solar_public"
+addon_manifest_path = "/opt/filantropia/nextcloud-app/odoo/addons/filantropia_solar_public/__manifest__.py"
+expected_addon_version = "REPLACE_WITH_VERIFIED_INSTALLED_VERSION"
+expected_addon_source_sha256 = "REPLACE_WITH_64_CHARACTER_SHA256_FROM_PRIMARY_READINESS"
+
+[fencing]
+proof_file = "/data/filantropia-embassy/fencing-proof.json"
+# Software lease source name must match the Durable Object / lab authority.
+trusted_sources = ["cloudflare-durable-object-lease"]
+standby_node_id = "frank"
+# Off by default. Enable only after isolated rehearsal and separate approval.
+request_takeover_on_outage = false
+lease_authority_url = "https://filantropia-odoo-writer-gate.example.workers.dev"
+lease_token_env = "FS_LEASE_AUTHORITY_TOKEN"
+execute_promotion = false
+
+[state]
+directory = "/data/filantropia-embassy"
+state_file = "/data/filantropia-embassy/state.json"
+journal_file = "/data/filantropia-embassy/journal.jsonl"
+lock_file = "/data/filantropia-embassy/observer.lock"
+
+[policy]
+failure_confirmation_cycles = 2
+maximum_recovery_gap_seconds = 60
+replication_heartbeat_interval_seconds = 15
+maximum_filestore_generation_age_seconds = 60
+maximum_standby_status_age_seconds = 60
+maximum_attachment_verification_age_seconds = 60
+# Ship fail-closed. Enable only after lease self-fence paths are rehearsed.
+automatic_actions_enabled = false
+require_lease_acquirable = true

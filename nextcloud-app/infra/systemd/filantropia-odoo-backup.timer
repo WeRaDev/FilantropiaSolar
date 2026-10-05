@@ -1,0 +1,11 @@
+[Unit]
+Description=Daily off-host Filantropia Odoo recovery set
+
+[Timer]
+OnCalendar=*-*-* 02:00:00 UTC
+AccuracySec=1s
+Persistent=true
+Unit=filantropia-odoo-backup.service
+
+[Install]
+WantedBy=timers.target

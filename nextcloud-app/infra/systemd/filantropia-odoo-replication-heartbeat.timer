@@ -1,0 +1,11 @@
+[Unit]
+Description=Refresh the active Odoo PostgreSQL replication heartbeat
+
+[Timer]
+OnBootSec=15s
+OnUnitActiveSec=15s
+AccuracySec=1s
+Unit=filantropia-odoo-replication-heartbeat.service
+
+[Install]
+WantedBy=timers.target

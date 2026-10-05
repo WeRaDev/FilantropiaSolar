@@ -1,0 +1,12 @@
+[Unit]
+Description=Run Filantropia Embassy observer every 15 minutes
+Requires=filantropia-embassy.service
+
+[Timer]
+OnBootSec=2min
+OnUnitActiveSec=15min
+AccuracySec=30s
+Unit=filantropia-embassy.service
+
+[Install]
+WantedBy=timers.target

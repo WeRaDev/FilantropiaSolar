@@ -1,0 +1,19 @@
+[Unit]
+Description=Filantropia Embassy Odoo failover observer
+Documentation=file:///opt/FilantropiaSolar/docs/adr/0007-odoo-availability-first-embassy.md
+After=docker.service network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+WorkingDirectory=/opt/FilantropiaSolar/nextcloud-app
+Environment=PYTHONPATH=/opt/FilantropiaSolar/nextcloud-app/infra
+EnvironmentFile=-/etc/filantropia-embassy/readiness.env
+EnvironmentFile=-/etc/filantropia-embassy/lease.env
+# Ship fail-closed. automatic_actions_enabled and request_takeover_on_outage
+# remain false until separately approved after isolated rehearsal.
+ExecStart=/usr/bin/python3 -m embassy.service --config /etc/filantropia-embassy/embassy.toml
+Nice=10
+
+[Install]
+WantedBy=multi-user.target

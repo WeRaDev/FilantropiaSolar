@@ -1,0 +1,11 @@
+[Unit]
+Description=Refresh the Odoo standby filestore mirror every five seconds
+
+[Timer]
+OnBootSec=10s
+OnUnitActiveSec=5s
+AccuracySec=1s
+Unit=filantropia-odoo-filestore-sync.service
+
+[Install]
+WantedBy=timers.target

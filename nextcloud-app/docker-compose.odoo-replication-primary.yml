@@ -1,0 +1,8 @@
+# Optional primary-side PostgreSQL tuning for physical replication.
+# Combine with docker-compose.yml + docker-compose.trl5.yml only after approval.
+name: nextcloud-app
+
+services:
+  odoo-db:
+    volumes:
+      - ./infra/postgres-replication/primary.conf:/etc/postgresql/conf.d/99-replication.conf:ro

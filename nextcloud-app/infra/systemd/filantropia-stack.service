@@ -17,8 +17,10 @@ Environment=COMPOSE_FILE=docker-compose.yml:docker-compose.trl5.yml
 # Re-run ensure on failure a few times (e.g. Docker not fully ready).
 Restart=on-failure
 RestartSec=15
+TimeoutStopSec=12min
+EnvironmentFile=-/etc/filantropia-embassy/readiness.env
 ExecStart=/bin/bash /opt/FilantropiaSolar/nextcloud-app/scripts/trl5-ensure-stack.sh
-ExecStop=/bin/bash -c 'cd /opt/FilantropiaSolar/nextcloud-app && COMPOSE_FILE=docker-compose.yml:docker-compose.trl5.yml docker compose --profile odoo stop odoo || true'
+ExecStop=/usr/bin/flock -x /run/lock/filantropia-odoo-control.lock /bin/bash -c 'cd /opt/FilantropiaSolar/nextcloud-app && COMPOSE_FILE=docker-compose.yml:docker-compose.trl5.yml docker compose --profile odoo stop odoo || true'
 
 [Install]
 WantedBy=multi-user.target

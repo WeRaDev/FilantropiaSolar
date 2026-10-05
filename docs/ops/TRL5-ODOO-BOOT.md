@@ -80,7 +80,11 @@ Promotion is a manual, explicitly approved operation:
    restore both components using the gated procedure in
    `docs/ops/TRL5-BACKUP.md`. Before replacing Frank's current volume, rule
    out prior unreconciled Frank-originated writes; if that cannot be proved,
-   stop and capture/reconcile them before the destructive restore.
+   stop and capture/reconcile them before the destructive restore. Preserve
+   Frank's coherent pre-restore database/filestore pair for rollback before
+   `pg_restore --clean`; retaining the old filestore tree alone is insufficient.
+   This is a one-time destructive-restore safeguard, not a routine off-host
+   backup requirement for an unwritten standby.
 3. Before starting Frank, verify its addon source matches the restored
    database (`19.0.2.35.0` for the current recovery set), verify offline
    Nextcloud settings and Odoo configuration, and validate the restored
@@ -103,3 +107,32 @@ The public TRL5 routes were verified after deployment on 2026-09-28:
 `/inicio`, `/projetos`, and `/contacto` each returned HTTP 200. This confirms
 the current site is healthy, not that Frank is a proven public origin or is
 ready for promotion.
+
+## Software lease fence and boot ordering (2026-10-05)
+
+TRL5 cannot be power-fenced. The repository cooperative software fence is:
+
+1. Cloudflare Durable Object lease authority + Worker public gate
+   (`nextcloud-app/infra/cloudflare-writer-gate/`).
+2. Host `lease_guard` renews the active epoch and self-fences local writers on
+   refusal/expiry (`nextcloud-app/infra/embassy/lease_guard.py`).
+3. `trl5-ensure-stack.sh` treats a persistent Odoo fence marker **or** lease-guard
+   `fenced: true` state as fenced, keeps `filantropia-odoo` stopped, and does
+   **not** start `filantropia-cloudflared` while fenced.
+
+### Boot gate
+
+```bash
+# Exit 0 only if neither local fence marker nor lease-guard fenced state is set.
+PYTHONPATH=/opt/FilantropiaSolar/nextcloud-app/infra \
+  python3 -m embassy.lease_guard startup-check
+```
+
+### Residual risk
+
+Software fencing is cooperative. A wedged host or a write path that bypasses the
+lease guard is not proven stopped. Automatic Embassy promotion stays disabled
+until isolated rehearsal covers every in-scope writer within the configured grace.
+Do not enable production `request_takeover_on_outage` or
+`automatic_actions_enabled` without separate approval.
+

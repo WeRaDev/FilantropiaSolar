@@ -10,4 +10,5 @@ Environment=FILANTROPIA_APP_ROOT=/opt/FilantropiaSolar/nextcloud-app
 Environment=FILANTROPIA_SECRETS_DIR=/opt/FilantropiaSolar/.secrets
 Environment=FILANTROPIA_CF_DIR=/home/wera-admin/cloudflared-nc
 Environment=COMPOSE_FILE=docker-compose.yml:docker-compose.trl5.yml
+EnvironmentFile=-/etc/filantropia-embassy/readiness.env
 ExecStart=/bin/bash /opt/FilantropiaSolar/nextcloud-app/scripts/trl5-ensure-stack.sh

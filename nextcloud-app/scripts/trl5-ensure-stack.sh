@@ -8,14 +8,32 @@ SECRETS_DIR="${FILANTROPIA_SECRETS_DIR:-/opt/FilantropiaSolar/.secrets}"
 CF_DIR="${FILANTROPIA_CF_DIR:-/home/wera-admin/cloudflared-nc}"
 COMPOSE_BIN="${DOCKER_COMPOSE_BIN:-docker}"
 LOG_TAG="trl5-ensure-stack"
+ODOO_FENCE_FILE="${FILANTROPIA_ODOO_FENCE_FILE:-/etc/filantropia-embassy/odoo-fenced.json}"
+ODOO_CONTROL_LOCK="${FILANTROPIA_ODOO_CONTROL_LOCK:-/run/lock/filantropia-odoo-control.lock}"
+LEASE_GUARD_STATE="${FILANTROPIA_LEASE_GUARD_STATE:-/etc/filantropia-embassy/lease-guard-state.json}"
 
 log() { printf '%s %s\n' "[$LOG_TAG]" "$*"; }
 die() { log "ERROR: $*"; exit 1; }
 
 [ -d "$APP_ROOT" ] || die "missing APP_ROOT=$APP_ROOT"
 cd "$APP_ROOT" || die "cd $APP_ROOT failed"
+command -v flock >/dev/null 2>&1 || die "flock is required for Odoo start/fence serialization"
+mkdir -p "$(dirname "$ODOO_CONTROL_LOCK")" || die "cannot create Odoo control lock directory"
+exec 9>"$ODOO_CONTROL_LOCK" || die "cannot open Odoo control lock"
+flock -x 9 || die "cannot acquire Odoo control lock"
 
 export COMPOSE_FILE="${COMPOSE_FILE:-docker-compose.yml:docker-compose.trl5.yml}"
+ODOO_FENCED=0
+if [ -e "$ODOO_FENCE_FILE" ] || [ -L "$ODOO_FENCE_FILE" ]; then
+  ODOO_FENCED=1
+  log "persistent Odoo fence is present at $ODOO_FENCE_FILE"
+fi
+if [ -f "$LEASE_GUARD_STATE" ]; then
+  if grep -q '"fenced": true' "$LEASE_GUARD_STATE" 2>/dev/null; then
+    ODOO_FENCED=1
+    log "lease guard reports fenced state at $LEASE_GUARD_STATE"
+  fi
+fi
 
 if [ -f "$SECRETS_DIR/filantropia_public_api_token" ]; then
   # shellcheck disable=SC2155
@@ -32,8 +50,24 @@ export FS_NC_PUBLIC_ORIGIN="${FS_NC_PUBLIC_ORIGIN:-https://wera-ss-pt-tv-1.wera.
 log "COMPOSE_FILE=$COMPOSE_FILE"
 
 # Core data plane used by Odoo/ML (legacy filantropia-nextcloud intentionally omitted).
-$COMPOSE_BIN compose --profile odoo up -d db redis ml-service odoo-db odoo \
-  || die "compose up odoo stack failed"
+if [ "$ODOO_FENCED" = "1" ]; then
+  $COMPOSE_BIN compose --profile odoo up -d db redis ml-service odoo-db \
+    || die "compose up supporting services failed while Odoo is fenced"
+  if docker ps -a --format '{{.Names}}' | grep -qx filantropia-odoo; then
+    docker update --restart=no filantropia-odoo >/dev/null 2>&1 \
+      || die "cannot disable Odoo restart policy while fenced"
+    if docker ps --format '{{.Names}}' | grep -qx filantropia-odoo; then
+      docker stop filantropia-odoo >/dev/null 2>&1 \
+        || die "cannot stop fenced Odoo container"
+    fi
+    ODOO_RUNNING="$(docker inspect filantropia-odoo --format '{{.State.Running}}' 2>/dev/null || true)"
+    [ "$ODOO_RUNNING" = "false" ] \
+      || die "Odoo did not remain stopped under the persistent fence"
+  fi
+else
+  $COMPOSE_BIN compose --profile odoo up -d db redis ml-service odoo-db odoo \
+    || die "compose up odoo stack failed"
+fi
 
 # Keep legacy NC stopped on TRL5 (AIO is SoT).
 if docker ps -a --format '{{.Names}}' | grep -qx filantropia-nextcloud; then
@@ -43,7 +77,14 @@ fi
 
 # Cloudflare tunnel sidecar (public website + NC hostnames).
 # TRL5 production uses network_mode: host + localhost origins (see infra/cloudflared).
-if [ -f "$CF_DIR/docker-compose.yml" ] && [ -f "$CF_DIR/config.yml" ] && [ -f "$CF_DIR/credentials.json" ]; then
+# A fenced/stale node must not start the public connector.
+if [ "$ODOO_FENCED" = "1" ]; then
+  if docker ps -a --format '{{.Names}}' | grep -qx filantropia-cloudflared; then
+    docker update --restart=no filantropia-cloudflared >/dev/null 2>&1 || true
+    docker stop filantropia-cloudflared >/dev/null 2>&1 || true
+    log "cloudflared kept stopped while Odoo is fenced"
+  fi
+elif [ -f "$CF_DIR/docker-compose.yml" ] && [ -f "$CF_DIR/config.yml" ] && [ -f "$CF_DIR/credentials.json" ]; then
   chmod 644 "$CF_DIR/config.yml" "$CF_DIR/credentials.json" 2>/dev/null || true
   $COMPOSE_BIN compose -f "$CF_DIR/docker-compose.yml" up -d \
     || log "WARN: cloudflared compose up failed"
@@ -70,7 +111,9 @@ ensure_net() {
 
 # Heal network membership (this is what broke Odoo after reboot: empty Networks).
 ensure_net filantropia-odoo-db nextcloud-app_filantropia-net
-ensure_net filantropia-odoo nextcloud-app_filantropia-net
+if [ "$ODOO_FENCED" != "1" ]; then
+  ensure_net filantropia-odoo nextcloud-app_filantropia-net
+fi
 ensure_net filantropia-ml nextcloud-app_filantropia-net
 ensure_net filantropia-db nextcloud-app_filantropia-net
 ensure_net filantropia-redis nextcloud-app_filantropia-net
@@ -82,6 +125,10 @@ fi
 # AIO apache also needs filantropia-net for Odoo→NC API from same overlay path when used.
 ensure_net nextcloud-aio-apache nextcloud-app_filantropia-net 2>/dev/null || true
 ensure_net nextcloud-aio-nextcloud nextcloud-app_filantropia-net 2>/dev/null || true
+if [ "$ODOO_FENCED" = "1" ]; then
+  log "Odoo and public connector remain stopped under the persistent fence"
+  exit 0
+fi
 
 # If Odoo is up but not publishing HTTP yet, wait briefly.
 for i in $(seq 1 40); do

@@ -1,0 +1,12 @@
+[Unit]
+Description=Run Filantropia Odoo lease guard every 15 seconds
+Requires=filantropia-lease-guard.service
+
+[Timer]
+OnBootSec=30s
+OnUnitActiveSec=15s
+AccuracySec=1s
+Unit=filantropia-lease-guard.service
+
+[Install]
+WantedBy=timers.target

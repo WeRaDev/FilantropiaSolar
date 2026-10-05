@@ -1,0 +1,10 @@
+# Optional standby-side markers for Frank. Odoo remains stopped.
+name: nextcloud-app
+
+services:
+  odoo-db:
+    environment:
+      FS_PG_ROLE: standby
+    # Standby data directory must already be seeded; this overlay does not wipe volumes.
+  odoo:
+    restart: "no"

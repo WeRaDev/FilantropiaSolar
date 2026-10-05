@@ -1,0 +1,37 @@
+# Isolated two-node lease/replication rehearsal.
+# Does not touch TRL5, Frank, or production Cloudflare routes.
+name: filantropia-failover-lab
+
+services:
+  lease-authority:
+    image: python:3.12-alpine
+    working_dir: /app
+    volumes:
+      - ../:/app:ro
+      - ./lease_authority_server.py:/app/lease_authority_server.py:ro
+    command: ["python", "/app/lease_authority_server.py"]
+    environment:
+      LEASE_API_TOKEN: lab-only-token
+      LEASE_TTL_SECONDS: "5"
+      LEASE_DRAIN_SECONDS: "1"
+      LEASE_GRACE_SECONDS: "1"
+    ports:
+      - "127.0.0.1:8787:8787"
+
+  primary-db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_PASSWORD: lab
+      POSTGRES_USER: odoo
+      POSTGRES_DB: postgres
+    ports:
+      - "127.0.0.1:55432:5432"
+
+  standby-db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_PASSWORD: lab
+      POSTGRES_USER: odoo
+      POSTGRES_DB: postgres
+    ports:
+      - "127.0.0.1:55433:5432"

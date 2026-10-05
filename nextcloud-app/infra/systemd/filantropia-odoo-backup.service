@@ -1,0 +1,19 @@
+[Unit]
+Description=Create and verify a Filantropia Odoo recovery set on Frank
+After=docker.service network-online.target
+Requires=docker.service
+Wants=network-online.target
+ConditionPathExists=/etc/filantropia-backup/id_ed25519
+ConditionPathExists=/etc/filantropia-backup/known_hosts
+ConditionPathExists=/etc/filantropia-embassy/readiness.env
+ConditionPathExists=!/etc/filantropia-embassy/odoo-fenced.json
+
+[Service]
+Type=oneshot
+User=root
+Group=root
+UMask=0077
+Nice=10
+TimeoutStartSec=90min
+EnvironmentFile=/etc/filantropia-embassy/readiness.env
+ExecStart=/usr/bin/python3 /usr/local/sbin/filantropia-odoo-backup-to-frank.py
