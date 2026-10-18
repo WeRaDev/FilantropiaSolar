@@ -133,10 +133,16 @@ only after lease expiry, drain, self-fence grace, standby validation, and
 filestore checks.
 
 Production defaults remain fail-closed (`automatic_actions_enabled = false`,
-`request_takeover_on_outage = false`). Do not deploy the Worker route, seed
-replication against live hosts, or enable automatic actions without separate
-approval and a successful isolated rehearsal. Residual risk: software fencing
-cannot stop a wedged host or a write path that bypasses the lease guard.
+`request_takeover_on_outage = false`). As of 2026-10-14 the Worker routes for
+`filantropiasolar.pt` / `www` are attached (Phase C); see
+`docs/ops/WRITER-GATE-PRODUCTION.md`. The 2026-10-17 Test C inject **failed**
+auto-promote (draining fencing proof); production was restored and failed back
+to TRL5 on 2026-10-18 — see
+`docs/ops/INCIDENT-2026-10-17-TEST-C-FAILOVER.md`. Do **not** enable automatic
+takeover without a successful retest after Worker/Embassy proof-refresh deploys.
+Residual risk: software fencing cannot stop a wedged host or a write path that
+bypasses the lease guard. Public HTTP requires an **active** lease; an expired
+lease yields 503 even when Odoo is healthy.
 
 ## Failback (manual single-writer gate)
 TRL5 remains the source of truth while online. When TRL5 returns, fence Frank

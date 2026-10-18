@@ -8,6 +8,7 @@ import logging
 import os
 from pathlib import Path
 import subprocess
+import time
 
 from embassy.filestore_promote import FilestorePromoteConfig, promote_filestore
 from embassy.lease_client import LeaseClientError, write_fencing_proof_file
@@ -30,6 +31,8 @@ class PromoteContext:
     database_container: str = "filantropia-odoo-db"
     database_name: str = "filantropia_public"
     odoo_container: str = "filantropia-odoo"
+    # Docker container name for the standby public origin connector (Frank).
+    origin_container: str | None = "filantropia-cloudflared"
     cloudflared_compose: Path | None = None
 
 
@@ -80,6 +83,24 @@ def start_odoo_writer(context: PromoteContext) -> None:
     _run(["docker", "start", context.odoo_container], label="Odoo start")
 
 
+def start_origin_connector(context: PromoteContext) -> None:
+    """Start the standby origin tunnel/connector after Odoo is up."""
+    if context.cloudflared_compose is not None:
+        compose = context.cloudflared_compose
+        _run(
+            ["docker", "compose", "-f", str(compose), "up", "-d"],
+            label="Origin compose up",
+        )
+        return
+    if not context.origin_container:
+        return
+    _run(
+        ["docker", "update", "--restart=unless-stopped", context.origin_container],
+        label="Origin connector restart policy enable",
+    )
+    _run(["docker", "start", context.origin_container], label="Origin connector start")
+
+
 def acquire_writer_epoch(client, context: PromoteContext):
     """Acquire the next lease epoch for the standby node."""
     decision = client.acquire(
@@ -121,6 +142,7 @@ def execute_promotion(
     lease = acquire_writer_epoch(client, context)
     if start_writer:
         start_odoo_writer(context)
+        start_origin_connector(context)
 
     result = {
         "promoted_at_utc": datetime.now(UTC).isoformat(),
@@ -128,9 +150,44 @@ def execute_promotion(
         "new_generation": context.new_generation,
         "epoch": lease.state.epoch,
         "phase": lease.phase.value,
+        "origin_started": bool(
+            start_writer
+            and (context.origin_container or context.cloudflared_compose is not None)
+        ),
     }
     _LOGGER.info("Promotion complete: %s", result)
     return result
+
+
+def refresh_fencing_proof_from_status(client, *, proof_path: Path):
+    """Pull the live lease fencing proof and persist it for Embassy policy."""
+    try:
+        decision = client.status()
+    except LeaseClientError as exc:
+        raise PromoteError(f"Lease status refresh failed: {exc}") from exc
+    if decision.fencing_proof:
+        write_fencing_proof_file(proof_path, decision.fencing_proof)
+    return decision
+
+
+def wait_for_acquirable_fencing_proof(
+    client,
+    *,
+    proof_path: Path,
+    timeout_seconds: float = 60.0,
+    poll_seconds: float = 2.0,
+):
+    """Poll lease status until the fencing proof is acquirable or time out."""
+    deadline = time.monotonic() + max(timeout_seconds, 1.0)
+    last = None
+    while True:
+        last = refresh_fencing_proof_from_status(client, proof_path=proof_path)
+        proof = last.fencing_proof or {}
+        if proof.get("acquirable") is True:
+            return last
+        if time.monotonic() >= deadline:
+            return last
+        time.sleep(max(poll_seconds, 0.2))
 
 
 def request_takeover_and_persist_proof(
@@ -140,6 +197,8 @@ def request_takeover_and_persist_proof(
     target_node_id: str,
     target_generation: str,
     proof_path: Path,
+    wait_for_acquirable: bool = True,
+    acquirable_timeout_seconds: float = 60.0,
 ):
     """Ask the lease authority to fence the old writer and publish proof."""
     try:
@@ -155,4 +214,11 @@ def request_takeover_and_persist_proof(
         raise PromoteError(f"Takeover refused: {decision.reason}")
     if decision.fencing_proof:
         write_fencing_proof_file(proof_path, decision.fencing_proof)
+    proof = decision.fencing_proof or {}
+    if wait_for_acquirable and proof.get("acquirable") is not True:
+        decision = wait_for_acquirable_fencing_proof(
+            client,
+            proof_path=proof_path,
+            timeout_seconds=acquirable_timeout_seconds,
+        )
     return decision

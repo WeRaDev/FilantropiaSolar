@@ -47,6 +47,14 @@ class LeaseClientProtocol(Protocol):
         readiness_ok: bool,
     ) -> LeaseDecision: ...
 
+    def acquire(
+        self,
+        *,
+        node_id: str,
+        generation: str,
+        previous_epoch: int,
+    ) -> LeaseDecision: ...
+
 
 def _identity() -> tuple[str, str]:
     node_id = os.environ.get("FS_EMBASSY_NODE_ID", "").strip()
@@ -113,9 +121,16 @@ def local_readiness_ok() -> bool:
             "/etc/filantropia-embassy/odoo-fenced.json",
         )
     )
-    if marker.exists() or marker.is_symlink():
+    if marker.is_symlink():
         return False
-    return True
+    if not marker.exists():
+        return True
+    try:
+        payload = json.loads(marker.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return False
+    # Only a fenced marker blocks renew; unfenced/operator markers may remain.
+    return not (isinstance(payload, dict) and payload.get("state") == "fenced")
 
 
 def should_self_fence(
@@ -180,6 +195,23 @@ def run_once(
                 epoch=status.state.epoch,
                 generation=generation,
                 readiness_ok=local_readiness_ok(),
+            )
+            local_state["highest_epoch_seen"] = max(
+                int(local_state["highest_epoch_seen"]),
+                decision.state.epoch,
+            )
+        elif (
+            status.phase == LeasePhase.ACQUIRABLE
+            and status.state.owner_node_id == node_id
+            and status.state.generation == generation
+            and status.state.epoch is not None
+        ):
+            # Expired self-lease: reclaim before fencing so a brief TTL miss does
+            # not permanently stop the only writer.
+            decision = client.acquire(
+                node_id=node_id,
+                generation=generation,
+                previous_epoch=int(status.state.epoch),
             )
             local_state["highest_epoch_seen"] = max(
                 int(local_state["highest_epoch_seen"]),

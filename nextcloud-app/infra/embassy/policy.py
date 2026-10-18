@@ -153,6 +153,16 @@ def _valid_fence(
     return True
 
 
+def fencing_evidence_is_valid(
+    evidence: FencingEvidence | None,
+    *,
+    policy: EmbassyPolicy,
+    now: datetime,
+) -> bool:
+    """Public wrapper used by the observer when refreshing lease proofs."""
+    return _valid_fence(evidence, policy=policy, now=now)
+
+
 def _standby_blockers(
     standby: StandbyObservation,
     *,

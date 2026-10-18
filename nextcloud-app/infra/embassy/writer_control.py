@@ -49,11 +49,10 @@ def _identity() -> tuple[str, str]:
     generation = os.environ.get("FS_WRITER_GENERATION", "").strip()
     if (
         not _NODE_ID_PATTERN.fullmatch(node_id)
-        or node_id != "trl5"
         or not _NODE_ID_PATTERN.fullmatch(generation)
         or "REPLACE_WITH" in generation
     ):
-        raise WriterControlError("TRL5 writer identity is missing or invalid")
+        raise WriterControlError("Writer identity is missing or invalid")
     return node_id, generation
 
 

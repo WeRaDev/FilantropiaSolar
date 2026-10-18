@@ -137,8 +137,12 @@ def _public_routes_ready(
     results = [
         probe_public_route(url, timeout_seconds=timeout_seconds) for url in route_urls
     ]
+    # Public edges may 303/302 before HTML; treat 2xx/3xx as healthy transport.
     return all(
-        result.reachable and result.status_code == _HTTP_SUCCESS for result in results
+        result.reachable
+        and result.status_code is not None
+        and 200 <= result.status_code < 400
+        for result in results
     )
 
 
@@ -282,6 +286,58 @@ def _load_config(path: Path) -> dict[str, object]:
 
 
 
+def _lease_client_from_fencing(
+    fencing_config: dict[str, object],
+) -> tuple[object, Path] | tuple[None, None]:
+    """Build a lease client + proof path when fencing is configured for software lease."""
+    base_url = fencing_config.get("lease_authority_url")
+    token_env = fencing_config.get("lease_token_env", "FS_LEASE_AUTHORITY_TOKEN")
+    proof_file = fencing_config.get("proof_file")
+    if not isinstance(base_url, str) or not base_url:
+        return None, None
+    if not isinstance(token_env, str) or not isinstance(proof_file, str) or not proof_file:
+        return None, None
+    from embassy.lease_client import HttpLeaseClient, LeaseClientConfig
+
+    token = os.environ.get(token_env, "")
+    client = HttpLeaseClient(
+        LeaseClientConfig(base_url=base_url, token=token, timeout_seconds=5.0)
+    )
+    return client, Path(proof_file)
+
+
+def _maybe_refresh_fencing_proof(
+    fencing_config: dict[str, object],
+    *,
+    fence: FencingEvidence | None,
+    policy: EmbassyPolicy,
+    now: datetime,
+) -> tuple[FencingEvidence | None, dict[str, object] | None]:
+    """Refresh stale/draining local proofs from the live lease authority."""
+    from embassy.policy import fencing_evidence_is_valid
+
+    if fencing_evidence_is_valid(fence, policy=policy, now=now):
+        return fence, None
+    client, proof_path = _lease_client_from_fencing(fencing_config)
+    if client is None or proof_path is None:
+        return fence, None
+    try:
+        from embassy.promote import refresh_fencing_proof_from_status
+
+        decision = refresh_fencing_proof_from_status(client, proof_path=proof_path)
+        refreshed = _fencing_evidence(decision.fencing_proof)
+        return refreshed, {
+            "status": "fencing_proof_refreshed",
+            "phase": decision.phase.value,
+            "acquirable": bool((decision.fencing_proof or {}).get("acquirable")),
+            "reason": decision.reason,
+        }
+    except Exception as exc:  # noqa: BLE001 - observer must stay fail-closed
+        del exc
+        _LOGGER.exception("Lease fencing proof refresh failed")
+        return fence, {"status": "fencing_proof_refresh_failed"}
+
+
 def _maybe_request_lease_takeover(
     fencing_config: dict[str, object],
     *,
@@ -316,6 +372,8 @@ def _maybe_request_lease_takeover(
             target_node_id=primary_id,
             target_generation=primary_generation,
             proof_path=Path(proof_file),
+            wait_for_acquirable=True,
+            acquirable_timeout_seconds=60.0,
         )
         return {
             "status": "takeover_requested",
@@ -327,6 +385,96 @@ def _maybe_request_lease_takeover(
         del exc
         _LOGGER.exception("Lease takeover request failed")
         return {"status": "takeover_failed", "reason": "lease_takeover_exception"}
+
+
+def _maybe_execute_promotion(
+    fencing_config: dict[str, object],
+    standby_config: dict[str, object],
+    *,
+    decision_state: str,
+    fence: FencingEvidence | None,
+    primary_generation: str,
+) -> dict[str, object]:
+    """Run ordered promote when authorized and execute_promotion is true."""
+    del primary_generation  # reserved for lineage checks / generation policies
+    if fencing_config.get("execute_promotion", False) is not True:
+        return {
+            "status": "promotion_authorized_awaiting_executor",
+            "note": "execute_promotion is false; authorization only",
+        }
+    base_url = fencing_config.get("lease_authority_url")
+    token_env = fencing_config.get("lease_token_env", "FS_LEASE_AUTHORITY_TOKEN")
+    requester = fencing_config.get("standby_node_id", "frank")
+    proof_file = fencing_config.get("proof_file")
+    if not isinstance(base_url, str) or not base_url:
+        return {"status": "promotion_failed", "reason": "missing_lease_url"}
+    if not isinstance(token_env, str) or not isinstance(requester, str):
+        return {"status": "promotion_failed", "reason": "invalid_lease_settings"}
+    if not isinstance(proof_file, str) or not proof_file:
+        return {"status": "promotion_failed", "reason": "missing_proof_file"}
+
+    standby_generation = fencing_config.get("standby_writer_generation")
+    if not isinstance(standby_generation, str) or not standby_generation.strip():
+        standby_generation = os.environ.get("FS_WRITER_GENERATION", "").strip()
+    if not standby_generation:
+        return {
+            "status": "promotion_failed",
+            "reason": "missing_standby_writer_generation",
+        }
+
+    previous_epoch = fence.previous_epoch if fence is not None else None
+    database_container = standby_config.get("database_container", "filantropia-odoo-db")
+    database_name = standby_config.get("database_name", "filantropia_public")
+    odoo_container = standby_config.get("odoo_container", "filantropia-odoo")
+    origin_container = fencing_config.get("origin_container", "filantropia-cloudflared")
+    if origin_container is not None and not isinstance(origin_container, str):
+        return {"status": "promotion_failed", "reason": "invalid_origin_container"}
+    if not isinstance(database_container, str) or not isinstance(database_name, str):
+        return {"status": "promotion_failed", "reason": "invalid_database_settings"}
+    if not isinstance(odoo_container, str):
+        return {"status": "promotion_failed", "reason": "invalid_odoo_container"}
+
+    try:
+        from embassy.lease_client import HttpLeaseClient, LeaseClientConfig
+        from embassy.promote import PromoteContext, PromoteError, execute_promotion
+
+        token = os.environ.get(token_env, "")
+        client = HttpLeaseClient(
+            LeaseClientConfig(base_url=base_url, token=token, timeout_seconds=5.0)
+        )
+        if previous_epoch is None:
+            status = client.status()
+            previous_epoch = status.state.previous_epoch
+            if previous_epoch is None and status.state.epoch is not None:
+                # Takeover-pending lineage stores the fenced owner's epoch as previous.
+                previous_epoch = status.state.previous_epoch or status.state.epoch
+        if previous_epoch is None:
+            return {"status": "promotion_failed", "reason": "missing_previous_epoch"}
+
+        context = PromoteContext(
+            standby_node_id=requester,
+            new_generation=standby_generation,
+            previous_epoch=int(previous_epoch),
+            database_container=database_container,
+            database_name=database_name,
+            odoo_container=odoo_container,
+            origin_container=origin_container if origin_container else None,
+        )
+        result = execute_promotion(
+            decision_state=decision_state,
+            client=client,
+            context=context,
+            fencing_proof_path=Path(proof_file),
+            start_writer=True,
+        )
+        return {"status": "promotion_executed", **result}
+    except PromoteError as exc:
+        _LOGGER.error("Promotion refused or failed: %s", exc)
+        return {"status": "promotion_failed", "reason": str(exc)[:200]}
+    except Exception as exc:  # noqa: BLE001 - observer must stay fail-closed
+        del exc
+        _LOGGER.exception("Promotion executor failed")
+        return {"status": "promotion_failed", "reason": "promotion_exception"}
 
 
 def run_once(config_path: Path, *, require_encrypted_mount: bool = True) -> str:
@@ -450,6 +598,13 @@ def run_once(config_path: Path, *, require_encrypted_mount: bool = True) -> str:
         fence = _fencing_evidence(
             _read_status(_configured_path(fencing_config, "proof_file"))
         )
+        # Stale draining/expired proofs must not permanently block promotion.
+        fence, refresh_result = _maybe_refresh_fencing_proof(
+            fencing_config,
+            fence=fence,
+            policy=policy,
+            now=now,
+        )
         decision = evaluate(
             policy=policy,
             primary=primary,
@@ -458,7 +613,7 @@ def run_once(config_path: Path, *, require_encrypted_mount: bool = True) -> str:
             previous_failure_cycles=int(previous["consecutive_primary_failures"]),
             fencing_evidence=fence,
         )
-        action_result = None
+        action_result = refresh_result
         if decision.proposed_action == "request_lease_takeover":
             action_result = _maybe_request_lease_takeover(
                 fencing_config,
@@ -475,18 +630,38 @@ def run_once(config_path: Path, *, require_encrypted_mount: bool = True) -> str:
                     previous_failure_cycles=decision.consecutive_primary_failures,
                     fencing_evidence=fence,
                 )
-        if (
-            decision.state.value == "promotion_authorized"
-            and policy.actions_enabled
-            and fencing_config.get("execute_promotion", False) is True
+        elif (
+            decision.state.value == "blocked_unfenced"
+            and fence is not None
+            and not (fence.acquirable if fence is not None else False)
         ):
-            action_result = {
-                "status": "promotion_authorized_awaiting_executor",
-                "note": (
-                    "Automatic executor remains opt-in via promote.execute_promotion; "
-                    "service records authorization only unless explicitly wired."
-                ),
-            }
+            # Local proof still draining: refresh again so the next cycle can promote
+            # once the authority marks the lease acquirable.
+            fence, refresh_result = _maybe_refresh_fencing_proof(
+                fencing_config,
+                fence=None,
+                policy=policy,
+                now=datetime.now(UTC),
+            )
+            if refresh_result is not None:
+                action_result = refresh_result
+            if fence is not None:
+                decision = evaluate(
+                    policy=policy,
+                    primary=primary,
+                    standby=standby,
+                    now=datetime.now(UTC),
+                    previous_failure_cycles=decision.consecutive_primary_failures,
+                    fencing_evidence=fence,
+                )
+        if decision.state.value == "promotion_authorized" and policy.actions_enabled:
+            action_result = _maybe_execute_promotion(
+                fencing_config,
+                standby_config,
+                decision_state=decision.state.value,
+                fence=fence,
+                primary_generation=primary_generation,
+            )
         event = {
             "observed_at_utc": now.isoformat(),
             "state": decision.state.value,

@@ -13,56 +13,63 @@ const DEFAULT_GRACE_SECONDS = 15;
 const SOURCE_NAME = "cloudflare-durable-object-lease";
 
 export class WriterLeaseObject {
-  constructor(state, env) {
-    this.state = state;
+  constructor(ctx, env) {
+    // Cloudflare DO runtime passes DurableObjectState as the first argument
+    // (docs name it `ctx`; older samples used `state`).
+    this.ctx = ctx;
     this.env = env;
   }
 
   async fetch(request) {
-    const url = new URL(request.url);
-    const now = new Date();
-    let body = {};
-    if (request.method !== "GET" && request.method !== "HEAD") {
-      try {
-        body = await request.json();
-      } catch {
-        return json({ ok: false, reason: "invalid_json" }, 400);
+    try {
+      const url = new URL(request.url);
+      const now = new Date();
+      let body = {};
+      if (request.method !== "GET" && request.method !== "HEAD") {
+        try {
+          body = await request.json();
+        } catch {
+          return json({ ok: false, reason: "invalid_json" }, 400);
+        }
       }
-    }
 
-    const current = await this.loadState();
-    let decision;
-    switch (`${request.method} ${url.pathname}`) {
-      case "GET /lease/status":
-        decision = status(current, now, policyFromEnv(this.env));
-        break;
-      case "POST /lease/bootstrap":
-        decision = bootstrapOwner(current, body, now, policyFromEnv(this.env));
-        break;
-      case "POST /lease/renew":
-        decision = renewLease(current, body, now, policyFromEnv(this.env));
-        break;
-      case "POST /lease/request-takeover":
-        decision = requestTakeover(current, body, now, policyFromEnv(this.env));
-        break;
-      case "POST /lease/acquire":
-        decision = acquireLease(current, body, now, policyFromEnv(this.env));
-        break;
-      case "POST /lease/permit":
-        decision = requestPermit(current, body, now);
-        break;
-      default:
-        return json({ ok: false, reason: "not_found" }, 404);
-    }
+      const current = await this.loadState();
+      let decision;
+      switch (`${request.method} ${url.pathname}`) {
+        case "GET /lease/status":
+          decision = status(current, now, policyFromEnv(this.env));
+          break;
+        case "POST /lease/bootstrap":
+          decision = bootstrapOwner(current, body, now, policyFromEnv(this.env));
+          break;
+        case "POST /lease/renew":
+          decision = renewLease(current, body, now, policyFromEnv(this.env));
+          break;
+        case "POST /lease/request-takeover":
+          decision = requestTakeover(current, body, now, policyFromEnv(this.env));
+          break;
+        case "POST /lease/acquire":
+          decision = acquireLease(current, body, now, policyFromEnv(this.env));
+          break;
+        case "POST /lease/permit":
+          decision = requestPermit(current, body, now);
+          break;
+        default:
+          return json({ ok: false, reason: "not_found" }, 404);
+      }
 
-if (decision.persist) {
-      await this.state.storage.put("lease", decision.response.state);
+      if (decision.persist) {
+        await this.ctx.storage.put("lease", decision.response.state);
+      }
+      return json(decision.response, decision.ok ? 200 : 409);
+    } catch (err) {
+      const message = err && err.message ? String(err.message) : "do_handler_exception";
+      return json({ ok: false, reason: "do_exception", message }, 500);
     }
-    return json(decision.response, decision.ok ? 200 : 409);
   }
 
   async loadState() {
-    const stored = await this.state.storage.get("lease");
+    const stored = await this.ctx.storage.get("lease");
     if (!stored || stored.schema_version !== SCHEMA_VERSION) {
       return emptyState();
     }
@@ -74,17 +81,34 @@ export default {
   async fetch(request, env) {
     const url = new URL(request.url);
     if (url.pathname.startsWith("/lease/")) {
-      if (!authorized(request, env.LEASE_API_TOKEN)) {
-        return json({ ok: false, reason: "unauthorized" }, 401);
+      try {
+        if (!authorized(request, env.LEASE_API_TOKEN)) {
+          return json({ ok: false, reason: "unauthorized" }, 401);
+        }
+        if (!env.WRITER_LEASE) {
+          return json({ ok: false, reason: "do_binding_missing" }, 500);
+        }
+        const id = env.WRITER_LEASE.idFromName("filantropia-odoo-writer");
+        const stub = env.WRITER_LEASE.get(id);
+        return await stub.fetch(request);
+      } catch (err) {
+        const message = err && err.message ? String(err.message) : "lease_route_exception";
+        return json({ ok: false, reason: "lease_route_exception", message }, 500);
       }
-      const id = env.WRITER_LEASE.idFromName("filantropia-odoo-writer");
-      const stub = env.WRITER_LEASE.get(id);
-      return stub.fetch(request);
     }
 
     // Public website gate: only proxy when the current epoch owns the origin.
+    // WebSocket upgrades are not supported through this Worker proxy; Odoo bus
+    // /live features that require Upgrade must stay off this path or use a
+    // dedicated non-Worker route until WS support is added (Phase C note).
+    if (isWebSocketUpgrade(request)) {
+      return new Response("websocket not supported on writer gate", { status: 501 });
+    }
     if (!env.ORIGIN_TRL5_URL || !env.ORIGIN_FRANK_URL) {
       return new Response("writer gate misconfigured", { status: 503 });
+    }
+    if (!env.LEASE_API_TOKEN) {
+      return new Response("lease authority misconfigured", { status: 503 });
     }
     const id = env.WRITER_LEASE.idFromName("filantropia-odoo-writer");
     const stub = env.WRITER_LEASE.get(id);
@@ -126,11 +150,19 @@ export default {
       }),
     });
     const permitResponse = await stub.fetch(permitRequest);
-    const permit = await permitResponse.json();
+    let permit;
+    try {
+      permit = await permitResponse.json();
+    } catch {
+      return new Response("writer permit unavailable", { status: 503 });
+    }
     if (!permit.ok || !permit.request_permit) {
       return new Response("writer permit denied", { status: 503 });
     }
 
+    // Residual race: lease may expire between permit and upstream fetch. Host
+    // lease_guard is the hard stop; worst case is a short-lived request to an
+    // origin about to lose the epoch.
     const upstream = new URL(request.url);
     const target = new URL(origin);
     upstream.protocol = target.protocol;
@@ -142,23 +174,60 @@ export default {
     if (env.ORIGIN_SHARED_SECRET) {
       headers.set("X-Filantropia-Origin-Auth", env.ORIGIN_SHARED_SECRET);
     }
-    return fetch(
-      new Request(upstream.toString(), {
-        method: request.method,
-        headers,
-        body: request.method === "GET" || request.method === "HEAD" ? undefined : request.body,
-        redirect: "manual",
-      }),
-    );
+    const timeoutMs = numberOr(env.ORIGIN_FETCH_TIMEOUT_MS, 10000);
+    try {
+      return await fetch(
+        new Request(upstream.toString(), {
+          method: request.method,
+          headers,
+          body:
+            request.method === "GET" || request.method === "HEAD"
+              ? undefined
+              : request.body,
+          redirect: "manual",
+          signal: AbortSignal.timeout(timeoutMs),
+        }),
+      );
+    } catch {
+      return new Response("origin unreachable", { status: 503 });
+    }
   },
 };
+
+function isWebSocketUpgrade(request) {
+  const upgrade = (request.headers.get("Upgrade") || "").toLowerCase();
+  return upgrade === "websocket";
+}
+
+/**
+ * Compare bearer tokens without short-circuiting on the first differing byte.
+ * Length mismatches still scan the longer buffer so timing does not leak
+ * prefix equality.
+ */
+function tokensEqualConstantTime(a, b) {
+  const enc = new TextEncoder();
+  const left = enc.encode(String(a));
+  const right = enc.encode(String(b));
+  const len = Math.max(left.length, right.length);
+  let diff = left.length === right.length ? 0 : 1;
+  for (let i = 0; i < len; i += 1) {
+    const x = i < left.length ? left[i] : 0;
+    const y = i < right.length ? right[i] : 0;
+    diff |= x ^ y;
+  }
+  return diff === 0;
+}
 
 function authorized(request, token) {
   if (!token) {
     return false;
   }
   const header = request.headers.get("Authorization") || "";
-  return header === `Bearer ${token}`;
+  const prefix = "Bearer ";
+  if (header.length < prefix.length || header.slice(0, prefix.length) !== prefix) {
+    return false;
+  }
+  return tokensEqualConstantTime(header.slice(prefix.length), token);
 }
 
 function policyFromEnv(env) {
@@ -327,9 +396,9 @@ function acquireLease(state, body, now, policy) {
     if (state.previous_epoch !== previousEpoch) {
       return fail(state, now, "previous_epoch_mismatch");
     }
-    if (nodeId === state.previous_owner_node_id) {
-      return fail(state, now, "previous_owner_cannot_reacquire_during_takeover");
-    }
+    // readyToAcquire() already enforces drain + lease expiry + self-fence grace.
+    // After that window, either standby or the previous owner may acquire so an
+    // aborted takeover cannot leave public traffic on 503 forever.
   } else if (state.owner_node_id && state.epoch !== previousEpoch) {
     return fail(state, now, "previous_epoch_mismatch");
   }
@@ -391,14 +460,12 @@ function fencingProof(state, now, policy) {
   if (!state.previous_owner_node_id || !state.previous_generation || !state.proof_id) {
     return null;
   }
-  const expires = state.self_fence_grace_until
-    ? new Date(state.self_fence_grace_until)
-    : state.lease_expires_at
-      ? new Date(state.lease_expires_at)
-      : now;
-  const verified = state.takeover_requested_at
-    ? new Date(state.takeover_requested_at)
-    : now;
+  // Keep proof freshness tied to the observation time while takeover remains
+  // pending/acquirable. A fixed takeover-time expiry left standbys permanently
+  // blocked_unfenced after the short grace+TTL window even though the lease
+  // authority still allowed acquire.
+  const verified = now;
+  const expires = addSeconds(now, Math.max(policy.lease_ttl_seconds, 60));
   return {
     schema_version: 1,
     target_node_id: state.previous_owner_node_id,
@@ -406,7 +473,7 @@ function fencingProof(state, now, policy) {
     source: policy.source_name,
     proof_id: state.proof_id,
     verified_at_utc: iso(verified),
-    expires_at_utc: iso(addSeconds(expires, policy.lease_ttl_seconds)),
+    expires_at_utc: iso(expires),
     previous_epoch: state.previous_epoch,
     phase: phaseOf(state, now),
     acquirable: readyToAcquire(state, now),
