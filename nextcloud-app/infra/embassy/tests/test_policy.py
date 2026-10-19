@@ -177,12 +177,16 @@ class EmbassyPolicyTests(unittest.TestCase):
                 self.assertEqual(decision.state, DecisionState.BLOCKED_UNFENCED)
                 self.assertIsNone(decision.proposed_action)
 
-    def test_stale_replication_or_missing_attachment_blocks_promotion(self):
+    def test_stale_standby_local_evidence_still_blocks_after_valid_fence(self):
+        # Primary-originated heartbeat age freezes after outage and is waived once
+        # the lease fence is valid and WAL lag is 0. Standby-local freshness and
+        # attachment integrity remain hard gates.
         decision = evaluate(
             policy=_policy(actions_enabled=True),
             primary=_down_primary(),
             standby=_ready_standby(
                 replication_heartbeat_age_seconds=61.0,
+                filestore_generation_age_seconds=120.0,
                 all_attachments_verified=False,
                 status_age_seconds=61.0,
                 attachment_verification_age_seconds=61.0,
@@ -193,7 +197,8 @@ class EmbassyPolicyTests(unittest.TestCase):
         )
 
         self.assertEqual(decision.state, DecisionState.BLOCKED_STANDBY)
-        self.assertIn("replication_heartbeat_stale_or_unknown", decision.reasons)
+        self.assertNotIn("replication_heartbeat_stale_or_unknown", decision.reasons)
+        self.assertNotIn("filestore_generation_stale_or_unknown", decision.reasons)
         self.assertIn("standby_status_stale_or_unknown", decision.reasons)
         self.assertIn("attachment_integrity_unverified", decision.reasons)
         self.assertIn(
@@ -202,16 +207,50 @@ class EmbassyPolicyTests(unittest.TestCase):
         )
         self.assertIsNone(decision.proposed_action)
 
-    def test_heartbeat_age_reserves_one_refresh_interval_inside_the_rpo_budget(self):
-        allowed = evaluate(
+    def test_valid_fence_waives_frozen_primary_source_ages_when_lag_is_zero(self):
+        decision = evaluate(
             policy=_policy(actions_enabled=True),
             primary=_down_primary(),
-            standby=_ready_standby(replication_heartbeat_age_seconds=45.0),
+            standby=_ready_standby(
+                replication_heartbeat_age_seconds=900.0,
+                filestore_generation_age_seconds=900.0,
+                replication_lag_bytes=0,
+            ),
             now=NOW,
             previous_failure_cycles=1,
             fencing_evidence=_fence(),
         )
-        blocked = evaluate(
+
+        self.assertEqual(decision.state, DecisionState.PROMOTION_AUTHORIZED)
+        self.assertEqual(decision.proposed_action, "promote")
+
+    def test_stale_primary_source_ages_still_block_when_wal_lag_nonzero(self):
+        decision = evaluate(
+            policy=_policy(actions_enabled=True),
+            primary=_down_primary(),
+            standby=_ready_standby(
+                replication_heartbeat_age_seconds=900.0,
+                filestore_generation_age_seconds=900.0,
+                replication_lag_bytes=1,
+            ),
+            now=NOW,
+            previous_failure_cycles=1,
+            fencing_evidence=_fence(),
+        )
+
+        self.assertEqual(decision.state, DecisionState.BLOCKED_STANDBY)
+        self.assertIn(
+            "replication_wal_apply_lag_nonzero_or_unknown",
+            decision.reasons,
+        )
+        self.assertIn("replication_heartbeat_stale_or_unknown", decision.reasons)
+        self.assertIn("filestore_generation_stale_or_unknown", decision.reasons)
+
+    def test_heartbeat_age_budget_applies_only_before_valid_lease_fence(self):
+        # Without a valid fence the outage path never reaches standby blockers;
+        # with a fence and lag=0 the primary heartbeat age is waived. The RPO
+        # heartbeat budget is therefore enforced only while lag is nonzero.
+        authorized = evaluate(
             policy=_policy(actions_enabled=True),
             primary=_down_primary(),
             standby=_ready_standby(replication_heartbeat_age_seconds=46.0),
@@ -219,12 +258,23 @@ class EmbassyPolicyTests(unittest.TestCase):
             previous_failure_cycles=1,
             fencing_evidence=_fence(),
         )
+        blocked_with_lag = evaluate(
+            policy=_policy(actions_enabled=True),
+            primary=_down_primary(),
+            standby=_ready_standby(
+                replication_heartbeat_age_seconds=46.0,
+                replication_lag_bytes=1,
+            ),
+            now=NOW,
+            previous_failure_cycles=1,
+            fencing_evidence=_fence(),
+        )
 
-        self.assertEqual(allowed.state, DecisionState.PROMOTION_AUTHORIZED)
-        self.assertEqual(blocked.state, DecisionState.BLOCKED_STANDBY)
+        self.assertEqual(authorized.state, DecisionState.PROMOTION_AUTHORIZED)
+        self.assertEqual(blocked_with_lag.state, DecisionState.BLOCKED_STANDBY)
         self.assertIn(
             "replication_heartbeat_stale_or_unknown",
-            blocked.reasons,
+            blocked_with_lag.reasons,
         )
 
     def test_unknown_or_unapplied_received_wal_blocks_promotion(self):

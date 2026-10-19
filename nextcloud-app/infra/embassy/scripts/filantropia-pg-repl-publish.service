@@ -1,0 +1,13 @@
+[Unit]
+Description=Publish Filantropia Odoo Postgres on Tailscale for standby replication
+After=docker.service network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+Restart=always
+RestartSec=2
+ExecStart=/usr/local/sbin/filantropia-pg-repl-publish.sh
+
+[Install]
+WantedBy=multi-user.target

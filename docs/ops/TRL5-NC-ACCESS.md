@@ -117,6 +117,41 @@ sudo systemctl restart protonmail-smtp-docker-proxy.service
 
 Full procedure and failure matrix: SolarSeed-v3 `ops/RUNBOOK.md` → **TRL5 outbound email**.
 
+## notify_push public endpoint (TRL5)
+
+The public Nextcloud origin is `https://wera-ss-pt-tv-1.wera.global`; its push WebSocket is `wss://wera-ss-pt-tv-1.wera.global/push/ws`. Cloudflared already routes that hostname to AIO Apache on `127.0.0.1:11000`, which proxies `/push`; do not publish notify_push port `7867` or add a separate tunnel route.
+
+AIO sets `notify_push.base_endpoint` from its Tailscale `NC_DOMAIN` whenever the Nextcloud container starts. Keep that canonical domain unchanged; the host-side `filantropia-notify-push-endpoint.timer` reapplies the public endpoint after the AIO Nextcloud container is healthy. It checks every 30 seconds, but runs `occ` only after detecting a new container start time.
+
+Install the helper at `/opt/FilantropiaSolar/nextcloud-app/scripts/trl5-ensure-notify-push-endpoint.sh`, then install and enable the units:
+
+```bash
+sudo install -m 0644 nextcloud-app/infra/systemd/filantropia-notify-push-endpoint.service /etc/systemd/system/
+sudo install -m 0644 nextcloud-app/infra/systemd/filantropia-notify-push-endpoint.timer /etc/systemd/system/
+sudo systemctl daemon-reload
+sudo systemctl enable --now filantropia-notify-push-endpoint.timer
+sudo systemctl start filantropia-notify-push-endpoint.service
+```
+
+Check the endpoint and reconciler:
+
+```bash
+docker exec -u 33 nextcloud-aio-nextcloud php occ config:app:get notify_push base_endpoint
+systemctl is-active filantropia-notify-push-endpoint.timer
+systemctl list-timers --all filantropia-notify-push-endpoint.timer --no-pager
+systemctl show filantropia-notify-push-endpoint.service -p Result -p ExecMainStatus
+journalctl -u filantropia-notify-push-endpoint.service -n 30 --no-pager
+```
+
+`occ notify_push:self-test` also checks proxy headers. During initial endpoint validation, Redis delivery, mount-info lookup, and push-server-to-Nextcloud connectivity passed, while the command exited `2` on its X-Forwarded-For/proxy-chain diagnostic (`172.18.0.6` may strip that header). This is separate from the advertised push endpoint; do not change trusted proxies as part of this fix.
+
+Rollback the host override and restore AIO's previous endpoint:
+
+```bash
+sudo systemctl disable --now filantropia-notify-push-endpoint.timer
+docker exec -u 33 nextcloud-aio-nextcloud php occ config:app:set notify_push base_endpoint --value='https://wera-ss-pt-tv-1.tailfb390c.ts.net/push'
+```
+
 ## AIO upgrades
 
 After AIO updates Nextcloud container, re-check:

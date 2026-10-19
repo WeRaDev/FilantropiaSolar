@@ -1,0 +1,7 @@
+services:
+  odoo:
+    env_file:
+      - /etc/filantropia-embassy/readiness.env
+    environment:
+      FS_EMBASSY_NODE_ID: trl5
+      FS_WRITER_GENERATION: "writer-epoch-20261012-trl5-primary"

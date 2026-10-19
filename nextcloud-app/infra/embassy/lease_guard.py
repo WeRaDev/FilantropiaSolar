@@ -269,6 +269,218 @@ def startup_allowed(*, state_path: Path = _DEFAULT_STATE) -> bool:
     return not (fence_file.exists() or fence_file.is_symlink())
 
 
+def _fence_marker_path() -> Path:
+    return Path(
+        os.environ.get(
+            "FILANTROPIA_ODOO_FENCE_FILE",
+            "/etc/filantropia-embassy/odoo-fenced.json",
+        )
+    )
+
+
+def clear_local_writer_fence_marker(*, fence_file: Path | None = None) -> None:
+    """Remove sticky Odoo fence marker so the new writer can renew."""
+    path = fence_file if fence_file is not None else _fence_marker_path()
+    if path.is_symlink():
+        raise LeaseGuardError("Odoo fence marker must not be a symlink")
+    if not path.exists():
+        return
+    try:
+        path.unlink()
+    except OSError as exc:
+        raise LeaseGuardError("Could not clear Odoo fence marker") from exc
+
+
+def write_active_guard_state(
+    *,
+    state_path: Path = _DEFAULT_STATE,
+    epoch: int,
+    lease_expires_at: datetime | None,
+    highest_epoch_seen: int | None = None,
+    arm_reason: str = "post_promote_arm",
+) -> dict[str, Any]:
+    """Persist unfenced lease-guard state for the newly acquired writer epoch."""
+    if epoch < 1:
+        raise LeaseGuardError("Active epoch must be positive")
+    previous = {}
+    if state_path.exists():
+        previous = _read_state(state_path)
+    highest = max(
+        int(previous.get("highest_epoch_seen") or 0),
+        int(highest_epoch_seen or 0),
+        int(epoch),
+    )
+    state: dict[str, Any] = {
+        "schema_version": 1,
+        "fenced": False,
+        "highest_epoch_seen": highest,
+        "active_epoch": int(epoch),
+        "lease_expires_at": (
+            lease_expires_at.isoformat() if lease_expires_at is not None else None
+        ),
+        "arm_reason": arm_reason,
+    }
+    # Drop sticky fence reason from standby/failback posture.
+    previous.pop("fence_reason", None)
+    _write_state(state_path, state)
+    return state
+
+
+def enable_lease_guard_timer(
+    *,
+    unit: str = "filantropia-lease-guard.timer",
+    run_once_unit: str = "filantropia-lease-guard.service",
+) -> None:
+    """Ensure the host lease-guard timer (and one immediate cycle) is running."""
+    import subprocess
+
+    commands = (
+        ["systemctl", "reset-failed", run_once_unit],
+        ["systemctl", "enable", "--now", unit],
+        ["systemctl", "start", run_once_unit],
+        ["systemctl", "start", unit],
+    )
+    for command in commands:
+        try:
+            result = subprocess.run(
+                command,
+                check=False,
+                capture_output=True,
+                text=True,
+                timeout=60,
+                env={**os.environ, "LC_ALL": "C"},
+            )
+        except (OSError, subprocess.TimeoutExpired) as exc:
+            raise LeaseGuardError(
+                f"Lease guard unit command failed: {' '.join(command)}"
+            ) from exc
+        # reset-failed / enable may return non-zero on missing units in lab;
+        # start of the timer is mandatory for durability.
+        if command[1] in {"start", "enable"} and result.returncode:
+            detail = (result.stderr or result.stdout or "").strip()[:200]
+            raise LeaseGuardError(
+                f"Could not ensure lease guard unit {' '.join(command[1:])}: {detail}"
+            )
+
+
+def arm_lease_guard_as_writer(
+    *,
+    client: LeaseClientProtocol,
+    node_id: str,
+    generation: str,
+    epoch: int,
+    lease_expires_at: datetime | None = None,
+    state_path: Path = _DEFAULT_STATE,
+    fence_file: Path | None = None,
+    enable_timer: bool = True,
+    renew_now: bool = True,
+) -> dict[str, object]:
+    """Transition standby/fenced guard posture into durable writer renewals.
+
+    Called immediately after promote acquires the lease so apex does not 503
+    when the previous prep left the timer stopped or state fenced.
+    """
+    if not _NODE_PATTERN.fullmatch(node_id) or not _NODE_PATTERN.fullmatch(generation):
+        raise LeaseGuardError("Writer identity for arm is invalid")
+    if epoch < 1:
+        raise LeaseGuardError("Writer epoch for arm is invalid")
+
+    # Prove this node already owns the active epoch BEFORE clearing local fences.
+    # Otherwise a failed/partial promote could unfence a standby incorrectly.
+    try:
+        status = client.status()
+    except (LeaseClientError, OSError, ValueError) as exc:
+        raise LeaseGuardError(
+            f"Post-promote lease status verification failed: {exc}"
+        ) from exc
+    if (
+        status.phase != LeasePhase.ACTIVE
+        or status.state.owner_node_id != node_id
+        or status.state.generation != generation
+        or status.state.epoch is None
+        or int(status.state.epoch) < int(epoch)
+    ):
+        raise LeaseGuardError(
+            "Post-promote lease is not active for the promoted writer"
+        )
+
+    clear_local_writer_fence_marker(fence_file=fence_file)
+    active_epoch = int(status.state.epoch)
+    expires_at = status.state.lease_expires_at or lease_expires_at
+    state = write_active_guard_state(
+        state_path=state_path,
+        epoch=active_epoch,
+        lease_expires_at=expires_at,
+        highest_epoch_seen=active_epoch,
+        arm_reason="post_promote_arm",
+    )
+
+    renewed = False
+    if renew_now:
+        try:
+            decision = client.renew(
+                node_id=node_id,
+                epoch=active_epoch,
+                generation=generation,
+                readiness_ok=True,
+            )
+        except (LeaseClientError, OSError, ValueError) as exc:
+            raise LeaseGuardError(f"Post-promote lease renew failed: {exc}") from exc
+        if (
+            not decision.ok
+            or decision.phase != LeasePhase.ACTIVE
+            or decision.state.owner_node_id != node_id
+            or decision.state.epoch is None
+            or int(decision.state.epoch) < active_epoch
+        ):
+            raise LeaseGuardError(
+                f"Post-promote lease renew refused: {decision.reason}"
+            )
+        renewed = True
+        active_epoch = int(decision.state.epoch)
+        expires_at = decision.state.lease_expires_at
+        state = write_active_guard_state(
+            state_path=state_path,
+            epoch=active_epoch,
+            lease_expires_at=expires_at,
+            highest_epoch_seen=active_epoch,
+            arm_reason="post_promote_arm_renewed",
+        )
+
+    timer_enabled = False
+    if enable_timer:
+        enable_lease_guard_timer()
+        timer_enabled = True
+
+    # Re-check ownership after renew/timer so apex durability is proven.
+    try:
+        final_status = client.status()
+    except (LeaseClientError, OSError, ValueError) as exc:
+        raise LeaseGuardError(
+            f"Post-promote lease status verification failed: {exc}"
+        ) from exc
+    if (
+        final_status.phase != LeasePhase.ACTIVE
+        or final_status.state.owner_node_id != node_id
+        or final_status.state.generation != generation
+    ):
+        raise LeaseGuardError(
+            "Post-promote lease is not active for the promoted writer after arm"
+        )
+
+    result = {
+        "armed": True,
+        "renewed": renewed,
+        "timer_enabled": timer_enabled,
+        "epoch": active_epoch,
+        "lease_expires_at": expires_at.isoformat() if expires_at else None,
+        "state_path": str(state_path),
+        "fenced": bool(state.get("fenced")),
+    }
+    _LOGGER.info("Lease guard armed as writer: %s", result)
+    return result
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(

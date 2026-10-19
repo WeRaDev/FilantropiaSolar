@@ -77,9 +77,11 @@ def _request(
 ) -> ProbeResult:
     nonce_url = _uncached_url(url)
     headers = {
-        "Accept": "application/json" if decode_json else "*/*",
+        "Accept": "application/json" if decode_json else "text/html,application/xhtml+xml;q=0.9,*/*;q=0.8",
         "Cache-Control": "no-cache, no-store, max-age=0",
         "Pragma": "no-cache",
+        # Cloudflare bot scoring rejects the default Python-urllib UA with 403.
+        "User-Agent": "FilantropiaEmbassyProbe/1.0 (+https://filantropiasolar.pt)",
     }
     if token is not None:
         if not token.strip():

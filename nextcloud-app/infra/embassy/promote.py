@@ -12,6 +12,7 @@ import time
 
 from embassy.filestore_promote import FilestorePromoteConfig, promote_filestore
 from embassy.lease_client import LeaseClientError, write_fencing_proof_file
+from embassy.lease_guard import LeaseGuardError, arm_lease_guard_as_writer
 from embassy.policy import DecisionState
 from embassy.replication import AttachmentReference
 from embassy.replication_bootstrap import promote_standby_sql
@@ -34,6 +35,11 @@ class PromoteContext:
     # Docker container name for the standby public origin connector (Frank).
     origin_container: str | None = "filantropia-cloudflared"
     cloudflared_compose: Path | None = None
+    # After acquire, arm local lease-guard so TTL renewals keep apex up.
+    arm_lease_guard: bool = True
+    lease_guard_state_path: Path | None = None
+    lease_guard_enable_timer: bool = True
+    lease_guard_renew_now: bool = True
 
 
 def _run(command: list[str], *, label: str, timeout: int = 120) -> str:
@@ -144,6 +150,35 @@ def execute_promotion(
         start_odoo_writer(context)
         start_origin_connector(context)
 
+    guard_arm: dict[str, object] | None = None
+    if context.arm_lease_guard:
+        if lease.state.epoch is None:
+            raise PromoteError("Lease acquire returned no epoch for guard arming")
+        try:
+            guard_arm = arm_lease_guard_as_writer(
+                client=client,
+                node_id=context.standby_node_id,
+                generation=context.new_generation,
+                epoch=int(lease.state.epoch),
+                lease_expires_at=lease.state.lease_expires_at,
+                state_path=(
+                    context.lease_guard_state_path
+                    if context.lease_guard_state_path is not None
+                    else Path(
+                        os.environ.get(
+                            "FILANTROPIA_LEASE_GUARD_STATE",
+                            "/etc/filantropia-embassy/lease-guard-state.json",
+                        )
+                    )
+                ),
+                enable_timer=context.lease_guard_enable_timer,
+                renew_now=context.lease_guard_renew_now,
+            )
+        except LeaseGuardError as exc:
+            raise PromoteError(
+                f"Promotion acquired lease but failed to arm lease-guard: {exc}"
+            ) from exc
+
     result = {
         "promoted_at_utc": datetime.now(UTC).isoformat(),
         "standby_node_id": context.standby_node_id,
@@ -154,6 +189,8 @@ def execute_promotion(
             start_writer
             and (context.origin_container or context.cloudflared_compose is not None)
         ),
+        "lease_guard_armed": bool(guard_arm and guard_arm.get("armed")),
+        "lease_guard": guard_arm,
     }
     _LOGGER.info("Promotion complete: %s", result)
     return result

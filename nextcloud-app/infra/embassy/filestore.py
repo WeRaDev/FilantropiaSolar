@@ -77,6 +77,9 @@ def build_rsync_command(config: FilestoreSyncConfig) -> list[str]:
         "--archive",
         "--numeric-ids",
         "--no-links",
+        # Keep the standby tree private under encrypted /data even when the
+        # writer filestore is group/world-readable inside the Odoo volume.
+        "--chmod=D700,F600",
         "--delay-updates",
         "--partial",
         "--partial-dir=.rsync-partial",
@@ -163,6 +166,17 @@ def sync_filestore(config: FilestoreSyncConfig) -> dict[str, object]:
         raise FilestoreSyncError(
             f"Filestore rsync failed with exit status {result.returncode}"
         )
+
+    # rsync --archive can still leave the root directory mode non-private on
+    # some platforms; enforce the standby invariant after each successful pull.
+    try:
+        os.chmod(config.local_path, 0o700)
+    except OSError as exc:
+        raise FilestoreSyncError(
+            "Could not enforce private standby filestore permissions"
+        ) from exc
+    if config.local_path.stat().st_mode & 0o077:
+        raise FilestoreSyncError("Standby filestore directory is not private")
 
     completed_at = datetime.now(UTC)
     marker = {

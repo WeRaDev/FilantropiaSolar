@@ -31,10 +31,17 @@ proof_file = "/data/filantropia-embassy/fencing-proof.json"
 # Software lease source name must match the Durable Object / lab authority.
 trusted_sources = ["cloudflare-durable-object-lease"]
 standby_node_id = "frank"
+# Writer generation Frank will claim after promote (must match Frank lease.env).
+standby_writer_generation = "REPLACE_WITH_FRANK_WRITER_GENERATION"
+# Optional Docker origin connector started after Odoo on promote.
+origin_container = "filantropia-cloudflared"
 # Off by default. Enable only after isolated rehearsal and separate approval.
 request_takeover_on_outage = false
 lease_authority_url = "https://filantropia-odoo-writer-gate.example.workers.dev"
 lease_token_env = "FS_LEASE_AUTHORITY_TOKEN"
+# When true with automatic_actions_enabled, Embassy runs promote.execute_promotion
+# (pg promote, lease acquire, start Odoo + origin, arm local lease-guard timer).
+# Keep false until rehearsal. Post-promote arming is required so apex does not 503.
 execute_promotion = false
 
 [state]

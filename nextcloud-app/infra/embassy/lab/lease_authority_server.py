@@ -16,11 +16,17 @@ sys.path.insert(0, str(EMBASSY_ROOT))
 from lease import InMemoryLeaseAuthority, LeasePolicy  # noqa: E402
 
 TOKEN = os.environ.get("LEASE_API_TOKEN", "lab-only-token")
+_TTL = float(os.environ.get("LEASE_TTL_SECONDS", "30"))
+_DRAIN = float(os.environ.get("LEASE_DRAIN_SECONDS", "1"))
+_GRACE = float(os.environ.get("LEASE_GRACE_SECONDS", "1"))
+# renew_before must fit inside the TTL (LeasePolicy invariant).
+_RENEW_BEFORE = min(10.0, max(1.0, _TTL / 3.0))
 AUTHORITY = InMemoryLeaseAuthority(
     LeasePolicy(
-        lease_ttl_seconds=float(os.environ.get("LEASE_TTL_SECONDS", "5")),
-        in_flight_drain_seconds=float(os.environ.get("LEASE_DRAIN_SECONDS", "1")),
-        self_fence_grace_seconds=float(os.environ.get("LEASE_GRACE_SECONDS", "1")),
+        lease_ttl_seconds=_TTL,
+        renew_before_seconds=_RENEW_BEFORE,
+        in_flight_drain_seconds=_DRAIN,
+        self_fence_grace_seconds=_GRACE,
         source_name="lab-inmemory-lease",
     )
 )

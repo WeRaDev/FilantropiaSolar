@@ -131,6 +131,12 @@ class HttpLeaseClient:
             "Accept": "application/json",
             "Authorization": f"Bearer {self.config.token}",
             "Cache-Control": "no-cache, no-store, max-age=0",
+            # Cloudflare may challenge bare Python urllib signatures on
+            # workers.dev; use a browser-like UA for host lease renewals.
+            "User-Agent": (
+                "FilantropiaEmbassyLeaseClient/1.0 "
+                "(+https://filantropiasolar.pt; Mozilla/5.0 compatible)"
+            ),
         }
         data = None
         if body is not None:

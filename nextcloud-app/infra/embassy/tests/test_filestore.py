@@ -42,6 +42,7 @@ class FilestoreSyncTests(unittest.TestCase):
         self.assertIn("--partial", command)
         self.assertIn("--no-links", command)
         self.assertIn("--numeric-ids", command)
+        self.assertIn("--chmod=D700,F600", command)
         self.assertFalse(any("delete" in argument for argument in command))
         self.assertIn("StrictHostKeyChecking=yes", command[command.index("-e") + 1])
 

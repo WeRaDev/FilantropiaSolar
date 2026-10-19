@@ -178,6 +178,90 @@ require_lease_acquirable = false
         self.assertEqual(events[-1]["proposed_action"], "promote")
         self.assertEqual(events[-1]["state"], "ready_for_operator")
 
+    def test_authorized_with_execute_promotion_false_records_awaiting_executor(self):
+        self._write_config(routes=["https://solar.example/inicio"])
+        text = self.config_path.read_text(encoding="utf-8")
+        text = text.replace(
+            "require_lease_acquirable = false",
+            "require_lease_acquirable = false\nautomatic_actions_enabled = true",
+        )
+        text = text.replace(
+            'trusted_sources = ["test-provider-fence"]',
+            'trusted_sources = ["test-provider-fence"]\n'
+            "execute_promotion = false\n"
+            'standby_node_id = "frank"\n'
+            'lease_authority_url = "https://lease.example"\n',
+        )
+        self.config_path.write_text(text, encoding="utf-8")
+        self.config_path.chmod(0o600)
+        self._write_complete_standby_and_fence()
+        unreachable = ProbeResult(False, None, error_kind="TimeoutError")
+        public_down = ProbeResult(False, None, error_kind="TimeoutError")
+        with (
+            patch.dict(os.environ, {_TOKEN_ENV: "test-token"}),
+            patch("embassy.service.probe_readiness", return_value=unreachable),
+            patch("embassy.service.probe_public_route", return_value=public_down),
+        ):
+            run_once(self.config_path, require_encrypted_mount=False)
+            second_state = run_once(self.config_path, require_encrypted_mount=False)
+
+        self.assertEqual(second_state, "promotion_authorized")
+        events = [
+            json.loads(line)
+            for line in self.journal_path.read_text(encoding="utf-8").splitlines()
+        ]
+        self.assertEqual(
+            events[-1]["action_result_status"],
+            "promotion_authorized_awaiting_executor",
+        )
+
+    def test_authorized_with_execute_promotion_invokes_executor(self):
+        self._write_config(routes=["https://solar.example/inicio"])
+        text = self.config_path.read_text(encoding="utf-8")
+        text = text.replace(
+            "require_lease_acquirable = false",
+            "require_lease_acquirable = false\nautomatic_actions_enabled = true",
+        )
+        text = text.replace(
+            'trusted_sources = ["test-provider-fence"]',
+            'trusted_sources = ["test-provider-fence"]\n'
+            "execute_promotion = true\n"
+            'standby_node_id = "frank"\n'
+            'standby_writer_generation = "frank-g2"\n'
+            'lease_authority_url = "https://lease.example"\n',
+        )
+        self.config_path.write_text(text, encoding="utf-8")
+        self.config_path.chmod(0o600)
+        self._write_complete_standby_and_fence()
+        unreachable = ProbeResult(False, None, error_kind="TimeoutError")
+        public_down = ProbeResult(False, None, error_kind="TimeoutError")
+        with (
+            patch.dict(
+                os.environ,
+                {_TOKEN_ENV: "test-token", "FS_LEASE_AUTHORITY_TOKEN": "lease-token"},
+            ),
+            patch("embassy.service.probe_readiness", return_value=unreachable),
+            patch("embassy.service.probe_public_route", return_value=public_down),
+            patch(
+                "embassy.service._maybe_execute_promotion",
+                return_value={
+                    "status": "promotion_executed",
+                    "epoch": 9,
+                    "standby_node_id": "frank",
+                },
+            ) as execute,
+        ):
+            run_once(self.config_path, require_encrypted_mount=False)
+            second_state = run_once(self.config_path, require_encrypted_mount=False)
+
+        self.assertEqual(second_state, "promotion_authorized")
+        execute.assert_called()
+        events = [
+            json.loads(line)
+            for line in self.journal_path.read_text(encoding="utf-8").splitlines()
+        ]
+        self.assertEqual(events[-1]["action_result_status"], "promotion_executed")
+
     def test_public_route_failure_is_separate_from_origin_failure(self):
         self._write_config(routes=["https://solar.example/inicio"])
         with (

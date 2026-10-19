@@ -12,7 +12,8 @@ services:
     command: ["python", "/app/lease_authority_server.py"]
     environment:
       LEASE_API_TOKEN: lab-only-token
-      LEASE_TTL_SECONDS: "5"
+      # Short TTL for fast takeover smoke; renew_before is derived in-server.
+      LEASE_TTL_SECONDS: "6"
       LEASE_DRAIN_SECONDS: "1"
       LEASE_GRACE_SECONDS: "1"
     ports:

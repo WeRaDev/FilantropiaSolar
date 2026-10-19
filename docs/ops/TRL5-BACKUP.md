@@ -33,6 +33,16 @@ validates both archives, uploads through restricted SFTP with a pinned Frank
 host key, downloads a round-trip copy for SHA-256 verification, and only then
 publishes the bundle atomically under Frank's encrypted
 `/data/backups/filantropia/odoo/`. Successful bundles are retained for 30 days.
+For a coherent database/filestore pair, capture sets a maintenance marker and
+stops `filantropia-odoo` while the database and filestore are captured (bounded
+by a 10-minute capture deadline, plus resume/readiness checks). The public Odoo
+site is unavailable while that writer is stopped. Keep this in the approved
+02:00 UTC maintenance window and verify the observed interruption before
+activating the timer.
+The timer currently uses `Persistent=true`, so a missed run is replayed when
+the timer next starts, potentially outside the 02:00 UTC window. Before
+activation, either approve that catch-up interruption or change the timer to
+skip missed runs and monitor backup freshness.
 
 Routine backups only write recovery bundles; they **do not** update Frank's
 dormant Odoo database/filestore or start its Odoo container. The bundle does
@@ -65,6 +75,18 @@ tar -xOf "$B" filestore.tar | sha256sum
 tar -xOf "$B" odoo.dump | docker exec -i filantropia-odoo-db pg_restore --list >/dev/null
 tar -xOf "$B" filestore.tar | tar -tf - >/dev/null
 ```
+
+## Monitoring only — 2026-09-30
+
+The daily timer was active and the service reported success/exit 0 for its
+02:00 UTC run; TRL5 Odoo was healthy. Frank's destination directory was
+updated, but its mode `0700` restricts access to the backup account. The
+ordinary `wera` account could not list, hash or parse the September 30
+bundle, and no isolated restore was performed. **Timer success and directory
+mtime are not independent artifact verification.** Do not designate today's
+bundle as a verified promotion source until its manifest, database dump and
+filestore have been checked through a separately approved read-only step;
+the older September 29 bundle cannot be presumed current after TRL5 writes.
 
 ## Verification log — 2026-09-29
 
@@ -190,6 +212,12 @@ aacb374b79d7dcc8797e7f3e02c828ba36fa683db76b4b870e233f3460c62de3  nextcloud-mysq
 
 **Odoo full DB** (destructive — stop Odoo writers first; if Frank was promoted,
 fence it before restoring/restarting TRL5):
+This database-only example is not a complete production restore or a Frank
+failback procedure. Preserve TRL5's pre-restore database and filestore, use a
+matching filestore for the restored database, and follow the conditional
+failback procedure in `docs/ops/TRL4-ODOO-FAILOVER.md`. Never replace TRL5's
+pre-outage state with its older TRL5-originated bundle from Frank when Frank
+accepted no writes.
 
 ```bash
 # On TRL5
@@ -208,6 +236,15 @@ them first. Keep `filantropia-odoo` stopped throughout the restore. Confirm
 the addon source and Odoo configuration on Frank match the database being
 restored (currently module `19.0.2.35.0`); these are not in the bundle. Do not
 route traffic or start Frank merely because the bundle validates.
+A renamed filestore tree alone cannot roll back `pg_restore --clean`. Before
+overwriting Frank's database, preserve a **coherent pre-restore database and
+filestore pair** with a verified rollback path. This one-time destructive-
+restore safeguard is not a routine off-host backup of the unwritten standby.
+If Frank accepted writes or that cannot be ruled out, fence it and verify a
+fresh Frank-originated pair on an independent off-Frank destination before
+considering the restore; reconcile the divergence instead of silently
+replacing it with a TRL5 snapshot. A read-only 2026-09-29 check found 27 CRM
+leads on Frank versus 22 on TRL5; counts alone do not explain the difference.
 
 On Frank as root, select the exact verified bundle and validate it before any
 destructive operation:
@@ -246,10 +283,10 @@ if [ -d "$TARGET" ]; then mv "$TARGET" "$OLD"; fi
 mv "$STAGE/filantropia_public" "$TARGET"
 ```
 
-If restoration or the filestore swap fails, leave Odoo stopped. Retain the
-old filestore tree and any pre-restore Frank recovery set required because of
-known/uncertain divergence; otherwise retry only from the selected verified
-TRL5 bundle. After restore, validate the module version and database/filestore,
+If restoration or the filestore swap fails, leave Odoo stopped and restore
+the preserved coherent Frank database/filestore pair before retrying; do not
+assume the renamed filestore alone recovers a partially restored database.
+After a successful restore, validate the module version and database/filestore,
 then follow
 `docs/ops/TRL5-ODOO-BOOT.md` and `docs/ops/TRL4-ODOO-FAILOVER.md` for explicit
 promotion, ingress, one-writer, and failback gates.

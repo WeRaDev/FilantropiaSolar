@@ -1,9 +1,10 @@
 # Writer-gate production ops (Phase C)
 
-Status as of **2026-10-18T23:25Z** (post Test C incident close-out). Public Odoo
+Status as of **2026-10-19T16:34Z** (post Test C #2 failback). Public Odoo
 traffic for FilantropiaSolar goes through the Cloudflare Worker lease gate.
-Automatic promotion remains **disabled**. Incident record:
-`docs/ops/INCIDENT-2026-10-17-TEST-C-FAILOVER.md`. TRL5 stress-test steps live in
+Automatic promotion remains **disabled**. TRL5 is sole writer (epoch **28+** at
+verify); Frank is streaming standby lag 0. Incident + Test C lessons:
+`docs/ops/INCIDENT-2026-10-17-TEST-C-FAILOVER.md`. Stress-test steps:
 `docs/ops/TRL5-STRESS-TEST-RUNBOOK.md`.
 
 ## Live topology
@@ -31,13 +32,17 @@ Standby Frank (wera-ss-pt-sn-1 / 100.82.194.96):
 | Worker | `filantropia-odoo-writer-gate` |
 | workers.dev | `https://filantropia-odoo-writer-gate.filantropia.workers.dev` |
 | Lease source name | `cloudflare-durable-object-lease` |
-| Writer node | `trl5` (epoch **23** at 2026-10-18 close) |
+| Writer node | `trl5` (epoch **28** at 2026-10-19 verify) |
 | Writer generation | `writer-epoch-20261012-trl5-primary` |
 | Lease TTL / drain / grace | 30s / 5s / 15s |
 | Lease guard timer (TRL5) | every 15s; **enabled/active** |
 | Lease guard timer (Frank) | every 15s; **enabled**; standby left **fenced** |
-| Repl publish (TRL5) | `filantropia-pg-repl-publish.service` (Tailscale `:5432`) |
+| Worker fencing-proof freshness | deployed (`bde010c0-8422-4b49-bc58-5f0aa2b64381`) |
+| Repl publish (TRL5) | prefer compose overlay `docker-compose.trl5-repl-publish.yml` **or** socat unit — not both |
 | Auto-takeover | **false** on Frank (`automatic_actions_enabled`, `request_takeover_on_outage`, `execute_promotion`) |
+| Test C readiness | proof-refresh + age-waive + **post-promote lease-guard arming** in repo; green production retest still required |
+| Failback order | `docs/ops/EMBASSY-FAILBACK-ANTI-RACE.md` |
+| Preflight | `nextcloud-app/infra/embassy/scripts/test-c-preflight.sh` |
 
 Secrets live only in Wrangler secrets and host files under
 `/etc/filantropia-embassy/` (and operator copy
@@ -151,8 +156,17 @@ ingress once Worker routes are removed.
 Lease math: TTL 30s + drain 5s + grace 15s, then promote/start Odoo.
 
 - Designed automatic RTO: about **1–3 minutes** with warm standby
+- Observed Test C #2: promote reachable after policy fix, but public durability
+  failed when renewals stopped — treat renew path as part of RTO, not optional
 - Manual RTO today: about **5–15 minutes**
 - Auto-promote is still **off**; do not claim hands-free failover yet
+
+### 9. Policy note after lease fence
+
+Once the independent lease fence is valid and standby WAL apply lag is **0**,
+Embassy waives primary heartbeat and filestore *generation age* freshness
+(those clocks freeze while TRL5 is offline). Lineage, attachment verification,
+and standby-local status age remain mandatory.
 
 ## Day-2 health checklist
 

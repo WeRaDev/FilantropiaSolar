@@ -1,9 +1,12 @@
 # TRL5 stress-test runbook (writer-gate + software lease)
 
-Status: **P0/P1 code complete** as of 2026-10-15. TRL5-side tests (A/B) are
-runnable. **Test C (auto-promote)** requires Frank origin + Embassy config + ACL
-access (P2/P3). Repository now wires `execute_promotion` when flags are on;
-defaults remain fail-closed.
+Status: **2026-10-19**. TRL5-side tests (A/B) remain the safe default. Test C
+ran twice in production windows: #1 failed on draining fencing proofs; #2
+reached `promotion_executed` after a policy waive but lost the lease when Frank
+lease-guard was left stopped. Production is restored on TRL5 with auto flags
+**off**. Hands-free Test C is **not** green until post-promote lease-guard
+arming is automatic. Full record:
+`docs/ops/INCIDENT-2026-10-17-TEST-C-FAILOVER.md`.
 
 ## Goals
 
@@ -195,17 +198,28 @@ Within **5 minutes** of host SSH returning (target **≤3 minutes** if stack aut
 
 ### Prerequisites beyond A/B
 
-- Tailscale SSH to Frank works for operators
+- Tailscale SSH to Frank works for operators (when TRL5 is offline, use Frank
+  `wera` + docker/nsenter; do not depend on TRL5→Frank root hop)
 - Dedicated Frank tunnel serves `odoo-frank.wera.global` (never TRL5 tunnel `6571cd54-…`)
 - Frank `/etc/filantropia-embassy/embassy.toml` with real readiness URLs, generation, addon hash
-- Frank timers: embassy observe, filestore sync; standby status fresh
-- Code on Frank includes Embassy executor (`service._maybe_execute_promotion`)
+- TRL5 Odoo loads `/etc/filantropia-embassy/readiness.env` (otherwise readiness 404 lies)
+- Frank timers: embassy observe, filestore sync; standby status fresh; **lag 0**
+- Code on Frank includes proof refresh, policy age-waive after fence, and
+  executor (`service._maybe_execute_promotion`); Worker fencing-proof freshness deployed
 - Flags **only** for the approved window:
   - `request_takeover_on_outage = true`
   - `automatic_actions_enabled = true`
   - `execute_promotion = true`
   - `standby_writer_generation` set and matching Frank `FS_WRITER_GENERATION`
 - Frank standby `all_attachments_verified=true` (or an approved exception)
+- **Do not stop** `filantropia-lease-guard.timer` on Frank for the window.
+  Leave standby guard **fenced** in state file with timer enabled. As of
+  2026-10-19, `execute_promotion` calls `arm_lease_guard_as_writer` after lease
+  acquire (clear fence marker, unfence guard state, renew once, enable timer).
+- Run `nextcloud-app/infra/embassy/scripts/test-c-preflight.sh` before arming.
+- Failback order: `docs/ops/EMBASSY-FAILBACK-ANTI-RACE.md`.
+- Pre-clear stale `fencing-proof.json` / old fence markers on Frank so drain
+  refresh is not fighting a corrupt local proof
 
 Residual (2026-10-15, leave for re-upload — do **not** clear the DB row):
 
@@ -223,25 +237,29 @@ Residual (2026-10-15, leave for re-upload — do **not** clear the DB row):
 Prefer controlled A3/A4 on TRL5 (stop lease-guard + cloudflared, or NIC down) so
 Embassy dual-probe fails. Do **not** leave flags armed after the window.
 
-### Pass criteria
+### Pass criteria (hands-free)
 
-Within designed RTO (~1–3 min warm):
+Within designed RTO (~1–3 min warm) **and** hold for ≥5 minutes:
 
 1. Lease owner becomes `frank`, `phase=active`
 2. Apex/www **200** via Worker → `odoo-frank`
-3. TRL5 Odoo stopped/fenced; no dual writer
-4. Embassy journal shows `takeover_requested` then `promotion_executed`
-5. Documented failback started afterward (manual is OK for first pass)
+3. TRL5 path excluded (lease takeover / self-fence); no dual writer
+4. Embassy journal shows `takeover_requested` then `promotion_executed` (no stuck
+   `blocked_unfenced` / `blocked_standby` after acquirable + lag 0)
+5. Frank lease-guard **active** and `lease_expires_at` advancing without manual
+   acquire/renew
+6. Failback afterward restores `active/trl5`, Frank streaming lag 0, flags off
 
-### First production inject result (2026-10-17) — FAILED auto-promote
+### Production inject results
 
-Inject: TRL5 network disconnect. Lease takeover succeeded; Frank stayed
-`blocked_unfenced` (draining proof never refreshed to acquirable). Apex 503 until
-**manual** Frank promote. Full close-out, root cause, failback, and final state:
-`docs/ops/INCIDENT-2026-10-17-TEST-C-FAILOVER.md`.
+- **2026-10-17 Test C #1 — FAILED:** draining proof → `blocked_unfenced`; manual promote.
+- **2026-10-19 Test C #2 — PARTIAL:** promote after mid-test policy waive; post-promote
+  503 when lease-guard left stopped; manual re-acquire; failback OK.
 
-Do **not** re-arm auto-promote until Worker fencing-proof freshness is deployed
-and Embassy proof-refresh/lease-guard self-reacquire code is verified on Frank.
+Details: `docs/ops/INCIDENT-2026-10-17-TEST-C-FAILOVER.md`.
+
+Do **not** re-arm auto-promote until post-promote lease-guard arming is shipped
+and a full hands-free pass is recorded.
 
 ### Rollback
 

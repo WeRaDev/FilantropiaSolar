@@ -139,7 +139,9 @@ Production defaults remain fail-closed (`automatic_actions_enabled = false`,
 auto-promote (draining fencing proof); production was restored and failed back
 to TRL5 on 2026-10-18 — see
 `docs/ops/INCIDENT-2026-10-17-TEST-C-FAILOVER.md`. Do **not** enable automatic
-takeover without a successful retest after Worker/Embassy proof-refresh deploys.
+takeover without a successful hands-free retest after Worker proof-refresh,
+policy age-waive, and post-promote lease-guard arming are deployed on Frank.
+Failback order: `docs/ops/EMBASSY-FAILBACK-ANTI-RACE.md`.
 Residual risk: software fencing cannot stop a wedged host or a write path that
 bypasses the lease guard. Public HTTP requires an **active** lease; an expired
 lease yields 503 even when Odoo is healthy.
