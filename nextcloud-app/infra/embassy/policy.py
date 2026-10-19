@@ -167,7 +167,15 @@ def _standby_blockers(
     standby: StandbyObservation,
     *,
     policy: EmbassyPolicy,
+    waive_primary_source_freshness: bool = False,
 ) -> tuple[str, ...]:
+    """Return standby promotion blockers.
+
+    When the independent lease fence is already valid, primary-originated
+    heartbeat and filestore sync timestamps can no longer advance (the primary
+    is offline). In that case require catch-up proof (WAL lag 0 + lineage +
+    attachments) and waive heartbeat/filestore *age* freshness only.
+    """
     blockers: list[str] = []
     if standby.database_reachable is not True:
         blockers.append("standby_database_unavailable")
@@ -187,30 +195,33 @@ def _standby_blockers(
         or standby.source_generation != policy.primary_generation
     ):
         blockers.append("standby_lineage_mismatch")
-    if not _valid_age(
-        standby.replication_heartbeat_age_seconds,
-        maximum_heartbeat_age,
-    ):
-        blockers.append("replication_heartbeat_stale_or_unknown")
-    if (
-        isinstance(standby.replication_lag_bytes, bool)
-        or not isinstance(standby.replication_lag_bytes, int)
-        or standby.replication_lag_bytes != 0
-    ):
+    lag_ok = (
+        not isinstance(standby.replication_lag_bytes, bool)
+        and isinstance(standby.replication_lag_bytes, int)
+        and standby.replication_lag_bytes == 0
+    )
+    if not lag_ok:
         blockers.append("replication_wal_apply_lag_nonzero_or_unknown")
+    # Heartbeat rows are written on the primary and freeze after outage.
+    if not waive_primary_source_freshness or not lag_ok:
+        if not _valid_age(
+            standby.replication_heartbeat_age_seconds,
+            maximum_heartbeat_age,
+        ):
+            blockers.append("replication_heartbeat_stale_or_unknown")
     if (
         standby.filestore_source_node_id is not None
         and standby.filestore_source_node_id != policy.primary_node_id
     ):
         blockers.append("filestore_source_node_mismatch")
-    if (
-        standby.filestore_source_generation != policy.primary_generation
-        or not _valid_age(
+    if standby.filestore_source_generation != policy.primary_generation:
+        blockers.append("filestore_generation_stale_or_unknown")
+    elif not waive_primary_source_freshness or not lag_ok:
+        if not _valid_age(
             standby.filestore_generation_age_seconds,
             policy.maximum_filestore_generation_age_seconds,
-        )
-    ):
-        blockers.append("filestore_generation_stale_or_unknown")
+        ):
+            blockers.append("filestore_generation_stale_or_unknown")
     if standby.all_attachments_verified is not True:
         blockers.append("attachment_integrity_unverified")
     if not _valid_age(
@@ -326,7 +337,13 @@ def evaluate(
             ),
         )
 
-    blockers = _standby_blockers(standby, policy=policy)
+    # Lease fence proves the old writer is excluded; primary heartbeats/filestore
+    # pulls cannot refresh until after promote. Waive those ages when caught up.
+    blockers = _standby_blockers(
+        standby,
+        policy=policy,
+        waive_primary_source_freshness=True,
+    )
     if blockers:
         return Decision(
             DecisionState.BLOCKED_STANDBY,
