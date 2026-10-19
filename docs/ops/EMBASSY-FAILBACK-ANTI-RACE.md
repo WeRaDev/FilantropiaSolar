@@ -62,3 +62,12 @@ services without reseed if TRL5 data is intact; still disarm Frank flags first.
 lease acquire: clears local Odoo fence marker, writes unfenced guard state,
 optionally renews once, enables `filantropia-lease-guard.timer`. Promote fails
 closed if arming cannot prove `phase=active` for the new owner.
+
+## After Test C #3 (2026-10-19 ~19:54Z) — waiting on TRL5
+
+- Public writer: **Frank** (`active` lease, guard renewing).
+- Frank auto flags: **disarmed**.
+- TRL5: offline; no reverse streaming until host returns.
+- Before failback: rsync Frank Odoo volume filestore ↔ embassy mirror so
+  attachment verify does not false-fail on standby later.
+- Frank origin container name: `filantropia-cloudflared-frank`.

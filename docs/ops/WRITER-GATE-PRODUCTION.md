@@ -1,11 +1,12 @@
 # Writer-gate production ops (Phase C)
 
-Status as of **2026-10-19T16:34Z** (post Test C #2 failback). Public Odoo
+Status as of **2026-10-19T19:54Z** (post Test C #3 cutover to Frank). Public Odoo
 traffic for FilantropiaSolar goes through the Cloudflare Worker lease gate.
-Automatic promotion remains **disabled**. TRL5 is sole writer (epoch **28+** at
-verify); Frank is streaming standby lag 0. Incident + Test C lessons:
-`docs/ops/INCIDENT-2026-10-17-TEST-C-FAILOVER.md`. Stress-test steps:
-`docs/ops/TRL5-STRESS-TEST-RUNBOOK.md`.
+Automatic promotion is **disabled**. **Frank** is sole writer (epoch **30**,
+lease-guard renewing); TRL5 is offline pending return/failback. Visitor 503s
+without an active lease show a branded failover HTML page (Worker). Incident:
+`docs/ops/INCIDENT-2026-10-17-TEST-C-FAILOVER.md`. Failback order:
+`docs/ops/EMBASSY-FAILBACK-ANTI-RACE.md`.
 
 ## Live topology
 
@@ -55,6 +56,13 @@ Secrets live only in Wrangler secrets and host files under
 The Worker proxies apex/www **only** when lease `phase === active` and owner is
 `trl5` or `frank`. If the lease expires (`acquirable` / `unowned`), public pages
 return **503** even when Odoo and the tunnel are healthy.
+
+Browser visitors no longer see a blank body with only the text
+`no active writer epoch`. The Worker serves a branded HTML page (PT primary, EN
+secondary) explaining that FilantropiaSolar will return within the designed
+takeover window (~1–3 minutes), with auto-refresh every 20s, `Retry-After`, and
+`Cache-Control: no-store`. Clients that `Accept: application/json` still get a
+compact JSON body with the same reason codes.
 
 Mitigation:
 
