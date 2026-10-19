@@ -3,11 +3,15 @@
 from __future__ import annotations
 
 from datetime import UTC, datetime, timedelta
+from pathlib import Path
+import tempfile
+from types import SimpleNamespace
 import unittest
 from unittest.mock import patch
 
 from embassy.lease import InMemoryLeaseAuthority, LeasePolicy
 from embassy.lease_client import MemoryLeaseClient
+from embassy.lease_guard import LeaseGuardError
 from embassy.promote import (
     PromoteContext,
     PromoteError,
@@ -15,8 +19,8 @@ from embassy.promote import (
     request_takeover_and_persist_proof,
     wait_for_acquirable_fencing_proof,
 )
-from pathlib import Path
-import tempfile
+
+_MIN_ACQUIRABLE_STATUS_CALLS = 2
 
 
 class PromoteTests(unittest.TestCase):
@@ -58,7 +62,7 @@ class PromoteTests(unittest.TestCase):
         client.acquire = lambda **kwargs: authority.acquire(now=later, **kwargs)
 
         with (
-            patch("embassy.promote.promote_database"),
+            patch("embassy.promote.promote_database") as promote_db,
             patch("embassy.promote.start_odoo_writer") as start_writer,
         ):
             result = execute_promotion(
@@ -75,9 +79,11 @@ class PromoteTests(unittest.TestCase):
         self.assertEqual(result["standby_node_id"], "frank")
         self.assertEqual(result["epoch"], boot.state.epoch + 1)
         self.assertFalse(result["lease_guard_armed"])
+        self.assertTrue(result["database_promoted"])
+        promote_db.assert_called_once()
         start_writer.assert_not_called()
 
-    def test_authorized_promotion_starts_writer_and_origin(self):
+    def test_authorized_promotion_starts_writer_and_origin_after_arm(self):
         now = datetime(2026, 10, 5, 12, 0, tzinfo=UTC)
         authority = InMemoryLeaseAuthority(
             LeasePolicy(
@@ -99,10 +105,25 @@ class PromoteTests(unittest.TestCase):
         client.status = lambda: authority.status(now=later)
         client.acquire = lambda **kwargs: authority.acquire(now=later, **kwargs)
 
+        order: list[str] = []
+
+        def track(name: str):
+            def _inner(*_args, **_kwargs):
+                order.append(name)
+
+            return _inner
+
         with (
-            patch("embassy.promote.promote_database"),
-            patch("embassy.promote.start_odoo_writer") as start_writer,
-            patch("embassy.promote.start_origin_connector") as start_origin,
+            patch("embassy.promote.promote_database", side_effect=track("db")),
+            patch("embassy.promote.start_odoo_writer", side_effect=track("odoo")),
+            patch(
+                "embassy.promote.start_origin_connector",
+                side_effect=track("origin"),
+            ),
+            patch(
+                "embassy.promote.arm_lease_guard_as_writer",
+                side_effect=lambda **_k: order.append("arm") or {"armed": True},
+            ),
         ):
             result = execute_promotion(
                 decision_state="promotion_authorized",
@@ -111,14 +132,13 @@ class PromoteTests(unittest.TestCase):
                     standby_node_id="frank",
                     new_generation="g2",
                     previous_epoch=boot.state.epoch,
-                    arm_lease_guard=False,
+                    arm_lease_guard=True,
                 ),
                 start_writer=True,
             )
         self.assertTrue(result["origin_started"])
-        self.assertFalse(result["lease_guard_armed"])
-        start_writer.assert_called_once()
-        start_origin.assert_called_once()
+        self.assertTrue(result["lease_guard_armed"])
+        self.assertEqual(order, ["arm", "db", "odoo", "origin"])
 
     def test_authorized_promotion_arms_lease_guard_and_renews(self):
         now = datetime(2026, 10, 5, 12, 0, tzinfo=UTC)
@@ -141,7 +161,9 @@ class PromoteTests(unittest.TestCase):
         client = MemoryLeaseClient(authority)
         client.status = lambda: authority.status(now=later)
         client.acquire = lambda **kwargs: authority.acquire(now=later, **kwargs)
-        client.renew = lambda **kwargs: authority.renew(now=later + timedelta(seconds=1), **kwargs)
+        client.renew = lambda **kwargs: authority.renew(
+            now=later + timedelta(seconds=1), **kwargs
+        )
 
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
@@ -153,9 +175,9 @@ class PromoteTests(unittest.TestCase):
                 encoding="utf-8",
             )
             fence_path.chmod(0o600)
-            # Seed sticky fenced guard state from standby posture.
             state_path.write_text(
-                '{"schema_version":1,"fenced":true,"fence_reason":"standby","highest_epoch_seen":1}\n',
+                '{"schema_version":1,"fenced":true,"fence_reason":"standby",'
+                '"highest_epoch_seen":1}\n',
                 encoding="utf-8",
             )
             state_path.chmod(0o600)
@@ -197,7 +219,7 @@ class PromoteTests(unittest.TestCase):
             self.assertEqual(guard["active_epoch"], result["epoch"])
             self.assertNotIn("fence_reason", guard)
 
-    def test_promotion_fails_if_lease_guard_arm_fails(self):
+    def test_promotion_arm_failure_does_not_start_writer_or_promote_db(self):
         now = datetime(2026, 10, 5, 12, 0, tzinfo=UTC)
         authority = InMemoryLeaseAuthority(
             LeasePolicy(
@@ -220,44 +242,48 @@ class PromoteTests(unittest.TestCase):
         client.acquire = lambda **kwargs: authority.acquire(now=later, **kwargs)
 
         with (
-            patch("embassy.promote.promote_database"),
-            patch("embassy.promote.start_odoo_writer"),
-            patch("embassy.promote.start_origin_connector"),
+            patch("embassy.promote.promote_database") as promote_db,
+            patch("embassy.promote.start_odoo_writer") as start_writer,
+            patch("embassy.promote.start_origin_connector") as start_origin,
             patch(
                 "embassy.promote.arm_lease_guard_as_writer",
-                side_effect=__import__("embassy.lease_guard", fromlist=["LeaseGuardError"]).LeaseGuardError(
-                    "timer missing"
-                ),
+                side_effect=LeaseGuardError("timer missing"),
             ),
+            patch("embassy.promote._compensate_partial_promotion") as compensate,
+            self.assertRaises(PromoteError) as raised,
         ):
-            with self.assertRaises(PromoteError) as raised:
-                execute_promotion(
-                    decision_state="promotion_authorized",
-                    client=client,
-                    context=PromoteContext(
-                        standby_node_id="frank",
-                        new_generation="g2",
-                        previous_epoch=boot.state.epoch,
-                        arm_lease_guard=True,
-                    ),
-                    start_writer=True,
-                )
+            execute_promotion(
+                decision_state="promotion_authorized",
+                client=client,
+                context=PromoteContext(
+                    standby_node_id="frank",
+                    new_generation="g2",
+                    previous_epoch=boot.state.epoch,
+                    arm_lease_guard=True,
+                ),
+                start_writer=True,
+            )
         self.assertIn("arm lease-guard", str(raised.exception))
+        promote_db.assert_not_called()
+        start_writer.assert_not_called()
+        start_origin.assert_not_called()
+        compensate.assert_called_once()
+        self.assertEqual(
+            compensate.call_args.kwargs,
+            {"writer_started": False, "origin_started": False},
+        )
 
     def test_wait_for_acquirable_proof_polls_until_ready(self):
-        import tempfile
-        from pathlib import Path
-
         class _Client:
             def __init__(self) -> None:
                 self.calls = 0
 
             def status(self):
                 self.calls += 1
-                acquirable = self.calls >= 2
+                acquirable = self.calls >= _MIN_ACQUIRABLE_STATUS_CALLS
 
-                class _Decision:
-                    fencing_proof = {
+                return SimpleNamespace(
+                    fencing_proof={
                         "schema_version": 1,
                         "target_node_id": "trl5",
                         "target_generation": "g1",
@@ -268,11 +294,12 @@ class PromoteTests(unittest.TestCase):
                         "previous_epoch": 1,
                         "phase": "acquirable" if acquirable else "draining",
                         "acquirable": acquirable,
-                    }
-                    phase = type("P", (), {"value": "acquirable" if acquirable else "draining"})()
-                    reason = "status"
-
-                return _Decision()
+                    },
+                    phase=SimpleNamespace(
+                        value="acquirable" if acquirable else "draining"
+                    ),
+                    reason="status",
+                )
 
         with tempfile.TemporaryDirectory() as tmp:
             proof_path = Path(tmp) / "fence.json"
@@ -285,13 +312,43 @@ class PromoteTests(unittest.TestCase):
                 poll_seconds=0.01,
             )
             self.assertTrue(decision.fencing_proof["acquirable"])
-            self.assertGreaterEqual(client.calls, 2)
+            self.assertGreaterEqual(client.calls, _MIN_ACQUIRABLE_STATUS_CALLS)
             self.assertTrue(proof_path.is_file())
 
-    def test_request_takeover_waits_for_acquirable_proof(self):
-        import tempfile
-        from pathlib import Path
+    def test_wait_for_acquirable_proof_times_out_fail_closed(self):
+        class _Client:
+            def status(self):
+                return SimpleNamespace(
+                    fencing_proof={
+                        "schema_version": 1,
+                        "target_node_id": "trl5",
+                        "target_generation": "g1",
+                        "source": "cloudflare-durable-object-lease",
+                        "proof_id": "p1",
+                        "verified_at_utc": "2026-10-17T12:00:00Z",
+                        "expires_at_utc": "2026-10-17T12:05:00Z",
+                        "previous_epoch": 1,
+                        "phase": "draining",
+                        "acquirable": False,
+                    },
+                    phase=SimpleNamespace(value="draining"),
+                    reason="status",
+                )
 
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            root.chmod(0o700)
+            proof_path = root / "fence.json"
+            with self.assertRaises(PromoteError) as raised:
+                wait_for_acquirable_fencing_proof(
+                    _Client(),
+                    proof_path=proof_path,
+                    timeout_seconds=0.05,
+                    poll_seconds=0.01,
+                )
+            self.assertIn("acquirable", str(raised.exception))
+
+    def test_request_takeover_waits_for_acquirable_proof(self):
         class _Phase:
             def __init__(self, value: str) -> None:
                 self.value = value

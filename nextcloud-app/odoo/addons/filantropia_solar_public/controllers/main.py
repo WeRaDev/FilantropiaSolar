@@ -648,7 +648,9 @@ class FilantropiaSolarPublicController(http.Controller):
         est["annual_production_kwh"] = round(prod, 2)
         est["annual_savings_eur"] = round(prod * price * factor, 2)
         est["self_consumption_factor"] = factor
-        est["grid_connection_type"] = gct if gct in ("on_grid", "off_grid") else "on_grid"
+        est["grid_connection_type"] = (
+            gct if gct in ("on_grid", "off_grid") else "on_grid"
+        )
         est["grid_price_kwh"] = price
         if est.get("capacity_kwp") is not None:
             with contextlib.suppress(TypeError, ValueError):

@@ -628,9 +628,7 @@ async def estimate_annual_production(request: EstimateRequest):
     specific_energy = annual_production_kwh / request.capacity_kwp
     # Default estimate assumes on-grid self-consumption (0.4).
     savings = (
-        annual_production_kwh
-        * GRID_PRICE_EUR_PER_KWH
-        * SELF_CONSUMPTION_FACTOR_ON_GRID
+        annual_production_kwh * GRID_PRICE_EUR_PER_KWH * SELF_CONSUMPTION_FACTOR_ON_GRID
     )
     return EstimateResponse(
         annual_production_kwh=round(annual_production_kwh, 2),

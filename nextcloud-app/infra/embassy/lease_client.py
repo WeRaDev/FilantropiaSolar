@@ -16,6 +16,9 @@ if TYPE_CHECKING:
     from embassy.lease import InMemoryLeaseAuthority
 
 _MAX_JSON_BYTES = 32 * 1024
+_HTTP_SERVER_ERROR = 500
+_HTTP_OK_MIN = 200
+_HTTP_REDIRECT_OR_ERROR = 300
 
 
 class LeaseClientError(RuntimeError):
@@ -144,16 +147,20 @@ class HttpLeaseClient:
             data = json.dumps(body, separators=(",", ":")).encode("utf-8")
         request = Request(url, data=data, headers=headers, method=method)
         try:
-            with self._opener.open(request, timeout=self.config.timeout_seconds) as response:
+            with self._opener.open(
+                request, timeout=self.config.timeout_seconds
+            ) as response:
                 raw = response.read(_MAX_JSON_BYTES + 1)
                 status_code = response.getcode()
         except HTTPError as exc:
             try:
                 raw = exc.read(_MAX_JSON_BYTES + 1)
             except OSError as read_exc:
-                raise LeaseClientError("Lease authority error body unreadable") from read_exc
+                raise LeaseClientError(
+                    "Lease authority error body unreadable"
+                ) from read_exc
             status_code = exc.code
-            if status_code >= 500:
+            if status_code >= _HTTP_SERVER_ERROR:
                 raise LeaseClientError("Lease authority is unavailable") from exc
         except (OSError, TimeoutError, URLError) as exc:
             raise LeaseClientError("Lease authority is unreachable") from exc
@@ -165,7 +172,9 @@ class HttpLeaseClient:
             raise LeaseClientError("Lease authority returned invalid JSON") from exc
         if not isinstance(payload, dict):
             raise LeaseClientError("Lease authority returned invalid shape")
-        return _decision_from_payload(payload, http_ok=200 <= status_code < 300)
+        return _decision_from_payload(
+            payload, http_ok=_HTTP_OK_MIN <= status_code < _HTTP_REDIRECT_OR_ERROR
+        )
 
 
 class MemoryLeaseClient:
@@ -243,7 +252,9 @@ def load_lease_client_from_env() -> HttpLeaseClient:
     return HttpLeaseClient(config)
 
 
-def write_fencing_proof_file(path: str | os.PathLike[str], proof: dict[str, object]) -> None:
+def write_fencing_proof_file(
+    path: str | os.PathLike[str], proof: dict[str, object]
+) -> None:
     """Atomically publish a private fencing-proof JSON file for Embassy."""
     from pathlib import Path
     import stat
@@ -277,7 +288,9 @@ def write_fencing_proof_file(path: str | os.PathLike[str], proof: dict[str, obje
         raise LeaseClientError("Could not publish fencing proof") from exc
 
 
-def _decision_from_payload(payload: dict[str, object], *, http_ok: bool) -> LeaseDecision:
+def _decision_from_payload(
+    payload: dict[str, object], *, http_ok: bool
+) -> LeaseDecision:
     try:
         state = LeaseState.from_dict(payload["state"])  # type: ignore[arg-type]
         phase = LeasePhase(str(payload["phase"]))

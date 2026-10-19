@@ -9,13 +9,16 @@ import os
 from pathlib import Path
 import subprocess
 import time
+from typing import TYPE_CHECKING
 
 from embassy.filestore_promote import FilestorePromoteConfig, promote_filestore
 from embassy.lease_client import LeaseClientError, write_fencing_proof_file
 from embassy.lease_guard import LeaseGuardError, arm_lease_guard_as_writer
 from embassy.policy import DecisionState
-from embassy.replication import AttachmentReference
 from embassy.replication_bootstrap import promote_standby_sql
+
+if TYPE_CHECKING:
+    from embassy.replication import AttachmentReference
 
 _LOGGER = logging.getLogger("filantropia_embassy_promote")
 
@@ -40,6 +43,8 @@ class PromoteContext:
     lease_guard_state_path: Path | None = None
     lease_guard_enable_timer: bool = True
     lease_guard_renew_now: bool = True
+    # Irreversible standby SQL promote; disable for lease-only failback handoffs.
+    run_database_promote: bool = True
 
 
 def _run(command: list[str], *, label: str, timeout: int = 120) -> str:
@@ -60,7 +65,7 @@ def _run(command: list[str], *, label: str, timeout: int = 120) -> str:
 
 
 def promote_database(context: PromoteContext) -> None:
-    """Promote the local PostgreSQL standby after fencing gates pass."""
+    """Promote the local PostgreSQL standby after lease acquire + guard arm."""
     _run(
         [
             "docker",
@@ -89,6 +94,25 @@ def start_odoo_writer(context: PromoteContext) -> None:
     _run(["docker", "start", context.odoo_container], label="Odoo start")
 
 
+def stop_odoo_writer(context: PromoteContext) -> None:
+    """Best-effort stop of a partially started local writer."""
+    try:
+        _run(
+            ["docker", "update", "--restart=no", context.odoo_container],
+            label="Odoo restart policy disable",
+        )
+    except PromoteError:
+        _LOGGER.exception("Could not disable Odoo restart policy during compensate")
+    try:
+        _run(
+            ["docker", "stop", "--time", "30", context.odoo_container],
+            label="Odoo stop",
+            timeout=90,
+        )
+    except PromoteError:
+        _LOGGER.exception("Could not stop Odoo during compensate")
+
+
 def start_origin_connector(context: PromoteContext) -> None:
     """Start the standby origin tunnel/connector after Odoo is up."""
     if context.cloudflared_compose is not None:
@@ -107,6 +131,39 @@ def start_origin_connector(context: PromoteContext) -> None:
     _run(["docker", "start", context.origin_container], label="Origin connector start")
 
 
+def stop_origin_connector(context: PromoteContext) -> None:
+    """Best-effort stop of a partially started origin connector."""
+    if context.cloudflared_compose is not None:
+        compose = context.cloudflared_compose
+        try:
+            _run(
+                ["docker", "compose", "-f", str(compose), "stop"],
+                label="Origin compose stop",
+            )
+        except PromoteError:
+            _LOGGER.exception("Could not stop origin compose during compensate")
+        return
+    if not context.origin_container:
+        return
+    try:
+        _run(
+            ["docker", "update", "--restart=no", context.origin_container],
+            label="Origin connector restart policy disable",
+        )
+    except PromoteError:
+        _LOGGER.exception(
+            "Could not disable origin connector restart policy during compensate"
+        )
+    try:
+        _run(
+            ["docker", "stop", "--time", "30", context.origin_container],
+            label="Origin connector stop",
+            timeout=90,
+        )
+    except PromoteError:
+        _LOGGER.exception("Could not stop origin connector during compensate")
+
+
 def acquire_writer_epoch(client, context: PromoteContext):
     """Acquire the next lease epoch for the standby node."""
     decision = client.acquire(
@@ -119,6 +176,62 @@ def acquire_writer_epoch(client, context: PromoteContext):
     return decision
 
 
+def _lease_guard_state_path(context: PromoteContext) -> Path:
+    if context.lease_guard_state_path is not None:
+        return context.lease_guard_state_path
+    return Path(
+        os.environ.get(
+            "FILANTROPIA_LEASE_GUARD_STATE",
+            "/etc/filantropia-embassy/lease-guard-state.json",
+        )
+    )
+
+
+def _arm_guard(client, context: PromoteContext, lease) -> dict[str, object]:
+    if lease.state.epoch is None:
+        raise PromoteError("Lease acquire returned no epoch for guard arming")
+    try:
+        return arm_lease_guard_as_writer(
+            client=client,
+            node_id=context.standby_node_id,
+            generation=context.new_generation,
+            epoch=int(lease.state.epoch),
+            lease_expires_at=lease.state.lease_expires_at,
+            state_path=_lease_guard_state_path(context),
+            enable_timer=context.lease_guard_enable_timer,
+            renew_now=context.lease_guard_renew_now,
+        )
+    except LeaseGuardError as exc:
+        raise PromoteError(
+            f"Promotion acquired lease but failed to arm lease-guard: {exc}"
+        ) from exc
+
+
+def _compensate_partial_promotion(
+    context: PromoteContext,
+    *,
+    writer_started: bool,
+    origin_started: bool,
+) -> list[str]:
+    """Fail closed after a partial promote: drop local public path if raised."""
+    actions: list[str] = []
+    if origin_started:
+        stop_origin_connector(context)
+        actions.append("origin_stopped")
+    if writer_started:
+        stop_odoo_writer(context)
+        actions.append("odoo_stopped")
+    try:
+        from embassy.writer_control import fence_writer
+
+        fence_writer(reason="promote_compensate")
+        actions.append("local_writer_fenced")
+    except Exception as exc:
+        _LOGGER.warning("Promote compensate fence failed: %s", exc)
+        actions.append("local_writer_fence_failed")
+    return actions
+
+
 def execute_promotion(
     *,
     decision_state: str,
@@ -129,7 +242,18 @@ def execute_promotion(
     fencing_proof_path: Path | None = None,
     start_writer: bool = True,
 ) -> dict[str, object]:
-    """Run the ordered promotion sequence. Caller must already authorize it."""
+    """Run the ordered promotion sequence. Caller must already authorize it.
+
+    Durable order (fail-closed):
+    1. optional filestore stage
+    2. lease acquire
+    3. lease-guard arm (before irreversible DB promote and public origin)
+    4. optional PostgreSQL promote
+    5. optional Odoo + origin start
+
+    Any failure after lease acquire attempts local fence and stops any services
+    this call started so apex cannot linger on a non-renewing writer.
+    """
     if decision_state != DecisionState.PROMOTION_AUTHORIZED.value:
         raise PromoteError("Promotion refused: decision is not PROMOTION_AUTHORIZED")
 
@@ -144,51 +268,54 @@ def execute_promotion(
             require_encrypted_mount=False,
         )
 
-    promote_database(context)
-    lease = acquire_writer_epoch(client, context)
-    if start_writer:
-        start_odoo_writer(context)
-        start_origin_connector(context)
-
+    lease = None
     guard_arm: dict[str, object] | None = None
-    if context.arm_lease_guard:
-        if lease.state.epoch is None:
-            raise PromoteError("Lease acquire returned no epoch for guard arming")
-        try:
-            guard_arm = arm_lease_guard_as_writer(
-                client=client,
-                node_id=context.standby_node_id,
-                generation=context.new_generation,
-                epoch=int(lease.state.epoch),
-                lease_expires_at=lease.state.lease_expires_at,
-                state_path=(
-                    context.lease_guard_state_path
-                    if context.lease_guard_state_path is not None
-                    else Path(
-                        os.environ.get(
-                            "FILANTROPIA_LEASE_GUARD_STATE",
-                            "/etc/filantropia-embassy/lease-guard-state.json",
-                        )
-                    )
-                ),
-                enable_timer=context.lease_guard_enable_timer,
-                renew_now=context.lease_guard_renew_now,
-            )
-        except LeaseGuardError as exc:
-            raise PromoteError(
-                f"Promotion acquired lease but failed to arm lease-guard: {exc}"
-            ) from exc
+    writer_started = False
+    origin_started = False
+    database_promoted = False
 
+    try:
+        lease = acquire_writer_epoch(client, context)
+
+        if context.arm_lease_guard:
+            guard_arm = _arm_guard(client, context, lease)
+
+        if context.run_database_promote:
+            promote_database(context)
+            database_promoted = True
+
+        if start_writer:
+            start_odoo_writer(context)
+            writer_started = True
+            start_origin_connector(context)
+            origin_started = bool(
+                context.origin_container or context.cloudflared_compose is not None
+            )
+    except Exception as exc:
+        compensate = _compensate_partial_promotion(
+            context,
+            writer_started=writer_started,
+            origin_started=origin_started,
+        )
+        _LOGGER.error(
+            "Promotion failed after partial progress (db_promoted=%s, compensate=%s): %s",
+            database_promoted,
+            compensate,
+            exc,
+        )
+        if isinstance(exc, PromoteError):
+            raise
+        raise PromoteError(f"Promotion failed: {exc}") from exc
+
+    assert lease is not None
     result = {
         "promoted_at_utc": datetime.now(UTC).isoformat(),
         "standby_node_id": context.standby_node_id,
         "new_generation": context.new_generation,
         "epoch": lease.state.epoch,
         "phase": lease.phase.value,
-        "origin_started": bool(
-            start_writer
-            and (context.origin_container or context.cloudflared_compose is not None)
-        ),
+        "database_promoted": database_promoted,
+        "origin_started": origin_started,
         "lease_guard_armed": bool(guard_arm and guard_arm.get("armed")),
         "lease_guard": guard_arm,
     }
@@ -214,7 +341,7 @@ def wait_for_acquirable_fencing_proof(
     timeout_seconds: float = 60.0,
     poll_seconds: float = 2.0,
 ):
-    """Poll lease status until the fencing proof is acquirable or time out."""
+    """Poll lease status until the fencing proof is acquirable or fail closed."""
     deadline = time.monotonic() + max(timeout_seconds, 1.0)
     last = None
     while True:
@@ -223,7 +350,7 @@ def wait_for_acquirable_fencing_proof(
         if proof.get("acquirable") is True:
             return last
         if time.monotonic() >= deadline:
-            return last
+            raise PromoteError("Fencing proof did not become acquirable before timeout")
         time.sleep(max(poll_seconds, 0.2))
 
 

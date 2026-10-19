@@ -57,3 +57,8 @@ Token is only needed at first registration; after that the runner uses
   stopped to avoid two runners racing for the same jobs.
 - CI debugging history (image choice, token auth, tkinter, ruff pin) is in the
   PR#3 discussion and `tasks/revisor-quality-debt.md`.
+- `cache.enabled` is **false** in `config.yaml`. Leaving the act_runner cache
+  server on caused job containers to run `actions/cache` post steps with an
+  empty `ACTIONS_CACHE_URL`, hanging the job and blocking the capacity-1
+  runner queue. Re-enable only after verifying job env gets a reachable
+  `ACTIONS_CACHE_URL` (or set `cache.external_server`).

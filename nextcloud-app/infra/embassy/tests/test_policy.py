@@ -302,7 +302,7 @@ class EmbassyPolicyTests(unittest.TestCase):
             standby=_ready_standby(),
             now=NOW,
             previous_failure_cycles=1,
-fencing_evidence=_fence(),
+            fencing_evidence=_fence(),
         )
 
         self.assertEqual(decision.state, DecisionState.READY_FOR_OPERATOR)
@@ -341,7 +341,6 @@ fencing_evidence=_fence(),
         self.assertEqual(decision.state, DecisionState.MAINTENANCE)
         self.assertEqual(decision.consecutive_primary_failures, 0)
         self.assertIsNone(decision.proposed_action)
-
 
     def test_tailnet_down_public_up_blocks_promotion(self):
         decision = evaluate(

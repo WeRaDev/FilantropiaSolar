@@ -148,9 +148,7 @@ def _valid_fence(
         return False
     if not (evidence.verified_at <= now < evidence.expires_at):
         return False
-    if policy.require_lease_acquirable and not evidence.acquirable:
-        return False
-    return True
+    return not (policy.require_lease_acquirable and not evidence.acquirable)
 
 
 def fencing_evidence_is_valid(
@@ -203,25 +201,24 @@ def _standby_blockers(
     if not lag_ok:
         blockers.append("replication_wal_apply_lag_nonzero_or_unknown")
     # Heartbeat rows are written on the primary and freeze after outage.
-    if not waive_primary_source_freshness or not lag_ok:
-        if not _valid_age(
-            standby.replication_heartbeat_age_seconds,
-            maximum_heartbeat_age,
-        ):
-            blockers.append("replication_heartbeat_stale_or_unknown")
+    if (not waive_primary_source_freshness or not lag_ok) and not _valid_age(
+        standby.replication_heartbeat_age_seconds,
+        maximum_heartbeat_age,
+    ):
+        blockers.append("replication_heartbeat_stale_or_unknown")
     if (
         standby.filestore_source_node_id is not None
         and standby.filestore_source_node_id != policy.primary_node_id
     ):
         blockers.append("filestore_source_node_mismatch")
-    if standby.filestore_source_generation != policy.primary_generation:
-        blockers.append("filestore_generation_stale_or_unknown")
-    elif not waive_primary_source_freshness or not lag_ok:
-        if not _valid_age(
+    if standby.filestore_source_generation != policy.primary_generation or (
+        (not waive_primary_source_freshness or not lag_ok)
+        and not _valid_age(
             standby.filestore_generation_age_seconds,
             policy.maximum_filestore_generation_age_seconds,
-        ):
-            blockers.append("filestore_generation_stale_or_unknown")
+        )
+    ):
+        blockers.append("filestore_generation_stale_or_unknown")
     if standby.all_attachments_verified is not True:
         blockers.append("attachment_integrity_unverified")
     if not _valid_age(

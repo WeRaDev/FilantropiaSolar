@@ -53,9 +53,9 @@ def _assert_private_dir(path: Path) -> None:
 def _write_status(path: Path, payload: dict[str, object]) -> None:
     parent = path.parent
     _assert_private_dir(parent)
-    encoded = (json.dumps(payload, sort_keys=True, separators=(",", ":")) + "\n").encode(
-        "utf-8"
-    )
+    encoded = (
+        json.dumps(payload, sort_keys=True, separators=(",", ":")) + "\n"
+    ).encode("utf-8")
     descriptor, temporary_name = tempfile.mkstemp(
         prefix=f".{path.name}.",
         suffix=".tmp",
@@ -71,7 +71,9 @@ def _write_status(path: Path, payload: dict[str, object]) -> None:
         temporary.replace(path)
     except OSError as exc:
         temporary.unlink(missing_ok=True)
-        raise FilestorePromoteError("Could not publish filestore promotion status") from exc
+        raise FilestorePromoteError(
+            "Could not publish filestore promotion status"
+        ) from exc
 
 
 def promote_filestore(

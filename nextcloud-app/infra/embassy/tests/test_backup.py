@@ -31,6 +31,11 @@ def _load_backup_module():
 class BackupLifecycleTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
+        if not BACKUP_SCRIPT.is_file():
+            raise unittest.SkipTest(
+                f"Backup script not present at {BACKUP_SCRIPT}; "
+                "skipping until nextcloud-app/scripts/backup-odoo-to-frank.py is tracked"
+            )
         cls.module = _load_backup_module()
 
     def setUp(self):

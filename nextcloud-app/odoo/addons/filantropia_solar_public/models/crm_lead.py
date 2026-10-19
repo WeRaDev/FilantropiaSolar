@@ -295,7 +295,9 @@ class CrmLead(models.Model):
             or f"Lead {self.id}"
         )
         if not station_name:
-            self._fs_mark_error(NcLifecycleError("station name is required for NC virtual create"))
+            self._fs_mark_error(
+                NcLifecycleError("station name is required for NC virtual create")
+            )
             return False
         payload = {
             "odoo_lead_id": int(self.id),

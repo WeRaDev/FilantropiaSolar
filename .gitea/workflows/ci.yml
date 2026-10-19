@@ -61,7 +61,19 @@ jobs:
         run: cd desktop && ../.ci-venv/bin/python -m mypy
 
       - name: Security static analysis (bandit)
+        # Embassy is covered by dedicated unit tests; bandit still flags
+        # intentional docker/subprocess helpers as high severity noise.
         run: .ci-venv/bin/bandit -c desktop/pyproject.toml -r desktop/src desktop/main.py desktop/scripts nextcloud-app/ml-service
 
       - name: Tests (pytest)
         run: cd desktop && ../.ci-venv/bin/python -m pytest -q
+
+      - name: Tests (Embassy and Odoo readiness)
+        env:
+          PYTHONPATH: nextcloud-app/infra
+        run: |
+          .ci-venv/bin/python -m unittest discover \
+            -s nextcloud-app/infra/embassy/tests -v
+          .ci-venv/bin/python -m unittest discover \
+            -s nextcloud-app/odoo/addons/filantropia_solar_public/tests \
+            -p 'test_embassy_readiness.py' -v

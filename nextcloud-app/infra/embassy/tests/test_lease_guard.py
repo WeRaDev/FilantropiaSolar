@@ -83,7 +83,9 @@ class LeaseGuardTests(unittest.TestCase):
                 '{"schema_version":1,"state":"fenced"}\n', encoding="utf-8"
             )
             fence_path.chmod(0o600)
-            with self.assertRaisesRegex(Exception, "not active for the promoted writer"):
+            with self.assertRaisesRegex(
+                Exception, "not active for the promoted writer"
+            ):
                 arm_lease_guard_as_writer(
                     client=client,
                     node_id="frank",

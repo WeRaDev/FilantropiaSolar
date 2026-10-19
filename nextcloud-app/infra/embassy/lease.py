@@ -148,7 +148,10 @@ def phase_of(state: LeaseState, *, now: datetime) -> LeasePhase:
     if state.takeover_pending:
         if _ready_to_acquire(state, now=now):
             return LeasePhase.ACQUIRABLE
-        if state.in_flight_drain_until is not None and now < state.in_flight_drain_until:
+        if (
+            state.in_flight_drain_until is not None
+            and now < state.in_flight_drain_until
+        ):
             return LeasePhase.DRAINING
         return LeasePhase.TAKEOVER_PENDING
     if state.owner_node_id and state.lease_expires_at and now < state.lease_expires_at:
@@ -170,14 +173,17 @@ def bootstrap_owner(
     _require_identity(node_id, generation)
     _require_aware(now)
     current = phase_of(state, now=now)
-    if current not in {LeasePhase.UNOWNED, LeasePhase.ACQUIRABLE} or state.owner_node_id:
-        if state.owner_node_id or state.takeover_pending:
-            return LeaseDecision(
-                ok=False,
-                state=state,
-                phase=current,
-                reason="authority_not_empty_for_bootstrap",
-            )
+    if (
+        state.owner_node_id
+        or state.takeover_pending
+        or current not in {LeasePhase.UNOWNED, LeasePhase.ACQUIRABLE}
+    ):
+        return LeaseDecision(
+            ok=False,
+            state=state,
+            phase=current,
+            reason="authority_not_empty_for_bootstrap",
+        )
     next_state = LeaseState(
         schema_version=1,
         owner_node_id=node_id,
@@ -298,10 +304,7 @@ def request_takeover(
             phase=current,
             reason="no_active_owner_to_take_over",
         )
-    if (
-        state.owner_node_id != target_node_id
-        or state.generation != target_generation
-    ):
+    if state.owner_node_id != target_node_id or state.generation != target_generation:
         return LeaseDecision(
             ok=False,
             state=state,
@@ -462,7 +465,9 @@ class InMemoryLeaseAuthority:
     def state(self) -> LeaseState:
         return self._state
 
-    def bootstrap(self, *, node_id: str, generation: str, now: datetime) -> LeaseDecision:
+    def bootstrap(
+        self, *, node_id: str, generation: str, now: datetime
+    ) -> LeaseDecision:
         decision = bootstrap_owner(
             self._state,
             node_id=node_id,

@@ -7,13 +7,13 @@ from datetime import UTC, datetime
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import json
 import os
-import sys
 from pathlib import Path
+import sys
 
 EMBASSY_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(EMBASSY_ROOT))
 
-from lease import InMemoryLeaseAuthority, LeasePolicy  # noqa: E402
+from lease import InMemoryLeaseAuthority, LeasePolicy
 
 TOKEN = os.environ.get("LEASE_API_TOKEN", "lab-only-token")
 _TTL = float(os.environ.get("LEASE_TTL_SECONDS", "30"))
@@ -63,7 +63,7 @@ class Handler(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(body)
 
-    def do_GET(self) -> None:  # noqa: N802
+    def do_GET(self) -> None:
         if not self._auth():
             self._unauthorized()
             return
@@ -73,7 +73,7 @@ class Handler(BaseHTTPRequestHandler):
         self.send_response(404)
         self.end_headers()
 
-    def do_POST(self) -> None:  # noqa: N802
+    def do_POST(self) -> None:
         if not self._auth():
             self._unauthorized()
             return
@@ -116,7 +116,7 @@ class Handler(BaseHTTPRequestHandler):
         self._respond(decision)
 
     def log_message(self, fmt: str, *args) -> None:
-        sys.stderr.write("%s - %s\n" % (self.address_string(), fmt % args))
+        sys.stderr.write(f"{self.address_string()} - {fmt % args}\n")
 
 
 def main() -> int:

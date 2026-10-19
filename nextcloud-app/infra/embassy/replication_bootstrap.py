@@ -8,13 +8,13 @@ import json
 import os
 from pathlib import Path
 import re
-import shutil
 import stat
 import subprocess
 import tempfile
 
 _SAFE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$")
 _SLOT = re.compile(r"^[a-z0-9_]{1,63}$")
+_MAX_TCP_PORT = 65535
 
 
 class ReplicationBootstrapError(RuntimeError):
@@ -43,7 +43,7 @@ class ReplicationBootstrapConfig:
                 raise ValueError(f"Invalid {label}")
         if not _SLOT.fullmatch(self.slot_name):
             raise ValueError("Invalid replication slot name")
-        if self.primary_port <= 0 or self.primary_port > 65535:
+        if self.primary_port <= 0 or self.primary_port > _MAX_TCP_PORT:
             raise ValueError("Invalid primary port")
         if not _SAFE.fullmatch(self.replication_password_env):
             raise ValueError("Invalid password environment name")
@@ -54,7 +54,9 @@ def _private_write_json(path: Path, payload: dict[str, object]) -> None:
     parent.mkdir(mode=0o700, parents=True, exist_ok=True)
     if stat.S_IMODE(parent.stat().st_mode) & 0o077:
         raise ReplicationBootstrapError("Status directory is not private")
-    encoded = (json.dumps(payload, sort_keys=True, separators=(",", ":")) + "\n").encode()
+    encoded = (
+        json.dumps(payload, sort_keys=True, separators=(",", ":")) + "\n"
+    ).encode()
     descriptor, temporary_name = tempfile.mkstemp(
         prefix=f".{path.name}.",
         suffix=".tmp",
@@ -131,7 +133,7 @@ def write_standby_signal_files(
     auto = data_directory / "postgresql.auto.conf"
     content = f"primary_conninfo = '{primary_conninfo}'\n"
     auto.write_text(content, encoding="utf-8")
-    os.chmod(auto, 0o600)
+    auto.chmod(0o600)
 
 
 def seed_standby(

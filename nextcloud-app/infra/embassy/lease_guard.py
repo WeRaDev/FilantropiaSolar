@@ -90,9 +90,9 @@ def _write_state(path: Path, state: dict[str, Any]) -> None:
     payload = dict(state)
     payload["schema_version"] = 1
     payload["updated_at_utc"] = datetime.now(UTC).isoformat()
-    encoded = (json.dumps(payload, sort_keys=True, separators=(",", ":")) + "\n").encode(
-        "utf-8"
-    )
+    encoded = (
+        json.dumps(payload, sort_keys=True, separators=(",", ":")) + "\n"
+    ).encode("utf-8")
     descriptor, temporary_name = tempfile.mkstemp(
         prefix=f".{path.name}.",
         suffix=".tmp",
@@ -158,10 +158,9 @@ def should_self_fence(
         return True, "lease_owned_by_other_node"
     if decision.state.generation != generation:
         return True, "lease_generation_mismatch"
-    if not decision.ok and decision.reason != "lease_renewed":
+    if not decision.ok and decision.reason not in {"lease_renewed", "status"}:
         # status-only success is fine when still active owner
-        if decision.reason != "status":
-            return True, decision.reason
+        return True, decision.reason
     return False, "lease_active"
 
 
@@ -514,7 +513,13 @@ def main() -> int:
         )
         _LOGGER.info("Lease guard result: %s", result)
         return 0 if result == "active" else 2
-    except (LeaseGuardError, LeaseClientError, WriterControlError, OSError, ValueError) as exc:
+    except (
+        LeaseGuardError,
+        LeaseClientError,
+        WriterControlError,
+        OSError,
+        ValueError,
+    ) as exc:
         _LOGGER.error("Lease guard failed: %s", exc)
         return 1
 

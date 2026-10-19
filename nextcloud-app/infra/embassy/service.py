@@ -27,6 +27,9 @@ from embassy.standby_status import collect_standby_status
 
 _ENV_NAME_PATTERN = re.compile(r"^[A-Z][A-Z0-9_]{0,127}$")
 _LOGGER = logging.getLogger("filantropia_embassy")
+_PUBLIC_ROUTE_OK_MIN = 200
+_PUBLIC_ROUTE_OK_MAX = 400
+
 _HTTP_SUCCESS = HTTPStatus.OK
 
 
@@ -141,7 +144,7 @@ def _public_routes_ready(
     return all(
         result.reachable
         and result.status_code is not None
-        and 200 <= result.status_code < 400
+        and _PUBLIC_ROUTE_OK_MIN <= result.status_code < _PUBLIC_ROUTE_OK_MAX
         for result in results
     )
 
@@ -285,7 +288,6 @@ def _load_config(path: Path) -> dict[str, object]:
     return config
 
 
-
 def _lease_client_from_fencing(
     fencing_config: dict[str, object],
 ) -> tuple[object, Path] | tuple[None, None]:
@@ -295,7 +297,11 @@ def _lease_client_from_fencing(
     proof_file = fencing_config.get("proof_file")
     if not isinstance(base_url, str) or not base_url:
         return None, None
-    if not isinstance(token_env, str) or not isinstance(proof_file, str) or not proof_file:
+    if (
+        not isinstance(token_env, str)
+        or not isinstance(proof_file, str)
+        or not proof_file
+    ):
         return None, None
     from embassy.lease_client import HttpLeaseClient, LeaseClientConfig
 
@@ -332,7 +338,7 @@ def _maybe_refresh_fencing_proof(
             "acquirable": bool((decision.fencing_proof or {}).get("acquirable")),
             "reason": decision.reason,
         }
-    except Exception as exc:  # noqa: BLE001 - observer must stay fail-closed
+    except Exception as exc:
         del exc
         _LOGGER.exception("Lease fencing proof refresh failed")
         return fence, {"status": "fencing_proof_refresh_failed"}
@@ -381,7 +387,7 @@ def _maybe_request_lease_takeover(
             "phase": decision.phase.value,
             "fencing_proof": decision.fencing_proof,
         }
-    except Exception as exc:  # noqa: BLE001 - observer must stay fail-closed
+    except Exception as exc:
         del exc
         _LOGGER.exception("Lease takeover request failed")
         return {"status": "takeover_failed", "reason": "lease_takeover_exception"}
@@ -471,7 +477,7 @@ def _maybe_execute_promotion(
     except PromoteError as exc:
         _LOGGER.error("Promotion refused or failed: %s", exc)
         return {"status": "promotion_failed", "reason": str(exc)[:200]}
-    except Exception as exc:  # noqa: BLE001 - observer must stay fail-closed
+    except Exception as exc:
         del exc
         _LOGGER.exception("Promotion executor failed")
         return {"status": "promotion_failed", "reason": "promotion_exception"}

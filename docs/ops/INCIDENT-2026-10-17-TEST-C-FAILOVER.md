@@ -70,7 +70,7 @@ Test C injects a TRL5 dual-probe outage to exercise software-lease auto-promote 
 ### Test C #2 — `blocked_standby` then post-promote 503
 
 1. **Policy:** After a valid lease fence, primary heartbeat rows and filestore *pull* generation ages cannot advance while TRL5 is offline. Requiring those ages ≤ RPO always blocks promote once outage lasts longer than the budget, even with WAL lag 0 and verified attachments.  
-2. **Ops/executor gap:** Prep stopped Frank `filantropia-lease-guard.timer` for a promote race. `execute_promotion` acquires the lease and starts Odoo/origin but **does not arm/unfence the lease-guard**. Without renewals, TTL (30s) expires → Worker 503 `no active writer epoch`.  
+2. **Ops/executor gap (historical):** Prep stopped Frank `filantropia-lease-guard.timer` for a promote race. Earlier `execute_promotion` acquired the lease and started Odoo/origin **before** arming the lease-guard. Without renewals, TTL (30s) expired → Worker 503 `no active writer epoch`. Repo now requires acquire → arm → DB promote → public start, with compensate-on-failure.  
 3. **Failback race:** Leaving Frank auto flags and renewals active while reclaiming TRL5 causes epoch thrash until Frank is fenced and disarmed.
 
 **Not the cause (either run):** auto flags incorrectly left off at inject time when the window was armed.
@@ -91,10 +91,10 @@ Test C injects a TRL5 dual-probe outage to exercise software-lease auto-promote 
 
 Production is healthy on TRL5. Remaining for a **recorded hands-free** Test C PASS:
 
-1. **Deploy** post-promote `arm_lease_guard_as_writer` (repo implemented 2026-10-19) to Frank Embassy path and confirm unit tests on host Python.  
+1. **Deploy** the promote order fix (acquire → arm → DB → public) and lease-guard arm path to Frank; confirm unit tests on host Python.  
 2. **Approved window retest** with preflight `scripts/test-c-preflight.sh`, flags armed only for the window, ≥5 min durable Frank lease, zero manual lease repair.  
-3. **Failback** using `docs/ops/EMBASSY-FAILBACK-ANTI-RACE.md` (disarm/fence Frank before TRL5 acquire).  
-4. **Push/PR** branch `feat/odoo-host-failover-software-lease` (includes proof-refresh, age-waive, arm-on-promote, docs).  
+3. **Failback** using `docs/ops/EMBASSY-FAILBACK-ANTI-RACE.md` (disarm/fence Frank before TRL5 acquire). Keep `execute_failback` gated; prefer the runbook over automation.  
+4. **Merge** branch `feat/odoo-host-failover-software-lease` only after CI green and Revisor blockers closed. Auto-promote flags stay **false** until Test C PASS.  
 5. **Optional:** rotate replication password if historical debug exposure confirmed; orphan CRM attachment on lead 72 remains a customer item.
 
 ## Failback path used (both recoveries)
@@ -171,9 +171,9 @@ Prefer compose overlay `docker-compose.trl5-repl-publish.yml` **or** socat publi
 
 ## Open follow-ups
 
-1. Implement post-promote lease-guard arming in Embassy executor (P0 for green Test C).  
-2. Add unit/integration coverage for promote → guard active → renew advances expiry.  
-3. Push branch / open PR; keep auto flags off until green retest.  
+1. Deploy promote acquire→arm→DB→public ordering + compensate path to Frank (repo done).  
+2. Keep unit coverage for promote → guard active → renew advances expiry green in CI.  
+3. Keep auto flags off until a hands-free Test C PASS is recorded.  
 4. Re-run Test C only in an approved window with full preflight.  
 5. Optional repl password rotation if leaked in historical debug logs.  
 

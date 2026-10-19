@@ -105,10 +105,16 @@ export default {
       return new Response("websocket not supported on writer gate", { status: 501 });
     }
     if (!env.ORIGIN_TRL5_URL || !env.ORIGIN_FRANK_URL) {
-      return new Response("writer gate misconfigured", { status: 503 });
+      return temporaryUnavailableResponse(request, env, {
+        code: "writer_gate_misconfigured",
+        technical: "writer gate misconfigured",
+      });
     }
     if (!env.LEASE_API_TOKEN) {
-      return new Response("lease authority misconfigured", { status: 503 });
+      return temporaryUnavailableResponse(request, env, {
+        code: "lease_authority_misconfigured",
+        technical: "lease authority misconfigured",
+      });
     }
     const id = env.WRITER_LEASE.idFromName("filantropia-odoo-writer");
     const stub = env.WRITER_LEASE.get(id);
@@ -121,11 +127,20 @@ export default {
     });
     const statusResponse = await stub.fetch(statusRequest);
     if (!statusResponse.ok) {
-      return new Response("lease authority unavailable", { status: 503 });
+      return temporaryUnavailableResponse(request, env, {
+        code: "lease_authority_unavailable",
+        technical: "lease authority unavailable",
+      });
     }
     const payload = await statusResponse.json();
     if (!payload.ok || payload.phase !== "active" || !payload.state?.owner_node_id) {
-      return new Response("no active writer epoch", { status: 503 });
+      return temporaryUnavailableResponse(request, env, {
+        code: "no_active_writer_epoch",
+        technical: "no active writer epoch",
+        phase: payload.phase || "unknown",
+        // Takeover window: lease TTL + drain + self-fence grace, then promote.
+        expected_minutes: expectedRecoveryMinutes(env),
+      });
     }
     const owner = payload.state.owner_node_id;
     const origin =
@@ -135,7 +150,10 @@ export default {
           ? env.ORIGIN_FRANK_URL
           : null;
     if (!origin) {
-      return new Response("unknown writer origin", { status: 503 });
+      return temporaryUnavailableResponse(request, env, {
+        code: "unknown_writer_origin",
+        technical: "unknown writer origin",
+      });
     }
     const permitRequest = new Request(new URL("/lease/permit", request.url), {
       method: "POST",
@@ -154,10 +172,17 @@ export default {
     try {
       permit = await permitResponse.json();
     } catch {
-      return new Response("writer permit unavailable", { status: 503 });
+      return temporaryUnavailableResponse(request, env, {
+        code: "writer_permit_unavailable",
+        technical: "writer permit unavailable",
+      });
     }
     if (!permit.ok || !permit.request_permit) {
-      return new Response("writer permit denied", { status: 503 });
+      return temporaryUnavailableResponse(request, env, {
+        code: "writer_permit_denied",
+        technical: "writer permit denied",
+        expected_minutes: expectedRecoveryMinutes(env),
+      });
     }
 
     // Residual race: lease may expire between permit and upstream fetch. Host
@@ -189,7 +214,11 @@ export default {
         }),
       );
     } catch {
-      return new Response("origin unreachable", { status: 503 });
+      return temporaryUnavailableResponse(request, env, {
+        code: "origin_unreachable",
+        technical: "origin unreachable",
+        expected_minutes: expectedRecoveryMinutes(env),
+      });
     }
   },
 };
@@ -197,6 +226,213 @@ export default {
 function isWebSocketUpgrade(request) {
   const upgrade = (request.headers.get("Upgrade") || "").toLowerCase();
   return upgrade === "websocket";
+}
+
+/** Designed automatic recovery band shown to visitors (lease math + promote). */
+function expectedRecoveryMinutes(env) {
+  const ttl = numberOr(env.LEASE_TTL_SECONDS, DEFAULT_TTL_SECONDS);
+  const drain = numberOr(env.LEASE_DRAIN_SECONDS, DEFAULT_DRAIN_SECONDS);
+  const grace = numberOr(env.LEASE_GRACE_SECONDS, DEFAULT_GRACE_SECONDS);
+  const leaseSeconds = ttl + drain + grace;
+  // Warm standby promote + origin start is typically under a few minutes.
+  const minMinutes = Math.max(1, Math.ceil(leaseSeconds / 60));
+  const maxMinutes = Math.max(minMinutes + 1, 3);
+  return { min: minMinutes, max: maxMinutes, lease_seconds: leaseSeconds };
+}
+
+function prefersHtml(request) {
+  const accept = (request.headers.get("Accept") || "").toLowerCase();
+  if (!accept || accept === "*/*") {
+    return true;
+  }
+  if (accept.includes("text/html")) {
+    return true;
+  }
+  // Explicit machine clients keep a compact body.
+  if (
+    accept.includes("application/json") ||
+    accept.includes("text/plain") ||
+    accept.includes("application/problem+json")
+  ) {
+    return false;
+  }
+  return true;
+}
+
+function temporaryUnavailableResponse(request, env, detail) {
+  const recovery = detail.expected_minutes || expectedRecoveryMinutes(env);
+  const retryAfter = Math.max(15, Math.min(60, Number(recovery.lease_seconds) || 30));
+  const headers = {
+    "Cache-Control": "no-store, no-cache, max-age=0, must-revalidate",
+    Pragma: "no-cache",
+    "Retry-After": String(retryAfter),
+    "X-Filantropia-Unavailable-Code": String(detail.code || "temporary_unavailable"),
+  };
+  if (detail.phase) {
+    headers["X-Filantropia-Lease-Phase"] = String(detail.phase);
+  }
+
+  if (!prefersHtml(request)) {
+    headers["Content-Type"] = "application/json; charset=utf-8";
+    return new Response(
+      JSON.stringify({
+        ok: false,
+        reason: detail.code || "temporary_unavailable",
+        technical: detail.technical || "temporary unavailable",
+        phase: detail.phase || null,
+        expected_recovery_minutes: recovery,
+        message_pt:
+          "O site FilantropiaSolar est\u00e1 temporariamente indispon\u00edvel durante uma mudan\u00e7a de servidor. Dever\u00e1 voltar dentro de poucos minutos.",
+        message_en:
+          "FilantropiaSolar is temporarily unavailable during a server failover. It should return within a few minutes.",
+      }),
+      { status: 503, headers },
+    );
+  }
+
+  headers["Content-Type"] = "text/html; charset=utf-8";
+  return new Response(failoverHtmlPage(recovery, detail), {
+    status: 503,
+    headers,
+  });
+}
+
+function failoverHtmlPage(recovery, detail) {
+  const minM = Number(recovery.min) || 1;
+  const maxM = Number(recovery.max) || 3;
+  const refreshSeconds = 20;
+  const code = escapeHtml(detail.code || "temporary_unavailable");
+  const phase = escapeHtml(detail.phase || "");
+  const phaseLine = phase
+    ? `<p class="meta">Estado t\u00e9cnico: <code>${code}</code> (fase de lease: <code>${phase}</code>)</p>`
+    : `<p class="meta">Estado t\u00e9cnico: <code>${code}</code></p>`;
+
+  return `<!DOCTYPE html>
+<html lang="pt">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta http-equiv="refresh" content="${refreshSeconds}">
+  <title>FilantropiaSolar \u2014 dispon\u00edvel em breve</title>
+  <style>
+    :root {
+      --olive: #A89D3F;
+      --orange: #E8A020;
+      --ink: #1f1a14;
+      --muted: #5c5346;
+      --paper: #fbf7ef;
+      --card: #ffffff;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: Georgia, "Times New Roman", serif;
+      color: var(--ink);
+      background:
+        radial-gradient(circle at top right, rgba(232, 160, 32, 0.18), transparent 40%),
+        radial-gradient(circle at bottom left, rgba(168, 157, 63, 0.16), transparent 45%),
+        var(--paper);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 2rem 1.25rem;
+    }
+    main {
+      width: min(34rem, 100%);
+      background: var(--card);
+      border: 1px solid rgba(31, 26, 20, 0.08);
+      border-radius: 18px;
+      box-shadow: 0 18px 40px rgba(31, 26, 20, 0.08);
+      padding: 2rem 1.75rem 1.75rem;
+    }
+    .brand {
+      font-style: italic;
+      font-size: 1.35rem;
+      letter-spacing: 0.01em;
+      margin: 0 0 0.35rem;
+    }
+    .tag {
+      margin: 0 0 1.4rem;
+      font-family: system-ui, -apple-system, sans-serif;
+      font-size: 0.85rem;
+      color: var(--muted);
+    }
+    .tag .we { color: var(--olive); font-weight: 600; }
+    .tag .ra { color: var(--orange); font-weight: 600; }
+    h1 {
+      margin: 0 0 0.75rem;
+      font-size: 1.55rem;
+      line-height: 1.25;
+    }
+    p {
+      margin: 0 0 0.9rem;
+      line-height: 1.45;
+      font-family: system-ui, -apple-system, sans-serif;
+      font-size: 1rem;
+      color: var(--ink);
+    }
+    .en {
+      color: var(--muted);
+      font-size: 0.95rem;
+    }
+    .meta {
+      margin-top: 1.25rem;
+      color: var(--muted);
+      font-size: 0.8rem;
+    }
+    code {
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      font-size: 0.78em;
+    }
+    .pulse {
+      width: 0.7rem;
+      height: 0.7rem;
+      border-radius: 50%;
+      background: var(--orange);
+      display: inline-block;
+      margin-right: 0.45rem;
+      box-shadow: 0 0 0 0 rgba(232, 160, 32, 0.55);
+      animation: pulse 1.6s infinite;
+      vertical-align: middle;
+    }
+    @keyframes pulse {
+      0% { box-shadow: 0 0 0 0 rgba(232, 160, 32, 0.45); }
+      70% { box-shadow: 0 0 0 12px rgba(232, 160, 32, 0); }
+      100% { box-shadow: 0 0 0 0 rgba(232, 160, 32, 0); }
+    }
+  </style>
+</head>
+<body>
+  <main role="status" aria-live="polite">
+    <p class="brand">FilantropiaSolar</p>
+    <p class="tag">built by <span class="we">we</span><span class="ra">ra</span></p>
+    <h1><span class="pulse" aria-hidden="true"></span>O site volta em breve</h1>
+    <p>
+      Estamos a concluir uma mudan\u00e7a autom\u00e1tica de servidor para manter o servi\u00e7o
+      seguro. O website FilantropiaSolar dever\u00e1 ficar dispon\u00edvel outra vez dentro
+      de cerca de <strong>${minM} a ${maxM} minutos</strong>.
+    </p>
+    <p class="en">
+      FilantropiaSolar is temporarily unavailable while an automatic server
+      failover finishes. The site should return within about
+      <strong>${minM}\u2013${maxM} minutes</strong>. This page refreshes every
+      ${refreshSeconds} seconds.
+    </p>
+    <p class="en">Esta p\u00e1gina atualiza automaticamente a cada ${refreshSeconds} segundos.</p>
+    ${phaseLine}
+  </main>
+</body>
+</html>`;
+}
+
+function escapeHtml(value) {
+  return String(value)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
 }
 
 /**
@@ -396,9 +632,12 @@ function acquireLease(state, body, now, policy) {
     if (state.previous_epoch !== previousEpoch) {
       return fail(state, now, "previous_epoch_mismatch");
     }
+    // Match Python lease authority: previous owner must not reacquire during
+    // takeover. Failback uses an explicit returning-node path after remote fence.
     // readyToAcquire() already enforces drain + lease expiry + self-fence grace.
-    // After that window, either standby or the previous owner may acquire so an
-    // aborted takeover cannot leave public traffic on 503 forever.
+    if (nodeId === state.previous_owner_node_id) {
+      return fail(state, now, "previous_owner_cannot_reacquire_during_takeover");
+    }
   } else if (state.owner_node_id && state.epoch !== previousEpoch) {
     return fail(state, now, "previous_epoch_mismatch");
   }

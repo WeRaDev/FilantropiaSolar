@@ -170,7 +170,7 @@ def sync_filestore(config: FilestoreSyncConfig) -> dict[str, object]:
     # rsync --archive can still leave the root directory mode non-private on
     # some platforms; enforce the standby invariant after each successful pull.
     try:
-        os.chmod(config.local_path, 0o700)
+        config.local_path.chmod(0o700)
     except OSError as exc:
         raise FilestoreSyncError(
             "Could not enforce private standby filestore permissions"

@@ -68,7 +68,10 @@ runner:
 
 cache:
   # Enable cache server to use actions/cache.
-  enabled: true
+  # Disabled: with enabled=true, job containers often get an empty
+  # ACTIONS_CACHE_URL and actions/cache post steps hang forever, blocking
+  # the single-capacity runner (observed on SolarCity CI task 653).
+  enabled: false
   # The directory to store the cache data.
   # If it's empty, the cache data will be stored in $HOME/.cache/actcache.
   dir: ""
