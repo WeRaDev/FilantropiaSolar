@@ -90,6 +90,37 @@ tar -xOf "$B" odoo.dump | docker exec -i filantropia-odoo-db pg_restore --list >
 tar -xOf "$B" filestore.tar | tar -tf - >/dev/null
 ```
 
+## Repair log — 2026-10-26T17:13Z
+
+Root cause of daily failures since **2026-10-05**:
+
+1. Live backup script targeted **SFTP port 2222**, but on Frank that port is now
+   only `127.0.0.1` (Gitea docker-proxy). Remote connections get
+   `Connection refused` → `SFTP batch failed (exit 255)`.
+2. Off-host SFTP write path was broken (chroot Match not landing in the bundle
+   directory; home was non-writable).
+
+Repairs applied (plumbing only; full capture deferred to **02:00 UTC**):
+
+- Backup script on TRL5 now uses **port 22**, retains complete bundles under
+  `/opt/FilantropiaSolar/backups/odoo/` (`filantropia-odoo-trl5-<stamp>.tar`),
+  and publishes verified copies to Frank SFTP home
+  `/data/backups/filantropia/odoo/` (separate from standby Odoo runtime volumes).
+- Frank `filantropia-backup` is SFTP-only (`ForceCommand internal-sftp`), home
+  set to the off-host bundle directory; authorized keys at
+  `/etc/ssh/filantropia-backup/authorized_keys`.
+- Stale `filantropia-odoo-20261005T020001Z.tar.part` removed.
+- SFTP put/get/rm probe from TRL5 succeeded (`sftp_exit=0`).
+- Timer remains enabled; next run **02:00 UTC**.
+
+Policy alignment:
+
+- **TRL5** hosts and runs the live site and keeps **complete** daily bundles.
+- **Embassy (Frank)** stays stopped standby following TRL5; off-host bundles are
+  recovery artifacts only. Failback copies Frank→TRL5 only if Frank accepted
+  writes during failover.
+
+
 ## Monitoring only — 2026-09-30
 
 The daily timer was active and the service reported success/exit 0 for its
