@@ -63,11 +63,9 @@ lease acquire: clears local Odoo fence marker, writes unfenced guard state,
 optionally renews once, enables `filantropia-lease-guard.timer`. Promote fails
 closed if arming cannot prove `phase=active` for the new owner.
 
-## After Test C #3 (2026-10-19 ~19:54Z) — waiting on TRL5
+## After Test C #3 failback (2026-10-20 ~14:38Z)
 
-- Public writer: **Frank** (`active` lease, guard renewing).
-- Frank auto flags: **disarmed**.
-- TRL5: offline; no reverse streaming until host returns.
-- Before failback: rsync Frank Odoo volume filestore ↔ embassy mirror so
-  attachment verify does not false-fail on standby later.
-- Frank origin container name: `filantropia-cloudflared-frank`.
+- Public writer: **TRL5** (`active` lease epoch 32, guard renewing).
+- Frank: streaming standby, Odoo stopped, lease-guard **fenced**, auto flags **false**.
+- Attachment counts matched at 610 after Frank-originated reseed.
+- Frank origin container name remains `filantropia-cloudflared-frank` for next promote.

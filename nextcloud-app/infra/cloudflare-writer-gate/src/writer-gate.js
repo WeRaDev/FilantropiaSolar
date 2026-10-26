@@ -409,13 +409,13 @@ function failoverHtmlPage(recovery, detail) {
     <p class="tag">built by <span class="we">we</span><span class="ra">ra</span></p>
     <h1><span class="pulse" aria-hidden="true"></span>O site volta em breve</h1>
     <p>
-      Estamos a concluir uma mudan\u00e7a autom\u00e1tica de servidor para manter o servi\u00e7o
+      Estamos a concluir uma mudan\u00e7a de servidor para manter o servi\u00e7o
       seguro. O website FilantropiaSolar dever\u00e1 ficar dispon\u00edvel outra vez dentro
       de cerca de <strong>${minM} a ${maxM} minutos</strong>.
     </p>
     <p class="en">
-      FilantropiaSolar is temporarily unavailable while an automatic server
-      failover finishes. The site should return within about
+      FilantropiaSolar is temporarily unavailable while a server change
+      finishes. The site should return within about
       <strong>${minM}\u2013${maxM} minutes</strong>. This page refreshes every
       ${refreshSeconds} seconds.
     </p>

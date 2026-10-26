@@ -1,10 +1,10 @@
 # Incident close-out — Test C TRL5 disconnect / auto-promote (2026-10-17 → 2026-10-19)
 
-**Status:** OPEN on failback — production serving on **Frank** after Test C #3  
-**Last verified:** 2026-10-19T19:54Z (UTC)  
+**Status:** CLOSED — failback complete after Test C #3; post-failback lease-guard harden  
+**Last verified:** 2026-10-26T12:50Z (UTC)  
 **Severity:** Production outage (public Odoo apex) during Test C and recovery  
-**Primary writer now:** `frank` (epoch **30**, lease-guard armed)  
-**TRL5:** still offline / SSH timeout — failback **blocked** until TRL5 returns
+**Primary writer now:** `trl5` (epoch **34**, lease-guard renewing)  
+**Standby now:** `frank` (streaming, slot active, Odoo stopped/fenced `failback_to_trl5`)
 
 ## Summary
 
@@ -14,7 +14,8 @@ Test C injects a TRL5 dual-probe outage to exercise software-lease auto-promote 
 |-----|--------------|--------|
 | Test C #1 | 2026-10-17 ~19:40 | **FAILED** auto-promote: takeover OK, Frank stuck `blocked_unfenced` on draining proof; apex 503 until manual promote |
 | Test C #2 | 2026-10-19 earlier | **PARTIAL PASS** then operator-assisted durability: dual-probe + takeover worked; first blocked on frozen heartbeat/filestore ages; after mid-test policy waive, Embassy `promotion_executed` (frank epoch 24); post-promote lease expired because Frank lease-guard had been left stopped; re-acquire + re-enable guard restored apex; failback to TRL5 completed |
-| Test C #3 | 2026-10-19 ~19:06–19:33 | **PARTIAL PASS (service OK, automation incomplete):** dual-probe OK; auto path stuck `blocked_standby` (embassy filestore mirror missing 3 regenerable `web.assets_web*` blobs that existed in Odoo volume) + proof flicker; operator-assisted promote → frank epoch 29 then re-acquire **30** + lease-guard arm; apex 200 via Frank; visitor failover HTML page served during 503; auto flags **disarmed** after cutover; **TRL5 still down — failback pending** |
+| Test C #3 | 2026-10-19 ~19:06–19:33 | **PARTIAL PASS (service OK, automation incomplete):** dual-probe OK; auto path stuck `blocked_standby` (embassy filestore mirror missing 3 regenerable `web.assets_web*` blobs that existed in Odoo volume) + proof flicker; operator-assisted promote → frank epoch 29 then re-acquire **30** + lease-guard arm; apex 200 via Frank; visitor failover HTML page served during 503; auto flags **disarmed** after cutover |
+| Failback after TRL5 return | 2026-10-20 ~14:20–14:38 | **PASS:** Frank had 610 attachments (writes); fence Frank; preserve TRL5 pgdata; `pg_basebackup` Frank→TRL5; filestore rsync; TRL5 primary; lease takeover/acquire **trl5 epoch 32**; Odoo+cloudflared+readiness+lease-guard; Frank rebuilt streaming standby lag 0; apex/www/trl5 200 |
 
 **Definition of done for a green Test C** (not yet met without operator touch):
 
@@ -110,6 +111,7 @@ Follow `docs/ops/EMBASSY-FAILBACK-ANTI-RACE.md` **in order**:
 1. Filestore mirror sync timer must include paths Embassy verifies.  
 2. Promote path origin container name + arm-before-TTL already in repo — retest without operator lease repair.  
 3. Optional: longer fencing-proof refresh margin under multi-minute attachment scans.
+4. ~~Permanent fence after brief `lease_authority_unreachable`~~ — fixed in lease-guard auto-recovery (2026-10-26); deploy to both hosts required.
 
 ## Failback path used (both recoveries)
 

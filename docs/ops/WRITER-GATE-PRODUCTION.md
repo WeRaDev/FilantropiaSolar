@@ -1,11 +1,12 @@
 # Writer-gate production ops (Phase C)
 
-Status as of **2026-10-19T19:54Z** (post Test C #3 cutover to Frank). Public Odoo
-traffic for FilantropiaSolar goes through the Cloudflare Worker lease gate.
-Automatic promotion is **disabled**. **Frank** is sole writer (epoch **30**,
-lease-guard renewing); TRL5 is offline pending return/failback. Visitor 503s
-without an active lease show a branded failover HTML page (Worker). Incident:
-`docs/ops/INCIDENT-2026-10-17-TEST-C-FAILOVER.md`. Failback order:
+Status as of **2026-10-26T12:50Z**. Public Odoo traffic for FilantropiaSolar goes
+through the Cloudflare Worker lease gate. Automatic promotion is **disabled**.
+**TRL5** is sole writer (epoch **34**, lease-guard renewing with transient
+authority auto-recovery); Frank is streaming standby lag 0, Odoo stopped and
+sticky-fenced (`failback_to_trl5`). Visitor 503s without an active lease show a
+branded failover HTML page (Worker).
+Incident: `docs/ops/INCIDENT-2026-10-17-TEST-C-FAILOVER.md`. Failback order:
 `docs/ops/EMBASSY-FAILBACK-ANTI-RACE.md`.
 
 ## Live topology
@@ -33,7 +34,7 @@ Standby Frank (wera-ss-pt-sn-1 / 100.82.194.96):
 | Worker | `filantropia-odoo-writer-gate` |
 | workers.dev | `https://filantropia-odoo-writer-gate.filantropia.workers.dev` |
 | Lease source name | `cloudflare-durable-object-lease` |
-| Writer node | `trl5` (epoch **28** at 2026-10-19 verify) |
+| Writer node | `trl5` (epoch **34** at 2026-10-26 verify) |
 | Writer generation | `writer-epoch-20261012-trl5-primary` |
 | Lease TTL / drain / grace | 30s / 5s / 15s |
 | Lease guard timer (TRL5) | every 15s; **enabled/active** |
@@ -82,6 +83,25 @@ Quick repair if apex is 503 but origin is 200:
 
 After an aborted takeover, Worker acquire allows previous owner reclaim once
 `readyToAcquire` is true (drain/grace already enforced).
+
+### 1b. Lease-guard transient recovery (2026-10-26)
+
+`lease_guard.py` no longer leaves a permanent multi-day public outage after a
+brief lease-authority blip:
+
+- Soft-retry authority failures for `FS_LEASE_AUTHORITY_FAILURE_THRESHOLD`
+  consecutive cycles (default **2**) before sticky-fencing.
+- Recoverable fence reasons (`lease_authority_unreachable`,
+  `lease_decision_missing`, expired self-lease phases) auto-clear once the
+  authority is reachable **and** this node proves renew/reacquire ownership.
+- Ownership is proven **before** clearing `odoo-fenced.json` or restarting
+  writer containers.
+- Intentional standby/failback fences (`failback_to_trl5`, `standby_*`,
+  `operator_fence`) stay sticky and exit 0 so systemd does not spam failures on
+  Frank. Other-owner / generation-mismatch fences stay sticky and exit 2.
+- Optional container ensure list: `FS_LEASE_GUARD_ENSURE_CONTAINERS`
+  (default `filantropia-odoo-db,filantropia-odoo,filantropia-cloudflared`).
+
 
 ### 2. Fail-closed is intentional
 

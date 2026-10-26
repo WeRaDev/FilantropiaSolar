@@ -29,6 +29,29 @@ _DEFAULT_STATE = Path(
         "/etc/filantropia-embassy/lease-guard-state.json",
     )
 )
+# Fences that must never auto-clear (failback/standby/other-writer).
+_PERMANENT_FENCE_REASONS = frozenset(
+    {
+        "failback_to_trl5",
+        "standby_awaiting_promote",
+        "lease_owned_by_other_node",
+        "lease_generation_mismatch",
+        "stale_epoch_observed",
+        "operator_fence",
+        "already_fenced",
+    }
+)
+# Transient reasons: authority blip or expired self-lease while still the writer.
+_RECOVERABLE_FENCE_REASONS = frozenset(
+    {
+        "lease_authority_unreachable",
+        "lease_decision_missing",
+        "lease_phase_acquirable",
+        "lease_phase_unowned",
+        "not_current_owner_or_lease_expired",
+    }
+)
+_DEFAULT_AUTHORITY_FAILURE_THRESHOLD = 2
 
 
 class LeaseGuardError(RuntimeError):
@@ -133,6 +156,42 @@ def local_readiness_ok() -> bool:
     return not (isinstance(payload, dict) and payload.get("state") == "fenced")
 
 
+def authority_failure_threshold() -> int:
+    raw = os.environ.get("FS_LEASE_AUTHORITY_FAILURE_THRESHOLD", "").strip()
+    if not raw:
+        return _DEFAULT_AUTHORITY_FAILURE_THRESHOLD
+    try:
+        value = int(raw)
+    except ValueError:
+        return _DEFAULT_AUTHORITY_FAILURE_THRESHOLD
+    return max(1, value)
+
+
+def is_recoverable_fence_reason(reason: str | None) -> bool:
+    """Return True when a sticky fence may clear after the authority recovers."""
+    if not reason:
+        return False
+    if reason in _PERMANENT_FENCE_REASONS:
+        return False
+    if reason.startswith("failback") or reason.startswith("standby_"):
+        return False
+    if reason in _RECOVERABLE_FENCE_REASONS:
+        return True
+    # lease_phase_* for draining/takeover_pending stays sticky until operator.
+    return False
+
+
+def is_intentional_standby_fence(reason: str | None) -> bool:
+    """Return True for operator/standby fences that are healthy non-writer posture."""
+    if not reason:
+        return False
+    if reason in {"failback_to_trl5", "standby_awaiting_promote", "operator_fence"}:
+        return True
+    if reason.startswith("failback") or reason.startswith("standby_"):
+        return True
+    return False
+
+
 def should_self_fence(
     *,
     node_id: str,
@@ -143,9 +202,14 @@ def should_self_fence(
 ) -> tuple[bool, str]:
     """Decide whether the local writer must stop."""
     if local_state.get("fenced") is True:
-        return True, "already_fenced"
+        existing = str(local_state.get("fence_reason") or "already_fenced")
+        return True, existing if existing else "already_fenced"
     if authority_error:
-        # Fail closed for renewals: cannot prove ownership while authority is down.
+        failures = int(local_state.get("authority_failures") or 0)
+        threshold = authority_failure_threshold()
+        if failures < threshold:
+            # Soft fail: do not sticky-fence on a single blip.
+            return False, f"authority_retry_{failures}"
         return True, "lease_authority_unreachable"
     if decision is None:
         return True, "lease_decision_missing"
@@ -164,22 +228,192 @@ def should_self_fence(
     return False, "lease_active"
 
 
+def _record_active_state(
+    *,
+    state_path: Path,
+    local_state: dict[str, Any],
+    decision: LeaseDecision,
+) -> str:
+    local_state["fenced"] = False
+    local_state.pop("fence_reason", None)
+    local_state["authority_failures"] = 0
+    local_state["active_epoch"] = decision.state.epoch
+    local_state["lease_expires_at"] = (
+        decision.state.lease_expires_at.isoformat()
+        if decision.state.lease_expires_at
+        else None
+    )
+    _write_state(state_path, local_state)
+    return "active"
+
+
+def ensure_writer_containers() -> None:
+    """Best-effort restart of local writer containers after transient recovery."""
+    import subprocess
+
+    raw = os.environ.get(
+        "FS_LEASE_GUARD_ENSURE_CONTAINERS",
+        "filantropia-odoo-db,filantropia-odoo,filantropia-cloudflared",
+    )
+    names = [part.strip() for part in raw.split(",") if part.strip()]
+    if not names:
+        return
+    if os.environ.get("FS_LEASE_GUARD_SKIP_ENSURE_CONTAINERS", "").strip() in {
+        "1",
+        "true",
+        "yes",
+    }:
+        return
+    try:
+        subprocess.run(
+            ["docker", "start", *names],
+            check=False,
+            capture_output=True,
+            text=True,
+            timeout=120,
+            env={**os.environ, "LC_ALL": "C"},
+        )
+    except (OSError, subprocess.TimeoutExpired) as exc:
+        _LOGGER.warning("Writer container ensure failed: %s", exc)
+
+
+def _try_recover_transient_fence(
+    *,
+    client: LeaseClientProtocol,
+    node_id: str,
+    generation: str,
+    state_path: Path,
+    local_state: dict[str, Any],
+    perform_fence: bool,
+) -> str:
+    """Clear recoverable fences once the lease authority is reachable again."""
+    reason = str(local_state.get("fence_reason") or "already_fenced")
+    if not is_recoverable_fence_reason(reason):
+        return f"fenced:{reason}"
+
+    try:
+        status = client.status()
+    except (LeaseClientError, OSError, ValueError) as exc:
+        _LOGGER.warning("Recovery probe still failing (%s): %s", reason, exc)
+        return f"fenced:{reason}"
+
+    local_state["highest_epoch_seen"] = max(
+        int(local_state.get("highest_epoch_seen") or 0),
+        int(status.state.epoch or 0),
+    )
+    decision: LeaseDecision | None = None
+
+    if (
+        status.phase == LeasePhase.ACTIVE
+        and status.state.owner_node_id == node_id
+        and status.state.generation == generation
+        and status.state.epoch is not None
+    ):
+        # Prove ownership before clearing fences or starting containers.
+        try:
+            decision = client.renew(
+                node_id=node_id,
+                epoch=int(status.state.epoch),
+                generation=generation,
+                readiness_ok=True,
+            )
+        except (LeaseClientError, OSError, ValueError) as exc:
+            _LOGGER.error("Recovery renew failed: %s", exc)
+            return f"fenced:{reason}"
+        if (
+            not decision.ok
+            or decision.phase != LeasePhase.ACTIVE
+            or decision.state.owner_node_id != node_id
+        ):
+            return f"fenced:{reason}"
+        clear_local_writer_fence_marker()
+        local_state["highest_epoch_seen"] = max(
+            int(local_state["highest_epoch_seen"]),
+            int(decision.state.epoch or 0),
+        )
+        local_state["recovery_reason"] = f"recovered_from_{reason}"
+        _record_active_state(
+            state_path=state_path, local_state=local_state, decision=decision
+        )
+        if perform_fence:
+            ensure_writer_containers()
+        _LOGGER.info("Lease guard recovered active ownership after %s", reason)
+        return "recovered:active"
+
+    if (
+        status.phase == LeasePhase.ACQUIRABLE
+        and status.state.owner_node_id == node_id
+        and status.state.generation == generation
+        and status.state.epoch is not None
+    ):
+        # Prove reacquire before clearing fences or starting containers.
+        try:
+            decision = client.acquire(
+                node_id=node_id,
+                generation=generation,
+                previous_epoch=int(status.state.epoch),
+            )
+        except (LeaseClientError, OSError, ValueError) as exc:
+            _LOGGER.error("Recovery acquire failed: %s", exc)
+            return f"fenced:{reason}"
+        if (
+            not decision.ok
+            or decision.phase != LeasePhase.ACTIVE
+            or decision.state.owner_node_id != node_id
+        ):
+            return f"fenced:{reason}"
+        clear_local_writer_fence_marker()
+        local_state["highest_epoch_seen"] = max(
+            int(local_state["highest_epoch_seen"]),
+            int(decision.state.epoch or 0),
+        )
+        local_state["recovery_reason"] = f"reacquired_from_{reason}"
+        _record_active_state(
+            state_path=state_path, local_state=local_state, decision=decision
+        )
+        if perform_fence:
+            ensure_writer_containers()
+        _LOGGER.info("Lease guard reacquired expired self-lease after %s", reason)
+        return "recovered:reacquired"
+
+    if (
+        status.state.owner_node_id
+        and status.state.owner_node_id != node_id
+        and status.phase == LeasePhase.ACTIVE
+    ):
+        local_state["fenced"] = True
+        local_state["fence_reason"] = "lease_owned_by_other_node"
+        _write_state(state_path, local_state)
+        return "fenced:lease_owned_by_other_node"
+
+    # Authority is up but this node is not yet eligible to write again.
+    return f"fenced:{reason}"
+
+
 def run_once(
     *,
     client: LeaseClientProtocol,
     state_path: Path = _DEFAULT_STATE,
     perform_fence: bool = True,
 ) -> str:
-    """One guard cycle: renew if owner, otherwise self-fence."""
+    """One guard cycle: renew if owner, recover transient fences, else self-fence."""
     node_id, generation = _identity()
     local_state = _read_state(state_path)
     if local_state.get("fenced") is True:
-        return "fenced"
+        return _try_recover_transient_fence(
+            client=client,
+            node_id=node_id,
+            generation=generation,
+            state_path=state_path,
+            local_state=local_state,
+            perform_fence=perform_fence,
+        )
 
     decision: LeaseDecision | None = None
     authority_error = False
     try:
         status = client.status()
+        local_state["authority_failures"] = 0
         local_state["highest_epoch_seen"] = max(
             int(local_state.get("highest_epoch_seen") or 0),
             status.state.epoch,
@@ -221,6 +455,9 @@ def run_once(
     except (LeaseClientError, OSError, ValueError) as exc:
         _LOGGER.error("Lease authority interaction failed: %s", exc)
         authority_error = True
+        local_state["authority_failures"] = int(
+            local_state.get("authority_failures") or 0
+        ) + 1
 
     fence, reason = should_self_fence(
         node_id=node_id,
@@ -229,6 +466,10 @@ def run_once(
         decision=decision,
         authority_error=authority_error,
     )
+    if authority_error and not fence:
+        # Soft authority blip: persist failure count, keep writer running.
+        _write_state(state_path, local_state)
+        return f"authority_retry:{local_state.get('authority_failures')}"
     if fence:
         local_state["fenced"] = True
         local_state["fence_reason"] = reason
@@ -243,15 +484,9 @@ def run_once(
         return f"fenced:{reason}"
 
     assert decision is not None
-    local_state["fenced"] = False
-    local_state["active_epoch"] = decision.state.epoch
-    local_state["lease_expires_at"] = (
-        decision.state.lease_expires_at.isoformat()
-        if decision.state.lease_expires_at
-        else None
+    return _record_active_state(
+        state_path=state_path, local_state=local_state, decision=decision
     )
-    _write_state(state_path, local_state)
-    return "active"
 
 
 def startup_allowed(*, state_path: Path = _DEFAULT_STATE) -> bool:
@@ -318,6 +553,7 @@ def write_active_guard_state(
             lease_expires_at.isoformat() if lease_expires_at is not None else None
         ),
         "arm_reason": arm_reason,
+        "authority_failures": 0,
     }
     # Drop sticky fence reason from standby/failback posture.
     previous.pop("fence_reason", None)
@@ -512,7 +748,16 @@ def main() -> int:
             perform_fence=not arguments.dry_run,
         )
         _LOGGER.info("Lease guard result: %s", result)
-        return 0 if result == "active" else 2
+        if result == "active" or result.startswith("recovered:") or result.startswith(
+            "authority_retry:"
+        ):
+            return 0
+        if result.startswith("fenced:"):
+            fence_reason = result.split(":", 1)[1]
+            # Standby/failback posture is expected healthy; avoid systemd failure spam.
+            if is_intentional_standby_fence(fence_reason):
+                return 0
+        return 2
     except (
         LeaseGuardError,
         LeaseClientError,
