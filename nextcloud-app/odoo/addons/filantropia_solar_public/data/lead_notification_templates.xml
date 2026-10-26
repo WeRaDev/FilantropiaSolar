@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+  <record id="mail_template_fs_website_lead_admin" model="mail.template">
+    <field name="name">FilantropiaSolar: new public website lead</field>
+    <field name="model_id" ref="crm.model_crm_lead"/>
+    <field name="subject">New FilantropiaSolar website lead</field>
+    <field name="auto_delete" eval="False"/>
+    <field name="body_html" type="html">
+      <div>
+        <p>A new lead was submitted through the FilantropiaSolar public website.</p>
+        <ul>
+          <li><strong>Lead:</strong> <t t-out="object.name or ''"/></li>
+          <li><strong>Organisation:</strong> <t t-out="object.partner_name or ''"/></li>
+          <li><strong>Contact:</strong> <t t-out="object.contact_name or ''"/></li>
+          <li><strong>Email:</strong> <t t-out="object.email_from or ''"/></li>
+        </ul>
+        <p>
+          <a t-attf-href="{{ object.get_base_url() }}/web#id={{ object.id }}&amp;model=crm.lead&amp;view_type=form">
+            Open the lead in Odoo
+          </a>
+        </p>
+      </div>
+    </field>
+  </record>
+  <record id="mail_template_fs_lead_qualified" model="mail.template">
+    <field name="name">FilantropiaSolar: public website lead qualified</field>
+    <field name="model_id" ref="crm.model_crm_lead"/>
+    <field name="subject">FilantropiaSolar website lead qualified</field>
+    <field name="auto_delete" eval="False"/>
+    <field name="body_html" type="html">
+      <div>
+        <p>A public website lead has entered the Qualified stage.</p>
+        <ul>
+          <li><strong>Lead:</strong> <t t-out="object.name or ''"/></li>
+          <li><strong>Organisation:</strong> <t t-out="object.partner_name or ''"/></li>
+          <li><strong>Contact:</strong> <t t-out="object.contact_name or ''"/></li>
+          <li><strong>Email:</strong> <t t-out="object.email_from or ''"/></li>
+        </ul>
+        <p>
+          <a t-attf-href="{{ object.get_base_url() }}/web#id={{ object.id }}&amp;model=crm.lead&amp;view_type=form">
+            Open the lead in Odoo
+          </a>
+        </p>
+      </div>
+    </field>
+  </record>
+</odoo>

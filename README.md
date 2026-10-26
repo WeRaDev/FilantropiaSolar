@@ -36,7 +36,7 @@ tasks/             # Work items / quality debt notes
 |---|---|---|
 | Nextcloud app | server, `:8080` (TRL5 `:18080`) | Map + analytics (Historical NC SoT / Predicted), Europe/Lisbon hours, dual computer/Nextcloud export-upload, lifecycle admin, tokened public + lifecycle APIs |
 | ML microservice | server, `:8501` | Per-installation ensemble models, training, estimates, hourly simulate, production accuracy gates vs PVGIS |
-| Odoo public site + CRM | server, `:8069` | Public map (Planned + Running), candidatura → CRM, queue_job lifecycle mirror (module **19.0.2.22.0**) |
+| Odoo public site + CRM | server, `:8069` | Public map (Planned + Running), persisted station snapshot fallback, queued lead notices, queue_job lifecycle mirror (module **19.0.2.35.0**) |
 | Desktop edition | client machine | Native window over the same data via Nextcloud API |
 
 ## Current release highlights (3.2.26)

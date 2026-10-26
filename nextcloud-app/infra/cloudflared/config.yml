@@ -28,6 +28,18 @@ ingress:
       httpHostHeader: filantropiasolar.pt
       connectTimeout: 10s
       keepAliveTimeout: 90s
+  # Writer-gate origin for TRL5 (Worker ORIGIN_TRL5_URL). Keep separate from apex.
+  - hostname: odoo-trl5.wera.global
+    service: http://127.0.0.1:8069
+    originRequest:
+      httpHostHeader: filantropiasolar.pt
+      connectTimeout: 10s
+      keepAliveTimeout: 90s
+  # Frank origin hostname is reserved on DNS; while Frank Odoo is stopped this
+  # TRL5 connector intentionally does not serve it (404 catch-all). A Frank
+  # tunnel connector should claim this hostname when Frank is the writer.
+  - hostname: odoo-frank.wera.global
+    service: http_status:503
   - hostname: wera-ss-pt-tv-1.wera.global
     service: http://127.0.0.1:11000
     originRequest:

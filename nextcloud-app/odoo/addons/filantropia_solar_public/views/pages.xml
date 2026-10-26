@@ -373,10 +373,14 @@
             <t t-set="website_meta_description">Lista das estações da rede Filantropia Solar: localização, potência e poupança estimada.</t>
             <t t-set="stations" t-value="stations or []"/>
             <t t-set="dashboard" t-value="dashboard or {}"/>
+            <t t-set="api_error" t-value="api_error or ''"/>
             <div id="wrap" class="fs-public-wrap">
                 <section class="container py-5">
                     <h1 class="mb-3">Instalações</h1>
                     <p class="text-muted">Lista detalhada (atalho legado). Preferir a página <a href="/projetos">Projetos</a> com mapa e lista. As coordenadas públicas são aproximadas.</p>
+                    <t t-if="api_error">
+                        <div class="alert alert-warning text-center" t-esc="api_error"/>
+                    </t>
                     <div class="table-responsive fs-card">
                         <table class="table table-striped mb-0">
                             <thead>

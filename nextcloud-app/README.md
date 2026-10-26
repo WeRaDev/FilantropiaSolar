@@ -23,8 +23,9 @@ estimates, and track savings against grid electricity prices.
 - **Admin dashboard** — dataset/ops management, ML cache/train, FilantropiaSolarAdmin ACL
 - **Public read-only API** — Planned + Running only (no virtual/dataset leak);
   stations/dashboard/estimate for Odoo public site
-- **Odoo addon (19.0.2.22.0)** — public map, candidatura → CRM, queue_job stage
-  mirror, grid_connection_type, NC Stations import/reconcile
+- **Odoo addon (19.0.2.35.0)** — public map with persisted Nextcloud snapshot
+  fallback, queued public-lead/qualified-lead notices, queue_job stage mirror,
+  grid_connection_type, NC Stations import/reconcile
 - **Savings / grid** — on-grid vs off-grid factors; configurable grid price
 - **Weather sources** — Open-Meteo, historical files, synthetic (traced in UI)
 - **Multi-language** — English and Portuguese
@@ -71,7 +72,12 @@ docker exec -u 33 filantropia-nextcloud php occ upgrade
 
 ## TRL4 / TRL5 deployment
 
-**TRL4** — join SolarSeed-v3 monitoring network:
+**TRL4 recovery warning (2026-09-28):** The commands below describe the
+historical development stack, **not** Frank's Odoo-only failover. Do not run
+`setup.sh` or `connect-trl4.sh` on Frank. Use
+`../docs/ops/TRL4-ODOO-FAILOVER.md` for the staged, backup-gated procedure.
+
+**TRL4 historical development** — join SolarSeed-v3 monitoring network:
 
 ```bash
 bash scripts/connect-trl4.sh

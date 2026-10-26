@@ -1,0 +1,25 @@
+name: agent-baseline-structure
+on:
+  pull_request:
+  push:
+    branches: [main, master, develop, "feat/**", "fix/**", "chore/**"]
+  schedule:
+    - cron: "31 5 * * *"
+permissions:
+  contents: read
+jobs:
+  structure:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout without persistent credentials
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          github-server-url: http://host.docker.internal:3000
+          token: ${{ secrets.AGENT_BASELINE_READ_TOKEN }}
+          persist-credentials: false
+      - name: Isolated validator dependencies
+        run: |
+          python3 -m venv .agent-baseline-ci
+          .agent-baseline-ci/bin/python -m pip install -r security/agents/bundle/requirements.txt
+      - name: Validate composition and report assessment gaps
+        run: .agent-baseline-ci/bin/python security/agents/bundle/validate.py --root .

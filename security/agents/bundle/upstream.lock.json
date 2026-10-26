@@ -1,0 +1,16 @@
+{
+  "repository": "https://github.com/agentbaseline/agentbaseline",
+  "commit": "d842a1bb34a42e9d7c0d54a1b12ead9e0e59e283",
+  "version": "1.0-draft",
+  "reviewed_at": "2026-10-26",
+  "files": {
+    "upstream/controls.yaml": "06cd3966513c595b7cb455caebc01d9b0c5907f168b7e97ab3b98e1f5c56ae8f",
+    "upstream/LICENSE": "9ba9550ad48438d0836ddab3da480b3b69ffa0aac7b7878b5a0039e7ab429411",
+    "upstream/LICENSE-schemas": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30"
+  },
+  "licenses": {
+    "controls.yaml": "Apache-2.0",
+    "prose_and_figures": "CC-BY-4.0"
+  },
+  "legal_note": "Upstream README states pending legal confirmation; review before redistribution."
+}

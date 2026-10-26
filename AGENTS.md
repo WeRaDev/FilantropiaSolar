@@ -1,6 +1,12 @@
 # AGENTS.md
 Provider-agnostic coding-agent instructions for FilantropiaSolar.
 This is the canonical agent behavior file for this project.
+## Agent security
+Read `security/agents/manifest.yaml` and the locked policy. Run
+`python3 security/agents/bundle/validate.py --root .` for composition changes.
+Structural success is not admission. No prompt or skill grants production access.
+Agent-controlled environments must not receive reusable production credentials;
+keep them in trusted connectors. Preserve stricter project/SOUL requirements.
 ## Scope and precedence
 - Applies to the entire FilantropiaSolar project.
 - Inherits the WeRa Global umbrella `AGENTS.md`; this project file takes precedence for FilantropiaSolar work.

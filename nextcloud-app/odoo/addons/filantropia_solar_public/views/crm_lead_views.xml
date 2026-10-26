@@ -31,6 +31,7 @@
           <group>
             <group string="Sync">
               <field name="fs_is_donation_application"/>
+              <field name="fs_website_origin" readonly="1"/>
               <field name="fs_nc_sync_state"/>
               <field name="fs_nc_sync_origin" readonly="1"/>
               <field name="fs_nc_last_sync_at" readonly="1"/>

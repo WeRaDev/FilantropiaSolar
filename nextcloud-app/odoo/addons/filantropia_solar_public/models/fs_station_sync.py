@@ -170,9 +170,15 @@ class FsStationSync(models.AbstractModel):
             if hasattr(lead, "_fs_safe_write"):
                 lead._fs_safe_write(vals)
             else:
-                lead.with_context(fs_skip_nc_enqueue=True).write(vals)
+                lead.with_context(
+                    fs_skip_nc_enqueue=True,
+                    fs_skip_notifications=True,
+                ).write(vals)
             return lead
-        return Lead.with_context(fs_skip_nc_enqueue=True).create(vals)
+        return Lead.with_context(
+            fs_skip_nc_enqueue=True,
+            fs_skip_notifications=True,
+        ).create(vals)
 
     @api.model
     def _is_crm_echo(self, lead, station: dict) -> bool:

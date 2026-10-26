@@ -25,6 +25,11 @@ class PageController extends Controller
     #[NoCSRFRequired]
     public function index(): TemplateResponse
     {
-        return new TemplateResponse(Application::APP_ID, 'index');
+        $response = new TemplateResponse(Application::APP_ID, 'index');
+        $csp = $response->getContentSecurityPolicy();
+        if ($csp !== null) {
+            $csp->addAllowedImageDomain('https://tile.openstreetmap.org');
+        }
+        return $response;
     }
 }

@@ -1,0 +1,15 @@
+[Unit]
+Description=Proxy Proton Mail Bridge SMTP to Docker bridge gateways
+After=network-online.target docker.service protonmail.service
+Wants=network-online.target
+Requires=protonmail.service
+PartOf=docker.service
+
+[Service]
+Type=simple
+ExecStart=/usr/local/sbin/protonmail-smtp-docker-proxy.sh
+Restart=on-failure
+RestartSec=3
+
+[Install]
+WantedBy=multi-user.target

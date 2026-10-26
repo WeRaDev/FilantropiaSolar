@@ -1,0 +1,357 @@
+{
+  "schema_version": 1,
+  "project_id": "FilantropiaSolar",
+  "upstream_commit": "d842a1bb34a42e9d7c0d54a1b12ead9e0e59e283",
+  "controls": [
+    {
+      "id": "DIS-01",
+      "applicability": "applicable",
+      "state": "unassessed",
+      "reason": "Bootstrap is not evidence of runtime enforcement; owner assessment pending.",
+      "reviewer": null,
+      "verified_at": null,
+      "enforcement": [],
+      "evidence": []
+    },
+    {
+      "id": "DIS-02",
+      "applicability": "applicable",
+      "state": "unassessed",
+      "reason": "Bootstrap is not evidence of runtime enforcement; owner assessment pending.",
+      "reviewer": null,
+      "verified_at": null,
+      "enforcement": [],
+      "evidence": []
+    },
+    {
+      "id": "DIS-03",
+      "applicability": "applicable",
+      "state": "unassessed",
+      "reason": "Bootstrap is not evidence of runtime enforcement; owner assessment pending.",
+      "reviewer": null,
+      "verified_at": null,
+      "enforcement": [],
+      "evidence": []
+    },
+    {
+      "id": "DIS-04",
+      "applicability": "applicable",
+      "state": "unassessed",
+      "reason": "Bootstrap is not evidence of runtime enforcement; owner assessment pending.",
+      "reviewer": null,
+      "verified_at": null,
+      "enforcement": [],
+      "evidence": []
+    },
+    {
+      "id": "DIS-05",
+      "applicability": "applicable",
+      "state": "unassessed",
+      "reason": "Bootstrap is not evidence of runtime enforcement; owner assessment pending.",
+      "reviewer": null,
+      "verified_at": null,
+      "enforcement": [],
+      "evidence": []
+    },
+    {
+      "id": "DIS-06",
+      "applicability": "applicable",
+      "state": "unassessed",
+      "reason": "Bootstrap is not evidence of runtime enforcement; owner assessment pending.",
+      "reviewer": null,
+      "verified_at": null,
+      "enforcement": [],
+      "evidence": []
+    },
+    {
+      "id": "DIS-07",
+      "applicability": "applicable",
+      "state": "unassessed",
+      "reason": "Bootstrap is not evidence of runtime enforcement; owner assessment pending.",
+      "reviewer": null,
+      "verified_at": null,
+      "enforcement": [],
+      "evidence": []
+    },
+    {
+      "id": "CON-01",
+      "applicability": "applicable",
+      "state": "unassessed",
+      "reason": "Bootstrap is not evidence of runtime enforcement; owner assessment pending.",
+      "reviewer": null,
+      "verified_at": null,
+      "enforcement": [],
+      "evidence": []
+    },
+    {
+      "id": "CON-02",
+      "applicability": "applicable",
+      "state": "unassessed",
+      "reason": "Bootstrap is not evidence of runtime enforcement; owner assessment pending.",
+      "reviewer": null,
+      "verified_at": null,
+      "enforcement": [],
+      "evidence": []
+    },
+    {
+      "id": "CON-03",
+      "applicability": "applicable",
+      "state": "unassessed",
+      "reason": "Bootstrap is not evidence of runtime enforcement; owner assessment pending.",
+      "reviewer": null,
+      "verified_at": null,
+      "enforcement": [],
+      "evidence": []
+    },
+    {
+      "id": "CON-04",
+      "applicability": "applicable",
+      "state": "unassessed",
+      "reason": "Bootstrap is not evidence of runtime enforcement; owner assessment pending.",
+      "reviewer": null,
+      "verified_at": null,
+      "enforcement": [],
+      "evidence": []
+    },
+    {
+      "id": "AUT-01",
+      "applicability": "applicable",
+      "state": "unassessed",
+      "reason": "Bootstrap is not evidence of runtime enforcement; owner assessment pending.",
+      "reviewer": null,
+      "verified_at": null,
+      "enforcement": [],
+      "evidence": []
+    },
+    {
+      "id": "AUT-02",
+      "applicability": "applicable",
+      "state": "unassessed",
+      "reason": "Bootstrap is not evidence of runtime enforcement; owner assessment pending.",
+      "reviewer": null,
+      "verified_at": null,
+      "enforcement": [],
+      "evidence": []
+    },
+    {
+      "id": "AUT-03",
+      "applicability": "applicable",
+      "state": "unassessed",
+      "reason": "Bootstrap is not evidence of runtime enforcement; owner assessment pending.",
+      "reviewer": null,
+      "verified_at": null,
+      "enforcement": [],
+      "evidence": []
+    },
+    {
+      "id": "AUT-04",
+      "applicability": "applicable",
+      "state": "unassessed",
+      "reason": "Bootstrap is not evidence of runtime enforcement; owner assessment pending.",
+      "reviewer": null,
+      "verified_at": null,
+      "enforcement": [],
+      "evidence": []
+    },
+    {
+      "id": "AUT-05",
+      "applicability": "applicable",
+      "state": "unassessed",
+      "reason": "Bootstrap is not evidence of runtime enforcement; owner assessment pending.",
+      "reviewer": null,
+      "verified_at": null,
+      "enforcement": [],
+      "evidence": []
+    },
+    {
+      "id": "AUT-06",
+      "applicability": "applicable",
+      "state": "unassessed",
+      "reason": "Bootstrap is not evidence of runtime enforcement; owner assessment pending.",
+      "reviewer": null,
+      "verified_at": null,
+      "enforcement": [],
+      "evidence": []
+    },
+    {
+      "id": "AUT-07",
+      "applicability": "applicable",
+      "state": "unassessed",
+      "reason": "Bootstrap is not evidence of runtime enforcement; owner assessment pending.",
+      "reviewer": null,
+      "verified_at": null,
+      "enforcement": [],
+      "evidence": []
+    },
+    {
+      "id": "AUT-08",
+      "applicability": "applicable",
+      "state": "unassessed",
+      "reason": "Bootstrap is not evidence of runtime enforcement; owner assessment pending.",
+      "reviewer": null,
+      "verified_at": null,
+      "enforcement": [],
+      "evidence": []
+    },
+    {
+      "id": "AUT-09",
+      "applicability": "applicable",
+      "state": "unassessed",
+      "reason": "Bootstrap is not evidence of runtime enforcement; owner assessment pending.",
+      "reviewer": null,
+      "verified_at": null,
+      "enforcement": [],
+      "evidence": []
+    },
+    {
+      "id": "OBS-01",
+      "applicability": "applicable",
+      "state": "unassessed",
+      "reason": "Bootstrap is not evidence of runtime enforcement; owner assessment pending.",
+      "reviewer": null,
+      "verified_at": null,
+      "enforcement": [],
+      "evidence": []
+    },
+    {
+      "id": "OBS-02",
+      "applicability": "applicable",
+      "state": "unassessed",
+      "reason": "Bootstrap is not evidence of runtime enforcement; owner assessment pending.",
+      "reviewer": null,
+      "verified_at": null,
+      "enforcement": [],
+      "evidence": []
+    },
+    {
+      "id": "OBS-03",
+      "applicability": "applicable",
+      "state": "unassessed",
+      "reason": "Bootstrap is not evidence of runtime enforcement; owner assessment pending.",
+      "reviewer": null,
+      "verified_at": null,
+      "enforcement": [],
+      "evidence": []
+    },
+    {
+      "id": "OBS-04",
+      "applicability": "applicable",
+      "state": "unassessed",
+      "reason": "Bootstrap is not evidence of runtime enforcement; owner assessment pending.",
+      "reviewer": null,
+      "verified_at": null,
+      "enforcement": [],
+      "evidence": []
+    },
+    {
+      "id": "OBS-05",
+      "applicability": "applicable",
+      "state": "unassessed",
+      "reason": "Bootstrap is not evidence of runtime enforcement; owner assessment pending.",
+      "reviewer": null,
+      "verified_at": null,
+      "enforcement": [],
+      "evidence": []
+    },
+    {
+      "id": "OBS-06",
+      "applicability": "applicable",
+      "state": "unassessed",
+      "reason": "Bootstrap is not evidence of runtime enforcement; owner assessment pending.",
+      "reviewer": null,
+      "verified_at": null,
+      "enforcement": [],
+      "evidence": []
+    },
+    {
+      "id": "VAL-01",
+      "applicability": "applicable",
+      "state": "unassessed",
+      "reason": "Bootstrap is not evidence of runtime enforcement; owner assessment pending.",
+      "reviewer": null,
+      "verified_at": null,
+      "enforcement": [],
+      "evidence": []
+    },
+    {
+      "id": "VAL-02",
+      "applicability": "applicable",
+      "state": "unassessed",
+      "reason": "Bootstrap is not evidence of runtime enforcement; owner assessment pending.",
+      "reviewer": null,
+      "verified_at": null,
+      "enforcement": [],
+      "evidence": []
+    },
+    {
+      "id": "VAL-03",
+      "applicability": "applicable",
+      "state": "unassessed",
+      "reason": "Bootstrap is not evidence of runtime enforcement; owner assessment pending.",
+      "reviewer": null,
+      "verified_at": null,
+      "enforcement": [],
+      "evidence": []
+    },
+    {
+      "id": "VAL-04",
+      "applicability": "applicable",
+      "state": "unassessed",
+      "reason": "Bootstrap is not evidence of runtime enforcement; owner assessment pending.",
+      "reviewer": null,
+      "verified_at": null,
+      "enforcement": [],
+      "evidence": []
+    },
+    {
+      "id": "RES-01",
+      "applicability": "applicable",
+      "state": "unassessed",
+      "reason": "Bootstrap is not evidence of runtime enforcement; owner assessment pending.",
+      "reviewer": null,
+      "verified_at": null,
+      "enforcement": [],
+      "evidence": []
+    },
+    {
+      "id": "RES-02",
+      "applicability": "applicable",
+      "state": "unassessed",
+      "reason": "Bootstrap is not evidence of runtime enforcement; owner assessment pending.",
+      "reviewer": null,
+      "verified_at": null,
+      "enforcement": [],
+      "evidence": []
+    },
+    {
+      "id": "RES-03",
+      "applicability": "applicable",
+      "state": "unassessed",
+      "reason": "Bootstrap is not evidence of runtime enforcement; owner assessment pending.",
+      "reviewer": null,
+      "verified_at": null,
+      "enforcement": [],
+      "evidence": []
+    },
+    {
+      "id": "RES-04",
+      "applicability": "applicable",
+      "state": "unassessed",
+      "reason": "Bootstrap is not evidence of runtime enforcement; owner assessment pending.",
+      "reviewer": null,
+      "verified_at": null,
+      "enforcement": [],
+      "evidence": []
+    },
+    {
+      "id": "RES-05",
+      "applicability": "applicable",
+      "state": "unassessed",
+      "reason": "Bootstrap is not evidence of runtime enforcement; owner assessment pending.",
+      "reviewer": null,
+      "verified_at": null,
+      "enforcement": [],
+      "evidence": []
+    }
+  ]
+}

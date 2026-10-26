@@ -1,0 +1,11 @@
+[Unit]
+Description=Reconcile TRL5 notify_push after AIO Nextcloud starts
+
+[Timer]
+OnBootSec=15s
+OnUnitActiveSec=30s
+AccuracySec=5s
+Unit=filantropia-notify-push-endpoint.service
+
+[Install]
+WantedBy=timers.target

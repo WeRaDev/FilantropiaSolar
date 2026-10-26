@@ -1,0 +1,9 @@
+[Unit]
+Description=Reconcile TRL5 Nextcloud AIO notify_push endpoint
+Documentation=file:///opt/FilantropiaSolar/nextcloud-app/scripts/trl5-ensure-notify-push-endpoint.sh
+After=docker.service
+Requires=docker.service
+
+[Service]
+Type=oneshot
+ExecStart=/bin/bash /opt/FilantropiaSolar/nextcloud-app/scripts/trl5-ensure-notify-push-endpoint.sh

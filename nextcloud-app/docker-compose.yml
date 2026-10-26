@@ -156,7 +156,7 @@ services:
       - filantropia-net
     profiles:
       - odoo
-    restart: unless-stopped
+    restart: "${FS_ODOO_RESTART:-unless-stopped}"
     healthcheck:
       test:
         [

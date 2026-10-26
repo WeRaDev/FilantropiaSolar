@@ -29,6 +29,7 @@ _FS_WRITE_BACKOFF_SEC = (0.05, 0.15, 0.35, 0.75)
 # Webhook echo window: if CRM just applied the same station, inbound NC can no-op.
 _FS_CRM_ECHO_SECONDS = 20
 _FS_JOB_MAX_RETRIES = 5
+_FS_QUALIFIED_USER_PARAM = "filantropia_solar_public.fs_qualified_lead_user_id"
 
 
 class CrmLead(models.Model):
@@ -120,6 +121,159 @@ class CrmLead(models.Model):
         copy=False,
         help="True for NGO candidatura leads that participate in NC lifecycle mirror.",
     )
+    fs_website_origin = fields.Boolean(
+        string="Created by public website",
+        default=False,
+        index=True,
+        copy=False,
+        help="Marks public contact, referral, and candidatura form submissions.",
+    )
+    fs_admin_notification_queued = fields.Boolean(
+        string="Administrator notification queued",
+        default=False,
+        readonly=True,
+        copy=False,
+    )
+    fs_qualified_notification_queued = fields.Boolean(
+        string="Qualified notification queued",
+        default=False,
+        readonly=True,
+        copy=False,
+    )
+
+    @api.model_create_multi
+    def create(self, vals_list):
+        leads = super().create(vals_list)
+        if not self.env.context.get("fs_skip_notifications"):
+            for lead in leads.filtered("fs_website_origin"):
+                lead._fs_queue_notification("website_created")
+        return leads
+
+    @api.model
+    def _fs_is_qualified_stage(self, stage):
+        if not stage:
+            return False
+        qualified_stage = self.env.ref(
+            "crm.stage_lead2",
+            raise_if_not_found=False,
+        )
+        return bool(
+            (qualified_stage and stage.id == qualified_stage.id)
+            or (stage.name or "").strip().casefold() == "qualified"
+        )
+
+    def _fs_notification_email(self, notification_type):
+        self.ensure_one()
+        if notification_type == "website_created":
+            admin = self.env.ref("base.user_admin", raise_if_not_found=False)
+            partner = admin.sudo().partner_id if admin else self.env["res.partner"]
+        elif notification_type == "qualified":
+            raw_user_id = (
+                self.env["ir.config_parameter"]
+                .sudo()
+                .get_param(_FS_QUALIFIED_USER_PARAM)
+            )
+            try:
+                user = self.env["res.users"].sudo().browse(int(raw_user_id)).exists()
+            except (TypeError, ValueError):
+                user = self.env["res.users"]
+            if not user or not user.active or user.share:
+                return ""
+            partner = user.partner_id.sudo()
+        else:
+            raise ValueError(
+                f"Unsupported website lead notification: {notification_type}"
+            )
+        if not partner:
+            return ""
+        return (partner.email or "").strip()
+
+    def _fs_queue_notification(self, notification_type):
+        """Queue one templated mail without sending in the CRM/web request."""
+        self.ensure_one()
+        if not self.fs_website_origin:
+            return False
+
+        notification = {
+            "website_created": (
+                "fs_admin_notification_queued",
+                "filantropia_solar_public.mail_template_fs_website_lead_admin",
+                "Administrator",
+            ),
+            "qualified": (
+                "fs_qualified_notification_queued",
+                "filantropia_solar_public.mail_template_fs_lead_qualified",
+                "qualified lead recipient",
+            ),
+        }
+        try:
+            flag_name, template_xmlid, recipient_label = notification[notification_type]
+        except KeyError as exc:
+            raise ValueError(
+                f"Unsupported website lead notification: {notification_type}"
+            ) from exc
+
+        try:
+            email = self._fs_notification_email(notification_type)
+        except Exception as exc:
+            _logger.warning(
+                "Could not resolve website lead notification recipient type=%s "
+                "lead_id=%s: %s",
+                notification_type,
+                self.id,
+                exc,
+            )
+            return False
+        if not email:
+            _logger.warning(
+                "Website lead notification has no configured %s email (lead_id=%s)",
+                recipient_label,
+                self.id,
+            )
+            return False
+        template = self.env.ref(template_xmlid, raise_if_not_found=False)
+        if not template:
+            _logger.error(
+                "Website lead notification template is missing: %s",
+                template_xmlid,
+            )
+            return False
+
+        try:
+            with self.env.cr.savepoint():
+                self.env.cr.execute(
+                    f"""
+                    UPDATE crm_lead
+                    SET {flag_name} = TRUE
+                    WHERE id = %s AND COALESCE({flag_name}, FALSE) = FALSE
+                    RETURNING id
+                    """,
+                    [self.id],
+                )
+                if not self.env.cr.fetchone():
+                    return False
+                mail_id = template.sudo().send_mail(
+                    self.id,
+                    force_send=False,
+                    email_values={"email_to": email},
+                )
+                if not mail_id:
+                    raise RuntimeError("mail.template did not create a queued mail")
+                self.invalidate_recordset([flag_name])
+        except Exception as exc:
+            _logger.warning(
+                "Could not queue website lead notification type=%s lead_id=%s: %s",
+                notification_type,
+                self.id,
+                exc,
+            )
+            return False
+        _logger.info(
+            "Queued website lead notification type=%s lead_id=%s",
+            notification_type,
+            self.id,
+        )
+        return True
 
     def _fs_client(self) -> NcLifecycleClient:
         return NcLifecycleClient()
@@ -155,7 +309,10 @@ class CrmLead(models.Model):
             try:
                 # Invalidate so we do not write from a stale cache after a race.
                 self.invalidate_recordset()
-                self.with_context(fs_skip_nc_enqueue=True).write(vals)
+                self.with_context(
+                    fs_skip_nc_enqueue=True,
+                    fs_skip_notifications=True,
+                ).write(vals)
                 return True
             except Exception as exc:
                 last_exc = exc
@@ -730,6 +887,7 @@ class CrmLead(models.Model):
 
     def write(self, vals):
         skip = self.env.context.get("fs_skip_nc_enqueue")
+        skip_notifications = self.env.context.get("fs_skip_notifications")
         old_stages = {lead.id: lead.stage_id for lead in self}
         res = super().write(vals)
         if skip:
@@ -742,6 +900,13 @@ class CrmLead(models.Model):
         for lead in self:
             old_stage = old_stages.get(lead.id)
             new_stage = lead.stage_id
+            if (
+                not skip_notifications
+                and lead.fs_website_origin
+                and not self._fs_is_qualified_stage(old_stage)
+                and self._fs_is_qualified_stage(new_stage)
+            ):
+                lead._fs_queue_notification("qualified")
             action = lifecycle_action_for_stage_change(
                 old_stage.name if old_stage else None,
                 new_stage.name if new_stage else None,

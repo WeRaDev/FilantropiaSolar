@@ -172,6 +172,7 @@ import { generateUrl } from '@nextcloud/router'
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
 import { fixLeafletDefaultIcons } from '../utils/leafletIcons.js'
+import { addOpenStreetMapLayer } from '../utils/openStreetMap.js'
 
 export default {
     name: 'CreateVirtualModal',
@@ -240,12 +241,9 @@ export default {
 
             map = L.map(mapContainer.value, {
                 zoomControl: true,
-                attributionControl: false
+                attributionControl: true
             }).setView([defaultLat, defaultLng], 7)
-
-            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-                maxZoom: 18
-            }).addTo(map)
+            addOpenStreetMapLayer(map, { maxZoom: 18 })
 
             // Add marker if coordinates exist
             if (form.value.latitude && form.value.longitude) {

@@ -1,0 +1,56 @@
+schema_version: 1
+version: wera-agent-baseline-0.1
+upstream_commit: d842a1bb34a42e9d7c0d54a1b12ead9e0e59e283
+status: implementation-pilot
+certification: false
+profiles:
+  dev-sandbox:
+    purpose: Repository-scoped development with synthetic data and review-only outputs.
+    live_actions: false
+    production_credentials: false
+  runtime-observer:
+    purpose: Bounded observation and proposals; Spirit never executes writes.
+    live_actions: false
+    production_credentials: false
+  business-action:
+    purpose: Independently authorized tenant-scoped business actions.
+    live_actions: false
+    production_credentials: false
+  critical-action:
+    purpose: Separately approved infrastructure, physical, signing or financial actions.
+    live_actions: false
+    production_credentials: false
+requirements:
+  control_decisions: all-35
+  component_change: re-review
+  missing_evidence: deny-admission
+  missing_owner: deny-admission
+  exceptions_count_as_verified: false
+  independent_approval: true
+  destructive_confirmation: preserve-stricter-project-rules
+  protected_evidence_before_side_effects: true
+  credential_delivery: trusted-connector-only
+  offline_authority: never-extend-expired-grants
+  fallback: approved-non-agent-procedure
+  forge_identity: WARP
+  evidence_max_age_days: 30
+  non_waivable_controls:
+    - DIS-01
+    - DIS-02
+    - DIS-03
+    - DIS-04
+    - CON-01
+    - CON-03
+    - CON-04
+    - AUT-01
+    - AUT-02
+    - AUT-04
+    - AUT-06
+    - OBS-01
+    - OBS-02
+    - OBS-06
+    - VAL-03
+    - RES-01
+    - RES-02
+    - RES-04
+    - RES-05

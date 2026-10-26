@@ -1,0 +1,22 @@
+{
+  "schema_version": 1,
+  "project_id": "FilantropiaSolar",
+  "purpose": "energy management platform and Nextcloud integration",
+  "owners": {
+    "business": "mika",
+    "technical": "mika",
+    "review_status": "pending"
+  },
+  "profile": "dev-sandbox",
+  "admission": "pending",
+  "runtime": {
+    "status": "unassessed",
+    "rationale": "Source-only bootstrap; actual runtime and ownership require independent inventory.",
+    "agents": []
+  },
+  "constraints": [
+    "No new live authority, production credentials, automatic merge or deployment.",
+    "Synthetic fixtures only; preserve stricter project approval and SOUL rules.",
+    "No Nextcloud/Odoo writes, failover, restore or client data access under this pilot."
+  ]
+}

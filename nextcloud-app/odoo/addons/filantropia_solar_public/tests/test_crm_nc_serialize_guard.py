@@ -105,52 +105,61 @@ class EchoDampenTests(unittest.TestCase):
 
 
 class SafeWriteTests(unittest.TestCase):
+    def _fake_lead(self, crm_lead_module, write):
+        lead = SimpleNamespace(
+            ids=[1],
+            _writes=0,
+            env=SimpleNamespace(cr=SimpleNamespace(rollback=lambda: None)),
+            _fs_is_serialization_error=(
+                crm_lead_module.CrmLead._fs_is_serialization_error
+            ),
+        )
+        lead.invalidate_recordset = lambda: None
+        lead.with_context = lambda **_kwargs: lead
+        lead.write = write
+        return lead
+
     def test_safe_write_retries_then_soft_fails(self):
         from odoo.addons.filantropia_solar_public.models import crm_lead as m
 
-        class Lead(m.CrmLead):
-            # bypass odoo model metaclass init
-            def __init__(self):
-                self.ids = [46]
-                self._writes = 0
-                self.env = SimpleNamespace(cr=SimpleNamespace(rollback=lambda: None))
+        lead = self._fake_lead(m, lambda _vals: None)
+        lead.ids = [46]
 
-            def invalidate_recordset(self):
-                return None
+        def fail_write(_vals):
+            lead._writes += 1
+            raise Exception(
+                "ERROR: could not serialize access due to concurrent update"
+            )
 
-            def with_context(self, **_kwargs):
-                return self
-
-            def write(self, _vals):
-                self._writes += 1
-                raise Exception(
-                    "ERROR: could not serialize access due to concurrent update"
-                )
-
-        lead = Lead()
+        lead.write = fail_write
         with patch.object(m.time, "sleep", return_value=None):
-            ok = lead._fs_safe_write({"fs_nc_sync_state": "ok"}, attempts=3)
+            ok = m.CrmLead._fs_safe_write(lead, {"fs_nc_sync_state": "ok"}, attempts=3)
         self.assertFalse(ok)
         self.assertEqual(lead._writes, 3)
 
     def test_safe_write_succeeds(self):
         from odoo.addons.filantropia_solar_public.models import crm_lead as m
 
-        class Lead(m.CrmLead):
-            def __init__(self):
-                self.ids = [1]
-                self.env = SimpleNamespace(cr=SimpleNamespace(rollback=lambda: None))
+        lead = self._fake_lead(m, lambda _vals: True)
+        self.assertTrue(m.CrmLead._fs_safe_write(lead, {"fs_nc_sync_state": "ok"}))
 
-            def invalidate_recordset(self):
-                return None
 
-            def with_context(self, **_kwargs):
-                return self
+class WebhookRouteTests(unittest.TestCase):
+    def test_json_lifecycle_route_uses_jsonrpc(self):
+        from odoo.addons.filantropia_solar_public.controllers.nc_webhook import (
+            FsNcWebhookController,
+        )
 
-            def write(self, _vals):
-                return True
+        routing = FsNcWebhookController.lifecycle_event.routing
+        self.assertEqual(routing["type"], "jsonrpc")
 
-        self.assertTrue(Lead()._fs_safe_write({"fs_nc_sync_state": "ok"}))
+    def test_raw_lifecycle_http_route_is_preserved(self):
+        from odoo.addons.filantropia_solar_public.controllers.nc_webhook import (
+            FsNcWebhookController,
+        )
+
+        routing = FsNcWebhookController.lifecycle_event_http.routing
+        self.assertEqual(routing["type"], "http")
 
 
 if __name__ == "__main__":

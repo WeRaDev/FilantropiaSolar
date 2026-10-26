@@ -99,6 +99,7 @@ import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
 import { useAppStore } from '../store/app.js'
 import { createLocationPinIcon, fixLeafletDefaultIcons } from '../utils/leafletIcons.js'
+import { addOpenStreetMapLayer } from '../utils/openStreetMap.js'
 
 const LOCATIONS = [
 	{ name: 'Lisbon', lat: 38.7223, lng: -9.1393 },
@@ -211,12 +212,9 @@ export default {
 			const defaultLng = form.longitude != null ? Number(form.longitude) : -8.0
 			map = L.map(mapContainer.value, {
 				zoomControl: true,
-				attributionControl: false,
+				attributionControl: true,
 			}).setView([defaultLat, defaultLng], form.latitude != null ? 10 : 7)
-
-			L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-				maxZoom: 18,
-			}).addTo(map)
+			addOpenStreetMapLayer(map, { maxZoom: 18 })
 
 			if (form.latitude != null && form.longitude != null) {
 				addMarker(Number(form.latitude), Number(form.longitude))

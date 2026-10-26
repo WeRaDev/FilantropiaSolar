@@ -104,17 +104,25 @@ bash nextcloud-app/scripts/export-odoo-website.sh
 `proxy_mode = True` in `odoo/config/odoo.conf`.
 `web.base.url` = `https://filantropiasolar.pt` (freeze recommended).
 
-## Writer-gate cutover (not production-active)
+## Writer-gate cutover (Phase C active 2026-10-14)
 
-Same-tunnel replicas do **not** provide active/standby steering. The planned
-public cutover is a Cloudflare Worker + Durable Object writer gate that proxies
-only to the host holding the current lease epoch:
+Public apex traffic is routed through the Cloudflare Worker lease gate:
+
+```
+filantropiasolar.pt / www
+  -> Worker filantropia-odoo-writer-gate
+  -> https://odoo-trl5.wera.global  (this tunnel -> 127.0.0.1:8069)
+```
 
 - Source: `nextcloud-app/infra/cloudflare-writer-gate/`
-- Separate authenticated origins for TRL5 and Frank
-- Fail closed when ownership is unclear
-- Production hostname attachment and secrets require separate explicit approval
+- Ops note: `docs/ops/WRITER-GATE-PRODUCTION.md`
+- Origin hostnames on this tunnel: `odoo-trl5.wera.global` (Odoo),
+  `odoo-frank.wera.global` (503 placeholder until Frank has its own connector)
+- Fail closed: expired/missing lease => public **503** even if Odoo is up
+- Keep TRL5 `filantropia-lease-guard.timer` running while TRL5 holds the lease
+- Automatic promotion remains **disabled**
+- Rollback: remove Worker routes in `wrangler.toml` and redeploy; tunnel DNS stays
 
-Until that gate is activated, keep exactly one active tunnel connector and treat
-public HTTP 200 alone as insufficient writer proof.
+Same-tunnel replicas are still not an active/standby mechanism. Frank needs a
+dedicated origin connector before it can serve through `ORIGIN_FRANK_URL`.
 

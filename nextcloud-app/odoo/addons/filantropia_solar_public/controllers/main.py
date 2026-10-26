@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import base64
 import contextlib
+from datetime import UTC, datetime
 import hashlib
 import json
 import logging
@@ -107,6 +108,7 @@ _ALLOWED_BILL_MIME = {
 _RATE_LIMIT_WINDOW_SEC = 600
 _RATE_LIMIT_MAX_POSTS = 20
 _rate_buckets: dict[str, list[float]] = {}
+_SNAPSHOT_MAX_CLOCK_SKEW_SEC = 5 * 60
 
 _CITY_OPTIONS = [
     "Lisboa",
@@ -120,6 +122,10 @@ _CITY_OPTIONS = [
     "Funchal",
     "Ponta Delgada",
 ]
+
+
+def _nc_offline() -> bool:
+    return os.environ.get("FS_NC_OFFLINE", "").strip().lower() in {"1", "true", "yes"}
 
 
 class FilantropiaSolarPublicController(http.Controller):
@@ -139,6 +145,8 @@ class FilantropiaSolarPublicController(http.Controller):
         return headers
 
     def _fetch_json(self, endpoint: str, payload: dict | None = None) -> dict:
+        if _nc_offline():
+            raise ConnectionError("Nextcloud API disabled for Odoo-only failover")
         url = f"{self._api_base_url()}/{endpoint.lstrip('/')}"
         data = json.dumps(payload).encode("utf-8") if payload else None
         req = urllib.request.Request(
@@ -147,7 +155,13 @@ class FilantropiaSolarPublicController(http.Controller):
             headers=self._api_headers(include_content_type=payload is not None),
             method="POST" if payload else "GET",
         )
-        with urllib.request.urlopen(req, timeout=30) as resp:
+        try:
+            timeout = min(
+                30.0, max(1.0, float(os.environ.get("FS_NC_HTTP_TIMEOUT", "30")))
+            )
+        except ValueError:
+            timeout = 30.0
+        with urllib.request.urlopen(req, timeout=timeout) as resp:
             return json.loads(resp.read().decode("utf-8"))
 
     @staticmethod
@@ -185,20 +199,8 @@ class FilantropiaSolarPublicController(http.Controller):
     def _apply_public_location_privacy(self, station: dict) -> dict:
         """Replace exact coordinates for website payloads; NC remains precise."""
         row = dict(station)
-        lat = self._as_float(row.get("latitude"), None)
-        lng = self._as_float(row.get("longitude"), None)
-        if lat is None or lng is None:
-            row["location_is_approximate"] = True
-            return row
-        if not (_LAT_MIN <= lat <= _LAT_MAX and _LNG_MIN <= lng <= _LNG_MAX):
-            row["location_is_approximate"] = True
-            return row
-        seed = self._public_map_seed(row)
-        pub_lat, pub_lng = self._offset_public_coordinates(lat, lng, seed)
-        row["latitude"] = round(pub_lat, 5)
-        row["longitude"] = round(pub_lng, 5)
-        row["location_is_approximate"] = True
-        # Never ship residual precise fields on the public site payload
+        # Remove exact and alternate coordinate/address fields even when the
+        # public coordinates are absent or invalid.
         for leak_key in (
             "exact_latitude",
             "exact_longitude",
@@ -215,6 +217,23 @@ class FilantropiaSolarPublicController(http.Controller):
             "zipcode",
         ):
             row.pop(leak_key, None)
+        lat = self._as_float(row.get("latitude"), None)
+        lng = self._as_float(row.get("longitude"), None)
+        if lat is None or lng is None:
+            row.pop("latitude", None)
+            row.pop("longitude", None)
+            row["location_is_approximate"] = True
+            return row
+        if not (_LAT_MIN <= lat <= _LAT_MAX and _LNG_MIN <= lng <= _LNG_MAX):
+            row.pop("latitude", None)
+            row.pop("longitude", None)
+            row["location_is_approximate"] = True
+            return row
+        seed = self._public_map_seed(row)
+        pub_lat, pub_lng = self._offset_public_coordinates(lat, lng, seed)
+        row["latitude"] = round(pub_lat, 5)
+        row["longitude"] = round(pub_lng, 5)
+        row["location_is_approximate"] = True
         return row
 
     def _format_metric_number(self, value: float, decimals: int = 0) -> str:
@@ -353,26 +372,72 @@ class FilantropiaSolarPublicController(http.Controller):
         return dash, enriched
 
     def _get_public_data(self):
-        api_error = None
-        stations = []
-        dashboard = {}
+        endpoint = "stations"
         try:
             stations_payload = self._fetch_json("stations")
-            stations = stations_payload.get("stations", [])
-        except Exception as exc:
-            stations = []
-            api_error = "Não foi possível carregar as estações."
-            _logger.warning("Stations fetch failed: %s", exc)
-
-        try:
+            if (
+                not isinstance(stations_payload, dict)
+                or stations_payload.get("success") is False
+                or not isinstance(stations_payload.get("stations"), list)
+                or any(
+                    not isinstance(row, dict) for row in stations_payload["stations"]
+                )
+            ):
+                raise ValueError("Invalid stations response")
+            endpoint = "dashboard"
             dashboard = self._fetch_json("dashboard")
+            if not isinstance(dashboard, dict) or dashboard.get("success") is False:
+                raise ValueError("Invalid dashboard response")
         except Exception as exc:
-            dashboard = {"station_count": 0, "total_capacity_kwp": 0, "locations": []}
-            api_error = api_error or "Dashboard indisponível."
-            _logger.warning("Dashboard fetch failed: %s", exc)
+            if _nc_offline():
+                api_error = "Dados ao vivo indisponíveis em modo de contingência."
+            elif endpoint == "stations":
+                api_error = "Não foi possível carregar as estações."
+            else:
+                api_error = "Dashboard indisponível."
+            _logger.warning("Public %s fetch failed: %s", endpoint, exc)
+            try:
+                snapshot = request.env["fs.public.snapshot"].sudo()._get_current()
+            except Exception as snapshot_exc:
+                _logger.warning("Public snapshot unavailable: %s", snapshot_exc)
+                snapshot = None
+            if snapshot and snapshot.refreshed_at:
+                stations = snapshot.stations_data or []
+                dashboard = snapshot.dashboard_data or {}
+                refreshed_at = snapshot.refreshed_at
+                if refreshed_at.tzinfo is None:
+                    refreshed_at = refreshed_at.replace(tzinfo=UTC)
+                age_seconds = (datetime.now(UTC) - refreshed_at).total_seconds()
+                if (
+                    age_seconds >= -_SNAPSHOT_MAX_CLOCK_SKEW_SEC
+                    and isinstance(stations, list)
+                    and isinstance(dashboard, dict)
+                ):
+                    age_minutes = max(0, int(age_seconds // 60))
+                    refreshed_label = refreshed_at.strftime("%Y-%m-%d %H:%M UTC")
+                    api_error = (
+                        f"{api_error} A mostrar o último conjunto completo, "
+                        f"atualizado em {refreshed_label} "
+                        f"(há {age_minutes} min.); dados desatualizados."
+                    )
+                    return stations, dashboard, api_error
+            api_error = f"{api_error} Sem cópia datada verificada."
+            return (
+                [],
+                {
+                    "station_count": "—",
+                    "total_capacity_display": "—",
+                    "total_money_saved_display": "—",
+                    "total_energy_generated_display": "—",
+                    "locations": [],
+                },
+                api_error,
+            )
 
-        dashboard, stations = self._enrich_metrics(stations, dashboard)
-        return stations, dashboard, api_error
+        dashboard, stations = self._enrich_metrics(
+            stations_payload["stations"], dashboard
+        )
+        return stations, dashboard, None
 
     @staticmethod
     def _strip_html_to_text(raw: str) -> str:
@@ -982,6 +1047,7 @@ class FilantropiaSolarPublicController(http.Controller):
         contact_vals = {
             "name": f"Filantropia Solar Contacto — {name or 'Visitante'}",
             "type": "opportunity",
+            "fs_website_origin": True,
             "contact_name": name or False,
             "email_from": email or False,
             "phone": phone or False,
@@ -1182,6 +1248,7 @@ class FilantropiaSolarPublicController(http.Controller):
         sme_vals = {
             "name": f"Filantropia Solar — {step2_org_name or 'SME referral'}",
             "type": "opportunity",
+            "fs_website_origin": True,
             "contact_name": step1_name or False,
             "email_from": step1_email or False,
             "partner_name": step2_org_name or False,
@@ -1339,6 +1406,7 @@ class FilantropiaSolarPublicController(http.Controller):
             "city": loc_label or False,
             "website": website,
             "description": "\n".join(description_lines),
+            "fs_website_origin": True,
             "fs_is_donation_application": True,
             "fs_station_location_label": loc_label or False,
             "fs_station_latitude": self._as_float(location_lat, 0.0),

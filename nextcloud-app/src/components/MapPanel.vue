@@ -109,6 +109,7 @@ import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import { useAppStore } from '../store/app.js'
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
+import { addOpenStreetMapLayer } from '../utils/openStreetMap.js'
 
 export default {
     name: 'MapPanel',
@@ -174,10 +175,7 @@ export default {
             }).setView(mapCenter.value, mapZoom.value)
 
             // Add tile layer (OpenStreetMap)
-            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-                attribution: '&copy; OpenStreetMap contributors',
-                maxZoom: 18
-            }).addTo(map)
+            addOpenStreetMapLayer(map, { maxZoom: 18 })
 
             // Add markers for objects
             updateMarkers()

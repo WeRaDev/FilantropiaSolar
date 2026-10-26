@@ -1,15 +1,14 @@
-"""Live integration tests: CRM <-> NC station snapshot field matrix.
+"""Mutating CRM <-> NC integration tests for the station snapshot field matrix.
 
-Requires local Docker stack (filantropia-nextcloud :8080, filantropia-odoo :8069)
-and FS public/lifecycle token at SolarSeed-v3/.secrets/filantropia_public_api_token
-(or env FS_PUBLIC_API_TOKEN / FS_LIFECYCLE_API_TOKEN).
-
-Run:
-  python3 -m unittest tests.test_crm_nc_field_sync_integration -v
+These tests modify station 16 in both systems and commit changes; tearDown only
+best-effort restores the Nextcloud profile. Run only against an isolated local
+clone, never through a port forward or against production. Set
+FS_RUN_MUTATING_INTEGRATION=1 to opt in; both endpoints must be loopback.
 """
 
 from __future__ import annotations
 
+from io import BytesIO
 import json
 import os
 from pathlib import Path
@@ -17,6 +16,7 @@ import subprocess
 import time
 import unittest
 import urllib.error
+from urllib.parse import urlparse
 import urllib.request
 
 REPO_ROOT = Path(__file__).resolve().parents[5]
@@ -31,6 +31,7 @@ ODOO_WEBHOOK = os.environ.get(
     "FS_ODOO_LIFECYCLE_WEBHOOK_URL",
     "http://127.0.0.1:8069/filantropia/nc/lifecycle/http",
 )
+_MUTATING_INTEGRATION_OPT_IN = os.environ.get("FS_RUN_MUTATING_INTEGRATION") == "1"
 
 # Canonical snapshot fields that must round-trip (ADR 0006 / ops matrix).
 SNAPSHOT_KEYS = (
@@ -49,6 +50,78 @@ SNAPSHOT_KEYS = (
 )
 
 
+def _is_loopback_endpoint(url: str) -> bool:
+    try:
+        parsed = urlparse(url)
+        hostname = parsed.hostname
+    except ValueError:
+        return False
+    return parsed.scheme in {"http", "https"} and hostname in {
+        "localhost",
+        "127.0.0.1",
+        "::1",
+    }
+
+
+def _integration_endpoints_are_loopback() -> bool:
+    return _is_loopback_endpoint(NC_BASE) and _is_loopback_endpoint(ODOO_WEBHOOK)
+
+
+def _require_loopback_endpoints(nc_url: str, odoo_url: str) -> None:
+    if not (_is_loopback_endpoint(nc_url) and _is_loopback_endpoint(odoo_url)):
+        raise RuntimeError(
+            "Mutating CRM↔NC integration tests refuse non-loopback endpoints"
+        )
+
+
+class _LoopbackRedirectHandler(urllib.request.HTTPRedirectHandler):
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        if not _is_loopback_endpoint(newurl):
+            raise urllib.error.HTTPError(
+                newurl,
+                code,
+                "Mutating CRM↔NC integration tests refuse non-loopback redirects",
+                headers,
+                fp,
+            )
+        return super().redirect_request(req, fp, code, msg, headers, newurl)
+
+
+def _is_local_docker_host(host: str) -> bool:
+    return host.startswith(("unix://", "npipe://"))
+
+
+def _docker_engine_is_local() -> bool:
+    if not os.environ.get("DOCKER_CONTEXT"):
+        docker_host = os.environ.get("DOCKER_HOST")
+        if docker_host:
+            return _is_local_docker_host(docker_host)
+    try:
+        host = subprocess.check_output(
+            [
+                "docker",
+                "context",
+                "inspect",
+                "--format",
+                '{{(index .Endpoints "docker").Host}}',
+            ],
+            text=True,
+            stderr=subprocess.DEVNULL,
+            timeout=3,
+        ).strip()
+    except (OSError, subprocess.CalledProcessError, subprocess.TimeoutExpired):
+        return False
+    return _is_local_docker_host(host)
+
+
+if _MUTATING_INTEGRATION_OPT_IN:
+    _require_loopback_endpoints(NC_BASE, ODOO_WEBHOOK)
+    if not _docker_engine_is_local():
+        raise RuntimeError(
+            "Mutating CRM↔NC integration tests require a local Docker engine"
+        )
+
+
 def _load_token() -> str:
     tok = (
         os.environ.get("FS_LIFECYCLE_API_TOKEN")
@@ -64,11 +137,26 @@ def _load_token() -> str:
 
 def _stack_up() -> bool:
     try:
-        urllib.request.urlopen("http://127.0.0.1:8080/status.php", timeout=3)
-        urllib.request.urlopen("http://127.0.0.1:8069/web/login", timeout=3)
+        with _urlopen_loopback(
+            urllib.request.Request("http://127.0.0.1:8080/status.php"), timeout=3
+        ):
+            pass
+        with _urlopen_loopback(
+            urllib.request.Request("http://127.0.0.1:8069/web/login"), timeout=3
+        ):
+            pass
         return True
     except Exception:
         return False
+
+
+def _urlopen_loopback(req: urllib.request.Request, *, timeout: float):
+    if not _is_loopback_endpoint(req.full_url):
+        raise RuntimeError(
+            "Mutating CRM↔NC integration tests refuse non-loopback endpoints"
+        )
+    opener = urllib.request.build_opener(_LoopbackRedirectHandler())
+    return opener.open(req, timeout=timeout)
 
 
 def _http_json(
@@ -84,7 +172,7 @@ def _http_json(
     if token:
         headers["Authorization"] = f"Bearer {token}"
     req = urllib.request.Request(url, data=data, headers=headers, method=method.upper())
-    with urllib.request.urlopen(req, timeout=timeout) as resp:
+    with _urlopen_loopback(req, timeout=timeout) as resp:
         raw = resp.read().decode("utf-8")
         return json.loads(raw) if raw else {}
 
@@ -126,8 +214,53 @@ def _odoo_shell(script: str) -> str:
     )
 
 
+class IntegrationSafetyGuardTests(unittest.TestCase):
+    def test_loopback_endpoints_are_allowed(self):
+        self.assertTrue(_is_loopback_endpoint("http://127.0.0.1:8080/api"))
+        self.assertTrue(_is_loopback_endpoint("https://localhost:8069/web/login"))
+
+    def test_non_loopback_and_invalid_endpoints_are_rejected(self):
+        self.assertFalse(_is_loopback_endpoint("https://filantropiasolar.pt"))
+        self.assertFalse(_is_loopback_endpoint("not a URL"))
+        with self.assertRaisesRegex(RuntimeError, "refuse non-loopback"):
+            _require_loopback_endpoints(
+                "http://127.0.0.1:8080", "https://filantropiasolar.pt"
+            )
+
+    def test_local_docker_host_schemes(self):
+        self.assertTrue(_is_local_docker_host("unix:///var/run/docker.sock"))
+        self.assertTrue(_is_local_docker_host("npipe:////./pipe/docker_engine"))
+        self.assertFalse(_is_local_docker_host("ssh://docker.example.org"))
+        self.assertFalse(_is_local_docker_host("tcp://192.0.2.1:2376"))
+
+    def test_non_loopback_redirect_is_rejected(self):
+        handler = _LoopbackRedirectHandler()
+        req = urllib.request.Request("http://127.0.0.1:8080/api", method="POST")
+        with self.assertRaisesRegex(
+            urllib.error.HTTPError, "refuse non-loopback redirects"
+        ) as error:
+            handler.redirect_request(
+                req,
+                BytesIO(),
+                307,
+                "Temporary Redirect",
+                {},
+                "https://filantropiasolar.pt/api",
+            )
+        error.exception.close()
+
+    def test_request_helper_rejects_non_loopback_url(self):
+        req = urllib.request.Request("https://filantropiasolar.pt/api", method="POST")
+        with self.assertRaisesRegex(RuntimeError, "refuse non-loopback"):
+            _urlopen_loopback(req, timeout=1)
+
+
 @unittest.skipUnless(
-    _stack_up() and bool(_load_token()), "local NC+Odoo stack/token required"
+    _MUTATING_INTEGRATION_OPT_IN
+    and _integration_endpoints_are_loopback()
+    and _stack_up()
+    and bool(_load_token()),
+    "requires FS_RUN_MUTATING_INTEGRATION=1, loopback NC+Odoo endpoints, and a local stack/token",
 )
 class CrmNcFieldSyncIntegrationTests(unittest.TestCase):
     """End-to-end checks for the station snapshot field matrix."""

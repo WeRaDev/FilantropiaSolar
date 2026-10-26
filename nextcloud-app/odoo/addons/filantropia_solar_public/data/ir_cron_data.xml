@@ -9,4 +9,14 @@
     <field name="interval_type">hours</field>
     <field name="active" eval="True"/>
   </record>
+  <record id="ir_cron_fs_public_snapshot" model="ir.cron">
+    <field name="name">Filantropia: refresh public website snapshot</field>
+    <field name="model_id" ref="model_fs_public_snapshot"/>
+    <field name="user_id" ref="base.user_root"/>
+    <field name="state">code</field>
+    <field name="code">model.cron_refresh_public_snapshot()</field>
+    <field name="interval_number">15</field>
+    <field name="interval_type">minutes</field>
+    <field name="active" eval="True"/>
+  </record>
 </odoo>

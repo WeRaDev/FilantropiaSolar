@@ -1,0 +1,15 @@
+{
+  "bundle_version": "wera-agent-baseline-0.1",
+  "upstream_commit": "d842a1bb34a42e9d7c0d54a1b12ead9e0e59e283",
+  "files": {
+    "validate.py": "011c203cb9b18378ed3ba291e18c90b701b63be9e49c64713cd404b337ade69f",
+    "requirements.txt": "c6510e2d2bfbd08ae31ee9d1042c91e2d748cca5b1c58a6fd879ae32f5fb073c",
+    "policy.yaml": "4bb12f6466fcdc2da185af6767eb1c4aa32d5f16ce7def944fd922a8ee071638",
+    "control-map.yaml": "d4a175e718df9e21734dc30b737ec6efe140569e9cbe5dd0ddbf3c9b2d353ca4",
+    "schemas/records.schema.json": "5a156bf1130aa419c8a82a901b09c5c8421e9ca0159a64c51f75b9c8069c9bc0",
+    "upstream/controls.yaml": "06cd3966513c595b7cb455caebc01d9b0c5907f168b7e97ab3b98e1f5c56ae8f",
+    "upstream/LICENSE": "9ba9550ad48438d0836ddab3da480b3b69ffa0aac7b7878b5a0039e7ab429411",
+    "upstream/LICENSE-schemas": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
+    "upstream.lock.json": "96f1578b8f75a7a88bf384ba35a5a18ee7ad072f3b541fe5ca54d2e1497100ca"
+  }
+}

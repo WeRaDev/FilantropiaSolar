@@ -9,7 +9,7 @@ from typing import Any
 import urllib.error
 import urllib.request
 
-from .nc_lifecycle_client import redact_secrets
+from .nc_lifecycle_client import nc_offline, redact_secrets
 
 _logger = logging.getLogger(__name__)
 
@@ -104,6 +104,10 @@ class NcPublicClient:
         self.timeout = timeout
 
     def _get(self, path: str) -> dict[str, Any] | list[Any]:
+        if nc_offline():
+            raise ConnectionError(
+                "Nextcloud public API disabled during Odoo-only failover"
+            )
         url = f"{self.base_url}/{path.lstrip('/')}"
         headers = {"Accept": "application/json"}
         if self.token:

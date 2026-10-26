@@ -4,6 +4,18 @@ All notable changes to the Nextcloud app component. The desktop application
 has its own changelog at the repository root (`CHANGELOG.md`).
 This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 3.2.38 — 2026-09-29
+
+### Fixed
+- Allow the canonical OpenStreetMap tile host in the app page's CSP image policy.
+
+## 3.2.37 — 2026-09-29
+
+### Fixed
+- OSM tile requests use the canonical HTTPS host and explicitly send a
+  privacy-preserving referrer policy required by the tile service.
+- All Nextcloud app maps show linked OpenStreetMap attribution.
+
 ## 3.2.36 — 2026-09-09
 
 ### Fixed

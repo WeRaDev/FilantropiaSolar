@@ -1,0 +1,16 @@
+# TRL5 overlay: publish Odoo PostgreSQL on the Tailnet for Frank streaming.
+# Use with:
+#   COMPOSE_FILE=docker-compose.yml:docker-compose.trl5.yml:docker-compose.trl5-repl-publish.yml
+# Bind only the TRL5 Tailnet address (not 0.0.0.0).
+#
+# After recreate, confirm:
+#   docker port filantropia-odoo-db
+#   shows 100.82.252.18:5432
+# and on primary:
+#   SELECT slot_name, active FROM pg_replication_slots;
+#   SELECT application_name, client_addr, state FROM pg_stat_replication;
+
+services:
+  odoo-db:
+    ports:
+      - "100.82.252.18:5432:5432"

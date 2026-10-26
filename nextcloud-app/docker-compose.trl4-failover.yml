@@ -1,0 +1,25 @@
+# Frank's Odoo-only cold standby. Always combine with docker-compose.yml.
+# Profiles keep legacy Nextcloud/MariaDB/Redis/ML out of a plain `up` command;
+# they do not stop or change the restart policy of existing containers.
+name: nextcloud-app
+
+services:
+  nextcloud:
+    profiles: [legacy]
+  db:
+    profiles: [legacy]
+  redis:
+    profiles: [legacy]
+  ml-service:
+    profiles: [legacy]
+  odoo:
+    ports: !override
+      - "127.0.0.1:8069:8069"
+    # Remain parked until an approved failover; set to unless-stopped only
+    # during an authorised active failover.
+    restart: "${FS_TRL4_ODOO_RESTART:-no}"
+    environment:
+      FS_NC_OFFLINE: "${FS_NC_OFFLINE:-1}"
+      FS_NC_HTTP_TIMEOUT: "${FS_NC_HTTP_TIMEOUT:-3}"
+      FS_API_BASE_URL: "${FS_API_BASE_URL:-https://wera-ss-pt-tv-1.wera.global/index.php/apps/filantropia_solar/api/public/v1}"
+      FS_LIFECYCLE_API_BASE_URL: "${FS_LIFECYCLE_API_BASE_URL:-https://wera-ss-pt-tv-1.wera.global/index.php/apps/filantropia_solar/api/lifecycle/v1}"

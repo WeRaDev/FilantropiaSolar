@@ -1,0 +1,27 @@
+# Frank standby origin connector (template).
+# Deploy on Frank only with a *dedicated* tunnel ID — never join TRL5 tunnel
+# 6571cd54-a08d-46da-a4ca-9630c1a0d090 (filantropia-solar).
+#
+# Required hostname for Worker ORIGIN_FRANK_URL:
+#   odoo-frank.wera.global -> http://127.0.0.1:8069
+#
+# While Frank is standby, keep this connector running so the hostname is
+# reachable (Odoo may still be stopped → 502 until promote starts Odoo).
+# After promote, Odoo listens on 8069 and the Worker can route public traffic.
+#
+# credentials-file and tunnel UUID are host secrets; do not commit live values.
+
+tunnel: REPLACE_WITH_FRANK_ORIGIN_TUNNEL_UUID
+credentials-file: /etc/cloudflared/credentials.json
+protocol: http2
+edge-ip-version: "4"
+ha-connections: 2
+
+ingress:
+  - hostname: odoo-frank.wera.global
+    service: http://127.0.0.1:8069
+    originRequest:
+      httpHostHeader: filantropiasolar.pt
+      connectTimeout: 10s
+      keepAliveTimeout: 90s
+  - service: http_status:404

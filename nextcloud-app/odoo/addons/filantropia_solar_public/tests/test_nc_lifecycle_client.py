@@ -21,6 +21,7 @@ from services.nc_lifecycle_client import (
     lifecycle_base_url,
     redact_secrets,
 )
+from services.nc_public_client import NcPublicClient
 from services.stage_map import (
     is_archived_stage,
     is_installed_stage,
@@ -151,6 +152,30 @@ class LifecycleUrlTests(unittest.TestCase):
 
 
 class ClientHttpTests(unittest.TestCase):
+    def test_failover_rejects_lifecycle_reads_and_writes_without_network(self):
+        with (
+            patch.dict(os.environ, {"FS_NC_OFFLINE": "1"}),
+            patch("urllib.request.urlopen") as urlopen,
+        ):
+            client = NcLifecycleClient(base_url="http://nc/api/lifecycle/v1", token="x")
+            with self.assertRaisesRegex(NcLifecycleError, "reconciliation"):
+                client.create_virtual({"odoo_lead_id": 42})
+            with self.assertRaisesRegex(NcLifecycleError, "reconciliation"):
+                client.list_stations()
+
+        urlopen.assert_not_called()
+
+    def test_failover_rejects_admin_dashboard_reads_without_network(self):
+        with (
+            patch.dict(os.environ, {"FS_NC_OFFLINE": "1"}),
+            patch("urllib.request.urlopen") as urlopen,
+        ):
+            client = NcPublicClient(base_url="http://nc/api/public/v1", token="x")
+            with self.assertRaisesRegex(ConnectionError, "failover"):
+                client.stations()
+
+        urlopen.assert_not_called()
+
     def test_create_virtual_posts_json(self):
         payload = {
             "odoo_lead_id": 42,

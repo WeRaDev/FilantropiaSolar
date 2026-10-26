@@ -22,6 +22,11 @@ _TOKEN_RE = re.compile(
 )
 
 
+def nc_offline() -> bool:
+    """True when Frank serves Odoo without a Nextcloud data source."""
+    return os.environ.get("FS_NC_OFFLINE", "").strip().lower() in {"1", "true", "yes"}
+
+
 def redact_secrets(text: str) -> str:
     """Strip bearer tokens and long hex secrets from log-safe strings."""
     if not text:
@@ -97,6 +102,11 @@ class NcLifecycleClient:
         path: str,
         payload: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
+        if nc_offline():
+            raise NcLifecycleError(
+                "Nextcloud synchronization disabled during Odoo-only failover; "
+                "CRM changes require reconciliation"
+            )
         url = f"{self.base_url}/{path.lstrip('/')}"
         data = json.dumps(payload).encode("utf-8") if payload is not None else None
         req = urllib.request.Request(

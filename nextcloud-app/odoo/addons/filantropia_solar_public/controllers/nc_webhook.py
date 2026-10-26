@@ -9,7 +9,7 @@ import os
 from odoo import http
 from odoo.http import request
 
-from ..services.nc_lifecycle_client import redact_secrets
+from ..services.nc_lifecycle_client import nc_offline, redact_secrets
 
 _logger = logging.getLogger(__name__)
 
@@ -37,7 +37,7 @@ class FsNcWebhookController(http.Controller):
 
     @http.route(
         "/filantropia/nc/lifecycle",
-        type="json",
+        type="jsonrpc",
         auth="public",
         methods=["POST"],
         csrf=False,
@@ -45,6 +45,11 @@ class FsNcWebhookController(http.Controller):
     def lifecycle_event(self, **payload):
         if not self._authorized():
             return {"success": False, "error": "unauthorized"}
+        if nc_offline():
+            return {
+                "success": False,
+                "error": "Nextcloud synchronization disabled during failover",
+            }
         station = payload.get("station") if isinstance(payload, dict) else None
         if not station and isinstance(payload, dict):
             # raw body style
@@ -79,6 +84,14 @@ class FsNcWebhookController(http.Controller):
         if not self._authorized():
             return request.make_json_response(
                 {"success": False, "error": "unauthorized"}, status=401
+            )
+        if nc_offline():
+            return request.make_json_response(
+                {
+                    "success": False,
+                    "error": "Nextcloud synchronization disabled during failover",
+                },
+                status=503,
             )
         try:
             raw = request.httprequest.get_data(as_text=True) or "{}"

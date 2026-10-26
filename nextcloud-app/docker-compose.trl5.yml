@@ -19,6 +19,12 @@ services:
       - FS_LIFECYCLE_API_BASE_URL=${FS_LIFECYCLE_API_BASE_URL:-http://nextcloud-aio-apache:11000/index.php/apps/filantropia_solar/api/lifecycle/v1}
       - FS_NC_ADMIN_URL=${FS_NC_ADMIN_URL:-https://wera-ss-pt-tv-1.wera.global}
       - FS_NC_PUBLIC_ORIGIN=${FS_NC_PUBLIC_ORIGIN:-https://wera-ss-pt-tv-1.wera.global}
+      - FS_EMBASSY_READINESS_TOKEN=${FS_EMBASSY_READINESS_TOKEN:-}
+      - FS_EMBASSY_NODE_ID=${FS_EMBASSY_NODE_ID:-}
+      - FS_WRITER_GENERATION=${FS_WRITER_GENERATION:-}
+      - FS_EMBASSY_MAINTENANCE_FILE=/run/filantropia-odoo-maintenance/maintenance.json
+    volumes:
+      - /run/filantropia-odoo-maintenance:/run/filantropia-odoo-maintenance:ro
   ml-service:
     ports: !override
       - "127.0.0.1:8501:8501"

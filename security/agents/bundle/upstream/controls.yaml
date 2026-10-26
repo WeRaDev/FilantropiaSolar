@@ -1,0 +1,414 @@
+# Agent Baseline — the controls
+#
+# THIS FILE IS THE SOURCE OF TRUTH. The paper, the landing page and every
+# figure render from it. Where prose and this file disagree, this file wins
+# and the prose is a bug.
+# Identifiers are BARE and PERMANENT: `DIS-01`, never `ACP-DIS-01`.
+# No project name lives inside an identifier — see
+# docs/decisions/0001-prefix-free-control-ids.md
+#
+# Superseded, never renumbered, never reused. See VERSIONING.md
+---
+version: "1.0-draft"
+status: draft            # every control is `draft` until the v1.0 freeze
+source: >-
+  Rebuilt from Appendix A of whitepaper.md — the paper's canonical capability
+  map — as the paper landed in this repository on 2026-07-30, closing the
+  divergence tracked as issue #1. Identifiers were realigned to Appendix A
+  while every control is still `draft`; the never-renumber promise binds at
+  the v1.0 freeze (see VERSIONING.md).
+
+outcomes:
+  - prefix: DIS
+    name: Discover
+    requirement: "Discover every agent and its dependencies."
+    detail: >-
+      Maintain an accurate view of the agents in use, their components, owners, operating status and effective access.
+    evidence: "Authoritative inventory reconciled with observed code, cloud, endpoint, identity, SaaS and runtime evidence."
+  - prefix: CON
+    name: Constrain
+    requirement: "Limit components, runtime, data and reach."
+    detail: >-
+      Limit each agent and component to the environments, capabilities, data and actions its approved purpose requires.
+    evidence: "Blocked unapproved releases and components, agent capabilities constrained."
+  - prefix: AUT
+    name: Authorize
+    requirement: "Bind identity, task, target and authority."
+    detail: >-
+      Attribute consequential actions, and limit authority by purpose, task, resource, action and time.
+    evidence: "Attributable identity and a purpose-, task-, resource-, action- and time-bound delegation context."
+  - prefix: OBS
+    name: Observe
+    requirement: "Correlate activity and prove what happened."
+    detail: >-
+      Create correlated evidence connecting intent, identity, task, policy, tool use, action and outcome.
+    evidence: "Correlated telemetry that joins intent, actor, task, policy, action, target, outcome and cost."
+  - prefix: VAL
+    name: Validate
+    requirement: "Admit the system and verify outcomes."
+    detail: >-
+      Evaluate agents and their components before use, after material changes, and at intervals appropriate to their risk.
+    evidence: "Tested agents and first-party components, verified third-party agents and components, and tested agent-produced artifacts."
+  - prefix: RES
+    name: Respond
+    requirement: "Stop, revoke, quarantine and scope impact."
+    detail: >-
+      Stop execution, remove active authority, quarantine affected components, preserve evidence and determine impact.
+    evidence: "Tested circuit breakers, revocation, quarantine, escalation, evidence preservation and impact scoping."
+
+controls:
+  - id: DIS-01
+    outcome: DIS
+    title: "Authoritative agent registry"
+    type: Record
+    status: draft
+    requirement: >-
+     Maintains a stable identifier and authoritative record for each in-scope
+     agent definition or deployment.
+
+  - id: DIS-02
+    outcome: DIS
+    title: "Ownership and risk context"
+    type: Record
+    status: draft
+    requirement: >-
+     Records each agent's business purpose, accountable business and technical
+     owners, and risk classification, which selects the applicable assurance
+     profile.
+
+  - id: DIS-03
+    outcome: DIS
+    title: "Status and decision history"
+    type: Record
+    status: draft
+    requirement: >-
+     Records current operating, approval and exception status, including the
+     accountable exception owner and expiry date, while retaining previous
+     approved versions and retired agents.
+
+  - id: DIS-04
+    outcome: DIS
+    title: "Authoritative component registry"
+    type: Record
+    status: draft
+    requirement: >-
+     Inventories agentic components discovered or made available for corporate
+     use, including models, instructions, MCP servers, skills, plugins and
+     tools, together with source, owner, version.
+
+  - id: DIS-05
+    outcome: DIS
+    title: "Agent composition mapping"
+    type: Record
+    status: draft
+    requirement: >-
+     Maps each agent to its approved and observed components and downstream
+     agents, including runtime-resolved versions, and identifies affected
+     agents or runs when a component is vulnerable or compromised.
+
+  - id: DIS-06
+    outcome: DIS
+    title: "Effective-access mapping"
+    type: Record
+    status: draft
+    requirement: >-
+     Maps each agent to the identities and credentials it may use and the data,
+     systems and actions those identities permit, including access obtained
+     through components. Material runs also record the authority actually
+     delegated.
+
+  - id: DIS-07
+    outcome: DIS
+    title: "Automated discovery and reconciliation"
+    type: Detection
+    status: draft
+    requirement: >-
+     Compares the agent and component registries with evidence from source,
+     cloud, endpoint, identity, SaaS, gateway, network and runtime systems and
+     identifies discrepancies for reconciliation.
+
+  - id: CON-01
+    outcome: CON
+    title: "Admission enforcement"
+    type: Enforcement
+    status: draft
+    requirement: >-
+     Blocks deployment of an agent or individual agentic component unless it is
+     registered, risk-classified and approved; the exact release has validation
+     evidence; and the approved configuration and runtime boundaries will be
+     enforced.
+
+  - id: CON-02
+    outcome: CON
+    title: "Toxic capability combinations"
+    type: Enforcement
+    status: draft
+    requirement: >-
+     Identifies dangerous combinations of capabilities, such as “lethal
+     trifecta”. Detects both known toxic combinations and emergent ones by
+     modelling how agent inputs, tools, permissions and actions connect as they
+     evolve, and removes or constrains those combinations.
+
+  - id: CON-03
+    outcome: CON
+    title: "Isolated and confined execution"
+    type: Enforcement
+    status: draft
+    requirement: >-
+     Runs agent-controlled code and tools inside a risk-appropriate boundary
+     separated from the host, unrelated projects, credentials and workloads,
+     and scopes filesystem, network, credential delivery, compute, duration,
+     process count, persistence and retained state to least privilege.
+
+  - id: CON-04
+    outcome: CON
+    title: "Use-case-scoped capability profiles"
+    type: Enforcement
+    status: draft
+    requirement: >-
+     Runtime scope (filesystem, network destinations, credential delivery,
+     compute and duration) shall be granted through centrally governed
+     capability profiles bound to a team or use case. Profiles shall be
+     bounded, versioned and assigned through an auditable process.
+
+  - id: AUT-01
+    outcome: AUT
+    title: "Distinct identity and action attribution"
+    type: Evidence
+    status: draft
+    requirement: >-
+     Associates each consequential action with the relevant agent identity,
+     initiating principal or approved autonomous purpose, deployment, run,
+     task, target and time.
+
+  - id: AUT-02
+    outcome: AUT
+    title: "Purpose and task-bound authority"
+    type: Decision
+    status: draft
+    requirement: >-
+     Determines the authority available for an action or bounded class of
+     actions according to purpose, task, target resource, action, data scope,
+     limits, jurisdiction, approval conditions and validity period.
+
+  - id: AUT-03
+    outcome: AUT
+    title: "Delegation attenuation"
+    type: Enforcement
+    status: draft
+    requirement: >-
+     Prevents a downstream agent from receiving more authority than its caller
+     holds, preserves the originating context and records each delegation hop.
+
+  - id: AUT-04
+    outcome: AUT
+    title: "Just-in-time credentialing"
+    type: Enforcement
+    status: draft
+    requirement: >-
+     Issues short-lived, resource-scoped credentials or action permits after
+     authorization and keeps them outside model context, memory and
+     agent-accessible files.
+
+  - id: AUT-05
+    outcome: AUT
+    title: "Independent approval"
+    type: Decision
+    status: draft
+    requirement: >-
+     Routes actions that are within the agent's granted authority but above its
+     approved autonomy or impact threshold to a person or deterministic
+     decision point independent of the requesting agent, which must approve the
+     specific action before execution.
+
+  - id: AUT-06
+    outcome: AUT
+    title: "Fail-closed authorization and circuit breaking"
+    type: Enforcement
+    status: draft
+    requirement: >-
+     Denies or halts material actions when required identity, policy, context,
+     evidence, approval or target-state information cannot be verified.
+
+  - id: AUT-07
+    outcome: AUT
+    title: "Step-up verification"
+    type: Decision
+    status: draft
+    requirement: >-
+     Requires the initiating principal to re-verify, re-authentication, a
+     stronger factor or renewed consent, before an action within the agent's
+     authority and autonomy boundary proceeds, when the action's risk exceeds
+     the assurance of the current session or delegation context.
+
+  - id: AUT-08
+    outcome: AUT
+    title: "Just-in-time authority elevation"
+    type: Decision
+    status: draft
+    requirement: >-
+     Provides a governed request path for actions the agent's current grant
+     does not cover, issuing a temporary scope- and time-bounded elevation that
+     expires automatically and is recorded with requester, justification and
+     approver; granting may itself invoke independent approval or step-up
+     verification.
+
+  - id: AUT-09
+    outcome: AUT
+    title: "Proof-of-possession credential binding"
+    type: Enforcement
+    status: draft
+    requirement: >-
+     Binds issued credentials and action permits to the authorized holder
+     through sender-constrained mechanisms, so that possession of an
+     exfiltrated credential is insufficient to act with it.
+
+  - id: OBS-01
+    outcome: OBS
+    title: "Agent-native telemetry"
+    type: Evidence
+    status: draft
+    requirement: >-
+     Records the initiating principal, agent, deployment, run, effective
+     runtime composition, task, model, tool invocation, target, policy
+     decision, requested action, executed action, result and outcome.
+
+  - id: OBS-02
+    outcome: OBS
+    title: "End-to-end correlation"
+    type: Evidence
+    status: draft
+    requirement: >-
+     Uses stable run or trace identifiers to link events across agents, models,
+     MCP servers, tools, policy and enforcement points and target systems.
+
+  - id: OBS-03
+    outcome: OBS
+    title: "Behaviour and drift monitoring"
+    type: Detection
+    status: draft
+    requirement: >-
+     Detects unexpected changes in data access, tool use, destinations, token
+     or resource consumption and other behaviour relative to the agent's
+     approved purpose and established baseline.
+
+  - id: OBS-04
+    outcome: OBS
+    title: "Unintended action detection"
+    type: Detection
+    status: draft
+    requirement: >-
+     Detects harmful actions that are technically permitted but clearly
+     inconsistent with the intended task, such as committing credentials
+     alongside code to an approved repository.
+
+  - id: OBS-05
+    outcome: OBS
+    title: "Intent-to-outcome evidence"
+    type: Evidence
+    status: draft
+    requirement: >-
+     Links every material outcome to business intent, identities, composition,
+     delegated authority, policy, approvals, actions, validation and
+     target-system results.
+
+  - id: OBS-06
+    outcome: OBS
+    title: "Evidence integrity, completeness and protection"
+    type: Evidence
+    status: draft
+    requirement: >-
+     Provides consistent timestamps, integrity protection, completeness checks,
+     access control, redaction, encryption, retention, deletion and legal-hold
+     handling for agentic evidence.
+
+  - id: VAL-01
+    outcome: VAL
+    title: "Agent-specific security testing"
+    type: Assurance
+    status: draft
+    requirement: >-
+     Tests each agent in its intended configuration and operating context
+     against adversarial scenarios derived from its tools, data access and
+     action boundaries, using defined expected outcomes and acceptable failure
+     thresholds. Repeats testing after deployment when the agent or its
+     operating context materially changes.
+
+  - id: VAL-02
+    outcome: VAL
+    title: "First-party agentic components testing"
+    type: Assurance
+    status: draft
+    requirement: >-
+     Tests each releasable version of an internally developed agentic component
+     using security checks appropriate to its type and abuse scenarios derived
+     from its inputs, privileges, data access and outputs, with defined pass
+     criteria.
+
+  - id: VAL-03
+    outcome: VAL
+    title: "Agent-generated artifact testing"
+    type: Assurance
+    status: draft
+    requirement: >-
+     Tests code, configuration and other artifacts created or modified by
+     agents against the security, quality and licensing requirements applicable
+     to equivalent human-produced artifacts.
+
+  - id: VAL-04
+    outcome: VAL
+    title: "Agent outcome validation"
+    type: Assurance
+    status: draft
+    requirement: >-
+     Validates the business outcomes and outputs of agent actions after
+     completion using automated checks or human review. For high-impact or
+     irreversible actions, also validates the proposed outcome before it is
+     finalized.
+
+  - id: RES-01
+    outcome: RES
+    title: "Immediate stop and authority revocation"
+    type: Response
+    status: draft
+    requirement: >-
+     Stops an agent, prevents new work and revokes active credentials, permits,
+     delegated grants and sessions within a response period appropriate to the
+     potential impact.
+
+  - id: RES-02
+    outcome: RES
+    title: "Version and component quarantine"
+    type: Response
+    status: draft
+    requirement: >-
+     Blocks affected agent versions, models, tools, skills, plugins, MCP
+     servers and other components from further use.
+
+  - id: RES-03
+    outcome: RES
+    title: "Impact scoping and evidence preservation"
+    type: Response
+    status: draft
+    requirement: >-
+     Preserves relevant evidence and identifies affected resources, records,
+     customers, transactions, agent versions and dependencies.
+
+  - id: RES-04
+    outcome: RES
+    title: "Safe failure and non-agent fallback"
+    type: Response
+    status: draft
+    requirement: >-
+     Denies unverified high-impact actions and provides an approved non-agent
+     fallback for essential workflows where continuity requires one.
+
+  - id: RES-05
+    outcome: RES
+    title: "Agentic component rug-pull protection"
+    type: Response
+    status: draft
+    requirement: >-
+     Blocks rug-pull changes to agentic components, including unapproved
+     changes to their code, instructions, tool definitions, requested
+     permissions or integrity references.

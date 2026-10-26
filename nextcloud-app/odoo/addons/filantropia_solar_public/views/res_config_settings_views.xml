@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+  <record id="res_config_settings_view_form_fs_notifications" model="ir.ui.view">
+    <field name="name">res.config.settings.view.form.inherit.fs.notifications</field>
+    <field name="model">res.config.settings</field>
+    <field name="inherit_id" ref="base.res_config_settings_view_form"/>
+    <field name="arch" type="xml">
+      <xpath expr="//form" position="inside">
+        <app name="filantropia_solar_public"
+             string="FilantropiaSolar"
+             data-string="FilantropiaSolar">
+          <block title="Lead notifications" name="fs_lead_notifications">
+            <setting id="fs_qualified_lead_user_id"
+                     string="Qualified lead recipient"
+                     help="Select the internal user notified when a public website lead first enters Qualified.">
+              <field name="fs_qualified_lead_user_id"
+                     domain="[('active', '=', True), ('share', '=', False)]"
+                     options="{'no_create': True, 'no_open': True}"/>
+            </setting>
+          </block>
+        </app>
+      </xpath>
+    </field>
+  </record>
+</odoo>
