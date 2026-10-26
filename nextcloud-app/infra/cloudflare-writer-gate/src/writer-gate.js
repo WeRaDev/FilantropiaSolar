@@ -200,8 +200,9 @@ export default {
       headers.set("X-Filantropia-Origin-Auth", env.ORIGIN_SHARED_SECRET);
     }
     const timeoutMs = numberOr(env.ORIGIN_FETCH_TIMEOUT_MS, 10000);
+    const hosting = hostingModeForOwner(owner);
     try {
-      return await fetch(
+      const originResponse = await fetch(
         new Request(upstream.toString(), {
           method: request.method,
           headers,
@@ -213,6 +214,12 @@ export default {
           signal: AbortSignal.timeout(timeoutMs),
         }),
       );
+      return decoratePublicResponse(
+        request,
+        originResponse,
+        hosting,
+        payload.state.epoch,
+      );
     } catch {
       return temporaryUnavailableResponse(request, env, {
         code: "origin_unreachable",
@@ -222,6 +229,94 @@ export default {
     }
   },
 };
+
+/**
+ * Public hosting labels only. Do not expose internal hostnames.
+ * trl5 -> Local (primary site host)
+ * frank -> Embassy (delegated standby writer)
+ */
+function hostingModeForOwner(owner) {
+  if (owner === "trl5") {
+    return { mode: "local", label: "Local" };
+  }
+  if (owner === "frank") {
+    return { mode: "embassy", label: "Embassy" };
+  }
+  return { mode: "unknown", label: "Unknown" };
+}
+
+function decoratePublicResponse(request, originResponse, hosting, epoch) {
+  const outHeaders = new Headers(originResponse.headers);
+  outHeaders.set("X-Filantropia-Hosting", hosting.mode);
+  outHeaders.set("X-Filantropia-Hosting-Label", hosting.label);
+  if (epoch != null) {
+    outHeaders.set("X-Filantropia-Writer-Epoch", String(epoch));
+  }
+  // Avoid leaking internal node ids on public responses.
+  outHeaders.delete("X-Filantropia-Writer-Node");
+
+  const contentType = (outHeaders.get("content-type") || "").toLowerCase();
+  const isHtml = contentType.includes("text/html");
+  const method = request.method.toUpperCase();
+  const isRedirect = originResponse.status >= 300 && originResponse.status < 400;
+  if (!isHtml || method === "HEAD" || method === "OPTIONS" || isRedirect) {
+    return new Response(originResponse.body, {
+      status: originResponse.status,
+      statusText: originResponse.statusText,
+      headers: outHeaders,
+    });
+  }
+
+  // Inject a compact non-disclosing hosting pill for HTML documents.
+  return new HTMLRewriter()
+    .on("body", {
+      element(element) {
+        element.append(hostingBadgeHtml(hosting), { html: true });
+      },
+    })
+    .transform(
+      new Response(originResponse.body, {
+        status: originResponse.status,
+        statusText: originResponse.statusText,
+        headers: outHeaders,
+      }),
+    );
+}
+
+function hostingBadgeHtml(hosting) {
+  const mode = escapeHtml(hosting.mode || "unknown");
+  const label = escapeHtml(hosting.label || "Unknown");
+  const labelPt =
+    mode === "local" ? "Local" : mode === "embassy" ? "Embaixada" : label;
+  const accent = mode === "embassy" ? "#E8A020" : "#A89D3F";
+  const glow =
+    mode === "embassy" ? "rgba(232,160,32,.18)" : "rgba(168,157,63,.18)";
+  return `
+<aside id="fs-hosting-badge" data-fs-hosting="${mode}" aria-label="Hosting: ${label}" title="Site hosting: ${label}">
+  <style>
+    #fs-hosting-badge{
+      position:fixed;right:12px;bottom:12px;z-index:2147483000;
+      font:600 12px/1.2 system-ui,-apple-system,Segoe UI,sans-serif;
+      color:#1f1a14;background:rgba(251,247,239,.94);
+      border:1px solid rgba(31,26,20,.12);border-radius:999px;
+      box-shadow:0 8px 24px rgba(31,26,20,.12);
+      padding:8px 12px;display:inline-flex;align-items:center;gap:8px;
+      backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);
+      pointer-events:none;user-select:none;
+    }
+    #fs-hosting-badge .dot{
+      width:8px;height:8px;border-radius:50%;
+      background:${accent};
+      box-shadow:0 0 0 3px ${glow};
+    }
+    #fs-hosting-badge .txt{white-space:nowrap}
+    #fs-hosting-badge .en{color:#5c5346;font-weight:500}
+    @media print{#fs-hosting-badge{display:none!important}}
+  </style>
+  <span class="dot" aria-hidden="true"></span>
+  <span class="txt">${labelPt} <span class="en">/ ${label}</span></span>
+</aside>`;
+}
 
 function isWebSocketUpgrade(request) {
   const upgrade = (request.headers.get("Upgrade") || "").toLowerCase();

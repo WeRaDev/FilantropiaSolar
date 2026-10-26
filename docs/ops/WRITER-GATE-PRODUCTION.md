@@ -84,6 +84,18 @@ Quick repair if apex is 503 but origin is 200:
 After an aborted takeover, Worker acquire allows previous owner reclaim once
 `readyToAcquire` is true (drain/grace already enforced).
 
+### 1c. Public hosting badge (Local / Embassy)
+
+The writer-gate Worker injects a compact bottom-right pill on HTML pages and
+sets response headers (no internal hostnames):
+
+- `X-Filantropia-Hosting: local|embassy`
+- `X-Filantropia-Hosting-Label: Local|Embassy`
+- Labels: **Local** = primary writer path; **Embassy** = delegated standby writer
+
+Deployed worker version includes badge injection via `HTMLRewriter`. Machine
+names (TRL5/Frank) are intentionally not shown to visitors.
+
 ### 1b. Lease-guard transient recovery (2026-10-26)
 
 `lease_guard.py` no longer leaves a permanent multi-day public outage after a

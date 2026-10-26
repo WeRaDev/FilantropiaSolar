@@ -55,6 +55,20 @@ or that cannot be ruled out, create and verify a fresh Frank-originated
 database/filestore recovery set; preserve TRL5's pre-failback state for
 rollback before restoring that set to TRL5.
 
+
+## Monitoring note — 2026-10-26T16:41Z
+
+Daily `filantropia-odoo-backup.timer` is **enabled** and still scheduled for
+**02:00 UTC**, but service runs from **2026-10-05 onward** have been failing at
+the SFTP publish step (`SFTP batch failed (exit 255)`). Frank's destination
+`/data/backups/filantropia/odoo/` last has a complete bundle dated **2026-10-04**
+and a stale partial `filantropia-odoo-20261005T020001Z.tar.part` (~99 MiB).
+
+Until SFTP authentication/connectivity is repaired, treat off-host daily
+recovery bundles as **stale**. Local failback artifacts under
+`/data/filantropia-embassy/` (e.g. `failback-from-frank-trl5-pgdata-20261020T142939Z`)
+are not a substitute for the verified daily DB+filestore bundle pipeline.
+
 Monitor the timer and latest run from an operator workstation:
 
 ```bash
