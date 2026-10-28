@@ -108,6 +108,7 @@ Follow `docs/ops/EMBASSY-FAILBACK-ANTI-RACE.md` **in order**:
 7. Keep auto-promote disarmed until a hands-free Test C PASS is recorded.
 
 ### Hands-free Test C still needs
+- Prep landed 2026-10-28T11:23Z: embassy code deploy, filestore mirror privacy/timeout, TRL5 readiness env recreate, Frank expected SHA + origin_container, preflight PASS; flags remain off.
 1. Filestore mirror sync timer must include paths Embassy verifies.  
 2. Promote path origin container name + arm-before-TTL already in repo — retest without operator lease repair.  
 3. Optional: longer fencing-proof refresh margin under multi-minute attachment scans.

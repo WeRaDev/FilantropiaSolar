@@ -96,6 +96,20 @@ sets response headers (no internal hostnames):
 Deployed worker version includes badge injection via `HTMLRewriter`. Machine
 names (TRL5/Frank) are intentionally not shown to visitors.
 
+
+### Auto-promote prep status (2026-10-28T11:23Z)
+
+Completed toward hands-free Test C (flags still **OFF**):
+
+- Deployed current embassy Python package to TRL5 + Frank (promote/policy/service/lease_guard/filestore).
+- Frank filestore mirror: fixed directory privacy + rsync timeout 900s; sync service **success** (~1737 files).
+- TRL5 Odoo recreated with `docker-compose.trl5-embassy.yml` readiness env; `/filantropia/embassy/readiness` **200** (`addon_version` 19.0.2.35.0).
+- Frank `expected_addon_source_sha256` aligned to live readiness hash; `origin_container=filantropia-cloudflared-frank`.
+- Embassy observer reports **primary_healthy**; auto flags **disarmed**.
+- `test-c-preflight.sh`: **PASS** (lease active/trl5 epoch 38 class).
+
+Final Test C still requires an **approved window** to arm Frank flags, inject TRL5 dual-probe outage, and verify hands-free promote + durable renewals.
+
 ### 1b. Lease-guard transient recovery (2026-10-26)
 
 `lease_guard.py` no longer leaves a permanent multi-day public outage after a

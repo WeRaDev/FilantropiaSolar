@@ -157,7 +157,7 @@ def sync_filestore(config: FilestoreSyncConfig) -> dict[str, object]:
             build_rsync_command(config),
             check=False,
             capture_output=True,
-            timeout=60,
+            timeout=900,
             env={**os.environ, "LC_ALL": "C"},
         )
     except (OSError, subprocess.TimeoutExpired) as exc:
