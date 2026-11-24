@@ -794,12 +794,19 @@ function fencingProof(state, now, policy) {
   if (!state.previous_owner_node_id || !state.previous_generation || !state.proof_id) {
     return null;
   }
-  // Keep proof freshness tied to the observation time while takeover remains
-  // pending/acquirable. A fixed takeover-time expiry left standbys permanently
-  // blocked_unfenced after the short grace+TTL window even though the lease
-  // authority still allowed acquire.
+  // Keep proof freshness tied to observation time while takeover remains
+  // pending/acquirable. Embassy polls ~30s and must complete promote after
+  // drain/grace; a 60s proof window flapped blocked_unfenced in Test C.
+  // Hold the proof for lease TTL + drain + grace + promote margin (min 5 min).
   const verified = now;
-  const expires = addSeconds(now, Math.max(policy.lease_ttl_seconds, 60));
+  const proofHoldSeconds = Math.max(
+    300,
+    Number(policy.lease_ttl_seconds || 0) +
+      Number(policy.in_flight_drain_seconds || 0) +
+      Number(policy.self_fence_grace_seconds || 0) +
+      120,
+  );
+  const expires = addSeconds(now, proofHoldSeconds);
   return {
     schema_version: 1,
     target_node_id: state.previous_owner_node_id,

@@ -403,3 +403,45 @@ class EmbassyPolicyTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+def test_fencing_evidence_invalid_reasons_expired_and_not_acquirable():
+    from datetime import UTC, datetime, timedelta
+    from embassy.policy import (
+        EmbassyPolicy,
+        FencingEvidence,
+        fencing_evidence_invalid_reasons,
+        fencing_evidence_is_valid,
+    )
+
+    now = datetime(2026, 10, 28, 12, 0, tzinfo=UTC)
+    policy = EmbassyPolicy(
+        primary_node_id="trl5",
+        primary_generation="g1",
+        trusted_fencing_sources=frozenset({"cloudflare-durable-object-lease"}),
+        require_lease_acquirable=True,
+    )
+    expired = FencingEvidence(
+        target_node_id="trl5",
+        target_generation="g1",
+        source="cloudflare-durable-object-lease",
+        proof_id="p1",
+        verified_at=now - timedelta(seconds=120),
+        expires_at=now - timedelta(seconds=1),
+        acquirable=True,
+    )
+    reasons = fencing_evidence_invalid_reasons(expired, policy=policy, now=now)
+    assert "fencing_proof_expired" in reasons
+    assert fencing_evidence_is_valid(expired, policy=policy, now=now) is False
+
+    not_acq = FencingEvidence(
+        target_node_id="trl5",
+        target_generation="g1",
+        source="cloudflare-durable-object-lease",
+        proof_id="p1",
+        verified_at=now - timedelta(seconds=5),
+        expires_at=now + timedelta(seconds=300),
+        acquirable=False,
+    )
+    reasons = fencing_evidence_invalid_reasons(not_acq, policy=policy, now=now)
+    assert reasons == ("fencing_lease_not_acquirable",)

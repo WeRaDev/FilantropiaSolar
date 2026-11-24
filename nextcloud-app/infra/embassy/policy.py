@@ -126,29 +126,45 @@ def _valid_age(age_seconds: float | None, maximum: float) -> bool:
     return age_seconds is not None and 0 <= age_seconds <= maximum
 
 
+def fencing_evidence_invalid_reasons(
+    evidence: FencingEvidence | None,
+    *,
+    policy: EmbassyPolicy,
+    now: datetime,
+) -> tuple[str, ...]:
+    """Return concrete reasons a fencing proof is not usable for promote."""
+    if evidence is None:
+        return ("fencing_evidence_missing",)
+    reasons: list[str] = []
+    if evidence.source not in policy.trusted_fencing_sources:
+        reasons.append("fencing_source_untrusted")
+    if not evidence.proof_id.strip():
+        reasons.append("fencing_proof_id_blank")
+    if evidence.target_node_id != policy.primary_node_id:
+        reasons.append("fencing_target_node_mismatch")
+    if evidence.target_generation != policy.primary_generation:
+        reasons.append("fencing_target_generation_mismatch")
+    evidence_times = (evidence.verified_at, evidence.expires_at, now)
+    if any(
+        value.tzinfo is None or value.utcoffset() is None for value in evidence_times
+    ):
+        reasons.append("fencing_timestamps_not_timezone_aware")
+    elif now < evidence.verified_at:
+        reasons.append("fencing_verified_in_future")
+    elif now >= evidence.expires_at:
+        reasons.append("fencing_proof_expired")
+    if policy.require_lease_acquirable and not evidence.acquirable:
+        reasons.append("fencing_lease_not_acquirable")
+    return tuple(reasons)
+
+
 def _valid_fence(
     evidence: FencingEvidence | None,
     *,
     policy: EmbassyPolicy,
     now: datetime,
 ) -> bool:
-    if evidence is None or evidence.source not in policy.trusted_fencing_sources:
-        return False
-    if not evidence.proof_id.strip():
-        return False
-    if (
-        evidence.target_node_id != policy.primary_node_id
-        or evidence.target_generation != policy.primary_generation
-    ):
-        return False
-    evidence_times = (evidence.verified_at, evidence.expires_at, now)
-    if any(
-        value.tzinfo is None or value.utcoffset() is None for value in evidence_times
-    ):
-        return False
-    if not (evidence.verified_at <= now < evidence.expires_at):
-        return False
-    return not (policy.require_lease_acquirable and not evidence.acquirable)
+    return not fencing_evidence_invalid_reasons(evidence, policy=policy, now=now)
 
 
 def fencing_evidence_is_valid(

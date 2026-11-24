@@ -22,7 +22,7 @@ mkdir -p "$(dirname "$ODOO_CONTROL_LOCK")" || die "cannot create Odoo control lo
 exec 9>"$ODOO_CONTROL_LOCK" || die "cannot open Odoo control lock"
 flock -x 9 || die "cannot acquire Odoo control lock"
 
-export COMPOSE_FILE="${COMPOSE_FILE:-docker-compose.yml:docker-compose.trl5.yml}"
+export COMPOSE_FILE="${COMPOSE_FILE:-docker-compose.yml:docker-compose.trl5.yml:docker-compose.trl5-embassy.yml}"
 ODOO_FENCED=0
 if [ -e "$ODOO_FENCE_FILE" ] || [ -L "$ODOO_FENCE_FILE" ]; then
   ODOO_FENCED=1

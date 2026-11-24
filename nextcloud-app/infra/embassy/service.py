@@ -379,7 +379,7 @@ def _maybe_request_lease_takeover(
             target_generation=primary_generation,
             proof_path=Path(proof_file),
             wait_for_acquirable=True,
-            acquirable_timeout_seconds=60.0,
+            acquirable_timeout_seconds=120.0,
         )
         return {
             "status": "takeover_requested",
@@ -620,6 +620,25 @@ def run_once(config_path: Path, *, require_encrypted_mount: bool = True) -> str:
             fencing_evidence=fence,
         )
         action_result = refresh_result
+        if decision.state.value in {"blocked_unfenced", "blocked_standby"}:
+            from embassy.policy import fencing_evidence_invalid_reasons
+
+            fence_reasons = fencing_evidence_invalid_reasons(
+                fence, policy=policy, now=now
+            )
+            _LOGGER.warning(
+                "Embassy blocked decision=%s reasons=%s fencing_invalid=%s "
+                "code_compatible=%s standby_addon_sha_hint=%s",
+                decision.state.value,
+                list(decision.reasons),
+                list(fence_reasons),
+                standby.code_compatible,
+                (
+                    None
+                    if standby.code_compatible is True
+                    else "see standby-status addon_source_sha256 vs expected"
+                ),
+            )
         if decision.proposed_action == "request_lease_takeover":
             action_result = _maybe_request_lease_takeover(
                 fencing_config,
@@ -668,6 +687,8 @@ def run_once(config_path: Path, *, require_encrypted_mount: bool = True) -> str:
                 fence=fence,
                 primary_generation=primary_generation,
             )
+        from embassy.policy import fencing_evidence_invalid_reasons
+
         event = {
             "observed_at_utc": now.isoformat(),
             "state": decision.state.value,
@@ -679,9 +700,14 @@ def run_once(config_path: Path, *, require_encrypted_mount: bool = True) -> str:
             "standby_database_reachable": standby.database_reachable,
             "standby_replication_lag_bytes": standby.replication_lag_bytes,
             "standby_status_age_seconds": standby.status_age_seconds,
+            "standby_code_compatible": standby.code_compatible,
             "attachment_verification_age_seconds": (
                 standby.attachment_verification_age_seconds
             ),
+            "fencing_invalid_reasons": list(
+                fencing_evidence_invalid_reasons(fence, policy=policy, now=now)
+            ),
+            "fencing_acquirable": None if fence is None else fence.acquirable,
             "reasons": list(decision.reasons),
             "proposed_action": decision.proposed_action,
             "action_result_status": (

@@ -134,6 +134,16 @@ case "$status" in
   exited|created|dead) echo "PASS: frank odoo status=$status" ;;
   *) echo "FAIL: frank odoo status=$status (want stopped)"; exit 1 ;;
 esac
+# code identity required for promote
+python3 - <<'PY'
+import json
+from pathlib import Path
+p = Path("/data/filantropia-embassy/standby-status.json")
+d = json.loads(p.read_text(encoding="utf-8")) if p.exists() else {}
+ok = d.get("code_compatible") is True
+print("PASS: frank code_compatible=true" if ok else f"FAIL: frank code_compatible={d.get('code_compatible')!r}")
+raise SystemExit(0 if ok else 1)
+PY
 REMOTE
 elif ssh -o BatchMode=yes -o ConnectTimeout=10 "wera@${FRANK_HOST}" 'true' 2>/dev/null; then
   fail "root SSH to Frank unavailable (wera-only). Preflight requires root-readable embassy.toml/PG checks or an approved root path"
